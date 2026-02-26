@@ -327,3 +327,106 @@ Phase 1 核心引擎全部代码提交到 git，阶段正式关闭。
 
 - **Phase 2 Batch 3 规划** — Skill Loader + MCP 集成 + Debug Panel UI
 - **Phase 2 运行时验证**（可选）— SQLite 持久化 + session 恢复 + memory 工具 + FTS5 检索 + Compact flush
+
+---
+
+## 2026-02-27 — Phase 2 Batch 3 实现 (Skill Loader + MCP Client + Debug UI)
+
+### 会话概要
+
+使用 Subagent-Driven Development 模式执行 Phase 2 Batch 3 实现计划，共 13 个 Task，11 个 commit。三条独立特性链（Skill → MCP → Debug）在最终集成任务中汇合。全部编译通过。
+
+### 实现概览
+
+#### Skill 链 (Tasks 1-4)
+
+1. **工作区依赖 + ToolSource 增强** — 添加 serde_yaml, notify, notify-debouncer-mini, rmcp 工作区依赖。ToolSource 枚举改为 `Mcp(String)`, `Skill(String)` 携带来源名称。
+2. **SkillDefinition + SKILL.md 解析器** — YAML frontmatter 解析，`${baseDir}` 模板替换，两级目录扫描（项目级覆盖用户级）。
+3. **SkillRegistry + SkillTool** — 线程安全注册表（`Arc<RwLock<HashMap>>`），用户可调用 Skill 注册为 Tool trait 实现，系统提示词注入。
+4. **Skill 热重载** — notify + notify-debouncer-mini 300ms 防抖监控 SKILL.md 变更。
+
+#### MCP 链 (Tasks 5-6)
+
+5. **McpClient trait + StdioMcpClient** — rmcp 0.16 封装，stdio 传输，适配实际 rmcp API（`Cow<'static, str>`, `Arc<JsonObject>`, `Annotated<RawContent>` 等）。
+6. **McpToolBridge + McpManager** — 工具桥接到 ToolRegistry，多服务器管理，`.octo/mcp.json` 配置加载。
+
+#### Debug 链 (Tasks 7-10)
+
+7. **ToolExecution 类型 + SQLite v2** — ExecutionStatus 枚举，ToolExecution 记录，tool_executions 表 + 3 索引。
+8. **ToolExecutionRecorder + AgentLoop 集成** — SQLite 异步记录，AgentLoop 工具执行前后计时+记录。
+9. **REST API** — 8 个 Axum 端点（sessions, executions, tools, memories, budget），AppState 扩展。
+10. **WebSocket 新事件** — tool_execution + token_budget_update 事件广播，ContextBudgetManager snapshot 方法。
+
+#### 前端 (Tasks 11-12)
+
+11. **Debug atoms + WS 事件** — executionRecordsAtom, tokenBudgetAtom, 新 ServerMessage 类型处理。
+12. **3-Tab 布局** — Chat | Tools | Debug 三标签页，ExecutionList 表格，ExecutionDetail 展开面板，TokenBudgetBar 可视化。
+
+### 技术变更
+
+#### 新文件 (26 个)
+
+**octo-types (2 文件)**
+- `src/skill.rs` — SkillDefinition 类型
+- `src/execution.rs` — ExecutionStatus, ToolExecution, TokenBudgetSnapshot
+
+**octo-engine (11 文件)**
+- `src/skills/mod.rs`, `loader.rs`, `registry.rs`, `tool.rs` — Skill 子系统
+- `src/mcp/mod.rs`, `traits.rs`, `stdio.rs`, `bridge.rs`, `manager.rs` — MCP 子系统
+- `src/tools/recorder.rs` — 工具执行记录器
+
+**octo-server (6 文件)**
+- `src/api/mod.rs`, `sessions.rs`, `executions.rs`, `tools.rs`, `memories.rs`, `budget.rs` — REST API
+
+**web (7 文件)**
+- `src/atoms/debug.ts` — Debug 状态原子
+- `src/pages/Tools.tsx`, `Debug.tsx` — 新页面
+- `src/components/tools/ExecutionList.tsx`, `ExecutionDetail.tsx` — 工具执行 UI
+- `src/components/debug/TokenBudgetBar.tsx` — Token 预算可视化
+
+#### 修改文件 (20 个)
+
+- `Cargo.toml` + 2 crate Cargo.toml — 依赖添加
+- `octo-types/src/lib.rs`, `tool.rs`, `memory.rs` — 类型注册 + ToolSource 增强 + Serialize 派生
+- `octo-engine/src/lib.rs`, `agent/loop_.rs`, `context/builder.rs`, `context/budget.rs`, `db/migrations.rs`, `tools/mod.rs` — 核心集成
+- `octo-server/src/main.rs`, `router.rs`, `state.rs`, `ws.rs` — 服务器集成
+- `web/src/App.tsx`, `atoms/ui.ts`, `components/layout/TabBar.tsx`, `ws/types.ts`, `ws/events.ts` — 前端集成
+
+### rmcp API 适配
+
+| 计划中的 API | 实际 rmcp 0.16 API | 适配方式 |
+|-------------|-------------------|---------|
+| `Tool.name: String` | `Cow<'static, str>` | `.to_string()` 转换 |
+| `Tool.input_schema: Value` | `Arc<JsonObject>` | `Value::Object(arc.as_ref().clone())` |
+| `Content::Text(text)` | `Annotated<RawContent>` | `.raw` 匹配 `RawContent::Text` |
+| `cancel() -> Result<()>` | `cancel() -> Result<QuitReason, JoinError>` | `.map_err()` 处理 |
+
+### 构建验证
+
+| 检查项 | 状态 |
+|--------|------|
+| `cargo check --workspace` | ✅ 通过 (2 个预存 warning) |
+| `npx tsc --noEmit` | ✅ 通过 (0 errors) |
+| `npx vite build` | ✅ 通过 (248.58 kB JS, 14.47 kB CSS) |
+
+### 提交记录
+
+| 序号 | SHA | 信息 |
+|------|-----|------|
+| 1 | 322eaf3 | feat(deps): add serde_yaml, notify, rmcp workspace deps + ToolSource(String) |
+| 2 | 76a9687 | feat(skills): SkillDefinition type + SKILL.md parser with frontmatter splitting |
+| 3 | b107664 | feat(skills): SkillRegistry + SkillTool + SystemPromptBuilder integration |
+| 4 | 9867798 | feat(skills): hot-reload with notify watcher (300ms debounce) |
+| 5 | 39c2409 | feat(mcp): McpClient trait + StdioMcpClient (rmcp wrapper) |
+| 6 | c220901 | feat(mcp): McpToolBridge + McpManager (multi-server, config file) |
+| 7 | 0569bfc | feat(types+db): ToolExecution types + SQLite migration v2 (tool_executions table) |
+| 8 | a1d05a3 | feat(tools): ToolExecutionRecorder + AgentLoop integration (SQLite recording) |
+| 9 | d73499a | feat(server): REST API endpoints + AppState integration |
+| 10 | c52b496 | feat(ws): tool_execution + token_budget_update WebSocket events |
+| 11 | cf71344 | feat(web): 3-tab layout + ExecutionList + TokenBudgetBar + WS events |
+
+### 下一步
+
+- **Phase 2 Batch 4 规划** — 完整 Debug Panel UI（日志面板、网络面板）、Context Viewer、性能优化
+- **运行时验证** — 启动服务器验证 REST API + WebSocket 事件 + MCP 连接
+- **Skill 测试** — 创建 `.octo/skills/` 目录并验证加载 + 热重载

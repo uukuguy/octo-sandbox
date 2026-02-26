@@ -1,10 +1,10 @@
 # octo-sandbox 计划执行状态 Checkpoint
 
-**日期**: 2026-02-26
-**最后更新**: 2026-02-26 14:30 GMT+8
-**当前阶段**: Phase 2 Batch 2 ✅ 编码完成，Batch 3 待规划
+**日期**: 2026-02-27
+**最后更新**: 2026-02-27 GMT+8
+**当前阶段**: Phase 2 Batch 3 ✅ 编码完成，代码审查修复已提交
 **git 分支**: main
-**git 最新提交**: 0637bb5 feat(server): integrate SQLite persistence into AppState and main.rs
+**git 最新提交**: 49856cc fix: correct started_at timestamp + handle RwLock poisoning
 **未提交文件**: 文档更新中
 
 ---
@@ -22,7 +22,7 @@
 | Phase 2 上下文工程设计 | ✅ 完成 | 6 个参考项目分析 + 上下文工程架构设计（10 章）+ 14 任务实施计划 |
 | Phase 2 Batch 1 编码 | ✅ 完成 | 上下文工程核心 + 5 新工具（14 任务），6 个提交 |
 | Phase 2 Batch 2 编码 | ✅ 完成 | SQLite 持久化 + Session Memory + 混合检索 + Memory Flush + 3 Memory 工具（16 任务），8 个提交 |
-| Phase 2 Batch 3 编码 | ⏳ 待规划 | Skill Loader + MCP 集成 + Debug Panel UI |
+| Phase 2 Batch 3 编码 | ✅ 完成 | Skill Loader + MCP Client + Tool Execution Recording + REST API + Debug UI |
 | Phase 3 编码 | ⏳ 待开始 | Docker + 多用户 + 完整功能 |
 | Phase 4 编码 | ⏳ 待开始 | 生产就绪 |
 
@@ -198,6 +198,112 @@
 | Memory Flush 时机 | Compact 降级前 | 先 flush 再 prune，防止信息丢失 |
 
 **构建验证**: `cargo build` ✅ (仅 1 个预存 warning)
+
+### Phase 2 Batch 3 实施结果 (✅ 已完成)
+
+**设计文档**: `docs/plans/2026-02-26-phase2-batch3-design.md` (859 行)
+**实施计划**: `docs/plans/2026-02-26-phase2-batch3-implementation.md` (2769 行, 13 任务)
+
+**提交记录** (12 个提交: `322eaf3` → `49856cc`)：
+
+| 提交 | 内容 |
+|------|------|
+| `322eaf3` | feat(deps): add serde_yaml, notify, rmcp workspace deps + ToolSource(String) |
+| `76a9687` | feat(skills): SkillDefinition type + SKILL.md parser with frontmatter splitting |
+| `b107664` | feat(skills): SkillRegistry + SkillTool + SystemPromptBuilder integration |
+| `9867798` | feat(skills): hot-reload with notify watcher (300ms debounce) |
+| `39c2409` | feat(mcp): McpClient trait + StdioMcpClient (rmcp wrapper) |
+| `c220901` | feat(mcp): McpToolBridge + McpManager (multi-server, config file) |
+| `0569bfc` | feat(types+db): ToolExecution types + SQLite migration v2 (tool_executions table) |
+| `a1d05a3` | feat(tools): ToolExecutionRecorder + AgentLoop integration (SQLite recording) |
+| `d73499a` | feat(server): REST API endpoints + AppState integration |
+| `c52b496` | feat(ws): tool_execution + token_budget_update WebSocket events |
+| `cf71344` | feat(web): 3-tab layout + ExecutionList + TokenBudgetBar + WS events |
+| `49856cc` | fix: correct started_at timestamp + handle RwLock poisoning |
+
+**新增源文件** (26 个)：
+
+| 文件 | 说明 |
+|------|------|
+| `crates/octo-types/src/skill.rs` | SkillDefinition 类型 |
+| `crates/octo-types/src/execution.rs` | ExecutionStatus, ToolExecution, TokenBudgetSnapshot |
+| `crates/octo-engine/src/skills/mod.rs` | Skills 模块入口 |
+| `crates/octo-engine/src/skills/loader.rs` | SkillLoader + SKILL.md 解析器 |
+| `crates/octo-engine/src/skills/registry.rs` | SkillRegistry (线程安全 + 热重载) |
+| `crates/octo-engine/src/skills/tool.rs` | SkillTool (Tool trait 实现) |
+| `crates/octo-engine/src/mcp/mod.rs` | MCP 模块入口 |
+| `crates/octo-engine/src/mcp/traits.rs` | McpClient trait + McpToolInfo + McpServerConfig |
+| `crates/octo-engine/src/mcp/stdio.rs` | StdioMcpClient (rmcp 0.16 封装) |
+| `crates/octo-engine/src/mcp/bridge.rs` | McpToolBridge (Tool trait 实现) |
+| `crates/octo-engine/src/mcp/manager.rs` | McpManager (多服务器管理) |
+| `crates/octo-engine/src/tools/recorder.rs` | ToolExecutionRecorder (SQLite 异步记录) |
+| `crates/octo-server/src/api/mod.rs` | REST API 路由 + PaginationParams |
+| `crates/octo-server/src/api/sessions.rs` | GET /api/sessions, /api/sessions/{id} |
+| `crates/octo-server/src/api/executions.rs` | GET /api/sessions/{id}/executions, /api/executions/{id} |
+| `crates/octo-server/src/api/tools.rs` | GET /api/tools |
+| `crates/octo-server/src/api/memories.rs` | GET /api/memories, /api/memories/working |
+| `crates/octo-server/src/api/budget.rs` | GET /api/budget |
+| `web/src/atoms/debug.ts` | Debug 状态原子 |
+| `web/src/pages/Tools.tsx` | Tools 页面 |
+| `web/src/pages/Debug.tsx` | Debug 页面 |
+| `web/src/components/tools/ExecutionList.tsx` | 工具执行列表 |
+| `web/src/components/tools/ExecutionDetail.tsx` | 执行详情面板 |
+| `web/src/components/debug/TokenBudgetBar.tsx` | Token 预算可视化 |
+
+**修改文件** (20 个)：
+
+| 文件 | 变更 |
+|------|------|
+| `Cargo.toml` | 添加 serde_yaml, notify, notify-debouncer-mini, rmcp |
+| `crates/octo-types/Cargo.toml` | 添加 serde_yaml |
+| `crates/octo-engine/Cargo.toml` | 添加 serde_yaml, notify, notify-debouncer-mini, rmcp |
+| `crates/octo-types/src/lib.rs` | 新模块注册 (skill, execution) |
+| `crates/octo-types/src/tool.rs` | ToolSource: Mcp(String), Skill(String) |
+| `crates/octo-types/src/memory.rs` | MemoryResult 添加 Serialize/Deserialize |
+| `crates/octo-engine/src/lib.rs` | 新模块注册 (skills, mcp) + re-exports |
+| `crates/octo-engine/src/agent/loop_.rs` | recorder 集成 + ToolExecution/TokenBudgetUpdate 事件 |
+| `crates/octo-engine/src/context/builder.rs` | with_skills() 方法 |
+| `crates/octo-engine/src/context/budget.rs` | snapshot() 方法 |
+| `crates/octo-engine/src/db/migrations.rs` | v2 迁移 (tool_executions 表) |
+| `crates/octo-engine/src/tools/mod.rs` | recorder 模块注册 |
+| `crates/octo-server/src/main.rs` | recorder + skill 初始化 + api 模块 |
+| `crates/octo-server/src/router.rs` | .nest("/api", api::routes()) |
+| `crates/octo-server/src/state.rs` | recorder + skill_registry 字段 |
+| `crates/octo-server/src/ws.rs` | 新 ServerMessage 变体 + recorder 传递 |
+| `web/src/App.tsx` | 3-tab 条件渲染 |
+| `web/src/atoms/ui.ts` | TabId 类型扩展 |
+| `web/src/components/layout/TabBar.tsx` | 3-tab 数据驱动 |
+| `web/src/ws/types.ts` + `events.ts` | 新 WS 事件类型 + 处理 |
+
+**关键架构决策**:
+
+| 决策 | 选择 | 原因 |
+|------|------|------|
+| Skill 集成模式 | 混合：系统提示注入 + 可调用工具 | 发现用注入，执行用工具 |
+| MCP SDK | rmcp 0.16 薄封装 | 官方 Rust SDK，自定义 McpClient trait |
+| Skill 热重载 | notify-debouncer-mini 300ms | 轻量级，无运行时依赖 |
+| 工具执行记录 | SQLite + AgentLoop opt-in | with_recorder() builder 模式 |
+| REST API | Axum .nest() 模块化 | 8 端点，独立于 WS |
+| Tab 布局 | 3-tab (Chat\|Tools\|Debug) | 职责分离，Tools 独立 |
+
+**代码审查修复** (commit `49856cc`):
+
+| 问题 | 修复 |
+|------|------|
+| started_at 时间戳在执行后记录 | 执行前捕获 chrono::Utc::now() |
+| RwLock 中毒导致级联 panic | unwrap_or_else(\|e\| e.into_inner()) |
+
+**已知限制** (留待后续批次):
+
+| 限制 | 说明 |
+|------|------|
+| TokenBudgetUpdate 事件未从 AgentLoop 发射 | 基础设施就绪，需在 MessageStop 后添加 |
+| snapshot() 硬编码 dynamic_context=0 | 应使用 tool_tokens |
+| list_sessions 返回空列表 | SessionStore trait 需扩展 |
+| get_working_memory 每次创建新 SandboxId | 需接受参数或存储活跃 ID |
+| Recorder 使用独立 Database 连接 | 应共享连接避免 SQLITE_BUSY |
+
+**构建验证**: `cargo check --workspace` ✅ | `tsc --noEmit` ✅ | `vite build` ✅ (248.58 kB JS)
 
 ---
 
@@ -391,17 +497,19 @@
 | `docs/design/RUST_BUILD_OPTIMIZATION.md` | Rust 编译速度优化方案 |
 | `docs/plans/2026-02-26-phase2-context-engineering.md` | **Phase 2 Batch 1 实施计划**（14 任务） |
 | Claude plan mode `wiggly-seeking-spindle.md` | **Phase 2 Batch 2 实施计划**（16 任务 8 提交） |
+| `docs/plans/2026-02-26-phase2-batch3-design.md` | **Phase 2 Batch 3 设计文档**（859 行） |
+| `docs/plans/2026-02-26-phase2-batch3-implementation.md` | **Phase 2 Batch 3 实施计划**（13 任务） |
 | `docs/dev/MEMORY_INDEX.md` | 记忆索引 |
 | `docs/main/WORK_LOG.md` | 开发工作日志 |
 
 ### Phase 1 源代码
 | 目录 | 文件数 | 用途 |
 |------|--------|------|
-| `crates/octo-types/src/` | 8 | 共享类型定义 (含 6 个新 Memory 类型) |
-| `crates/octo-engine/src/` | 37 | 核心引擎 (Provider[Anthropic+OpenAI] + Tool[10] + Agent + Memory[7] + Context[4] + DB[3] + Session[3]) |
+| `crates/octo-types/src/` | 10 | 共享类型定义 (含 Memory, Skill, Execution 类型) |
+| `crates/octo-engine/src/` | 49 | 核心引擎 (Provider[2] + Tool[11+recorder] + Agent + Memory[7] + Context[5] + DB[3] + Session[3] + Skills[4] + MCP[5]) |
 | `crates/octo-sandbox/src/` | 3 | 沙箱运行时 |
-| `crates/octo-server/src/` | 5 | HTTP/WebSocket 服务 |
-| `web/src/` | 16 | React 前端 |
+| `crates/octo-server/src/` | 11 | HTTP/WebSocket 服务 + REST API (6 端点模块) |
+| `web/src/` | 23 | React 前端 (3-tab: Chat + Tools + Debug) |
 | 配置文件 | 6+ | Cargo.toml, .cargo/config.toml, Makefile, .env.example, package.json, vite.config.ts 等 |
 
 ---
@@ -420,6 +528,7 @@
 | claude-mem | #2828 | Phase 2 上下文工程架构 brainstorming 完成 |
 | claude-mem | #2829 | Phase 2 Batch 1 编码完成（上下文工程 + 5 新工具） |
 | claude-mem | #2831 | Phase 2 Batch 2 编码完成（SQLite 持久化 + Memory + 混合检索 + 3 工具） |
+| claude-mem | #2832 | Phase 2 Batch 3 设计文档完成（Skill Loader + MCP Client + Debug UI） |
 | knowledge graph | octo-sandbox | 项目实体 + 5 个架构决策实体 |
 
 ---
@@ -438,14 +547,21 @@
 
 ### 下一步操作（按优先级）
 
-1. **Phase 2 Batch 3 规划与执行**（待详细规划）
-   - Skill Loader（SKILL.md 格式解析 + 注册）
-   - MCP 集成（MCP 客户端 + 工具桥接）
-   - Debug Panel UI（工具调用可视化 + 上下文预算仪表盘）
+1. **Phase 2 Batch 3 已知限制修复**（可选）
+   - TokenBudgetUpdate 事件发射（AgentLoop MessageStop 后）
+   - snapshot() 填充 dynamic_context + degradation_level
+   - Recorder 共享 Database 连接
+   - list_sessions / get_working_memory 修复
 
-2. **Phase 2 运行时验证**（可选，与 Batch 3 并行）
-   - Batch 1: 7 工具调用 + 上下文降级触发 + 预算管理
-   - Batch 2: SQLite 持久化 + session 恢复 + memory 工具 + FTS5 检索 + Compact flush
+2. **Phase 2 Batch 4 规划**（待开始）
+   - 完整 Debug Panel UI（日志面板、网络面板）
+   - Context Viewer（实时上下文窗口可视化）
+   - 性能优化
 
-3. **Phase 3 规划**（Phase 2 全部完成后）
+3. **Phase 2 运行时验证**（可选）
+   - Batch 1-3 全栈端到端验证
+   - MCP 服务器连接测试
+   - Skill 加载 + 热重载验证
+
+4. **Phase 3 规划**（Phase 2 全部完成后）
    - Docker 沙箱 + 多用户 + 完整功能
