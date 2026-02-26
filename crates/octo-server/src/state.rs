@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use octo_engine::{MemoryStore, Provider, SessionStore, ToolRegistry, WorkingMemory};
+use octo_engine::{
+    MemoryStore, Provider, SessionStore, SkillRegistry, ToolExecutionRecorder, ToolRegistry,
+    WorkingMemory,
+};
 
 pub struct AppState {
     pub provider: Arc<dyn Provider>,
@@ -9,6 +12,8 @@ pub struct AppState {
     pub sessions: Arc<dyn SessionStore>,
     pub memory_store: Arc<dyn MemoryStore>,
     pub model: Option<String>,
+    pub recorder: Option<Arc<ToolExecutionRecorder>>,
+    pub skill_registry: Arc<SkillRegistry>,
 }
 
 impl AppState {
@@ -19,6 +24,8 @@ impl AppState {
         sessions: Arc<dyn SessionStore>,
         memory_store: Arc<dyn MemoryStore>,
         model: Option<String>,
+        recorder: Option<Arc<ToolExecutionRecorder>>,
+        skill_registry: Arc<SkillRegistry>,
     ) -> Self {
         Self {
             provider,
@@ -27,6 +34,8 @@ impl AppState {
             sessions,
             memory_store,
             model,
+            recorder,
+            skill_registry,
         }
     }
 }

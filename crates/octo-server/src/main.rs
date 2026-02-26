@@ -1,16 +1,19 @@
+mod api;
 mod router;
 mod session;
 mod state;
 mod ws;
 
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
 use tracing_subscriber::{fmt, EnvFilter};
 
 use octo_engine::{
-    create_provider, default_tools, register_memory_tools, Database, MemoryStore,
-    SessionStore, SqliteMemoryStore, SqliteSessionStore, SqliteWorkingMemory, WorkingMemory,
+    create_provider, default_tools, register_memory_tools, Database, MemoryStore, SessionStore,
+    SkillLoader, SkillRegistry, SkillTool, SqliteMemoryStore, SqliteSessionStore,
+    SqliteWorkingMemory, ToolExecutionRecorder, WorkingMemory,
 };
 use state::AppState;
 
@@ -58,21 +61,54 @@ async fn main() -> Result<()> {
     let provider: Arc<dyn octo_engine::Provider> =
         Arc::from(create_provider(&provider_name, api_key, base_url));
 
-    // Working memory (Layer 0) — SQLite-backed
+    // Working memory (Layer 0) -- SQLite-backed
     let memory: Arc<dyn WorkingMemory> =
         Arc::new(SqliteWorkingMemory::new(conn.clone()).await?);
 
-    // Session store — SQLite-backed with DashMap cache
+    // Session store -- SQLite-backed with DashMap cache
     let sessions: Arc<dyn SessionStore> =
         Arc::new(SqliteSessionStore::new(conn.clone()).await?);
 
-    // Persistent memory store (Layer 2) — SQLite-backed
+    // Persistent memory store (Layer 2) -- SQLite-backed
     let memory_store: Arc<dyn MemoryStore> = Arc::new(SqliteMemoryStore::new(conn));
 
-    // Tool registry: built-in + memory tools
+    // Tool execution recorder
+    let recorder_db = Database::open(&db_path).await?;
+    let recorder = Arc::new(ToolExecutionRecorder::new(recorder_db));
+
+    // Skill system
+    let home_dir = std::env::var("HOME")
+        .map(PathBuf::from)
+        .ok();
+    let project_dir = std::env::current_dir().ok();
+    let skill_loader = SkillLoader::new(
+        project_dir.as_deref(),
+        home_dir.as_deref(),
+    );
+    let skill_registry = Arc::new(SkillRegistry::new());
+    if let Err(e) = skill_registry.load_from(&skill_loader) {
+        tracing::warn!("Failed to load skills: {e}");
+    }
+
+    // Tool registry: built-in + memory tools + skill tools
     let mut tools = default_tools();
     register_memory_tools(&mut tools, memory_store.clone(), provider.clone());
+
+    // Register invocable skills as tools
+    for skill in skill_registry.invocable_skills() {
+        tracing::info!("Registering skill tool: {}", skill.name);
+        tools.register(SkillTool::new(skill));
+    }
     let tools = Arc::new(tools);
+
+    // Start skill hot-reload watcher
+    let watch_loader = SkillLoader::new(
+        project_dir.as_deref(),
+        home_dir.as_deref(),
+    );
+    if let Err(e) = skill_registry.start_watching(watch_loader) {
+        tracing::warn!("Failed to start skill watcher: {e}");
+    }
 
     let state = Arc::new(AppState::new(
         provider,
@@ -81,6 +117,8 @@ async fn main() -> Result<()> {
         sessions,
         memory_store,
         model,
+        Some(recorder),
+        skill_registry,
     ));
 
     let app = router::build_router(state);

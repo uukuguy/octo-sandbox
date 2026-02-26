@@ -278,7 +278,7 @@ impl Default for SearchOptions {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryResult {
     pub entry: MemoryEntry,
     pub score: f32,
