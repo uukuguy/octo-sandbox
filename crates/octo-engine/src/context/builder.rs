@@ -70,6 +70,14 @@ impl SystemPromptBuilder {
         self
     }
 
+    /// Add skills section to system prompt.
+    pub fn with_skills(mut self, skills_section: String) -> Self {
+        if !skills_section.is_empty() {
+            self.extra_parts.push(skills_section);
+        }
+        self
+    }
+
     /// Build the complete system prompt (Zone A).
     pub fn build_system_prompt(&self) -> String {
         let mut output = self.core_instructions.clone();
