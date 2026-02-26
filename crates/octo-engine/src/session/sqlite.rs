@@ -4,7 +4,7 @@ use dashmap::DashMap;
 use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
 use tracing::debug;
 
-use super::{SessionData, SessionStore};
+use super::{SessionData, SessionStore, SessionSummary};
 
 /// SQLite-backed SessionStore with DashMap hot-cache and write-through.
 pub struct SqliteSessionStore {
@@ -201,5 +201,32 @@ impl SessionStore for SqliteSessionStore {
                 Ok(())
             })
             .await;
+    }
+
+    async fn list_sessions(&self, limit: usize, offset: usize) -> Vec<SessionSummary> {
+        let result = self
+            .conn
+            .call(move |conn| {
+                let mut stmt = conn.prepare(
+                    "SELECT s.session_id, s.created_at,
+                            (SELECT COUNT(*) FROM session_messages m WHERE m.session_id = s.session_id) AS msg_count
+                     FROM sessions s
+                     ORDER BY s.created_at DESC
+                     LIMIT ?1 OFFSET ?2",
+                )?;
+                let rows = stmt
+                    .query_map(rusqlite::params![limit as i64, offset as i64], |row| {
+                        Ok(SessionSummary {
+                            session_id: row.get(0)?,
+                            created_at: row.get(1)?,
+                            message_count: row.get::<_, i64>(2)? as usize,
+                        })
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                Ok(rows)
+            })
+            .await;
+
+        result.unwrap_or_default()
     }
 }

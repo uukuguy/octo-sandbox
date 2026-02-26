@@ -168,14 +168,21 @@ impl ContextBudgetManager {
         let free = total.saturating_sub(used);
         let usage_pct = if total > 0 { (used as f32 / total as f32) * 100.0 } else { 0.0 };
 
+        let degradation = match self.compute_degradation_level(system_prompt, messages, tools) {
+            DegradationLevel::None => 0,
+            DegradationLevel::SoftTrim => 1,
+            DegradationLevel::HardClear => 2,
+            DegradationLevel::Compact => 3,
+        };
+
         octo_types::TokenBudgetSnapshot {
             total,
             system_prompt: sys_tokens,
-            dynamic_context: 0,
+            dynamic_context: tool_tokens,
             history: history_tokens,
             free,
             usage_percent: usage_pct,
-            degradation_level: 0,
+            degradation_level: degradation,
         }
     }
 }

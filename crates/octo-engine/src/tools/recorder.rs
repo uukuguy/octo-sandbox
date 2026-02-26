@@ -3,15 +3,13 @@ use tracing::debug;
 
 use octo_types::{ExecutionStatus, ToolExecution, ToolSource};
 
-use crate::db::Database;
-
 pub struct ToolExecutionRecorder {
-    db: Database,
+    conn: tokio_rusqlite::Connection,
 }
 
 impl ToolExecutionRecorder {
-    pub fn new(db: Database) -> Self {
-        Self { db }
+    pub fn new(conn: tokio_rusqlite::Connection) -> Self {
+        Self { conn }
     }
 
     /// Record tool execution start. Returns the execution ID.
@@ -31,8 +29,7 @@ impl ToolExecutionRecorder {
         let session_id = session_id.to_string();
         let tool_name_owned = tool_name.to_string();
 
-        self.db
-            .conn()
+        self.conn
             .call(move |conn| {
                 conn.execute(
                     "INSERT INTO tool_executions (id, session_id, tool_name, source, input, status, started_at)
@@ -57,8 +54,7 @@ impl ToolExecutionRecorder {
         let output_str = serde_json::to_string(output)?;
         let id = id.to_string();
 
-        self.db
-            .conn()
+        self.conn
             .call(move |conn| {
                 conn.execute(
                     "UPDATE tool_executions SET output = ?1, status = 'success', duration_ms = ?2 WHERE id = ?3",
@@ -81,8 +77,7 @@ impl ToolExecutionRecorder {
         let id = id.to_string();
         let error = error.to_string();
 
-        self.db
-            .conn()
+        self.conn
             .call(move |conn| {
                 conn.execute(
                     "UPDATE tool_executions SET error = ?1, status = 'failed', duration_ms = ?2 WHERE id = ?3",
@@ -103,8 +98,7 @@ impl ToolExecutionRecorder {
         offset: usize,
     ) -> Result<Vec<ToolExecution>> {
         let session_id = session_id.to_string();
-        self.db
-            .conn()
+        self.conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
                     "SELECT id, session_id, tool_name, source, input, output, status, started_at, duration_ms, error
@@ -125,8 +119,7 @@ impl ToolExecutionRecorder {
     /// Get a single execution by ID.
     pub async fn get(&self, id: &str) -> Result<Option<ToolExecution>> {
         let id = id.to_string();
-        self.db
-            .conn()
+        self.conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
                     "SELECT id, session_id, tool_name, source, input, output, status, started_at, duration_ms, error

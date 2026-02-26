@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use dashmap::DashMap;
 use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
 
-use super::{SessionData, SessionStore};
+use super::{SessionData, SessionStore, SessionSummary};
 
 pub struct InMemorySessionStore {
     sessions: DashMap<String, SessionData>,
@@ -55,5 +55,23 @@ impl SessionStore for InMemorySessionStore {
     async fn set_messages(&self, session_id: &SessionId, messages: Vec<ChatMessage>) {
         self.messages
             .insert(session_id.as_str().to_string(), messages);
+    }
+
+    async fn list_sessions(&self, limit: usize, offset: usize) -> Vec<SessionSummary> {
+        let mut summaries: Vec<SessionSummary> = self
+            .sessions
+            .iter()
+            .map(|entry| {
+                let sid = entry.key().clone();
+                let msg_count = self.messages.get(&sid).map(|m| m.len()).unwrap_or(0);
+                SessionSummary {
+                    session_id: sid,
+                    created_at: 0, // InMemory does not track created_at
+                    message_count: msg_count,
+                }
+            })
+            .collect();
+        summaries.sort_by(|a, b| b.session_id.cmp(&a.session_id));
+        summaries.into_iter().skip(offset).take(limit).collect()
     }
 }

@@ -70,11 +70,10 @@ async fn main() -> Result<()> {
         Arc::new(SqliteSessionStore::new(conn.clone()).await?);
 
     // Persistent memory store (Layer 2) -- SQLite-backed
-    let memory_store: Arc<dyn MemoryStore> = Arc::new(SqliteMemoryStore::new(conn));
+    let memory_store: Arc<dyn MemoryStore> = Arc::new(SqliteMemoryStore::new(conn.clone()));
 
-    // Tool execution recorder
-    let recorder_db = Database::open(&db_path).await?;
-    let recorder = Arc::new(ToolExecutionRecorder::new(recorder_db));
+    // Tool execution recorder (shares the same connection)
+    let recorder = Arc::new(ToolExecutionRecorder::new(conn.clone()));
 
     // Skill system
     let home_dir = std::env::var("HOME")

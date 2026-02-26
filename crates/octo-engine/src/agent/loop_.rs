@@ -272,6 +272,10 @@ impl AgentLoop {
                         // Update budget with actual usage
                         self.budget.update_actual_usage(usage.input_tokens, messages.len());
 
+                        // Emit budget snapshot to frontend
+                        let snapshot = self.budget.snapshot(&system_prompt, messages, &tool_specs);
+                        let _ = tx.send(AgentEvent::TokenBudgetUpdate { budget: snapshot });
+
                         // If there's thinking but no text, the model put everything
                         // in thinking blocks (common with proxy/relay models like MiniMax).
                         // Fall back: treat thinking as the reply text.
