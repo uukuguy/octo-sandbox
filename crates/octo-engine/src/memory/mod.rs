@@ -1,4 +1,5 @@
 pub mod budget;
+pub mod extractor;
 pub mod injector;
 pub mod sqlite_store;
 pub mod sqlite_working;

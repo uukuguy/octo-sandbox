@@ -10,7 +10,8 @@ use octo_types::{
     StopReason, StreamEvent, ToolContext, UserId,
 };
 
-use crate::context::{ContextBudgetManager, ContextPruner, DegradationLevel};
+use crate::context::{ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher};
+use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
 use crate::tools::ToolRegistry;
@@ -56,6 +57,7 @@ pub struct AgentLoop {
     provider: Arc<dyn Provider>,
     tools: Arc<ToolRegistry>,
     memory: Arc<dyn WorkingMemory>,
+    memory_store: Option<Arc<dyn MemoryStore>>,
     model: String,
     max_tokens: u32,
     budget: ContextBudgetManager,
@@ -76,6 +78,7 @@ impl AgentLoop {
             provider,
             tools,
             memory,
+            memory_store: None,
             model,
             max_tokens: 4096,
             budget: ContextBudgetManager::default(),
@@ -85,6 +88,11 @@ impl AgentLoop {
 
     pub fn with_model(mut self, model: String) -> Self {
         self.model = model;
+        self
+    }
+
+    pub fn with_memory_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
+        self.memory_store = Some(store);
         self
     }
 
@@ -130,6 +138,24 @@ impl AgentLoop {
             );
             if level != DegradationLevel::None {
                 debug!(?level, "Applying context degradation");
+
+                // At Compact level: flush facts before pruning to prevent info loss
+                if level == DegradationLevel::Compact {
+                    let boundary = ContextPruner::find_compaction_boundary(messages, 20_000);
+                    if boundary > 0 {
+                        let _ = MemoryFlusher::flush(
+                            messages,
+                            boundary,
+                            &*self.provider,
+                            &*self.memory,
+                            self.memory_store.as_deref(),
+                            &self.model,
+                            user_id.as_str(),
+                        )
+                        .await;
+                    }
+                }
+
                 self.pruner.apply(messages, level);
             }
 
