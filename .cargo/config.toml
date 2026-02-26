@@ -1,0 +1,13 @@
+# === Rust Build Optimization for M3 Max ===
+
+[build]
+rustc-wrapper = "/opt/homebrew/bin/sccache"
+
+# Reduced parallelism due to memory pressure
+jobs = 8
+
+[target.aarch64-apple-darwin]
+rustflags = ["-C", "link-arg=-Wl,-dead_strip"]
+
+[profile.dev.package."*"]
+opt-level = 1

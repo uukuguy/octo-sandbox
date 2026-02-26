@@ -1,0 +1,63 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2021"
+rust-version = "1.75"
+version = "0.1.0"
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1.42", features = ["full"] }
+tokio-stream = "0.1"
+futures-util = "0.3"
+bytes = "1.0"
+# Web framework
+axum = { version = "0.7", features = ["ws"] }
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tower = "0.5"
+tower-http = { version = "0.6", features = ["cors", "trace"] }
+# HTTP client
+reqwest = { version = "0.12", features = ["stream", "json"] }
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+# Error handling
+anyhow = "1.0"
+thiserror = "2.0"
+# Async traits
+async-trait = "0.1"
+# Identifiers
+uuid = { version = "1.11", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+# Environment variables
+dotenvy = "0.15"
+# Concurrent collections
+dashmap = "6"
+# Internal crates
+octo-types = { path = "crates/octo-types" }
+octo-engine = { path = "crates/octo-engine" }
+octo-sandbox = { path = "crates/octo-sandbox" }
+
+# ============================================================
+# 编译速度优化 Profile 配置
+# ============================================================
+
+[profile.dev]
+# split-debuginfo: macOS 上可加速 linking ~70%
+# "unpacked" 将 debug info 拆分为独立文件，避免链接器处理大量 DWARF 数据
+split-debuginfo = "unpacked"
+# 最大化 codegen 并行度 (dev 构建不需要优化质量)
+codegen-units = 256
+# 增量编译 (默认开启，显式声明确保不被覆盖)
+incremental = true
+
+[profile.dev.package."*"]
+# 第三方依赖用 opt-level=1: 编译时间增加很小，但运行速度提升明显
+# 依赖只编译一次，之后都走缓存
+opt-level = 1
+codegen-units = 256
