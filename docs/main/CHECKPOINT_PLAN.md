@@ -1,11 +1,11 @@
 # octo-sandbox 计划执行状态 Checkpoint
 
 **日期**: 2026-02-27
-**最后更新**: 2026-02-27 GMT+8
-**当前阶段**: Phase 2 Batch 3 ✅ 编码完成，代码审查修复已提交
-**git 分支**: main
-**git 最新提交**: 49856cc fix: correct started_at timestamp + handle RwLock poisoning
-**未提交文件**: 文档更新中
+**最后更新**: 2026-02-27 23:30 GMT+8
+**当前阶段**: octo-workbench Phase 2.1 (核心闭环可用) ✅ 完成
+**git 分支**: octo-workbench
+**git 最新提交**: 6e33b3b fix(api): resolve route matching issue + add TimelineView/JsonViewer
+**实施规划**: docs/plans/2026-02-27-phase2-1-implementation.md
 
 ---
 
@@ -23,7 +23,11 @@
 | Phase 2 Batch 1 编码 | ✅ 完成 | 上下文工程核心 + 5 新工具（14 任务），6 个提交 |
 | Phase 2 Batch 2 编码 | ✅ 完成 | SQLite 持久化 + Session Memory + 混合检索 + Memory Flush + 3 Memory 工具（16 任务），8 个提交 |
 | Phase 2 Batch 3 编码 | ✅ 完成 | Skill Loader + MCP Client + Tool Execution Recording + REST API + Debug UI |
-| Phase 3 编码 | ⏳ 待开始 | Docker + 多用户 + 完整功能 |
+| octo-workbench Phase 2.1 | ✅ 完成 | 核心闭环可用（运行时验证 + Timeline + JsonViewer + REST API） |
+| octo-workbench Phase 2.2 | ⏳ 待开始 | 记忆系统完整（5 memory tools + Explorer） |
+| octo-workbench Phase 2.3 | ⏳ 待开始 | 调试面板完善（MCP + Skill + 高级调试） |
+| octo-workbench Phase 2.4 | ⏳ 待开始 | v1.0 完成 |
+| octo-platform (Phase 3) | ⏳ 待开始 | Docker + 多用户 + 完整功能 |
 | Phase 4 编码 | ⏳ 待开始 | 生产就绪 |
 
 ---
@@ -333,6 +337,33 @@
 1. **🔴 SSE Stream poll_next 事件丢失** — `openai.rs` 和 `anthropic.rs` 的 `poll_next()` 中，`parse_sse_events()` 从 buffer 消费 SSE 原始数据后返回多个 `StreamEvent`，但只取第一个返回，**剩余事件随 iter 离开作用域被丢弃**。当多个 SSE chunk 在同一次 TCP read 到达时（代理/中转服务如 dashscope 常见），后续 TextDelta 事件丢失，导致正式回复文本被截断。
 2. **修复方案** — 给两个 SSE Stream 结构体添加 `pending_events: VecDeque<Result<StreamEvent>>` 字段。`parse_sse_events()` 结果全部入队到 `pending_events`，然后逐个 `pop_front` 返回，确保不丢失任何事件。
 3. **影响范围** — 两个 Provider 都存在此 bug：`openai.rs` 和 `anthropic.rs`。修复后编译通过（`cargo check` ✅）。
+
+### 会话 4：Phase 2.1 核心闭环 + TimelineView/JsonViewer
+
+1. **运行时验证** — 服务器启动 ✅, Health endpoint ✅, WebSocket 连接 ✅, 工具执行 ✅
+2. **TimelineView 组件** — 新增 `web/src/components/tools/TimelineView.tsx`，展示工具执行时间线
+3. **JsonViewer 组件** — 新增 `web/src/components/tools/JsonViewer.tsx`，展示结构化 JSON 数据
+4. **CSS 样式** — 添加 timeline 和 jsonviewer 样式到 `globals.css`
+5. **组件集成** — TimelineView/JsonViewer 集成到 ExecutionDetail.tsx
+6. **Router 重构** — 将 API handlers 内联到 router.rs 以解决 Axum 0.7 参数化路由 bug
+
+### 会话 5：Phase 2.1 完成 + Router 调试
+
+1. **REST API 固定路径** — `/api/sessions`, `/api/tools`, `/api/memories` 等全部 200 OK
+2. **REST API 参数化路径** — `/api/sessions/{id}`, `/api/executions/{id}` 存在 Axum 0.7 类型推断 bug
+3. **TimelineView 集成** — 修复类型错误，正确显示时间线事件
+4. **Phase 2.1 完成** — 核心功能全部可用，构建验证通过
+
+### 会话 6：Axum 0.8 升级
+
+1. **Axum 0.7 → 0.8.8 升级** — 修复 REST API 参数化路由 404 bug
+2. **axum-extra 0.9 → 0.10.3 升级**
+3. **路由修复** — 改用 `.nest("/api", api)` 替代 `.merge(api)`
+4. **验证通过** — 所有 REST API 端点正常返回 200
+
+### 已知限制
+
+（已修复：无）
 
 ### 修改文件清单（累计）
 
