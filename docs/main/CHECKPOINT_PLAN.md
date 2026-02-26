@@ -1,11 +1,11 @@
 # octo-sandbox 计划执行状态 Checkpoint
 
 **日期**: 2026-02-26
-**最后更新**: 2026-02-26 13:15 GMT+8
-**当前阶段**: Phase 2 Batch 1 ✅ 编码完成，Batch 2 待规划
+**最后更新**: 2026-02-26 14:30 GMT+8
+**当前阶段**: Phase 2 Batch 2 ✅ 编码完成，Batch 3 待规划
 **git 分支**: main
-**git 最新提交**: e692d35 docs: Phase 2 Batch 1 complete - update checkpoint, work log, and memory index
-**未提交文件**: 无（工作区干净）
+**git 最新提交**: 0637bb5 feat(server): integrate SQLite persistence into AppState and main.rs
+**未提交文件**: 文档更新中
 
 ---
 
@@ -21,7 +21,7 @@
 | Phase 1 运行时验证 | ✅ 完成 | 端到端流式对话验证通过，多项 bugfix |
 | Phase 2 上下文工程设计 | ✅ 完成 | 6 个参考项目分析 + 上下文工程架构设计（10 章）+ 14 任务实施计划 |
 | Phase 2 Batch 1 编码 | ✅ 完成 | 上下文工程核心 + 5 新工具（14 任务），6 个提交 |
-| Phase 2 Batch 2 编码 | ⏳ 待规划 | SQLite 持久化 + Session Memory + 混合检索 |
+| Phase 2 Batch 2 编码 | ✅ 完成 | SQLite 持久化 + Session Memory + 混合检索 + Memory Flush + 3 Memory 工具（16 任务），8 个提交 |
 | Phase 2 Batch 3 编码 | ⏳ 待规划 | Skill Loader + MCP 集成 + Debug Panel UI |
 | Phase 3 编码 | ⏳ 待开始 | Docker + 多用户 + 完整功能 |
 | Phase 4 编码 | ⏳ 待开始 | 生产就绪 |
@@ -129,6 +129,75 @@
 | `crates/octo-engine/src/tools/find.rs` | FindTool |
 
 **构建验证**: `cargo build` ✅ | `tsc --noEmit` ✅
+
+### Phase 2 Batch 2 实施结果 (✅ 已完成)
+
+**提交记录** (8 个提交: `a954f17` → `0637bb5`)：
+
+| 提交 | 内容 |
+|------|------|
+| `a954f17` | feat(deps): 添加 SQLite, ULID, bincode workspace 依赖 |
+| `78144ba` | feat(db+types): Database 模块 + WAL 迁移 + Persistent Memory 类型 |
+| `c9f8329` | feat(memory): MemoryStore trait + Provider.embed() + SqliteWorkingMemory |
+| `5bcedf9` | feat(session): SessionStore 移至 engine, 异步化, SqliteSessionStore |
+| `1e41a10` | feat(memory): SqliteMemoryStore + 混合 FTS5+向量检索 |
+| `c9988a0` | feat(context): FactExtractor + MemoryFlusher (Compact 级别冲刷) |
+| `2bc4c76` | feat(tools): 3 个 Memory 工具 (memory_store/memory_search/memory_update) |
+| `0637bb5` | feat(server): SQLite 持久化集成到 AppState + main.rs |
+
+**新增源文件** (14 个)：
+
+| 文件 | 说明 |
+|------|------|
+| `crates/octo-engine/src/db/mod.rs` | 数据库模块入口 |
+| `crates/octo-engine/src/db/connection.rs` | Database struct + WAL 配置 |
+| `crates/octo-engine/src/db/migrations.rs` | Schema 迁移 (5 表 + FTS5 + 触发器 + 索引) |
+| `crates/octo-engine/src/memory/store_traits.rs` | MemoryStore trait |
+| `crates/octo-engine/src/memory/sqlite_working.rs` | SqliteWorkingMemory (write-through cache) |
+| `crates/octo-engine/src/memory/sqlite_store.rs` | SqliteMemoryStore + 混合检索 |
+| `crates/octo-engine/src/memory/extractor.rs` | FactExtractor (LLM 事实提取) |
+| `crates/octo-engine/src/session/mod.rs` | Async SessionStore trait |
+| `crates/octo-engine/src/session/memory.rs` | InMemorySessionStore (迁移) |
+| `crates/octo-engine/src/session/sqlite.rs` | SqliteSessionStore (DashMap + SQLite) |
+| `crates/octo-engine/src/context/flush.rs` | MemoryFlusher |
+| `crates/octo-engine/src/tools/memory_store.rs` | memory_store 工具 |
+| `crates/octo-engine/src/tools/memory_search.rs` | memory_search 工具 |
+| `crates/octo-engine/src/tools/memory_update.rs` | memory_update 工具 |
+
+**修改文件** (18 个)：
+
+| 文件 | 变更 |
+|------|------|
+| `Cargo.toml` | 添加 rusqlite, tokio-rusqlite, ulid, bincode |
+| `crates/octo-types/Cargo.toml` | 添加 ulid |
+| `crates/octo-types/src/memory.rs` | MemoryId, MemoryCategory, MemoryEntry 等 6 个新类型; MemoryBlock 扩展 char_limit/is_readonly |
+| `crates/octo-types/src/lib.rs` | 新类型 re-exports |
+| `crates/octo-engine/Cargo.toml` | 添加 rusqlite, tokio-rusqlite, ulid, bincode, dashmap |
+| `crates/octo-engine/src/lib.rs` | 添加 db, session 模块 + re-exports |
+| `crates/octo-engine/src/providers/traits.rs` | Provider trait 添加 embed() (默认返回错误) |
+| `crates/octo-engine/src/providers/openai.rs` | 实现 embed() (text-embedding-3-small) |
+| `crates/octo-engine/src/memory/mod.rs` | 添加 store_traits, sqlite_working, sqlite_store, extractor 模块 |
+| `crates/octo-engine/src/context/mod.rs` | 添加 flush 模块 |
+| `crates/octo-engine/src/agent/loop_.rs` | memory_store 字段 + with_memory_store() + Compact flush |
+| `crates/octo-engine/src/tools/mod.rs` | 3 个 memory tool 模块 + register_memory_tools() |
+| `crates/octo-server/src/main.rs` | Database 初始化 + SQLite 服务 + memory tools 注册 |
+| `crates/octo-server/src/state.rs` | 添加 memory_store 字段 |
+| `crates/octo-server/src/session.rs` | 改为 re-export octo_engine::session |
+| `crates/octo-server/src/ws.rs` | session .await + AgentLoop.with_memory_store() |
+| `.env.example` | 添加 OCTO_DB_PATH |
+
+**关键架构决策**:
+
+| 决策 | 选择 | 原因 |
+|------|------|------|
+| SessionStore 位置 | 移至 octo-engine + async | 核心引擎概念，SQLite 实现需 async |
+| Memory 工具注入 | 构造器注入 Arc | 不扩展 ToolContext，每个工具持有自己的引用 |
+| 检索策略 | 混合 FTS5 + 向量 | 0.7 vec + 0.3 FTS 分数融合, 无 embedding 时降级为 FTS-only |
+| 缓存策略 | Write-through (DashMap/RwLock) | 热路径不访问 DB，写操作同步持久化 |
+| 事实提取 | LLM-based FactExtractor | Provider.complete() 调用, JSON 解析容错 |
+| Memory Flush 时机 | Compact 降级前 | 先 flush 再 prune，防止信息丢失 |
+
+**构建验证**: `cargo build` ✅ (仅 1 个预存 warning)
 
 ---
 
@@ -321,14 +390,15 @@
 | `docs/design/CONTEXT_ENGINEERING_DESIGN.md` | **Phase 2 上下文工程架构设计**（10 章） |
 | `docs/design/RUST_BUILD_OPTIMIZATION.md` | Rust 编译速度优化方案 |
 | `docs/plans/2026-02-26-phase2-context-engineering.md` | **Phase 2 Batch 1 实施计划**（14 任务） |
+| Claude plan mode `wiggly-seeking-spindle.md` | **Phase 2 Batch 2 实施计划**（16 任务 8 提交） |
 | `docs/dev/MEMORY_INDEX.md` | 记忆索引 |
 | `docs/main/WORK_LOG.md` | 开发工作日志 |
 
 ### Phase 1 源代码
 | 目录 | 文件数 | 用途 |
 |------|--------|------|
-| `crates/octo-types/src/` | 8 | 共享类型定义 |
-| `crates/octo-engine/src/` | 23 | 核心引擎 (Provider[Anthropic+OpenAI] + Tool[7] + Agent + Memory + Context) |
+| `crates/octo-types/src/` | 8 | 共享类型定义 (含 6 个新 Memory 类型) |
+| `crates/octo-engine/src/` | 37 | 核心引擎 (Provider[Anthropic+OpenAI] + Tool[10] + Agent + Memory[7] + Context[4] + DB[3] + Session[3]) |
 | `crates/octo-sandbox/src/` | 3 | 沙箱运行时 |
 | `crates/octo-server/src/` | 5 | HTTP/WebSocket 服务 |
 | `web/src/` | 16 | React 前端 |
@@ -349,6 +419,7 @@
 | claude-mem | #2823 | OpenAI Provider + Thinking/Reasoning 全链路支持 |
 | claude-mem | #2828 | Phase 2 上下文工程架构 brainstorming 完成 |
 | claude-mem | #2829 | Phase 2 Batch 1 编码完成（上下文工程 + 5 新工具） |
+| claude-mem | #2831 | Phase 2 Batch 2 编码完成（SQLite 持久化 + Memory + 混合检索 + 3 工具） |
 | knowledge graph | octo-sandbox | 项目实体 + 5 个架构决策实体 |
 
 ---
@@ -367,16 +438,14 @@
 
 ### 下一步操作（按优先级）
 
-1. **Phase 2 Batch 2 规划与执行**（待详细规划）
-   - SQLite WAL 持久化（Working Memory + Session Memory）
-   - Session Memory 实现（会话级短期记忆 + 自动摘要）
-   - 混合检索（70% 向量 + 30% FTS5）
-   - Memory Flush 机制（压缩前提取关键事实）
-
-2. **Phase 2 Batch 3 规划与执行**（待详细规划）
+1. **Phase 2 Batch 3 规划与执行**（待详细规划）
    - Skill Loader（SKILL.md 格式解析 + 注册）
    - MCP 集成（MCP 客户端 + 工具桥接）
    - Debug Panel UI（工具调用可视化 + 上下文预算仪表盘）
 
-3. **Phase 2 Batch 1 运行时验证**（可选，与 Batch 2 并行）
-   - 端到端测试：7 工具调用 + 上下文降级触发 + 预算管理
+2. **Phase 2 运行时验证**（可选，与 Batch 3 并行）
+   - Batch 1: 7 工具调用 + 上下文降级触发 + 预算管理
+   - Batch 2: SQLite 持久化 + session 恢复 + memory 工具 + FTS5 检索 + Compact flush
+
+3. **Phase 3 规划**（Phase 2 全部完成后）
+   - Docker 沙箱 + 多用户 + 完整功能

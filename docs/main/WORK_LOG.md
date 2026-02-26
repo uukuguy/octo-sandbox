@@ -242,5 +242,88 @@ Phase 1 核心引擎全部代码提交到 git，阶段正式关闭。
 
 ### 下一步
 
-- **Phase 2 Batch 2 规划** — SQLite WAL 持久化 + Session Memory + 混合检索(70% 向量 + 30% FTS5) + Memory Flush
+- ~~**Phase 2 Batch 2 规划**~~ → **已完成**（见下方 Phase 2 Batch 2 记录）
 - **Phase 2 Batch 3 规划** — Skill Loader + MCP 集成 + Debug Panel UI
+
+---
+
+## 2026-02-26 — Phase 2 Batch 2 编码完成
+
+### 会话概要
+
+执行 Phase 2 Batch 2 全部 16 个任务（8 次 git 提交）。实现 SQLite WAL 持久化（全数据层）、Session Memory（Layer 1）+ SqliteSessionStore、Persistent Memory（Layer 2）+ 混合检索（FTS5 + 向量余弦相似度）、Memory Flush 机制（Compact 级别前 LLM 事实提取）、3 个 Memory 工具供 Agent 使用。
+
+### 提交记录
+
+| 提交 | 内容 |
+|------|------|
+| `a954f17` | feat(deps): 添加 rusqlite(0.32 bundled+vtab), tokio-rusqlite(0.6), ulid(1.1 serde), bincode(1.3) |
+| `78144ba` | feat(db+types): Database 模块(WAL+PRAGMAs) + 迁移(5 表+FTS5+触发器+索引) + 6 个新 Memory 类型 |
+| `c9f8329` | feat(memory): MemoryStore trait + Provider.embed()(默认错误) + SqliteWorkingMemory(write-through RwLock cache) |
+| `5bcedf9` | feat(session): SessionStore 移至 engine 异步化 + InMemorySessionStore 迁移 + SqliteSessionStore(DashMap+SQLite) |
+| `1e41a10` | feat(memory): SqliteMemoryStore CRUD + 混合检索(FTS5 BM25 + 向量 cosine, 0.7/0.3 融合 + 时间衰减 + 重要性加权) + OpenAI embed() |
+| `c9988a0` | feat(context): FactExtractor(LLM JSON 提取) + MemoryFlusher(Compact 前冲刷到 WorkingMemory + MemoryStore) |
+| `2bc4c76` | feat(tools): memory_store/memory_search/memory_update 3 个工具 + register_memory_tools() |
+| `0637bb5` | feat(server): Database.open() + SQLite 服务初始化 + memory tools 注册 + AppState.memory_store |
+
+### 新增文件 (14 个)
+
+| 文件 | 说明 |
+|------|------|
+| `crates/octo-engine/src/db/mod.rs` | 数据库模块入口 |
+| `crates/octo-engine/src/db/connection.rs` | Database struct, open(path)/open_in_memory(), WAL PRAGMAs |
+| `crates/octo-engine/src/db/migrations.rs` | user_version 版本迁移, 5 表 + FTS5 + 3 触发器 + 4 索引 |
+| `crates/octo-engine/src/memory/store_traits.rs` | MemoryStore async trait (store/search/get/update/delete/list/batch_store) |
+| `crates/octo-engine/src/memory/sqlite_working.rs` | SqliteWorkingMemory — RwLock write-through cache + 4 默认 blocks |
+| `crates/octo-engine/src/memory/sqlite_store.rs` | SqliteMemoryStore — CRUD + FTS5 + 向量检索 + 分数融合 + token budget 截断 |
+| `crates/octo-engine/src/memory/extractor.rs` | FactExtractor — LLM 提取 fact/category/importance JSON, 4000 char 限制 |
+| `crates/octo-engine/src/session/mod.rs` | Async SessionStore trait + SessionData struct |
+| `crates/octo-engine/src/session/memory.rs` | InMemorySessionStore (从 octo-server 迁移, async) |
+| `crates/octo-engine/src/session/sqlite.rs` | SqliteSessionStore — DashMap 热缓存 + SQLite write-through |
+| `crates/octo-engine/src/context/flush.rs` | MemoryFlusher::flush() — 提取事实 → WorkingMemory + MemoryStore |
+| `crates/octo-engine/src/tools/memory_store.rs` | memory_store 工具 (embed + 存储) |
+| `crates/octo-engine/src/tools/memory_search.rs` | memory_search 工具 (embed query + 混合检索) |
+| `crates/octo-engine/src/tools/memory_update.rs` | memory_update 工具 (按 ID 更新内容) |
+
+### 修改文件 (18 个)
+
+| 文件 | 变更 |
+|------|------|
+| `Cargo.toml` | workspace deps: rusqlite, tokio-rusqlite, ulid, bincode |
+| `crates/octo-types/Cargo.toml` | ulid 依赖 |
+| `crates/octo-types/src/memory.rs` | MemoryId/MemoryCategory/MemorySource/MemoryEntry/SearchOptions/MemoryResult/MemoryFilter; MemoryBlock +char_limit/is_readonly |
+| `crates/octo-types/src/lib.rs` | 新类型 re-exports |
+| `crates/octo-engine/Cargo.toml` | rusqlite, tokio-rusqlite, ulid, bincode, dashmap |
+| `crates/octo-engine/src/lib.rs` | pub mod db, session + re-exports |
+| `crates/octo-engine/src/providers/traits.rs` | Provider.embed() 默认错误实现 |
+| `crates/octo-engine/src/providers/openai.rs` | embed() — POST /v1/embeddings, text-embedding-3-small |
+| `crates/octo-engine/src/memory/mod.rs` | store_traits, sqlite_working, sqlite_store, extractor 模块 |
+| `crates/octo-engine/src/context/mod.rs` | flush 模块 |
+| `crates/octo-engine/src/agent/loop_.rs` | memory_store 字段 + with_memory_store() + Compact flush→prune |
+| `crates/octo-engine/src/tools/mod.rs` | 3 memory tool 模块 + register_memory_tools() |
+| `crates/octo-server/src/main.rs` | Database.open() + SQLite 服务 + memory tools 注册 |
+| `crates/octo-server/src/state.rs` | +memory_store: Arc<dyn MemoryStore> |
+| `crates/octo-server/src/session.rs` | 改为 re-export octo_engine::session |
+| `crates/octo-server/src/ws.rs` | session .await + .with_memory_store() |
+| `.env.example` | +OCTO_DB_PATH |
+
+### 编译期问题与修复
+
+| 问题 | 原因 | 修复 |
+|------|------|------|
+| Future not Send | RwLockWriteGuard 跨 .await | 重构 ensure_loaded() 在 block scope 内释放锁 |
+| Type mismatch | tokio_rusqlite::Error vs anyhow::Error | 移除显式 Result 类型标注，让编译器推断 |
+| E0282 类型推断失败 | closure 内 Vec 类型不明确 | 添加 Vec<ChatMessage> 显式标注 |
+| Arc 类型推断失败 | Arc::from() 到 dyn Provider | 添加 Arc<dyn octo_engine::Provider> 显式标注 |
+
+### 构建验证
+
+| 检查项 | 状态 |
+|--------|------|
+| `cargo check --workspace` | ✅ 通过 |
+| `cargo build` | ✅ 通过 (仅 1 个预存 warning) |
+
+### 下一步
+
+- **Phase 2 Batch 3 规划** — Skill Loader + MCP 集成 + Debug Panel UI
+- **Phase 2 运行时验证**（可选）— SQLite 持久化 + session 恢复 + memory 工具 + FTS5 检索 + Compact flush
