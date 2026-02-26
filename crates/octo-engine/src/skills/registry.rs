@@ -1,8 +1,10 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
+use std::time::Duration;
 
 use anyhow::Result;
-use tracing::info;
+use notify_debouncer_mini::{new_debouncer, DebouncedEventKind};
+use tracing::{debug, info, warn};
 
 use octo_types::SkillDefinition;
 
@@ -108,6 +110,76 @@ impl SkillRegistry {
     /// Get inner Arc for sharing across threads.
     pub fn inner(&self) -> Arc<RwLock<HashMap<String, SkillDefinition>>> {
         self.skills.clone()
+    }
+
+    /// Start watching skill directories for changes.
+    /// Reloads all skills when any SKILL.md file changes.
+    pub fn start_watching(&self, loader: SkillLoader) -> Result<()> {
+        let dirs = loader.search_dirs().to_vec();
+        if dirs.is_empty() {
+            debug!("No skill directories to watch");
+            return Ok(());
+        }
+
+        let skills = self.skills.clone();
+
+        std::thread::spawn(move || {
+            let (tx, rx) = std::sync::mpsc::channel();
+            let mut debouncer = match new_debouncer(Duration::from_millis(300), tx) {
+                Ok(d) => d,
+                Err(e) => {
+                    warn!("Failed to create file watcher: {e}");
+                    return;
+                }
+            };
+
+            for dir in &dirs {
+                if let Err(e) = debouncer
+                    .watcher()
+                    .watch(dir, notify::RecursiveMode::Recursive)
+                {
+                    warn!(dir = %dir.display(), error = %e, "Failed to watch directory");
+                }
+            }
+
+            info!("Skill hot-reload watcher started for {} directories", dirs.len());
+
+            for events in rx {
+                match events {
+                    Ok(events) => {
+                        let has_skill_change = events.iter().any(|e| {
+                            e.kind == DebouncedEventKind::Any
+                                && e.path
+                                    .file_name()
+                                    .map(|f| f == "SKILL.md")
+                                    .unwrap_or(false)
+                        });
+
+                        if has_skill_change {
+                            info!("SKILL.md changed, reloading skills");
+                            match loader.load_all() {
+                                Ok(loaded) => {
+                                    let mut map = skills.write().unwrap();
+                                    map.clear();
+                                    for skill in loaded {
+                                        map.insert(skill.name.clone(), skill);
+                                    }
+                                    info!("Skills reloaded: {} skills", map.len());
+                                }
+                                Err(e) => {
+                                    warn!("Failed to reload skills: {e}");
+                                }
+                            }
+                        }
+                    }
+                    Err(errs) => {
+                        warn!("Watch error: {errs}");
+                    }
+                }
+            }
+        });
+
+        Ok(())
     }
 }
 
