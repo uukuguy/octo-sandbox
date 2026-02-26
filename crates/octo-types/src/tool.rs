@@ -7,7 +7,8 @@ use crate::id::SandboxId;
 #[serde(rename_all = "snake_case")]
 pub enum ToolSource {
     BuiltIn,
-    Mcp,
+    Mcp(String),    // MCP server name
+    Skill(String),  // Skill name
     Plugin,
 }
 

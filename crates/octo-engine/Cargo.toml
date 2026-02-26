@@ -23,3 +23,7 @@ tokio-rusqlite = { workspace = true }
 ulid = { workspace = true }
 bincode = { workspace = true }
 dashmap = { workspace = true }
+serde_yaml = { workspace = true }
+notify = { workspace = true }
+notify-debouncer-mini = { workspace = true }
+rmcp = { workspace = true }
