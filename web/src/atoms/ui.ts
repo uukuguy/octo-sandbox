@@ -1,4 +1,5 @@
 import { atom } from "jotai";
 
-export const activeTabAtom = atom<"chat" | "debug">("chat");
+export type TabId = "chat" | "tools" | "debug";
+export const activeTabAtom = atom<TabId>("chat");
 export const sidebarOpenAtom = atom(false);

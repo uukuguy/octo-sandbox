@@ -8,6 +8,10 @@ import {
   streamingThinkingAtom,
   toolExecutionsAtom,
 } from "../atoms/session";
+import {
+  executionRecordsAtom,
+  tokenBudgetAtom,
+} from "../atoms/debug";
 
 let streamBuffer = "";
 let thinkingBuffer = "";
@@ -98,6 +102,22 @@ export function handleWsEvent(msg: ServerMessage, set: Setter) {
       set(isStreamingAtom, false);
       set(streamingThinkingAtom, "");
       set(toolExecutionsAtom, []);
+      break;
+
+    case "tool_execution":
+      set(executionRecordsAtom, (prev) => {
+        const idx = prev.findIndex((e) => e.id === msg.execution.id);
+        if (idx >= 0) {
+          const next = [...prev];
+          next[idx] = msg.execution;
+          return next;
+        }
+        return [...prev, msg.execution];
+      });
+      break;
+
+    case "token_budget_update":
+      set(tokenBudgetAtom, msg.budget);
       break;
   }
 }
