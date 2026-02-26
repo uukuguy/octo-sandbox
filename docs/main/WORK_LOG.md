@@ -141,3 +141,46 @@ Phase 1 核心引擎全部代码提交到 git，阶段正式关闭。
 ### 下一步
 
 - **Phase 2 规划** — 调试面板、MCP 集成、SQLite 持久化、Session Memory
+
+---
+
+## 2026-02-26 — Phase 2 上下文工程架构设计
+
+### 会话概要
+
+完成 Phase 2 上下文工程架构的深度设计。分析 6 个参考项目的上下文工程实现，提炼跨项目共识模式，设计完整的上下文工程架构，并创建 14 任务实施计划。
+
+### 设计过程
+
+1. **参考项目分析** — 6 个并行子代理分别深度分析 OpenClaw、ZeroClaw、NanoClaw、HappyClaw、pi_agent_rust、Craft Agents 的上下文工程实现
+2. **跨项目共识提炼** — Token 估算(3-4 chars/token)、混合检索(70%向量+30%FTS)、渐进式降级(soft→hard→compact)、压缩边界保护、两层提示架构(静态+动态)
+3. **架构设计 Brainstorming** — 6 段逐节呈现，用户逐段确认
+4. **设计文档编写** — 整合为 `docs/design/CONTEXT_ENGINEERING_DESIGN.md`（10 章，500+ 行）
+5. **实施计划创建** — 读取所有现有源文件后，创建 `docs/plans/2026-02-26-phase2-context-engineering.md`（14 任务）
+
+### 核心设计决策
+
+| 决策 | 选项 | 选择 | 原因 |
+|------|------|------|------|
+| 上下文分区 | 整体混合 vs 分区 | 三区分配(A/B/C) | 区域 A 可利用 prompt caching，区域 B 每轮重建避免累积，区域 C 有明确降级路径 |
+| 降级策略 | 简单截断 vs 渐进降级 | 三级渐进式 | 保护最新信息，优先降级旧工具结果 |
+| Token 估算 | 纯估算 vs 纯 API | 双轨制 | 优先 API 真实值，fallback chars/4 |
+| 预算管理 | 混合模块 vs 关注点分离 | Manager + Pruner 分离 | 可独立测试，职责清晰 |
+| 压缩边界 | 任意截断 vs 边界保护 | 工具调用链边界保护 | pi_agent_rust 验证有效 |
+| 记忆集成 | 全在历史中 vs 分层 | 三层(Working/Session/Persistent) | 不同生命周期分别管理 |
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `docs/design/CONTEXT_ENGINEERING_DESIGN.md` | 上下文工程架构设计（10 章） |
+| `docs/plans/2026-02-26-phase2-context-engineering.md` | Phase 2 Batch 1 实施计划（14 任务） |
+
+### MCP Memory
+
+- `claude-mem #2828` — Phase 2 上下文工程架构 brainstorming 完成摘要
+
+### 下一步
+
+- **执行 Phase 2 Batch 1 实施计划** — 14 任务覆盖上下文工程核心 + 5 新工具 + 集成收尾
+- **选择执行方式** — Subagent-Driven（当前会话逐任务派发）或 Parallel Session（新会话批量执行）

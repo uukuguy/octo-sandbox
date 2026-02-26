@@ -1,11 +1,11 @@
 # octo-sandbox 计划执行状态 Checkpoint
 
 **日期**: 2026-02-26
-**最后更新**: 2026-02-26 11:15 GMT+8
-**当前阶段**: Phase 1 核心引擎 ✅ 已提交 → Phase 2 待开始
+**最后更新**: 2026-02-26 12:45 GMT+8
+**当前阶段**: Phase 2 上下文工程 🔵 设计完成，14 任务实施计划已创建，待执行
 **git 分支**: main
-**git 最新提交**: 2c9ca43 feat: Phase 1 core engine - full-stack AI agent sandbox
-**未提交文件**: 无
+**git 最新提交**: 666ff7c docs: close Phase 1 - update checkpoint, work log, and memory index
+**未提交文件**: 设计文档 + 实施计划（待提交）
 
 ---
 
@@ -19,7 +19,10 @@
 | Phase 1 实施计划 | ✅ 完成 | 10 步详细任务拆分，Claude plan mode 审批通过 |
 | Phase 1 编码 | ✅ 完成 | 32 个 Rust 源文件 + 16 个 TS/React 文件，全部编译通过 |
 | Phase 1 运行时验证 | ✅ 完成 | 端到端流式对话验证通过，多项 bugfix |
-| Phase 2 编码 | ⏳ 待开始 | 调试面板 + MCP + SQLite |
+| Phase 2 上下文工程设计 | ✅ 完成 | 6 个参考项目分析 + 上下文工程架构设计（10 章）+ 14 任务实施计划 |
+| Phase 2 Batch 1 编码 | ⏳ 待开始 | 上下文工程核心 + 5 新工具（14 任务） |
+| Phase 2 Batch 2 编码 | ⏳ 待规划 | SQLite 持久化 + Session Memory + 混合检索 |
+| Phase 2 Batch 3 编码 | ⏳ 待规划 | Skill Loader + MCP 集成 + Debug Panel UI |
 | Phase 3 编码 | ⏳ 待开始 | Docker + 多用户 + 完整功能 |
 | Phase 4 编码 | ⏳ 待开始 | 生产就绪 |
 
@@ -63,6 +66,39 @@
 | 流式文本传输 | ✅ 通过 | 客户端收到完整响应 "Hello from octo-sandbox!" |
 | 错误事件传播 | ✅ 通过 | Error + Done 事件正确到达客户端 |
 | API 重试机制 | ✅ 通过 | 5xx 错误自动重试 3 次指数退避 |
+
+---
+
+## Phase 2 上下文工程设计（已完成）
+
+### 设计文档
+
+- **`docs/design/CONTEXT_ENGINEERING_DESIGN.md`** — 上下文工程架构设计（10 章，500+ 行）
+- 深度分析 6 个参考项目（OpenClaw, ZeroClaw, NanoClaw, HappyClaw, pi_agent_rust, Craft Agents）的上下文工程实现
+- 提炼跨项目共识模式，设计 octo-sandbox 上下文工程架构
+
+### 核心设计
+
+| 组件 | 设计 | 说明 |
+|------|------|------|
+| 三区上下文分配 | A(系统提示) + B(动态上下文) + C(对话历史) | 区域 A 可缓存，区域 B 每轮重建，区域 C 渐进降级 |
+| 三级渐进式降级 | L0(无) → L1(软裁剪) → L2(硬清除) → L3(压缩摘要) | 基于使用率阈值 60%/80%/90% |
+| 压缩边界保护 | 不在工具调用链中间截断 | 借鉴 pi_agent_rust |
+| 工具结果三层防御 | 工具侧硬限制 → 注入时软裁剪(30K) → 历史降级 | 最新一轮永远不裁剪 |
+| Token 预算管理 | ContextBudgetManager + ContextPruner 分离 | 双轨估算：API 真实值 + chars/4 |
+| 三层记忆集成 | L0(Working Memory) + L1(Session Memory) + L2(Persistent Memory) | L0 Phase 2 增强，L1 Phase 2 新增，L2 Phase 3 |
+| 记忆冲刷 | 压缩前提取关键事实到 Working Memory | 防止压缩丢失重要信息 |
+
+### 实施计划
+
+- **`docs/plans/2026-02-26-phase2-context-engineering.md`** — 14 任务实施计划（Batch 1）
+- 每个任务含完整代码、文件路径、构建验证命令、git 提交命令
+
+| 任务分组 | 任务编号 | 内容 |
+|----------|----------|------|
+| 上下文工程核心 | Task 1-5 | MemoryBlock 类型扩展 + SystemPromptBuilder + ContextBudgetManager + ContextPruner + AgentLoop 集成 |
+| 5 个新工具 | Task 6-10 | FileWriteTool + FileEditTool + GrepTool + GlobTool + FindTool |
+| 集成收尾 | Task 11-14 | 工具注册 + 软裁剪 + Working Memory 增强 + 全量验证 |
 
 ---
 
@@ -252,9 +288,11 @@
 | `docs/main/CHECKPOINT_MEMORY_BRAINSTORMING.md` | 第 8 段：记忆模块架构设计 |
 | `docs/main/CHECKPOINT_PLAN.md` | 本文件，计划执行状态 |
 | `docs/design/ARCHITECTURE_DESIGN.md` | 正式架构设计文档（12 章 + 附录） |
+| `docs/design/CONTEXT_ENGINEERING_DESIGN.md` | **Phase 2 上下文工程架构设计**（10 章） |
 | `docs/design/RUST_BUILD_OPTIMIZATION.md` | Rust 编译速度优化方案 |
+| `docs/plans/2026-02-26-phase2-context-engineering.md` | **Phase 2 Batch 1 实施计划**（14 任务） |
 | `docs/dev/MEMORY_INDEX.md` | 记忆索引 |
-| `docs/main/WORK_LOG.md` | Phase 1 开发工作日志 |
+| `docs/main/WORK_LOG.md` | 开发工作日志 |
 
 ### Phase 1 源代码
 | 目录 | 文件数 | 用途 |
@@ -279,6 +317,7 @@
 | claude-mem | #2820 | sccache 启用记录 |
 | claude-mem | #2821 | Phase 1 运行时验证通过 + 多项 bugfix |
 | claude-mem | #2823 | OpenAI Provider + Thinking/Reasoning 全链路支持 |
+| claude-mem | #2828 | Phase 2 上下文工程架构 brainstorming 完成 |
 | knowledge graph | octo-sandbox | 项目实体 + 5 个架构决策实体 |
 
 ---
@@ -288,23 +327,32 @@
 恢复此 checkpoint 时，执行：
 
 1. 读取 `docs/main/CHECKPOINT_PLAN.md`（本文件）了解总体状态和下一步
-2. 读取 `docs/design/ARCHITECTURE_DESIGN.md` — **权威架构规范**（2300 行，12 章 + 附录）
-3. 读取 `docs/main/WORK_LOG.md` — Phase 1 实施工作日志
-4. 读取 `docs/dev/MEMORY_INDEX.md` 了解工作历史
-5. 可选：搜索 MCP memory（project: octo-sandbox）获取更多细节
-6. 可选：读取 brainstorming 原始文件（仅在需要设计决策背景时）
-   - `docs/main/CHECKPOINT_BRAINSTORMING.md`（段 1-7）
-   - `docs/main/CHECKPOINT_MEMORY_BRAINSTORMING.md`（段 8）
+2. 读取 `docs/plans/2026-02-26-phase2-context-engineering.md` — **Phase 2 Batch 1 实施计划**（14 任务）
+3. 读取 `docs/design/CONTEXT_ENGINEERING_DESIGN.md` — **上下文工程架构设计**（10 章）
+4. 读取 `docs/design/ARCHITECTURE_DESIGN.md` — **权威架构规范**（2300 行，12 章 + 附录）
+5. 读取 `docs/main/WORK_LOG.md` — 开发工作日志
+6. 读取 `docs/dev/MEMORY_INDEX.md` 了解工作历史
+7. 可选：搜索 MCP memory（project: octo-sandbox）获取更多细节
 
 ### 下一步操作（按优先级）
 
-1. **提交代码**
-   - `git add` 所有新文件
-   - 提交 Phase 1 完整实现 + OpenAI Provider + Thinking 全链路
+1. **提交设计文档**
+   - `git add` 新增的设计文档和实施计划
+   - 提交 Phase 2 上下文工程设计 + 实施计划
 
-2. **Phase 2 规划**
-   - 调试面板 (Debug Panel)
-   - MCP 集成
+2. **执行 Phase 2 Batch 1 实施计划**（14 任务）
+   - 使用 `superpowers:executing-plans` 或 `superpowers:subagent-driven-development` 执行
+   - 实施计划文件：`docs/plans/2026-02-26-phase2-context-engineering.md`
+   - Task 1-5: 上下文工程核心（MemoryBlock 扩展 + SystemPromptBuilder + ContextBudgetManager + ContextPruner + AgentLoop 集成）
+   - Task 6-10: 5 个新工具（FileWrite + FileEdit + Grep + Glob + Find）
+   - Task 11-14: 集成收尾（工具注册 + 软裁剪 + Working Memory 增强 + 全量验证）
+
+3. **Phase 2 Batch 2 规划与执行**（待详细规划）
    - SQLite 持久化
-   - Session Memory（短期记忆）
-   - 创建 Phase 2 实施计划
+   - Session Memory + 混合检索（70% 向量 + 30% FTS5）
+   - Memory Flush 机制
+
+4. **Phase 2 Batch 3 规划与执行**（待详细规划）
+   - Skill Loader
+   - MCP 集成
+   - Debug Panel UI
