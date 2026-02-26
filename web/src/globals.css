@@ -29,3 +29,71 @@ body {
 * {
   border-color: var(--color-border);
 }
+
+/* Timeline View */
+.timeline-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.5rem 0;
+}
+
+.timeline-event {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.timeline-marker {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 9999px;
+}
+
+.timeline-start .timeline-marker { background-color: #22c55e; }
+.timeline-tool_call .timeline-marker { background-color: #3b82f6; }
+.timeline-tool_result .timeline-marker { background-color: #6b7280; }
+.timeline-end .timeline-marker { background-color: #9ca3af; }
+.timeline-error .timeline-marker { background-color: #ef4444; }
+
+.timeline-time {
+  color: var(--color-muted-foreground);
+}
+
+.timeline-duration {
+  margin-left: auto;
+  color: var(--color-muted-foreground);
+}
+
+/* JsonViewer */
+.json-viewer {
+  font-family: ui-monospace, monospace;
+  font-size: 0.875rem;
+  background-color: var(--color-muted);
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.json-viewer .json-key {
+  color: #a855f7;
+}
+
+.json-viewer .json-string {
+  color: #f97316;
+}
+
+.json-viewer .json-number {
+  color: #16a34a;
+}
+
+.json-viewer .json-boolean {
+  color: #3b82f6;
+}
+
+.json-viewer .json-null {
+  color: var(--color-muted-foreground);
+}

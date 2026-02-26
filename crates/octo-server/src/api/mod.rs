@@ -31,12 +31,11 @@ impl PaginationParams {
 
 pub fn routes() -> Router<Arc<AppState>> {
     Router::new()
-        .route("/sessions", get(sessions::list_sessions))
+        // More specific routes first
+        .route("/sessions/{id}/executions", get(executions::list_session_executions))
         .route("/sessions/{id}", get(sessions::get_session))
-        .route(
-            "/sessions/{id}/executions",
-            get(executions::list_session_executions),
-        )
+        // Then less specific
+        .route("/sessions", get(sessions::list_sessions))
         .route("/executions/{id}", get(executions::get_execution))
         .route("/tools", get(tools::list_tools))
         .route("/memories", get(memories::search_memories))
