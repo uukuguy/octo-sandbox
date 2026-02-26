@@ -7,7 +7,7 @@ use tracing::{debug, info, warn};
 
 use octo_types::{
     ChatMessage, CompletionRequest, ContentBlock, MessageRole, SandboxId, SessionId,
-    StopReason, StreamEvent, ToolContext, UserId,
+    StopReason, StreamEvent, ToolContext, ToolSource, UserId,
 };
 
 use crate::context::{ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher};
@@ -62,6 +62,7 @@ pub struct AgentLoop {
     max_tokens: u32,
     budget: ContextBudgetManager,
     pruner: ContextPruner,
+    recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
 }
 
 impl AgentLoop {
@@ -83,6 +84,7 @@ impl AgentLoop {
             max_tokens: 4096,
             budget: ContextBudgetManager::default(),
             pruner: ContextPruner::new(),
+            recorder: None,
         }
     }
 
@@ -93,6 +95,11 @@ impl AgentLoop {
 
     pub fn with_memory_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
         self.memory_store = Some(store);
+        self
+    }
+
+    pub fn with_recorder(mut self, recorder: Arc<crate::tools::recorder::ToolExecutionRecorder>) -> Self {
+        self.recorder = Some(recorder);
         self
     }
 
@@ -342,6 +349,22 @@ impl AgentLoop {
                     input: input.clone(),
                 });
 
+                let exec_id = if let Some(ref recorder) = self.recorder {
+                    let source = self.tools.get(&tu.name)
+                        .map(|t| t.source())
+                        .unwrap_or(ToolSource::BuiltIn);
+                    recorder.record_start(
+                        session_id.as_str(),
+                        &tu.name,
+                        &source,
+                        &input,
+                    ).await.ok()
+                } else {
+                    None
+                };
+
+                let exec_start = std::time::Instant::now();
+
                 let result = if let Some(tool) = self.tools.get(&tu.name) {
                     match tool.execute(input, &tool_ctx).await {
                         Ok(r) => r,
@@ -350,6 +373,16 @@ impl AgentLoop {
                 } else {
                     octo_types::ToolResult::error(format!("Unknown tool: {}", tu.name))
                 };
+
+                let exec_duration = exec_start.elapsed().as_millis() as u64;
+                if let (Some(ref recorder), Some(ref eid)) = (&self.recorder, &exec_id) {
+                    if result.is_error {
+                        let _ = recorder.record_failed(eid, &result.output, exec_duration).await;
+                    } else {
+                        let output_val = serde_json::Value::String(result.output.clone());
+                        let _ = recorder.record_complete(eid, &output_val, exec_duration).await;
+                    }
+                }
 
                 let _ = tx.send(AgentEvent::ToolResult {
                     tool_id: tu.id.clone(),

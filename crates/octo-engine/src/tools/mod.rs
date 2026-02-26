@@ -8,6 +8,7 @@ pub mod grep;
 pub mod memory_search;
 pub mod memory_store;
 pub mod memory_update;
+pub mod recorder;
 pub mod traits;
 
 use std::collections::HashMap;

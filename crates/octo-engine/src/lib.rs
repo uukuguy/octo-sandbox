@@ -19,3 +19,4 @@ pub use providers::{create_anthropic_provider, create_openai_provider, create_pr
 pub use session::{InMemorySessionStore, SessionData, SessionStore, SqliteSessionStore};
 pub use skills::{SkillLoader, SkillRegistry, SkillTool};
 pub use tools::{default_tools, register_memory_tools, Tool, ToolRegistry};
+pub use tools::recorder::ToolExecutionRecorder;
