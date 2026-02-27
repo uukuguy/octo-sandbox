@@ -25,8 +25,11 @@
 
 ---
 
-## [Active Work]
+## Phase 2.4 - Engine Hardening [COMPLETED 2026-02-27]
 
+- 19:30 | Phase 2.4 完成，所有 7 任务交付，构建验证通过 [claude-mem #2886]
+  - cargo check: 0 errors ✅ | tsc: 0 errors ✅ | vite build: 265.66kB ✅
+- 19:00 | Task 5-7 完成: BashTool 安全 + Batch3 Bugfix 验证 + 文档更新
 - 18:45 | ARCHITECTURE_DESIGN.md v1.1 完成 + 三文档一致性更新 [claude-mem #2885]
   - 关键修正：双场景沙箱定位（场景A工具执行安全=Phase 2，场景B CC/OC圈养=Phase 3）
   - 新增 §5.0 双场景沙箱 + §5.5 工具执行安全策略（ExecSecurityMode/env_clear/WASM Fuel+Epoch/SSRF/路径遍历）
@@ -47,6 +50,12 @@
   - 对比分析完成，制定引入计划
   - 产出: docs/plans/2026-02-27-openfang-architecture-research.md
 - 15:00 | Phase 2.3 MCP Workbench completed
+
+---
+
+## [Active Work]
+
+- 19:30 | Phase 2.4 Engine Hardening 完成 [claude-mem #2886]
 
 ---
 
