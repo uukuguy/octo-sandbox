@@ -515,6 +515,37 @@
 
 ---
 
+## OpenFang 架构整合里程碑
+
+**参考文档**: `docs/design/OPENFANG_ARCHITECTURE_ROADMAP.md`
+
+### Phase 2.4 可引入 (当前分支)
+
+| 模块 | 优先级 | 状态 |
+|------|--------|------|
+| MCP Client 完善 | P0 | ⏳ |
+| EventBus | P1 | ⏳ |
+| 配置管理 | P1 | ⏳ |
+
+### Phase 3 (octo-platform) 目标
+
+| 模块 | 优先级 | 状态 |
+|------|--------|------|
+| AgentRegistry | P0 | ⏳ |
+| Memory 增强 | P1 | ⏳ |
+| Scheduler | P2 | ⏳ |
+| WorkflowEngine | P2 | ⏳ |
+| 安全系统 | P2 | ⏳ |
+
+### 长期目标
+
+| 模块 | 优先级 | 状态 |
+|------|--------|------|
+| Channels | P3 | ⏳ |
+| Hands | P3 | ⏳ |
+
+---
+
 ## 文件清单
 
 ### 设计文档

@@ -27,6 +27,18 @@
 
 ## [Active Work]
 
+- 17:30 | OpenFang 架构研究完成！
+  - 创建完整路线图: docs/design/OPENFANG_ARCHITECTURE_ROADMAP.md
+  - 14 crate 模块分析 (Kernel, Runtime, Memory, API, Channels, Hands...)
+  - 整合里程碑已添加到 CHECKPOINT_PLAN.md
+  - 参考文档已创建: docs/plans/2026-02-27-openfang-architecture-research.md
+- 17:00 | OpenFang 架构研究阶段开始
+  - 研究 openfang-kernel: Kernel, AgentRegistry, EventBus, Scheduler
+  - 研究 openfang-runtime: AgentLoop, MCP Client, 27 LLM Providers
+  - 研究 openfang-memory: 三层存储 (Structured + Semantic + Knowledge)
+  - 研究 openfang-api: 140+ Axum 端点设计
+  - 对比分析完成，制定引入计划
+  - 产出: docs/plans/2026-02-27-openfang-architecture-research.md
 - 15:00 | Phase 2.3 MCP Workbench completed
 
 ---
