@@ -144,6 +144,66 @@ Phase 1 核心引擎全部代码提交到 git，阶段正式关闭。
 
 ---
 
+## 2026-02-27 — Phase 2.2 记忆系统完整
+
+### 会话概要
+
+完成 Phase 2.2 全部任务，实现 5 个 memory tools 和 Memory Explorer UI。
+
+### 技术变更
+
+#### 后端 (Rust)
+
+**新增文件**:
+- `crates/octo-engine/src/tools/memory_recall.rs` — 语义记忆检索工具，支持按 ID 召回和语义相似推荐
+- `crates/octo-engine/src/tools/memory_forget.rs` — 记忆删除工具，支持按 ID 或分类删除
+
+**修改文件**:
+- `crates/octo-engine/src/memory/sqlite_store.rs` — SQLite 存储实现
+- `crates/octo-engine/src/memory/store_traits.rs` — MemoryStore trait 定义
+- `crates/octo-engine/src/tools/mod.rs` — 工具注册
+- `crates/octo-server/src/api/memories.rs` — REST API 端点
+- `crates/octo-server/src/api/mod.rs` — API 模块
+
+#### 前端 (TypeScript/React)
+
+**新增文件**:
+- `web/src/pages/Memory.tsx` — Memory Explorer 页面组件
+  - Working Memory 视图：显示当前上下文块
+  - Session Memory 视图：会话期间积累的记忆
+  - Persistent Memory 视图：持久化存储的记忆
+  - 搜索和分类过滤功能
+
+**修改文件**:
+- `web/src/atoms/ui.ts` — 新增 "memory" tab
+- `web/src/components/layout/TabBar.tsx` — 新增 Memory 标签页
+- `web/src/App.tsx` — 挂载 Memory 页面组件
+
+### 构建验证结果
+
+| 检查项 | 状态 | 详情 |
+|--------|------|------|
+| `cargo check --workspace` | ✅ 通过 | 24 warnings (unused code) |
+| `pnpm tsc --noEmit` | ✅ 通过 | 0 errors |
+
+### 已完成功能
+
+1. **memory_recall** — 语义记忆检索，支持语义相似推荐
+2. **memory_forget** — 记忆删除，支持按 ID 或分类批量删除
+3. **Memory Explorer UI** — 可视化 Working/Session/Persistent 记忆
+4. **REST API** — `/api/memories`, `/api/memories/working`, `/api/memories/{id}`
+
+### 遗留问题
+
+无
+
+### 下一步
+
+- **Phase 2.3** — 调试面板完善（MCP Workbench、Skill Studio、Network Interceptor、Context Viewer）
+- **运行时验证** — 需要 API key 进行端到端测试
+
+---
+
 ## 2026-02-26 — Phase 2 上下文工程架构设计
 
 ### 会话概要

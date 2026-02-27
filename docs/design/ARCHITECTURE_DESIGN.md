@@ -330,18 +330,301 @@ Context Manager 负责构建和管理 Agent 的上下文窗口：
 
 为 Agent 提供 5 个记忆工具，实现自编辑记忆能力（参考 Letta 设计理念）：
 
-| 工具名 | 功能 | 参考来源 | Phase |
-|--------|------|---------|-------|
-| `memory_store` | 显式存储一条记忆到持久层 | mem0 add / Letta archival_memory_insert | Phase 2 |
-| `memory_search` | 搜索持久记忆（混合检索） | openclaw memory_search / Letta archival_memory_search | Phase 2 |
-| `memory_update` | 更新 Working Memory 块 | Letta core_memory_replace | Phase 2 |
-| `memory_recall` | 搜索会话历史 | Letta conversation_search | Phase 3 |
-| `memory_forget` | 删除/过期指定记忆 | zeroclaw forget | Phase 3 |
+| 工具名 | 功能 | 搜索层 | 参考来源 | Phase |
+|--------|------|--------|---------|-------|
+| `memory_store` | 显式存储一条记忆到持久层 | Layer 2 写入 | mem0 add / Letta archival_memory_insert | Phase 2 |
+| `memory_search` | 搜索持久记忆（混合检索） | Layer 2 读取 | openclaw memory_search / Letta archival_memory_search | Phase 2 |
+| `memory_update` | 更新 Working Memory 块 | Layer 0 写入 | Letta core_memory_replace | Phase 2 |
+| `memory_recall` | 搜索会话对话历史 | Layer 1 读取 | Letta conversation_search | Phase 3 |
+| `memory_forget` | 删除/过期指定记忆 | Layer 2 删除 | zeroclaw forget / Letta archival_memory_delete | Phase 3 |
 
 **设计要点**：
 - Agent 可通过 `memory_update` 自主修改 Working Memory（如更新对用户的理解）
 - 事实提取在后台自动进行，不作为 Agent 工具暴露
 - `memory_search` 默认使用混合检索，对 Agent 透明
+- `memory_search` 与 `memory_recall` 搜索不同的记忆层，互补而非替代（详见下文）
+
+### 3.8.1 memory_search vs memory_recall：核心区别
+
+两个搜索工具对应 Letta 的两个不同原型，搜索不同的记忆层：
+
+| 维度 | memory_search | memory_recall |
+|------|---------------|---------------|
+| **Letta 原型** | `archival_memory_search` | `conversation_search` |
+| **搜索目标** | Layer 2 — Persistent Memory（持久化知识/事实） | Layer 1 — Session Memory（对话历史） |
+| **数据性质** | 经过提取、整理的**结构化事实**（偏好、决策、错误模式等） | **原始对话消息**（user/assistant/tool 的完整交互记录） |
+| **时间跨度** | 跨所有会话，永久存在 | 当前会话 + 可选的历史会话 |
+| **检索方式** | 语义向量 + FTS5 混合检索（70/30） | 文本匹配 + 语义检索，支持角色/时间过滤 |
+| **类比** | 翻阅你的笔记本 | 回忆"我们之前聊过什么" |
+| **openclaw 对应** | `memory_search`（搜索 MEMORY.md + memory/*.md） | experimental sessionMemory |
+| **zeroclaw 对应** | recall 方法（合并了两者） | recall 方法（合并了两者） |
+
+**为什么需要两个搜索工具**：
+- Agent 想知道"用户之前说过他喜欢什么框架？" → `memory_recall`（搜索对话原文）
+- Agent 想知道"关于这个用户我知道什么？" → `memory_search`（搜索提取的事实）
+
+**上下文注入区别**（参见 CONTEXT_ENGINEERING_DESIGN.md 区域 B）：
+- `memory_recall` 的自动注入版本以 `<memory_recall>` 标签注入区域 B（系统每轮自动检索）
+- `memory_recall` 工具是 Agent **主动**发起的精确回溯，两者互补
+
+### 3.8.2 memory_recall 详细设计
+
+**定位**：搜索 Layer 1 Session Memory（会话对话历史），让 Agent 能精确回溯特定对话内容。
+
+**Rust 接口**：
+
+```rust
+pub struct MemoryRecallTool {
+    session_store: Arc<dyn SessionStore>,
+    current_session_id: String,
+}
+
+#[async_trait]
+impl Tool for MemoryRecallTool {
+    fn name(&self) -> &str { "memory_recall" }
+
+    fn description(&self) -> &str {
+        "Search conversation history for specific messages, decisions, or context. \
+         Use when you need to recall what was said in previous turns or sessions. \
+         Supports filtering by role (user/assistant/tool) and time range. \
+         For searching stored facts/knowledge, use memory_search instead."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Keywords or semantic query to search conversation history"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": { "type": "string", "enum": ["user", "assistant", "tool"] },
+                    "description": "Filter by message role (default: all roles)"
+                },
+                "session_id": {
+                    "type": "string",
+                    "description": "Search a specific session (default: current session)"
+                },
+                "limit": {
+                    "type": "integer",
+                    "description": "Max results to return (default: 10, max: 50)"
+                },
+                "start_date": {
+                    "type": "string",
+                    "description": "ISO 8601 date, only return messages after this time"
+                },
+                "end_date": {
+                    "type": "string",
+                    "description": "ISO 8601 date, only return messages before this time"
+                }
+            },
+            "required": ["query"]
+        })
+    }
+}
+```
+
+**返回格式**：
+
+```json
+{
+    "success": true,
+    "results": [
+        {
+            "role": "user",
+            "content": "我觉得还是用 SQLite 吧，性能够用而且部署简单",
+            "timestamp": "2026-02-26T14:30:00Z",
+            "session_id": "sess_abc123",
+            "turn_index": 42,
+            "score": 0.85
+        },
+        {
+            "role": "assistant",
+            "content": "好的，我把存储层从 PostgreSQL 切换到 SQLite WAL 模式...",
+            "timestamp": "2026-02-26T14:30:15Z",
+            "session_id": "sess_abc123",
+            "turn_index": 43,
+            "score": 0.78
+        }
+    ],
+    "total_matches": 5,
+    "searched_sessions": 1
+}
+```
+
+**检索策略**：
+
+```
+1. 当前会话优先：默认只搜索当前 session_id 的消息
+2. 跨会话搜索：指定 session_id 或不指定 + 配置允许时，搜索历史会话
+3. 检索方式：
+   ├─ 有 query 时：语义检索（复用 Session Memory 的向量索引）+ 文本匹配
+   ├─ 无 query 时：按 roles/时间过滤，返回最近的消息
+   └─ 结果按 score 降序排列
+4. 角色过滤：在检索后过滤，不影响检索召回率
+5. 时间过滤：转换为 timestamp 范围查询，在索引层执行
+```
+
+**数据源**：
+
+```
+SessionStore trait:
+  ├─ 当前会话：直接从内存中的 ChatMessage[] 搜索
+  ├─ 历史会话：从 JSONL 文件加载（~/.octo-sandbox/sessions/<id>.jsonl）
+  └─ 可选：从 Session Memory 向量索引搜索（复用 openclaw experimental sessionMemory 的设计）
+```
+
+**安全约束**：
+- 多用户场景下，只能搜索当前用户自己的会话历史（user_id 隔离）
+- `content` 字段做 PII 脱敏（如果配置了 `memory.recall.redactPII = true`）
+- 单次返回上限 50 条，每条 content 截断至 500 chars
+
+**与自动注入的关系**：
+- 区域 B 的 `<memory_recall>` 自动注入：系统每轮以用户最新消息为 query，自动检索 top-5 注入上下文
+- `memory_recall` 工具：Agent 主动调用，支持精确的角色/时间/会话过滤
+- 两者共享同一个 SessionStore 和索引，但触发方式和过滤粒度不同
+
+### 3.8.3 memory_forget 详细设计
+
+**定位**：从 Layer 2 Persistent Memory 中删除或过期指定记忆条目。
+
+**Rust 接口**：
+
+```rust
+pub struct MemoryForgetTool {
+    memory_store: Arc<dyn MemoryStore>,
+}
+
+#[async_trait]
+impl Tool for MemoryForgetTool {
+    fn name(&self) -> &str { "memory_forget" }
+
+    fn description(&self) -> &str {
+        "Delete a memory entry by ID or key from persistent storage. \
+         Use to remove outdated facts, incorrect information, or sensitive data. \
+         Also supports bulk expiry by category or age. \
+         Returns what was deleted for confirmation."
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "Memory entry ID (from memory_search results)"
+                },
+                "key": {
+                    "type": "string",
+                    "description": "Memory key (alternative to id)"
+                },
+                "category": {
+                    "type": "string",
+                    "description": "Delete all memories in this category (use with caution)"
+                },
+                "older_than": {
+                    "type": "string",
+                    "description": "Delete memories older than this duration (e.g. '30d', '6h')"
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Preview what would be deleted without actually deleting (default: false)"
+                }
+            }
+        })
+    }
+}
+```
+
+**三种删除模式**：
+
+```
+模式 1 — 精确删除（id 或 key）
+  ├─ 参考：zeroclaw MemoryForgetTool（按 key 删除）
+  ├─ 删除单条记忆，返回被删除的 key + content 摘要
+  └─ 同时清理向量索引中对应的 embedding
+
+模式 2 — 分类批量删除（category）
+  ├─ 删除指定 category 下的所有记忆
+  ├─ 需要 dry_run=true 先预览，防止误删
+  └─ 返回删除数量和被删除的 key 列表
+
+模式 3 — 过期清理（older_than）
+  ├─ 删除超过指定时间的记忆
+  ├─ 支持 '30d'（30天）、'6h'（6小时）等格式
+  ├─ 可与 category 组合使用
+  └─ 同样建议先 dry_run
+```
+
+**返回格式**：
+
+```json
+{
+    "success": true,
+    "deleted": [
+        {
+            "id": "mem_abc123",
+            "key": "user_lang_pref",
+            "category": "core",
+            "content_preview": "User prefers Rust over Go for...",
+            "created_at": "2026-02-20T10:00:00Z"
+        }
+    ],
+    "count": 1,
+    "dry_run": false
+}
+```
+
+**安全约束**：
+- 批量删除（category / older_than）在非 dry_run 模式下，单次最多删除 100 条
+- 超过 100 条时返回 `"truncated": true`，需要多次调用
+- 多用户场景下，只能删除当前用户自己的记忆（user_id 隔离）
+- 删除操作写入审计日志（who/when/what）
+- 被删除的记忆不可恢复（设计简洁性优先；如需软删除，Phase 4 考虑）
+
+**与 zeroclaw 的区别**：
+- zeroclaw 只支持按 key 精确删除（单条）
+- octo-sandbox 扩展了 category 批量删除和 older_than 过期清理
+- 增加了 dry_run 预览机制，防止 Agent 误删大量记忆
+- 增加了审计日志，支持多用户场景的合规需求
+
+### 3.8.4 五个工具的协作模式
+
+```
+用户提问 → Agent 决策使用哪个工具：
+
+"关于这个项目我之前存了什么笔记？"
+  → memory_search（搜索 Layer 2 持久知识）
+
+"我上次让你用什么方案来着？"
+  → memory_recall（搜索 Layer 1 对话历史）
+
+"记住：以后所有 API 都用 v2 版本"
+  → memory_store（写入 Layer 2）
+
+"把我的偏好从 dark mode 改成 light mode"
+  → memory_update（修改 Layer 0 Working Memory）
+
+"删掉之前存的那条错误的 API endpoint"
+  → memory_forget（从 Layer 2 删除）
+```
+
+**典型工作流**：
+
+```
+1. Agent 收到用户问题
+2. 系统自动注入：区域 B 的 <memory_recall> 提供基线对话上下文
+3. Agent 判断需要更多信息：
+   ├─ 需要历史事实 → 调用 memory_search
+   ├─ 需要对话原文 → 调用 memory_recall
+   └─ 信息充足 → 直接回答
+4. Agent 在回答过程中发现需要记住/更新/删除信息：
+   ├─ 新事实 → memory_store
+   ├─ 更新理解 → memory_update
+   └─ 过时信息 → memory_forget
+```
 
 ---
 
