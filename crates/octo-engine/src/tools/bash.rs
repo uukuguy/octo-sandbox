@@ -8,11 +8,96 @@ use octo_types::{ToolContext, ToolResult, ToolSource};
 
 use super::traits::Tool;
 
-pub struct BashTool;
+/// Shell 命令执行安全模式（参考 ARCHITECTURE_DESIGN.md §5.5.1）
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecSecurityMode {
+    /// 禁止所有 shell 执行
+    Deny,
+    /// 仅允许白名单命令（默认）
+    Allowlist,
+    /// 允许所有命令（开发模式）
+    Full,
+}
+
+/// 工具执行安全策略
+#[derive(Debug, Clone)]
+pub struct ExecPolicy {
+    pub mode: ExecSecurityMode,
+    /// 内置安全命令集
+    pub safe_bins: Vec<String>,
+    /// 用户扩展白名单
+    pub allowed_commands: Vec<String>,
+}
+
+impl Default for ExecPolicy {
+    fn default() -> Self {
+        Self {
+            mode: ExecSecurityMode::Allowlist,
+            safe_bins: vec![
+                "ls", "cat", "head", "tail", "grep", "find", "echo", "pwd",
+                "wc", "sort", "uniq", "cut", "awk", "sed", "tr", "diff",
+                "git", "cargo", "npm", "python3", "python", "node", "sh",
+                "bash", "touch", "mkdir", "cp", "mv", "rm", "curl", "wget",
+            ]
+            .into_iter()
+            .map(String::from)
+            .collect(),
+            allowed_commands: vec![],
+        }
+    }
+}
+
+impl ExecPolicy {
+    /// 检查命令是否被允许执行
+    pub fn is_allowed(&self, command: &str) -> bool {
+        match self.mode {
+            ExecSecurityMode::Deny => false,
+            ExecSecurityMode::Full => true,
+            ExecSecurityMode::Allowlist => {
+                // 提取命令名（取第一个词，去掉路径前缀）
+                let cmd = command.split_whitespace().next().unwrap_or("");
+                let cmd_name = cmd.rsplit('/').next().unwrap_or(cmd);
+                self.safe_bins.iter().any(|b| b == cmd_name)
+                    || self.allowed_commands.iter().any(|b| b == cmd_name)
+            }
+        }
+    }
+}
+
+/// 安全环境变量白名单
+const SAFE_ENV_VARS: &[&str] = &[
+    "PATH",
+    "HOME",
+    "TMPDIR",
+    "LANG",
+    "LC_ALL",
+    "TERM",
+    "USER",
+    "SHELL",
+    "CARGO_HOME",
+    "RUSTUP_HOME",
+];
+
+pub struct BashTool {
+    exec_policy: Option<ExecPolicy>,
+}
 
 impl BashTool {
     pub fn new() -> Self {
-        Self
+        Self { exec_policy: None }
+    }
+
+    /// 创建带安全策略的 BashTool
+    pub fn with_policy(policy: ExecPolicy) -> Self {
+        Self {
+            exec_policy: Some(policy),
+        }
+    }
+}
+
+impl Default for BashTool {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -48,12 +133,31 @@ impl Tool for BashTool {
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'command' parameter"))?;
 
-        let timeout_secs = params["timeout"]
-            .as_u64()
-            .unwrap_or(30)
-            .min(120);
+        // 1. 路径遍历检查
+        if command.contains("../") || command.contains("..\\") {
+            return Ok(ToolResult::error(
+                "Security violation: path traversal detected in command".to_string(),
+            ));
+        }
+
+        // 2. ExecPolicy 模式检查
+        if let Some(policy) = &self.exec_policy {
+            if !policy.is_allowed(command) {
+                return Ok(ToolResult::error(format!(
+                    "Security violation: command not allowed by exec policy (mode={:?})",
+                    policy.mode
+                )));
+            }
+        }
+
+        let timeout_secs = params["timeout"].as_u64().unwrap_or(30).min(120);
 
         debug!(command, timeout_secs, "executing bash command");
+
+        // 收集安全环境变量白名单
+        let safe_env: Vec<(String, String)> = std::env::vars()
+            .filter(|(k, _)| SAFE_ENV_VARS.contains(&k.as_str()))
+            .collect();
 
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(timeout_secs),
@@ -62,9 +166,7 @@ impl Tool for BashTool {
                 .arg(command)
                 .current_dir(&ctx.working_dir)
                 .env_clear()
-                .env("PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
-                .env("HOME", "/tmp")
-                .env("LANG", "en_US.UTF-8")
+                .envs(safe_env)
                 .output(),
         )
         .await;
