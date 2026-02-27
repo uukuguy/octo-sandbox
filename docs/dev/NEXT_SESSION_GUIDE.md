@@ -2,51 +2,57 @@
 
 ## 当前状态
 
-- **Phase 2.2 (记忆系统完整)** ✅ 已完成
+- **Phase 2.3 (MCP Workbench)** ✅ 已完成
 - **分支**: `octo-workbench`
-- **提交**: `56cda54 feat(memory): add memory_recall, memory_forget tools and Memory Explorer UI`
+- **设计文档**: `docs/design/MCP_WORKBENCH_DESIGN.md`
+- **实施计划**: `docs/plans/2026-02-27-phase2-3-batch1-mcp-workbench-implementation.md`
 
 ## 完成清单
 
 - [x] Phase 1: 核心引擎 (AI 对话 + 工具执行 + WebSocket)
 - [x] Phase 2.1: 调试面板基础 (Timeline + JsonViewer + Tool Execution)
 - [x] Phase 2.2: 记忆系统完整 (5 memory tools + Memory Explorer UI)
-- [ ] Phase 2.3: 调试面板完善
+- [x] Phase 2.3: MCP Workbench (12 任务全部完成)
 - [ ] Phase 2.4: v1.0 Release
 
-## 下一步优先级
+## Phase 2.3 完成内容
 
-1. **Phase 2.3 调试面板完善**
-   - MCP Workbench: Server 管理 + 手动调用 + 日志流
-   - Skill Studio: 编辑 + 测试 + 热重载
-   - Network Interceptor: 请求/响应拦截
-   - Context Viewer: 实时上下文窗口
+**后端 (Rust)**:
+- 数据库 Migration V3 (mcp_servers, mcp_executions, mcp_logs 表)
+- MCP 存储模块 (SQLite CRUD)
+- McpManager 运行时状态扩展
+- 3 个 REST API 模块 (servers, tools, logs)
 
-2. **运行时验证**
-   - 需要 `ANTHROPIC_API_KEY` 环境变量
-   - 启动服务器: `cargo run -p octo-server`
-   - 启动前端: `cd web && pnpm dev`
+**前端 (TypeScript/React)**:
+- MCP 导航标签
+- McpWorkbench 页面 (3 子标签)
+- ServerList 组件
+- ToolInvoker 组件
+- LogViewer 组件
+- API 集成 + mock 数据降级
+
+## 下一步
+
+1. Phase 2.4 — v1.0 Release
+   - 完善 MCP Workbench 运行时集成
+   - 进程管理 (Start/Stop)
+   - 完整端到端测试
+   - 性能优化
 
 ## 关键代码路径
 
-- **Memory Tools**: `crates/octo-engine/src/tools/memory_*.rs`
-- **Memory Store**: `crates/octo-engine/src/memory/`
-- **Memory API**: `crates/octo-server/src/router.rs` (搜索 "memories")
-- **Memory Page**: `web/src/pages/Memory.tsx`
+- **MCP 核心**: `crates/octo-engine/src/mcp/`
+- **MCP API**: `crates/octo-server/src/api/mcp_*.rs`
+- **MCP 前端**: `web/src/components/mcp/`, `web/src/pages/McpWorkbench.tsx`
+- **WebSocket**: `crates/octo-server/src/ws.rs`
 
 ## 设计文档
 
+- MCP Workbench: `docs/design/MCP_WORKBENCH_DESIGN.md`
 - 架构设计: `docs/design/ARCHITECTURE_DESIGN.md`
-- 实施规划: `docs/plans/2026-02-27-octo-workbench-v1-implementation.md`
-- 检查点: `docs/plans/.checkpoint.json`
-
-## 记忆索引
-
-- MEMORY_INDEX.md: `docs/dev/MEMORY_INDEX.md`
-- MCP memory: `claude-mem` 项目 "octo-sandbox"
 
 ## 注意事项
 
-1. Phase 2.3 涉及多个前端页面组件开发
-2. MCP Workbench 需要连接外部 MCP 服务器
-3. 运行时验证需要有效的 API key
+1. API 已实现，带 mock 数据降级
+2. 下阶段需要实现真实的 MCP 服务器启动/停止
+3. 需要 API key 进行端到端测试

@@ -5,6 +5,19 @@
 
 ---
 
+## Phase 2.3 - MCP Workbench [COMPLETED 2026-02-27]
+
+- 15:00 | Phase 2.3 MCP Workbench 完成！12/12 任务全部完成
+  - Backend: DB migration v3, MCP storage, Manager 扩展, 3 API 模块
+  - Frontend: MCP tab + McpWorkbench + ServerList/ToolInvoker/LogViewer
+  - API 集成完成，带 mock 数据降级
+- 12:31 | Phase 2.3 开始: 启动 MCP Workbench 设计
+- 12:40 | MCP Workbench 需求确认: 动态添加 MCP Server、分级日志、持久化
+- 12:50 | MCP Workbench 设计方案完成 (docs/design/MCP_WORKBENCH_DESIGN.md)
+- 12:50 | 实施计划完成: 12 个任务 (docs/plans/...implementation.md)
+
+---
+
 ## Phase 2.2 - 记忆系统完整 [COMPLETED 2026-02-27]
 
 - 11:35 | Phase 2.2 开始实施：memory_recall + memory_forget tools + Memory Explorer UI
@@ -14,7 +27,7 @@
 
 ## [Active Work]
 
-- 11:45 | Phase 2.2 - 记忆系统完整 completed (提交 56cda54)
+- 15:00 | Phase 2.3 MCP Workbench completed
 
 ---
 

@@ -1,5 +1,75 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-02-27 — Phase 2.3 MCP Workbench 实现
+
+### 会话概要
+
+Phase 2.3 MCP Workbench 一次会话完成全部 12 个任务。从数据库设计到前端 UI，实现完整的 MCP 服务器管理界面。
+
+### 技术变更
+
+#### 后端 (Rust)
+
+**数据库层**
+- `crates/octo-engine/src/db/migrations.rs` — 添加 Migration V3 (mcp_servers, mcp_executions, mcp_logs 表)
+- `crates/octo-engine/src/mcp/storage.rs` — 新增 MCP 存储模块 (SQLite CRUD)
+
+**MCP 集成**
+- `crates/octo-engine/src/mcp/traits.rs` — 添加 McpServerConfigV2 结构
+- `crates/octo-engine/src/mcp/manager.rs` — 添加运行时状态跟踪 (ServerRuntimeState)
+
+**API 层**
+- `crates/octo-server/src/api/mcp_servers.rs` — MCP 服务器 CRUD 端点
+- `crates/octo-server/src/api/mcp_tools.rs` — MCP 工具调用端点
+- `crates/octo-server/src/api/mcp_logs.rs` — MCP 日志查询端点
+- `crates/octo-server/Cargo.toml` — 添加 uuid, chrono 依赖
+
+#### 前端 (TypeScript/React)
+
+- `web/src/atoms/ui.ts` — 添加 "mcp" tab
+- `web/src/components/layout/TabBar.tsx` — 添加 MCP 导航标签
+- `web/src/App.tsx` — 添加 McpWorkbench 页面渲染
+- `web/src/pages/McpWorkbench.tsx` — MCP 工作台主页面 (3 子标签)
+- `web/src/components/mcp/ServerList.tsx` — 服务器列表组件
+- `web/src/components/mcp/ToolInvoker.tsx` — 工具调用器组件
+- `web/src/components/mcp/LogViewer.tsx` — 日志查看器组件
+
+### Git 提交
+
+| 提交 | 描述 |
+|------|------|
+| `6f6ccdb` | feat(mcp-workbench): complete frontend components with API integration |
+
+### 新增/修改文件
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `crates/octo-engine/src/mcp/storage.rs` | 新增 | MCP 存储模块 |
+| `crates/octo-server/src/api/mcp_servers.rs` | 新增 | MCP 服务器 API |
+| `crates/octo-server/src/api/mcp_tools.rs` | 新增 | MCP 工具 API |
+| `crates/octo-server/src/api/mcp_logs.rs` | 新增 | MCP 日志 API |
+| `web/src/pages/McpWorkbench.tsx` | 新增 | MCP 工作台页面 |
+| `web/src/components/mcp/ServerList.tsx` | 新增 | 服务器列表组件 |
+| `web/src/components/mcp/ToolInvoker.tsx` | 新增 | 工具调用器组件 |
+| `web/src/components/mcp/LogViewer.tsx` | 新增 | 日志查看器组件 |
+| `web/src/atoms/ui.ts` | 修改 | 添加 mcp tab |
+| `web/src/components/layout/TabBar.tsx` | 修改 | 添加 MCP 标签 |
+| `web/src/App.tsx` | 修改 | 渲染 McpWorkbench |
+
+### 构建验证
+
+| 检查项 | 状态 |
+|--------|------|
+| `cargo check --workspace` | ✅ 通过 |
+| `cd web && pnpm build` | ✅ 通过 |
+
+### 下一步
+
+- Phase 2.4 — 完善 MCP Workbench (运行时集成、进程管理)
+- Phase 3 — 上下文工程完整实现
+
+---
+
 ## 2026-02-26 — Phase 1 核心引擎实现
 
 ### 会话概要
