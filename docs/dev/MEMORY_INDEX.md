@@ -56,6 +56,7 @@
 ## [Active Work]
 
 - 19:30 | Phase 2.4 Engine Hardening 完成 [claude-mem #2886]
+- 2026-02-27 20:10 | MCP SSE Transport 完成: SseMcpClient + add_server_v2() + transport/url API 字段
 
 ---
 
