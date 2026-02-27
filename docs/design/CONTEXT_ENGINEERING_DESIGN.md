@@ -1,6 +1,7 @@
 # octo-sandbox 上下文工程架构设计
 
 **日期**: 2026-02-26
+**最后更新**: 2026-02-27（基于 OpenFang 深度分析同步 4+1 阶段溢出恢复方案）
 **阶段**: Phase 2 设计
 **状态**: brainstorming 验证通过，待实施
 **相关文档**: `docs/design/ARCHITECTURE_DESIGN.md` (主架构文档)
@@ -17,11 +18,12 @@
 |------|-----------|------------------|
 | Token 估算 | 3-4 chars/token | 4 chars/token + 真实 usage 双轨 |
 | 混合检索 | 70% 向量 + 30% FTS | ✅ 采纳 |
-| 渐进式降级 | soft→hard→compact 多级 | ✅ 三级 + 压缩边界保护 |
+| 渐进式降级 | soft→hard→compact 多级 | ✅ 4+1 阶段（v1.1 升级，参考 OpenFang） |
 | 压缩边界 | 不在工具调用链中间截断 | ✅ 采纳（pi_agent_rust） |
-| 大结果处理 | 摘要 + 文件引用 | 三层防御策略 |
+| 大结果处理 | 摘要 + 文件引用 | 三层防御策略 + ToolResultTruncation 兜底 |
 | 提示缓存 | 静态系统提示 + 动态每消息上下文 | ✅ 采纳（Craft Agents） |
 | 压缩前保护 | 记忆冲刷 / PreCompact hook | ✅ Memory Flush |
+| 溢出终止 | FinalError 结构化终止 | ✅ 新增 FinalError 阶段（OpenFang） |
 
 ### 1.2 设计原则
 
@@ -160,30 +162,54 @@ impl SystemPromptBuilder {
 
 ## 4. 对话历史管理与渐进式降级（区域 C）
 
-### 4.1 三级渐进式降级策略
+### 4.1 四阶段渐进式降级策略（4+1 阶段，参考 OpenFang）
+
+> **v1.1 更新**：基于 OpenFang 深度代码分析，将原「三级策略」升级为「4+1 阶段」模型。
+> 核心变化：将原 Level 1 上限从 80% 收紧至 **70%**，在 70%-90% 区间拆分为两个精度不同的压缩级别，
+> 保留 ToolResultTruncation 作为最后防线，并增加 FinalError 终止状态。
 
 ```
-Level 0 — 正常模式（使用率 < 60%）
+Stage 0 — 正常模式（使用率 ≤ 70%）
   ► 完整保留所有消息，无裁剪
 
-Level 1 — 软裁剪（使用率 60%-80%）
+Stage 1 — 软裁剪 SoftTrim（使用率 60%-70%）
   ► 对 ≥2 轮前的工具结果做头尾截断
   ► 保留前 1500 chars + 后 500 chars
   ► 中间替换为 "[... 已省略 N chars ...]"
   ► 不触碰用户消息和助手文本
 
-Level 2 — 硬清除（使用率 80%-90%）
-  ► 对更早的工具结果替换为占位符
-  ► "[工具 {name} 已执行，结果已省略]"
+Stage 2 — AutoCompaction（使用率 70%-90%）
+  ► 对更早的工具结果替换为占位符："[工具 {name} 已执行，结果已省略]"
+  ► 保留最近 10 条消息完整历史
   ► 保留工具调用的 name + input 摘要（≤200 chars）
   ► 仍然保留所有用户/助手文本消息
 
-Level 3 — 压缩摘要（使用率 > 90%）
+Stage 3 — OverflowCompaction（使用率 > 90%）
   ► 触发完整压缩流程：
-  ► 1. 记忆冲刷（Memory Flush）
-  ► 2. 结构化摘要生成
-  ► 3. 替换旧历史
+  ► 1. 记忆冲刷（Memory Flush）— 保存关键事实到 Working Memory
+  ► 2. 结构化摘要生成 — pi_agent_rust 格式
+  ► 3. 仅保留最近 4 条消息完整历史
+  ► 4. 替换旧历史为摘要
+
+Stage 4 — ToolResultTruncation（压缩后仍超限）
+  ► 对当前轮次工具结果截断至 2K tokens
+  ► 这是最后防线，通常不应触达此阶段
+
+Stage 5 — FinalError（全部手段失效）
+  ► 返回结构化错误，强制终止当前 Agent Loop
+  ► 防止无限重试，保护系统稳定性
 ```
+
+**与原三级策略的对比**：
+
+| 原策略 | 新策略 | 变化 |
+|--------|--------|------|
+| Level 0: < 60% | Stage 0: ≤ 70%（SoftTrim 介于 60-70%） | 正常区间扩大 |
+| Level 1: 60%-80% | Stage 1 SoftTrim: 60%-70% | **上限收紧**，提前启动轻度干预 |
+| Level 2: 80%-90% → HardClear | Stage 2 AutoCompaction: 70%-90% | 下限下移，操作从"清除"升级为"保留10条" |
+| Level 3: > 90% → Compact | Stage 3 OverflowCompaction: > 90% | 更激进，仅保留 4 条 |
+| —（无） | Stage 4 ToolResultTruncation | **新增**：针对单条超大工具结果的最后防线 |
+| —（无） | Stage 5 FinalError | **新增**：优雅的终止状态，不 panic |
 
 ### 4.2 压缩边界保护
 
@@ -351,10 +377,12 @@ pub struct ContextBudgetManager {
 }
 
 pub enum DegradationLevel {
-    None,       // < 60%
-    SoftTrim,   // 60% - 80%
-    HardClear,  // 80% - 90%
-    Compact,    // > 90%
+    None,                  // ≤ 70%（SoftTrim 介于 60-70% 内）
+    SoftTrim,              // 60% - 70%：工具结果头尾裁剪
+    AutoCompaction,        // 70% - 90%：保留最近 10 条，其余摘要化
+    OverflowCompaction,    // > 90%：保留最近 4 条，触发 Memory Flush + 结构化摘要
+    ToolResultTruncation,  // 压缩后仍超限：截断当前工具结果至 2K tokens
+    FinalError,            // 全部手段失效：返回错误终止 Loop
 }
 ```
 
@@ -385,11 +413,14 @@ impl ContextBudgetManager {
         messages: &[ChatMessage],
     ) -> DegradationLevel {
         let ratio = self.usage_ratio(messages);
+        // 4+1 阶段溢出恢复（参考 OpenFang，v1.1 更新）
+        // SoftTrim 在 60%-70% 之间作为预警性轻度干预
         match ratio {
             r if r < 0.60 => DegradationLevel::None,
-            r if r < 0.80 => DegradationLevel::SoftTrim,
-            r if r < 0.90 => DegradationLevel::HardClear,
-            _ => DegradationLevel::Compact,
+            r if r < 0.70 => DegradationLevel::SoftTrim,
+            r if r < 0.90 => DegradationLevel::AutoCompaction,
+            _ => DegradationLevel::OverflowCompaction,
+            // ToolResultTruncation 和 FinalError 由 ContextPruner 按需升级触发
         }
     }
 }
@@ -433,15 +464,19 @@ impl ContextBudgetManager {
 
 ## 9. 实施路径
 
-### 9.1 Phase 2 实施优先级
+### 9.1 实施优先级
 
 ```
-第一批（Agent Loop + 上下文工程核心）：
-  1. ContextBudgetManager 重构（双轨估算 + 降级决策）
-  2. ContextPruner 新模块（三级降级执行）
+Phase 2（已规划）：
+  1. ContextBudgetManager 重构（双轨估算 + 降级决策，4+1 阶段阈值）
+  2. ContextPruner 新模块（4+1 阶段降级执行：SoftTrim/AutoCompaction/OverflowCompaction/ToolResultTruncation/FinalError）
   3. SystemPromptBuilder 增强（Bootstrap 文件发现 + 截断）
   4. 工具结果三层防御
   5. 压缩边界保护
+
+Phase 2.4（新增，参考 OpenFang Engine Hardening）：
+  0. Loop Guard / Circuit Breaker（与上下文溢出共同构成双重安全终止机制）
+  → 参见 ARCHITECTURE_DESIGN.md §3.2.1
 
 第二批（记忆集成）：
   6. Working Memory 增强（priority + max_age_turns + Agent 工具）

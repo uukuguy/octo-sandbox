@@ -1,25 +1,12 @@
 {
-  "plan_file": "docs/plans/2026-02-27-phase2-3-batch1-mcp-workbench-implementation.md",
-  "phase": "completed",
-  "phase_name": "Phase 2.3 - MCP Workbench",
-  "created_at": "2026-02-27T12:31:00+08:00",
-  "updated_at": "2026-02-27T15:00:00+08:00",
-  "completed_tasks": [
-    "Task 1: Database Schema Extension",
-    "Task 2: MCP Storage Module",
-    "Task 3: McpManager Extensions",
-    "Task 4: MCP Server API",
-    "Task 5: MCP Tools API",
-    "Task 6: MCP Logs API",
-    "Task 7: Frontend - Add MCP Tab",
-    "Task 8: McpWorkbench Page",
-    "Task 9: ServerList Component",
-    "Task 10: ToolInvoker Component",
-    "Task 11: LogViewer Component",
-    "Task 12: Full Stack Integration"
-  ],
+  "plan_file": "docs/plans/2026-02-27-phase2-4-engine-hardening.md",
+  "phase": "design",
+  "phase_name": "Phase 2.4 - Engine Hardening",
+  "created_at": "2026-02-27T18:55:00+08:00",
+  "updated_at": "2026-02-27T18:55:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "execution_mode": "executing-plans",
-  "design_doc": "docs/design/MCP_WORKBENCH_DESIGN.md",
-  "notes": "Phase 2.3 MCP Workbench completed! All 12 tasks done. Backend: DB migration v3, MCP storage, Manager extensions, 3 API modules (servers, tools, logs). Frontend: MCP tab with 3 sub-tabs (Servers, Tool Invoker, Log Viewer), full API integration with fallback to mock data."
+  "execution_mode": null,
+  "design_doc": "docs/design/ARCHITECTURE_DESIGN.md",
+  "notes": "Phase 2.4 plan created based on ARCHITECTURE_DESIGN.md v1.1. 7 tasks: Task1 Loop Guard/CircuitBreaker, Task2 Context 4+1 stages (70%/90% thresholds), Task3 LLM error classification 8 types + retry, Task4 EventBus broadcast+ringbuffer, Task5 BashTool security (ExecSecurityMode/env_clear/path-traversal), Task6 Batch3 bugfix 5 items (TokenBudgetUpdate/snapshot/recorder-db/sessions-list/working-memory), Task7 build validation + docs update."
 }

@@ -338,6 +338,6 @@ CREATE INDEX idx_mcp_executions_server_time ON mcp_executions(server_id, execute
 
 ## 8. 已知限制
 
-1. 当前仅支持 stdio 传输方式
+1. 当前仅支持 stdio 传输方式；**Phase 2.4 计划引入 Streamable HTTP（SSE）传输**，参考 OpenFang `openfang-kernel/src/mcp/sse_transport.rs`，UI 无需改动，后端 MCP Client 扩展传输适配器即可
 2. 模板列表为预设，可能需要更新
 3. 日志轮转策略待定（防止 SQLite 过大）

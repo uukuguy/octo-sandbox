@@ -11,6 +11,7 @@
 | 版本 | 日期 | 变更说明 |
 |------|------|---------|
 | v1.0 | 2026-02-26 | 初始版本，整合 8 段架构设计 brainstorming |
+| v1.1 | 2026-02-27 | 基于 OpenFang（137K LOC）深度代码分析更新：Loop Guard、上下文溢出 4+1 阶段、LLM 错误分类、知识图谱评估；增加 Phase 2.4 EventBus 和 Phase 3 平台组件 OpenFang 参考索引 |
 
 ---
 
@@ -206,6 +207,23 @@ Agent Loop 参考 pi_agent_rust 设计，支持最大 **50 轮**迭代、**8 并
 3. **终止条件**：Agent 输出最终回复、达到最大轮数、用户取消、Token 预算耗尽
 4. **后处理**：事实提取（异步）、会话持久化、记忆更新
 
+### 3.2.1 Loop Guard / Circuit Breaker（Phase 2.4，参考 OpenFang）
+
+Loop Guard 防止 Agent 陷入死循环，是企业级 Agent 引擎的必要安全机制：
+
+| 保护机制 | 触发条件 | 行为 |
+|---------|---------|------|
+| **重复工具调用检测** | 同一工具 + 同参数哈希出现 ≥3 次 → 警告；≥5 次 → 阻断 | 注入「检测到重复，尝试不同策略」消息 |
+| **乒乓检测（Ping-Pong）** | 工具调用序列 A-B-A 模式出现 ≥3 次 | 强制终止当前循环，返回部分结果 |
+| **全局断路器** | 单次 Agent Run 累计工具调用 ≥30 次 | 强制结束，防止 runaway agent |
+
+**实现说明**（参考 OpenFang `openfang-kernel/src/agent/loop_guard.rs`，约 100 LOC）：
+- 使用 `HashMap<u64, u32>` 跟踪工具调用哈希计数（哈希 = tool_name + params_hash）
+- 乒乓检测维护最近 6 次调用的滑动窗口，检测 A-B-A-B 或 A-B-A 模式
+- 全局计数器 `AtomicU64` 保证无锁访问，Phase 2.4 优先实现
+
+**工程决策（E-05）**：引入 Loop Guard，与 Token 预算超限共同构成 Agent 双重安全终止机制。
+
 ## 3.3 Agent Engine 内部流程图
 
 ```mermaid
@@ -225,9 +243,11 @@ flowchart TD
     RESULT -.->|每 N 轮| FACT[Fact Extractor<br/>异步事实提取]
     FACT -.-> STORE[(Memory Store)]
 
-    CTX -.->|检查 Token 使用| BUDGET{Token 超 80%?}
-    BUDGET -->|是| COMPRESS[Memory Compressor<br/>三阶段压缩]
+    CTX -.->|检查 Token 使用| BUDGET{Token 占用?}
+    BUDGET -->|70-90%| COMPRESS[Memory Compressor<br/>AutoCompaction 保留10条]
+    BUDGET -->|>90%| COMPRESS2[Memory Compressor<br/>OverflowCompaction 保留4条]
     COMPRESS --> CTX
+    COMPRESS2 --> CTX
 ```
 
 ## 3.4 Provider Trait
@@ -322,9 +342,23 @@ pub enum ToolSource {
 Context Manager 负责构建和管理 Agent 的上下文窗口：
 
 - **System Prompt 构建**：集成 Working Memory 注入、Skill 定义、工具声明
-- **上下文压缩/摘要**：当 Token 使用率超过 80% 时触发三阶段压缩（详见第 4.7 节）
+- **上下文压缩/摘要**：双阈值触发 4+1 阶段溢出恢复机制（参考 OpenFang，详见下文）
 - **Session 分支**：支持对话分支管理
 - **Memory 集成**：协调 Memory Manager 完成记忆检索和注入（详见第 4.6 节）
+
+### 3.7.1 上下文溢出恢复：4+1 阶段（Phase 2.4，参考 OpenFang）
+
+OpenFang 分析表明单一 80% 阈值不够精细，改用双阈值 + 4 阶段递进策略：
+
+| 阶段 | 触发条件 | 操作 | 效果 |
+|------|---------|------|------|
+| **0. 正常** | Token 占用 ≤70% | 无操作 | — |
+| **1. AutoCompaction** | 70% < 占用 ≤90% | 保留最近 10 条消息，其余摘要 | 中度压缩，保留近期上下文 |
+| **2. OverflowCompaction** | 占用 >90% | 保留最近 4 条消息，其余压缩 | 激进压缩，保证继续工作 |
+| **3. ToolResultTruncation** | 仍超限 | 工具结果截断至 2K tokens | 按需截断单条大结果 |
+| **4. FinalError** | 压缩后仍超限 | 返回结构化错误，终止 Loop | 防止无限重试 |
+
+**工程决策（E-06）**：替换原"80% 触发三阶段"设计，采用 OpenFang 验证的 70%/90% 双阈值方案，Phase 2.4 实施。
 
 ## 3.8 Agent Memory Tools
 
@@ -1172,6 +1206,42 @@ flowchart TD
 
 # 第五章：沙箱管理器与容器隔离
 
+## 5.0 双场景沙箱定位（重要）
+
+octo-workbench 的沙箱系统需要同时满足**两类完全不同**的隔离需求，不可混为一谈：
+
+### 场景 A：自有 Agent 工具/技能执行沙箱
+
+octo 自有 Agent Loop 参考 pi_agent_rust（OpenClaw 的主智能体框架）实现，是一个**完整的企业级自主智能体**。它执行工具时本身就存在严重的安全风险：
+
+- `bash` 工具执行 LLM 生成的 shell 命令（命令注入）
+- `file_write`/`file_edit` 修改任意文件（路径遍历）
+- 用户定义的 Skill（SKILL.md）可能包含不受信任的代码
+- 多用户场景下不同用户的工具执行必须隔离
+
+**隔离对象**：单次工具调用 / Skill 执行
+**主要技术**：WASM（毫秒级，无状态技能）+ Subprocess 安全执行（有状态 shell 工具）
+**与多用户的关系**：**单用户企业部署同样需要**，这是工具执行的基础安全能力
+**实施阶段**：Phase 2（工具安全加固）
+
+### 场景 B：外部 Agent 圈养沙箱
+
+将 Claude Code、OpenClaw 等外部 Agent 整体运行在容器中，防止其访问宿主系统：
+
+- 整个 Agent 进程的文件系统隔离
+- 网络访问限制
+- 资源（CPU/内存/PID）限制
+
+**隔离对象**：整个 Agent 进程
+**主要技术**：Docker（秒级，有状态长运行容器）
+**实施阶段**：Phase 3
+
+> **设计原则**：两个场景的安全机制独立设计，WASM/Subprocess 安全执行是 octo 自身工具的
+> 执行环境，Docker 容器是外部 Agent 的运行环境。前者是企业级自主智能体的必要基础设施，
+> 不依赖多用户功能，Phase 2 就必须具备。
+
+---
+
 ## 5.1 RuntimeAdapter Trait
 
 沙箱管理器通过 RuntimeAdapter Trait 抽象三种运行时：
@@ -1210,19 +1280,21 @@ pub trait RuntimeAdapter: Send + Sync {
 
 /// 运行时类型
 pub enum RuntimeType {
-    Wasm,           // wasmtime — 轻量工具沙箱，毫秒级启动
-    Docker,         // Docker — 完整智能体运行时（CC/OpenClaw）
+    Wasm,           // wasmtime — 场景A：无状态技能/工具执行沙箱，毫秒级
+    Subprocess,     // 安全子进程 — 场景A：有状态shell工具（bash/grep等），带白名单+环境隔离
+    Docker,         // Docker — 场景B：外部Agent圈养（CC/OpenClaw），场景A：重型工具可选
     AppleContainer, // macOS 原生容器（可选）
 }
 ```
 
-**运行时优先级与适用场景**：
+**运行时定位与适用场景**：
 
-| 运行时 | 优先级 | 适用场景 | 启动速度 |
-|--------|--------|---------|---------|
-| WASM (wasmtime) | Phase 1 | 轻量工具沙箱 | 毫秒级 |
-| Docker | Phase 3 | 完整智能体（CC/OpenClaw） | 秒级 |
-| Apple Container | Phase 4 | macOS 优化（可选） | 亚秒级 |
+| 运行时 | 场景 | 适用工具类型 | 隔离强度 | 启动速度 | 实施阶段 |
+|--------|------|------------|---------|---------|---------|
+| WASM (wasmtime) | **A** | 无状态 Skill/工具（纯计算，无副作用） | 高（Fuel+Epoch双计量）| 毫秒级 | Phase 2 |
+| Subprocess + 安全策略 | **A** | 有状态 shell 工具（bash/file_write 等） | 中（白名单+env隔离）| 毫秒级 | Phase 2 |
+| Docker | **B（主）/ A（可选）** | 外部 Agent 整体运行 / 重型工具（可选） | 极高（OS级）| 秒级 | Phase 3 |
+| Apple Container | B | macOS 优化的外部 Agent 运行 | 高 | 亚秒级 | Phase 4 |
 
 ## 5.2 Transport Trait
 
@@ -1298,7 +1370,95 @@ flowchart LR
 | **非管理员 Read-Only** | Viewer 角色仅可读挂载，Developer 可读写自己的 workspace |
 | **敏感文件黑名单** | 禁止挂载 `.env`, `.ssh`, `.aws`, `.gnupg` 等 4 类敏感 dotfiles |
 
-## 5.5 Agent Profiles
+## 5.5 工具执行安全策略（场景 A，Phase 2，参考 OpenFang）
+
+### 5.5.1 Subprocess 安全执行（bash/shell 类工具）
+
+有状态 shell 工具（bash、file_write、grep 等）通过安全子进程执行，参考 OpenFang `subprocess_sandbox.rs`：
+
+**环境变量隔离**：
+- 执行前 `env_clear()` 清空所有继承的环境变量
+- 只保留安全变量白名单：`PATH`, `HOME`, `TMPDIR`, `LANG`, `LC_ALL`, `TERM`
+- 防止 `ANTHROPIC_API_KEY`、`DATABASE_URL` 等宿主 Secret 泄露给工具执行环境
+
+**Shell 命令白名单（ExecSecurityMode）**：
+
+```rust
+pub enum ExecSecurityMode {
+    Deny,       // 禁止所有 shell 执行（只允许 WASM 工具）
+    Allowlist,  // 仅允许 safe_bins + 用户配置的白名单命令（默认）
+    Full,       // 允许所有命令（本地开发模式，不推荐生产）
+}
+
+pub struct ExecPolicy {
+    pub mode: ExecSecurityMode,
+    pub safe_bins: Vec<String>,     // 内置安全命令集
+    pub allowed_commands: Vec<String>, // 用户扩展白名单
+    pub timeout_secs: u64,          // 默认 30s
+    pub max_output_bytes: usize,    // 默认 100KB
+}
+```
+
+默认 `safe_bins`（参考 OpenFang）：`sleep, true, false, cat, sort, uniq, cut, tr, head, tail, wc, date, echo, printf, basename, dirname, pwd, ls`
+
+**路径遍历防护**（读/写工具必须实现）：
+1. 拒绝包含 `..` 的路径组件
+2. `canonicalize()` 解析符号链接到真实路径
+3. 验证解析后的路径在用户 workspace 根目录内
+
+**SSRF 防护**（网络类工具）：
+- 拒绝 `file://`, `gopher://` 等危险协议
+- 主机名黑名单：`localhost`, `169.254.169.254`（AWS/GCP 元数据）, `metadata.google.internal`
+- DNS 解析检查：阻止私有 IP（10.0.0.0/8、172.16.0.0/12、192.168.0.0/16）
+
+### 5.5.2 WASM 沙箱安全配置（Skill/无状态工具）
+
+WASM 用于执行无副作用的技能和计算类工具，参考 OpenFang `sandbox.rs`：
+
+**双重资源限制**：
+- **Fuel Metering**：1,000,000 条指令预算，耗尽触发 `Trap::OutOfFuel`（防死循环）
+- **Epoch Interruption**：30 秒墙钟超时，看门狗线程递增 epoch（防时间炸弹）
+
+**内存限制**：默认 16MB，可配置
+
+**Host ABI 能力检查**（每个 host call 前强制验证）：
+
+```rust
+// WASM 中每次调用宿主函数前的能力检查
+fn check_capability(caps: &[Capability], required: &Capability) -> Result<()> {
+    if caps.iter().any(|c| capability_matches(c, required)) {
+        Ok(())
+    } else {
+        Err(CapabilityDenied(format!("{required:?}")))
+    }
+}
+```
+
+**Skill 执行能力声明**（Phase 2 实施，参考 OpenFang Capability 系统精简版）：
+
+| 能力 | 示例 | 说明 |
+|------|------|------|
+| `FileRead(glob)` | `FileRead("/workspace/**")` | 允许读取指定路径模式 |
+| `FileWrite(glob)` | `FileWrite("/workspace/output/**")` | 允许写入指定路径模式 |
+| `NetConnect(host)` | `NetConnect("*.openai.com:443")` | 允许连接指定主机 |
+| `ShellExec(cmd)` | `ShellExec("python3")` | 允许执行指定命令 |
+
+Skill 的 YAML frontmatter 中声明所需能力，Agent 执行前验证能力是否在当前 session 策略范围内。
+
+### 5.5.3 工具执行安全加固 vs 多用户的关系
+
+| 安全机制 | 单用户本地 | 单用户企业部署 | 多用户企业部署 |
+|---------|----------|--------------|--------------|
+| env_clear() | 推荐 | **必须** | **必须** |
+| Shell 白名单 | 可选 | **必须** | **必须** |
+| WASM Fuel 限制 | 推荐 | **必须** | **必须** |
+| 路径遍历防护 | 推荐 | **必须** | **必须** |
+| SSRF 防护 | 可选 | **必须** | **必须** |
+| 用户间工作区隔离 | N/A | N/A | **必须** |
+
+**结论**：除用户间隔离外，所有工具执行安全机制在企业单用户部署中同样必须启用，与多用户功能解耦，Phase 2 实施。
+
+## 5.6 Agent Profiles
 
 配置化管理不同智能体类型，新增类型只需新增 profile：
 
@@ -2261,6 +2421,9 @@ pub enum MessageContent {
 | E-02 | Provider MVP | Anthropic + OpenAI + Gemini | 覆盖主流 LLM，Trait 可扩展 | Agent Engine |
 | E-03 | 内置工具集 | 7 个（bash/read/write/edit/grep/glob/find） | 参考 CC 核心工具集，覆盖基本文件和命令操作 | Tool Registry |
 | E-04 | Skill 格式 | 标准 SKILL.md（YAML frontmatter + Markdown） | 与 CC/pi-mono 完全兼容，零适配 | Skill Loader |
+| E-05 | Loop Guard | 引入三层保护（重复检测/乒乓检测/全局断路器） | OpenFang 验证的生产级安全机制，约 100 LOC，Phase 2.4 优先实现 | Agent Engine |
+| E-06 | 上下文溢出恢复 | 双阈值（70%/90%）4+1 阶段递进 | 替换原 80% 单阈值三阶段，OpenFang 实践验证；精细的分级响应防止过度压缩 | Context Manager |
+| E-07 | LLM 错误分类 | 8 类错误（可重试 vs 不可重试），指数退避重试 | OpenFang 770 LOC 实现覆盖 RateLimit/Overloaded/Timeout（可重试）vs Billing/Auth/ContextOverflow（不可重试），Phase 2.4 实现 | Agent Engine, Provider |
 
 ## 记忆系统决策
 
@@ -2278,7 +2441,7 @@ pub enum MessageContent {
 | M-10 | 上下文注入格式 | 结构化 XML 标签 | 参考上下文工程最佳实践，反退化 | Context Injector |
 | M-11 | Token 预算 | 记忆上限 15% 总上下文 | 平衡记忆丰富度和对话空间 | Token Budget Manager |
 | M-12 | 记忆分类 | 5 类（profile/preferences/tools/debug/patterns） | 简化 OpenViking 6 类，适应沙箱场景 | Memory Store |
-| M-13 | 知识图谱 | 不纳入 MVP | mem0 图谱对沙箱场景 ROI 不高，Phase 4+ 考虑 | — |
+| M-13 | 知识图谱 | Phase 3 可选引入 | OpenFang 代码分析表明纯 SQL 实现约 500 LOC，无需 Neo4j 等图数据库；沙箱场景下 Agent 关系追踪有明确价值，Phase 3 评估 | Memory Manager |
 
 ## 沙箱与渠道决策
 
@@ -2288,6 +2451,10 @@ pub enum MessageContent {
 | S-02 | RBAC 角色 | 三角色（Admin/Developer/Viewer） | 参考 happyclaw，简洁够用 | Auth & RBAC |
 | S-03 | Session 权限 | ReadOnly/Interactive/AutoApprove | 参考 craft-agents 三级模式 | Channel, Agent Engine |
 | S-04 | 认证 MVP | bcrypt-12 + HMAC Cookie + 邀请码 | 简洁安全，后期扩展 OAuth2/LDAP | Auth |
+| S-05 | 工具执行沙箱定位 | 两场景分离：WASM/Subprocess（场景A自有工具）独立于 Docker（场景B外部Agent圈养） | octo 自有 Agent Loop 是企业级自主智能体，工具执行安全与多用户无关，Phase 2 必须有 | Sandbox Manager, Tool Registry |
+| S-06 | 工具执行安全 Phase | 工具安全加固（env_clear + shell 白名单 + WASM Fuel + 路径防护 + SSRF 防护）列入 Phase 2 | 企业单用户部署同样需要，不能推迟到 Phase 3（多用户）才实现；参考 OpenFang 验证的实践 | Sandbox Manager |
+| S-07 | Skill 能力声明 | SKILL.md frontmatter 声明所需 Capability（精简 4 类：FileRead/FileWrite/NetConnect/ShellExec） | 防止恶意/有缺陷的 Skill 越权访问；Phase 2 简单版，Phase 3 扩展至 OpenFang 完整 21 种 | Skill Loader, Tool Registry |
+| S-08 | Docker 安全加固 | cap-drop ALL + network none + read-only root + pids-limit 100（Phase 3 Docker 实现时默认启用） | OpenFang 验证的最小权限 Docker 配置，代价极低，防 Agent 容器逃逸 | Sandbox Manager |
 
 ## 前端决策
 
@@ -2348,6 +2515,12 @@ pub enum MessageContent {
 - Agent Loop 增强（多轮对话，工具并发执行，最大 50 轮 8 并发）
 - Context Manager（上下文压缩/摘要）
 - 单用户认证（bcrypt + Cookie，简化版）
+- **工具执行安全加固（场景 A，企业级必备）**：
+  - Subprocess 安全执行：env_clear + shell 命令白名单（Allowlist 模式）
+  - WASM Fuel Metering（1M 指令上限）+ Epoch 超时（30s）
+  - 路径遍历防护（canonicalize + workspace 边界检查）
+  - SSRF 防护（协议 + 主机名 + DNS IP 三重检查）
+  - Skill 能力声明（SKILL.md frontmatter，精简 4 类）
 - **SQLite 持久记忆 + FTS5 全文搜索**
 - **基础 Fact Extractor（每 N 轮自动提取）**
 - **Memory Flush（压缩前记忆刷写）**
@@ -2366,9 +2539,37 @@ pub enum MessageContent {
 
 ---
 
-### Phase 3: Full MVP — 完整功能
+### Phase 2.4: Engine Hardening — 引擎健壮性（OpenFang 参考整合第一批）
+
+**目标**：将 OpenFang 验证的核心 Agent 安全机制移植到 octo-workbench，提升生产可用性
+
+**OpenFang 参考模块（优先级 P0）**：
+
+| 功能 | OpenFang 来源 | LOC | octo 目标位置 |
+|------|-------------|-----|--------------|
+| Loop Guard / Circuit Breaker | `openfang-kernel/src/agent/loop_guard.rs` | ~100 | `crates/octo-engine/src/agent/loop_guard.rs` |
+| LLM 错误分类 + 重试 | `openfang-kernel/src/provider/retry.rs` | ~770 | `crates/octo-engine/src/provider/retry.rs` |
+| EventBus（广播通道） | `openfang-kernel/src/event/bus.rs` | ~149 | `crates/octo-engine/src/event/bus.rs` |
+| 上下文溢出恢复 4+1 阶段 | `openfang-kernel/src/context/overflow.rs` | ~120 | `crates/octo-engine/src/agent/context.rs` |
+| MCP SSE 传输支持 | `openfang-kernel/src/mcp/sse_transport.rs` | — | `crates/octo-engine/src/mcp/transport.rs` |
+
+**后端**：
+- **Loop Guard**：重复工具调用检测（≥5次阻断）+ 乒乓检测 + 全局断路器（≥30次终止）
+- **LLM 错误分类**：8 类错误分类（可重试 vs 不可重试）+ 指数退避重试 + 熔断机制
+- **EventBus**：内部事件广播（`broadcast::Sender<Event>`），解耦组件间通信
+- **上下文溢出 4+1 阶段**：替换原三阶段压缩，70%/90% 双阈值
+- **MCP SSE 传输**：扩展 MCP Client 支持 Streamable HTTP（rmcp 0.16）
+
+**交付标准**：Agent 在极端输入下不再 panic 或无限循环，LLM 临时故障自动重试，内部事件可订阅观测
+
+---
+
+### Phase 3: Full MVP — 完整功能（octo-platform 平台基础）
 
 **目标**：Docker 沙箱圈养 CC/OpenClaw，多用户，所有调试面板，完整记忆系统
+
+> **OpenFang 参考整合第二批（Phase 3 新增）**：Phase 3 同步引入 OpenFang 的平台级组件，为 octo-platform 奠定基础。
+> 参考模块清单见下方 OpenFang 参考索引表。
 
 **后端**：
 - Docker RuntimeAdapter 实现
@@ -2387,6 +2588,23 @@ pub enum MessageContent {
 - **完整 5 个 memory tools（+ memory_recall / memory_forget）**
 - **多用户记忆隔离**
 - **Memory Explorer 调试页面**
+- **【OpenFang P1】AgentRegistry**：DashMap 三索引（ID/名称/标签）并发注册表，替换当前简单 HashMap
+- **【OpenFang P1】Supervisor**：watch::Channel 优雅关闭广播 + AtomicU64 重启计数 + DashMap 重启上限
+- **【OpenFang P1】MeteringEngine**：SQLite 时间窗口计量（小时/天/月），per-agent + 全局预算，防超支
+- **【OpenFang P2】知识图谱（可选）**：纯 SQLite JOIN 实现 Entity-Relation 图，~500 LOC，无外部依赖
+
+**OpenFang Phase 3 参考索引**：
+
+| 组件 | OpenFang 来源 | LOC | 优先级 | octo 目标位置 |
+|------|-------------|-----|--------|--------------|
+| AgentRegistry | `openfang-kernel/src/agent/registry.rs` | 346 | P1 | `crates/octo-engine/src/agent/registry.rs` |
+| Supervisor | `openfang-kernel/src/agent/supervisor.rs` | 227 | P1 | `crates/octo-engine/src/agent/supervisor.rs` |
+| MeteringEngine | `openfang-kernel/src/metering/engine.rs` | 692 | P1 | `crates/octo-engine/src/metering/mod.rs` |
+| RBAC AuthManager | `openfang-kernel/src/auth/rbac.rs` | 316 | P1 | `crates/octo-engine/src/auth/rbac.rs` |
+| TriggerEngine | `openfang-kernel/src/trigger/engine.rs` | 511 | P2 | `crates/octo-engine/src/trigger/mod.rs` |
+| WorkflowEngine | `openfang-kernel/src/workflow/engine.rs` | 1367 | P2 | `crates/octo-engine/src/workflow/mod.rs` |
+| BackgroundExecutor | `openfang-kernel/src/executor/background.rs` | 457 | P2 | `crates/octo-engine/src/executor/bg.rs` |
+| 知识图谱 KG | `openfang-memory/src/kg/mod.rs` | ~500 | P3 | `crates/octo-engine/src/memory/kg.rs` |
 
 **前端**：
 - Skills 页面增强（SkillTest + 兼容性检查）
@@ -2398,7 +2616,7 @@ pub enum MessageContent {
 - 权限模式切换 UI
 - @tanstack/react-virtual 虚拟化
 
-**交付标准**：可圈养 CC/OpenClaw 在 Docker 中，多用户可用，全部七个 Tab 可用，记忆系统完整可用
+**交付标准**：可圈养 CC/OpenClaw 在 Docker 中，多用户可用，全部七个 Tab 可用，记忆系统完整可用，AgentRegistry/Supervisor/MeteringEngine 生产可用
 
 ---
 
@@ -2493,6 +2711,31 @@ gantt
 
 ## A. 关键参考文件路径
 
+### OpenFang 参考实现（按优先级）
+
+```
+# Phase 2.4 优先（P0，~1,140 LOC）
+Loop Guard:           github.com/openfang/openfang-kernel/src/agent/loop_guard.rs    (~100 LOC)
+LLM 错误重试:          github.com/openfang/openfang-kernel/src/provider/retry.rs       (~770 LOC)
+EventBus:             github.com/openfang/openfang-kernel/src/event/bus.rs            (~149 LOC)
+上下文溢出恢复:        github.com/openfang/openfang-kernel/src/context/overflow.rs     (~120 LOC)
+
+# Phase 3 P1（平台核心，~1,581 LOC）
+AgentRegistry:        github.com/openfang/openfang-kernel/src/agent/registry.rs       (346 LOC)
+Supervisor:           github.com/openfang/openfang-kernel/src/agent/supervisor.rs     (227 LOC)
+MeteringEngine:       github.com/openfang/openfang-kernel/src/metering/engine.rs      (692 LOC)
+RBAC AuthManager:     github.com/openfang/openfang-kernel/src/auth/rbac.rs            (316 LOC)
+
+# Phase 3 P2（扩展能力，~2,335 LOC）
+TriggerEngine:        github.com/openfang/openfang-kernel/src/trigger/engine.rs       (511 LOC)
+WorkflowEngine:       github.com/openfang/openfang-kernel/src/workflow/engine.rs      (1367 LOC)
+BackgroundExecutor:   github.com/openfang/openfang-kernel/src/executor/background.rs  (457 LOC)
+
+# Phase 3 P3（记忆增强，可选）
+知识图谱 KG:           github.com/openfang/openfang-memory/src/kg/mod.rs              (~500 LOC)
+Memory Substrate:     github.com/openfang/openfang-memory/src/                        (7 tables)
+```
+
 ### 智能体框架
 
 ```
@@ -2546,6 +2789,15 @@ MCP spec (2025-11-25):       https://modelcontextprotocol.io/specification/2025-
 |------|------|
 | Agent Engine | 自主智能体引擎，包含 Agent Loop、Provider、Tool、Skill 子系统 |
 | Agent Loop | 智能体核心迭代循环：LLM 调用 → 工具执行 → 结果反馈 |
+| AgentRegistry | 并发 Agent 注册表，DashMap 三索引（ID/名称/标签），参考 OpenFang |
+| BackgroundExecutor | 后台任务执行器，支持 Reactive/Continuous/Periodic/Proactive 四种调度模式 |
+| Circuit Breaker | 全局断路器，Agent Loop 累计调用超限时强制终止，防止 runaway agent |
+| EventBus | 内部事件广播通道，`broadcast::Sender<Event>` + per-agent 订阅 + 环形缓冲区 |
+| Loop Guard | Agent Loop 循环防护，包含重复检测、乒乓检测、全局断路器三层机制 |
+| MeteringEngine | 计量引擎，按时间窗口（小时/天/月）统计 per-agent + 全局资源消耗 |
+| Supervisor | Agent 生命周期监管器，负责优雅关闭广播和崩溃重启计数 |
+| TriggerEngine | 触发引擎，支持 9 种触发模式（时间/事件/条件/Webhook 等） |
+| WorkflowEngine | 工作流引擎，支持 Sequential/FanOut/Collect/Conditional/Loop 步骤编排 |
 | Channel | 消息渠道，用户与系统交互的通信通道（Web/CLI/API/Telegram） |
 | Context Injector | 上下文注入器，将记忆结构化注入 System Prompt |
 | Debug Interceptor | 调试拦截器，记录沙箱通信的请求/响应 |

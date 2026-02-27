@@ -26,7 +26,7 @@
 | octo-workbench Phase 2.1 | ✅ 完成 | 核心闭环可用（运行时验证 + Timeline + JsonViewer + REST API） |
 | octo-workbench Phase 2.2 | ⏳ 待开始 | 记忆系统完整（5 memory tools + Explorer） |
 | octo-workbench Phase 2.3 | ⏳ 待开始 | 调试面板完善（MCP + Skill + 高级调试） |
-| octo-workbench Phase 2.4 | ⏳ 待开始 | v1.0 完成 |
+| octo-workbench Phase 2.4 | ⏳ 待开始 | Engine Hardening（Loop Guard / Context 4+1 / LLM Retry / EventBus / Tool Security） |
 | octo-platform (Phase 3) | ⏳ 待开始 | Docker + 多用户 + 完整功能 |
 | Phase 4 编码 | ⏳ 待开始 | 生产就绪 |
 
@@ -297,15 +297,15 @@
 | started_at 时间戳在执行后记录 | 执行前捕获 chrono::Utc::now() |
 | RwLock 中毒导致级联 panic | unwrap_or_else(\|e\| e.into_inner()) |
 
-**已知限制** (留待后续批次):
+**已知限制** (已全部修复 - Task 6 Batch 3 Bugfix):
 
-| 限制 | 说明 |
-|------|------|
-| TokenBudgetUpdate 事件未从 AgentLoop 发射 | 基础设施就绪，需在 MessageStop 后添加 |
-| snapshot() 硬编码 dynamic_context=0 | 应使用 tool_tokens |
-| list_sessions 返回空列表 | SessionStore trait 需扩展 |
-| get_working_memory 每次创建新 SandboxId | 需接受参数或存储活跃 ID |
-| Recorder 使用独立 Database 连接 | 应共享连接避免 SQLITE_BUSY |
+| 限制 | 说明 | 状态 |
+|------|------|------|
+| TokenBudgetUpdate 事件未从 AgentLoop 发射 | MessageStop 后添加 snapshot() + 发射事件 | ✅ 已修复 |
+| snapshot() 硬编码 dynamic_context=0 | 使用 estimate_tool_specs_tokens() 填充 tool_tokens | ✅ 已修复 |
+| list_sessions 返回空列表 | SessionStore trait 添加 list_sessions()；SqliteSessionStore + InMemorySessionStore 均实现 | ✅ 已修复 |
+| get_working_memory 每次创建新 SandboxId | 从 query params 接受 sandbox_id 参数，默认 "default" | ✅ 已修复 |
+| Recorder 使用独立 Database 连接 | 改为 ToolExecutionRecorder::new(conn.clone()) 共享连接 | ✅ 已修复 |
 
 **构建验证**: `cargo check --workspace` ✅ | `tsc --noEmit` ✅ | `vite build` ✅ (248.58 kB JS)
 
@@ -521,11 +521,17 @@
 
 ### Phase 2.4 可引入 (当前分支)
 
-| 模块 | 优先级 | 状态 |
-|------|--------|------|
-| MCP Client 完善 | P0 | ⏳ |
-| EventBus | P1 | ⏳ |
-| 配置管理 | P1 | ⏳ |
+**实施计划**：`docs/plans/2026-02-27-phase2-4-engine-hardening.md`（7 任务，约 500 LOC 新增）
+
+| 模块 | 优先级 | 状态 | 计划任务 |
+|------|--------|------|---------|
+| Loop Guard / Circuit Breaker | P0 | ⏳ | Task 1 |
+| Context Overflow 4+1 阶段 | P0 | ⏳ | Task 2 |
+| LLM 错误分类 + 重试 | P0 | ⏳ | Task 3 |
+| EventBus（广播通道） | P1 | ⏳ | Task 4 |
+| 工具执行安全（ExecSecurityMode / env_clear） | P1 | ⏳ | Task 5 |
+| Batch 3 遗留 Bugfix（5 项） | P0 | ⏳ | Task 6 |
+| MCP SSE 传输支持 | P1 | ⏳ | 后续批次 |
 
 ### Phase 3 (octo-platform) 目标
 
@@ -563,6 +569,7 @@
 | `docs/plans/2026-02-26-phase2-batch3-implementation.md` | **Phase 2 Batch 3 实施计划**（13 任务） |
 | `docs/dev/MEMORY_INDEX.md` | 记忆索引 |
 | `docs/main/WORK_LOG.md` | 开发工作日志 |
+| `docs/plans/2026-02-27-phase2-4-engine-hardening.md` | **Phase 2.4 Engine Hardening 实施计划**（7 任务：Loop Guard + Context 4+1 + LLM Retry + EventBus + Tool Security + Bugfix） |
 
 ### Phase 1 源代码
 | 目录 | 文件数 | 用途 |
@@ -609,13 +616,20 @@
 
 ### 下一步操作（按优先级）
 
-1. **Phase 2 Batch 3 已知限制修复**（可选）
-   - TokenBudgetUpdate 事件发射（AgentLoop MessageStop 后）
-   - snapshot() 填充 dynamic_context + degradation_level
+1. **Phase 2 Batch 3 已知限制修复** ✅ 已完成
+   - TokenBudgetUpdate 事件发射（MessageStop 后 snapshot() + 发射）
+   - snapshot() 填充 dynamic_context (tool_tokens)
    - Recorder 共享 Database 连接
-   - list_sessions / get_working_memory 修复
+   - list_sessions 返回实际数据（SqliteSessionStore + InMemorySessionStore）
+   - get_working_memory 接受 sandbox_id 参数
 
-2. **Phase 2 Batch 4 规划**（待开始）
+2. **Phase 2.4 Engine Hardening**（下一步）
+   - Loop Guard / Circuit Breaker
+   - Context 4+1 阶段（70%/90% 双阈值）
+   - LLM 错误分类 + 指数退避重试
+   - EventBus 广播通道
+
+3. **Phase 2 Batch 4 规划**（待开始）
    - 完整 Debug Panel UI（日志面板、网络面板）
    - Context Viewer（实时上下文窗口可视化）
    - 性能优化

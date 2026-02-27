@@ -27,6 +27,13 @@
 
 ## [Active Work]
 
+- 18:45 | ARCHITECTURE_DESIGN.md v1.1 完成 + 三文档一致性更新 [claude-mem #2885]
+  - 关键修正：双场景沙箱定位（场景A工具执行安全=Phase 2，场景B CC/OC圈养=Phase 3）
+  - 新增 §5.0 双场景沙箱 + §5.5 工具执行安全策略（ExecSecurityMode/env_clear/WASM Fuel+Epoch/SSRF/路径遍历）
+  - 新增 §3.2.1 Loop Guard/Circuit Breaker + §3.7.1 Context Overflow 4+1 阶段
+  - 技术决策 S-05~S-08，Phase 2.4 OpenFang P0 模块表，Phase 3 参考索引表
+  - CONTEXT_ENGINEERING_DESIGN.md: DegradationLevel 4→6 变体，阈值修正为 60%/70%/90%
+  - MCP_WORKBENCH_DESIGN.md: 新增 Phase 2.4 SSE Transport 计划说明
 - 17:30 | OpenFang 架构研究完成！
   - 创建完整路线图: docs/design/OPENFANG_ARCHITECTURE_ROADMAP.md
   - 14 crate 模块分析 (Kernel, Runtime, Memory, API, Channels, Hands...)
