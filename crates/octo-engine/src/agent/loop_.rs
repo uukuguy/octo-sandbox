@@ -380,6 +380,12 @@ impl AgentLoop {
                     tool_name: tu.name.clone(),
                     input: input.clone(),
                 });
+                if let Some(ref bus) = self.event_bus {
+                    bus.publish(crate::event::OctoEvent::ToolCallStarted {
+                        session_id: session_id.as_str().to_string(),
+                        tool_name: tu.name.clone(),
+                    }).await;
+                }
 
                 let exec_id = if let Some(ref recorder) = self.recorder {
                     let source = self.tools.get(&tu.name)
@@ -408,6 +414,13 @@ impl AgentLoop {
                 };
 
                 let exec_duration = exec_start.elapsed().as_millis() as u64;
+                if let Some(ref bus) = self.event_bus {
+                    bus.publish(crate::event::OctoEvent::ToolCallCompleted {
+                        session_id: session_id.as_str().to_string(),
+                        tool_name: tu.name.clone(),
+                        duration_ms: exec_duration,
+                    }).await;
+                }
                 if let (Some(ref recorder), Some(ref eid)) = (&self.recorder, &exec_id) {
                     if result.is_error {
                         let _ = recorder.record_failed(eid, &result.output, exec_duration).await;

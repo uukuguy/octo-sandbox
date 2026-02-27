@@ -1,3 +1,4 @@
+pub mod event;
 pub mod agent;
 pub mod context;
 pub mod db;
@@ -9,6 +10,7 @@ pub mod skills;
 pub mod tools;
 
 pub use agent::{AgentEvent, AgentLoop};
+pub use event::{EventBus, OctoEvent};
 pub use context::{
     BootstrapFile, ContextBudgetManager, ContextPruner, DegradationLevel, SystemPromptBuilder,
 };
