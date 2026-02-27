@@ -9,6 +9,7 @@ pub trait MemoryStore: Send + Sync {
     async fn get(&self, id: &MemoryId) -> Result<Option<MemoryEntry>>;
     async fn update(&self, id: &MemoryId, content: &str) -> Result<()>;
     async fn delete(&self, id: &MemoryId) -> Result<()>;
+    async fn delete_by_filter(&self, filter: MemoryFilter) -> Result<usize>;
     async fn list(&self, filter: MemoryFilter) -> Result<Vec<MemoryEntry>>;
     async fn batch_store(&self, entries: Vec<MemoryEntry>) -> Result<Vec<MemoryId>>;
 }

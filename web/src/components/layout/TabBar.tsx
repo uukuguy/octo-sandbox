@@ -5,6 +5,7 @@ import { activeTabAtom, type TabId } from "@/atoms/ui";
 const tabs: { id: TabId; label: string }[] = [
   { id: "chat", label: "Chat" },
   { id: "tools", label: "Tools" },
+  { id: "memory", label: "Memory" },
   { id: "debug", label: "Debug" },
 ];
 

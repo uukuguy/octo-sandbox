@@ -38,7 +38,8 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/sessions", get(sessions::list_sessions))
         .route("/executions/{id}", get(executions::get_execution))
         .route("/tools", get(tools::list_tools))
-        .route("/memories", get(memories::search_memories))
+        .route("/memories", get(memories::search_memories).delete(memories::delete_memories_by_filter))
         .route("/memories/working", get(memories::get_working_memory))
+        .route("/memories/{id}", get(memories::get_memory).delete(memories::delete_memory))
         .route("/budget", get(budget::get_budget))
 }

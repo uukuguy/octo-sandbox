@@ -112,6 +112,65 @@ impl MemoryStore for SqliteMemoryStore {
         Ok(())
     }
 
+    async fn delete_by_filter(&self, filter: MemoryFilter) -> Result<usize> {
+        let result = self
+            .conn
+            .call(move |conn| {
+                let mut sql = String::from("DELETE FROM memories WHERE user_id = ?");
+                let mut params: Vec<Box<dyn rusqlite::types::ToSql>> =
+                    vec![Box::new(filter.user_id.clone())];
+                let mut param_idx = 2;
+
+                if let Some(ref sid) = filter.sandbox_id {
+                    sql.push_str(&format!(" AND sandbox_id = ?{param_idx}"));
+                    params.push(Box::new(sid.clone()));
+                    param_idx += 1;
+                }
+
+                if let Some(ref cats) = filter.categories {
+                    if !cats.is_empty() {
+                        let placeholders: Vec<String> = cats
+                            .iter()
+                            .enumerate()
+                            .map(|(i, _)| format!("?{}", param_idx + i))
+                            .collect();
+                        sql.push_str(&format!(" AND category IN ({})", placeholders.join(",")));
+                        for cat in cats {
+                            params.push(Box::new(cat.as_str().to_string()));
+                        }
+                        param_idx += cats.len();
+                    }
+                }
+
+                if let Some(ref sources) = filter.source_types {
+                    if !sources.is_empty() {
+                        let placeholders: Vec<String> = sources
+                            .iter()
+                            .enumerate()
+                            .map(|(i, _)| format!("?{}", param_idx + i))
+                            .collect();
+                        sql.push_str(&format!(
+                            " AND source_type IN ({})",
+                            placeholders.join(",")
+                        ));
+                        for src in sources {
+                            params.push(Box::new(src.as_str().to_string()));
+                        }
+                    }
+                }
+
+                let params_ref: Vec<&dyn rusqlite::types::ToSql> =
+                    params.iter().map(|p| p.as_ref()).collect();
+
+                let deleted = conn.execute(&sql, params_ref.as_slice())?;
+                Ok(deleted)
+            })
+            .await?;
+
+        debug!(count = result, "Deleted memories by filter");
+        Ok(result)
+    }
+
     async fn list(&self, filter: MemoryFilter) -> Result<Vec<MemoryEntry>> {
         let result = self
             .conn

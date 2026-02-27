@@ -5,6 +5,8 @@ pub mod file_write;
 pub mod find;
 pub mod glob;
 pub mod grep;
+pub mod memory_forget;
+pub mod memory_recall;
 pub mod memory_search;
 pub mod memory_store;
 pub mod memory_update;
@@ -26,6 +28,8 @@ use self::grep::GrepTool;
 use self::memory_search::MemorySearchTool;
 use self::memory_store::MemoryStoreTool;
 use self::memory_update::MemoryUpdateTool;
+use self::memory_forget::MemoryForgetTool;
+use self::memory_recall::MemoryRecallTool;
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
 use octo_types::ToolSpec;
@@ -83,6 +87,8 @@ pub fn register_memory_tools(
     provider: Arc<dyn Provider>,
 ) {
     registry.register(MemoryStoreTool::new(store.clone(), provider.clone()));
-    registry.register(MemorySearchTool::new(store.clone(), provider));
-    registry.register(MemoryUpdateTool::new(store));
+    registry.register(MemorySearchTool::new(store.clone(), provider.clone()));
+    registry.register(MemoryUpdateTool::new(store.clone()));
+    registry.register(MemoryRecallTool::new(store.clone(), provider));
+    registry.register(MemoryForgetTool::new(store));
 }
