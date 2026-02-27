@@ -69,6 +69,7 @@ pub struct AgentLoop {
     budget: ContextBudgetManager,
     pruner: ContextPruner,
     recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
+    loop_guard: super::loop_guard::LoopGuard,
 }
 
 impl AgentLoop {
@@ -91,6 +92,7 @@ impl AgentLoop {
             budget: ContextBudgetManager::default(),
             pruner: ContextPruner::new(),
             recorder: None,
+            loop_guard: super::loop_guard::LoopGuard::new(),
         }
     }
 
@@ -352,6 +354,12 @@ impl AgentLoop {
             for tu in &tool_uses {
                 let input: serde_json::Value =
                     serde_json::from_str(&tu.input_json).unwrap_or_default();
+
+                // Loop Guard: 检查是否陷入循环
+                if let Some(violation) = self.loop_guard.record_call(&tu.name, &tu.input_json) {
+                    tracing::warn!("Loop Guard triggered: {}", violation);
+                    return Err(anyhow::anyhow!("Loop Guard: {}", violation));
+                }
 
                 let _ = tx.send(AgentEvent::ToolStart {
                     tool_id: tu.id.clone(),
