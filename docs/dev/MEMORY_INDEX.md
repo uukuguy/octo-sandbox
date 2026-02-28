@@ -64,6 +64,17 @@
 
 ## [Active Work]
 
+- 00:30 | OpenAI Thinking 修复: 添加多字段支持 (reasoning_content, thinking, reasoning)
+  - 问题: provider=openai 时 Thinking 不显示，只解析 reasoning_content 字段
+  - 修复: openai.rs 增加 thinking_fields 数组遍历匹配 [claude-mem #2998]
+- 21:00 | 统一配置系统: 实现 /api/config 端点，前端从后端获取运行时配置
+- 21:00 | 修复 provider 特定环境变量: 根据 LLM_PROVIDER 读取对应 MODEL_NAME
+- 21:00 | 修复 dotenv 加载顺序: dotenv_override() 必须在 Config::load() 之前
+- 21:00 | 模型参数 fail-fast: 未设置时 panic 而非静默使用默认值
+- 16:45 | 对话上下文 Bug 修复完成 (cargo check + tsc 全通过)
+  - loop_.rs: 所有退出路径保证写入 Assistant 消息，防止连续两个 User 消息
+  - ws.rs: session 复用改用 get_session() 保留原 sandbox_id
+  - Memory.tsx: 搜索过滤字段从 block.content 修正为 block.value + block.label
 - 20:15 | MCP SSE Transport 阶段归档完成
 - 20:45 | 竞争力分析完成: 7项目代码级对比 (docs/design/COMPETITIVE_ANALYSIS.md)
   - 对比项目: OpenFang(137K), Craft-Agents(145K), pi_agent_rust(278K), OpenClaw(289K), ZeroClaw(37K), HappyClaw(18K)

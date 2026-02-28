@@ -647,12 +647,18 @@ impl<S> OpenAISseStream<S> {
                     }
                 }
 
-                // Reasoning/thinking content (Qwen, DeepSeek, o1 etc.)
-                if let Some(reasoning) = delta["reasoning_content"].as_str() {
-                    if !reasoning.is_empty() {
-                        events.push(Ok(StreamEvent::ThinkingDelta {
-                            text: reasoning.to_string(),
-                        }));
+                // Reasoning/thinking content - support multiple field names
+                // across different providers: reasoning_content (OpenAI, DeepSeek),
+                // thinking (MiniMax, SiliconFlow, etc.), reasoning (some models)
+                let thinking_fields = ["reasoning_content", "thinking", "reasoning"];
+                for field in thinking_fields {
+                    if let Some(reasoning) = delta[field].as_str() {
+                        if !reasoning.is_empty() {
+                            events.push(Ok(StreamEvent::ThinkingDelta {
+                                text: reasoning.to_string(),
+                            }));
+                            break; // Only emit once even if multiple fields present
+                        }
                     }
                 }
 
