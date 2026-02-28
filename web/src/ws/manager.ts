@@ -10,6 +10,7 @@ class WsManager {
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private intentionalDisconnect = false;
 
   constructor() {}
 
@@ -33,7 +34,18 @@ class WsManager {
     // Get URL on each connect to support dynamic config
     this.url = this.getUrl();
 
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    // Already connected or connecting - don't create another connection
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+
+    // Close any existing connection before creating a new one
+    if (this.ws) {
+      this.ws.close();
+    }
+
+    // Reset intentional disconnect flag on new connect attempt
+    this.intentionalDisconnect = false;
 
     this.ws = new WebSocket(this.url);
 
@@ -66,7 +78,8 @@ class WsManager {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.reconnectAttempts = this.maxReconnectAttempts; // prevent reconnect
+    // Mark as intentional disconnect to prevent reconnection
+    this.intentionalDisconnect = true;
     this.ws?.close();
     this.ws = null;
   }
@@ -88,6 +101,9 @@ class WsManager {
   }
 
   private scheduleReconnect() {
+    // Don't reconnect if this was an intentional disconnect
+    if (this.intentionalDisconnect) return;
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) return;
 
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
