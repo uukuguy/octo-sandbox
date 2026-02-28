@@ -198,7 +198,7 @@ octo-sandbox/
 
 ## Git Commit Guidelines
 
-**IMPORTANT**: Commit frequently to maintain traceable history.
+**IMPORTANT**: Commit after meaningful work, not mechanically.
 
 ### When to Commit
 
@@ -208,12 +208,14 @@ octo-sandbox/
 2. **After Task Completion**
    - After completing a bug fix
    - After implementing a feature or subtask
+   - After any code change you might want to reference later
 
-3. **Before Context Clear**
-   - Before `/clear`: Always commit or at least checkpoint-progress
+3. **Before Risky Operations**
+   - Before major refactoring
+   - Before switching branches
 
 ### Commit Frequency Rule
 
-- **Minimum**: Once per session (before clear)
-- **Recommended**: After each completed task/subtask
-- **Trigger**: When `git status` shows >5 modified files
+- **Minimum**: After each completed task/subtask
+- **Trigger**: When `git status` shows >3 modified files that form a logical unit
+- **Don't**: Commit mechanically before /clear just for the sake of committing
