@@ -195,9 +195,29 @@ impl McpManager {
         self.clients.len()
     }
 
+    /// Get tool infos for a server.
+    pub fn get_tool_infos(&self, name: &str) -> Option<Vec<McpToolInfo>> {
+        self.tool_infos.get(name).cloned()
+    }
+
     /// Get tool count for a server.
     pub fn get_tool_count(&self, name: &str) -> usize {
         self.tool_infos.get(name).map(|t| t.len()).unwrap_or(0)
+    }
+
+    /// Call a tool on a server.
+    pub async fn call_tool(
+        &self,
+        server_name: &str,
+        tool_name: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        let client = self
+            .clients
+            .get(server_name)
+            .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
+        let client = client.read().await;
+        client.call_tool(tool_name, args).await
     }
 }
 

@@ -5,16 +5,10 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
+use octo_engine::mcp::McpToolInfo;
 use serde::{Deserialize, Serialize};
 
 use crate::state::AppState;
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct McpToolInfo {
-    pub name: String,
-    pub description: Option<String>,
-    pub input_schema: serde_json::Value,
-}
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct McpToolCallRequest {
@@ -35,30 +29,52 @@ pub struct McpToolCallResponse {
 
 // List tools for a server
 pub async fn list_tools(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Path(server_id): Path<String>,
 ) -> Json<Vec<McpToolInfo>> {
-    // TODO: Get from McpManager
-    Json(vec![])
+    let manager = state.mcp_manager.lock().await;
+    match manager.get_tool_infos(&server_id) {
+        Some(tools) => Json(tools),
+        None => Json(vec![]),
+    }
 }
 
 // Call a tool
 pub async fn call_tool(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Path(server_id): Path<String>,
     Json(req): Json<McpToolCallRequest>,
 ) -> Json<McpToolCallResponse> {
+    let start = std::time::Instant::now();
     let now = chrono::Utc::now();
 
-    Json(McpToolCallResponse {
-        id: uuid::Uuid::new_v4().to_string(),
-        server_id,
-        tool_name: req.tool_name,
-        result: None,
-        error: Some("Not implemented".to_string()),
-        duration_ms: 0,
-        executed_at: now.to_rfc3339(),
-    })
+    let manager = state.mcp_manager.lock().await;
+    let result = manager
+        .call_tool(&server_id, &req.tool_name, req.arguments)
+        .await;
+
+    let duration_ms = start.elapsed().as_millis() as i64;
+
+    match result {
+        Ok(result) => Json(McpToolCallResponse {
+            id: uuid::Uuid::new_v4().to_string(),
+            server_id,
+            tool_name: req.tool_name,
+            result: Some(result),
+            error: None,
+            duration_ms,
+            executed_at: now.to_rfc3339(),
+        }),
+        Err(e) => Json(McpToolCallResponse {
+            id: uuid::Uuid::new_v4().to_string(),
+            server_id,
+            tool_name: req.tool_name,
+            result: None,
+            error: Some(e.to_string()),
+            duration_ms,
+            executed_at: now.to_rfc3339(),
+        }),
+    }
 }
 
 // List execution history
