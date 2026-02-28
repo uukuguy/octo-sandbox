@@ -8,11 +8,17 @@ use octo_types::{ToolContext, ToolResult, ToolSource};
 use super::traits::Tool;
 
 /// Tool for fetching web content from a URL
-pub struct WebFetchTool;
+pub struct WebFetchTool {
+    client: reqwest::Client,
+}
 
 impl WebFetchTool {
     pub fn new() -> Self {
-        Self
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .expect("Failed to create HTTP client");
+        Self { client }
     }
 }
 
@@ -58,12 +64,7 @@ impl Tool for WebFetchTool {
 
         debug!(url, max_length, "fetching web content");
 
-        let client = reqwest::Client::builder()
-            .timeout(std::time::Duration::from_secs(30))
-            .build()
-            .map_err(|e| anyhow::anyhow!("failed to create HTTP client: {e}"))?;
-
-        let response = client
+        let response = self.client
             .get(url)
             .header("User-Agent", "Octo-Sandbox/1.0")
             .send()
