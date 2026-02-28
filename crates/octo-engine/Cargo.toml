@@ -9,6 +9,7 @@ tokio = { workspace = true }
 tokio-stream = { workspace = true }
 futures-util = { workspace = true }
 reqwest = { workspace = true }
+urlencoding = { workspace = true }
 bytes = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

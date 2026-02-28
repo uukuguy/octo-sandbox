@@ -12,6 +12,8 @@ pub mod memory_store;
 pub mod memory_update;
 pub mod recorder;
 pub mod traits;
+pub mod web_fetch;
+pub mod web_search;
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -30,6 +32,8 @@ use self::memory_store::MemoryStoreTool;
 use self::memory_update::MemoryUpdateTool;
 use self::memory_forget::MemoryForgetTool;
 use self::memory_recall::MemoryRecallTool;
+use self::web_fetch::WebFetchTool;
+use self::web_search::WebSearchTool;
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
 use octo_types::ToolSpec;
@@ -78,6 +82,8 @@ pub fn default_tools() -> ToolRegistry {
     registry.register(GrepTool::new());
     registry.register(GlobTool::new());
     registry.register(FindTool::new());
+    registry.register(WebFetchTool::new());
+    registry.register(WebSearchTool::new());
     registry
 }
 
