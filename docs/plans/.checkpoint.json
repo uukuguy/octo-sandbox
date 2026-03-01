@@ -15,9 +15,11 @@
     "SessionStore: Added list_sessions_for_user method",
     "McpStorage: Added user_id field to records",
     "McpStorage: Added list_servers_for_user method",
-    "McpStorage: Added get_server_for_user method"
+    "McpStorage: Added get_server_for_user method",
+    "Task 2.1: Apply auth middleware to routes",
+    "Task 2.2: Modify API handlers to use UserContext"
   ],
-  "current_task": "Task 2: Create user context extractor for API handlers",
+  "current_task": "Task 3: Modify sessions API for user isolation",
   "execution_mode": "subagent-driven-development",
-  "notes": "Database migration v4 completed. SessionStore and McpStorage updated with user filtering. Code compiles. Next: Create user context extractor and modify API handlers."
+  "notes": "Task 2 completed: Auth middleware applied, UserContext integrated with API handlers. Created shared user_context.rs module. Next: Task 3 sessions API, Task 4 memories API, Task 5 MCP API."
 }

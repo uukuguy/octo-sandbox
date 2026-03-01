@@ -147,20 +147,40 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
                 content,
             } => {
                 // Get or create session with user isolation
-                let session = if let Some(sid) = session_id {
-                    let session_id_obj = SessionId::from_string(&sid);
-                    // Use get_session_for_user to ensure user can only access their own sessions
-                    if let Some(existing) = state
-                        .sessions
-                        .get_session_for_user(&session_id_obj, user_id_opt.as_ref().unwrap())
-                        .await
-                    {
-                        existing
-                    } else {
-                        // Session not found or doesn't belong to user - create new session for this user
+                // Handle both authenticated (with user_id) and unauthenticated modes
+                let session = match (&session_id, &user_id_opt) {
+                    // Case 1: Session ID provided with user_id - use user-aware methods
+                    (Some(sid), Some(uid)) => {
+                        let session_id_obj = SessionId::from_string(sid);
+                        // Use get_session_for_user to ensure user can only access their own sessions
+                        if let Some(existing) = state
+                            .sessions
+                            .get_session_for_user(&session_id_obj, uid)
+                            .await
+                        {
+                            existing
+                        } else {
+                            // Session not found or doesn't belong to user - create new session for this user
+                            let s = state
+                                .sessions
+                                .create_session_with_user(uid)
+                                .await;
+                            let msg = ServerMessage::SessionCreated {
+                                session_id: s.session_id.as_str().to_string(),
+                            };
+                            let _ = sender
+                                .send(Message::Text(
+                                    serde_json::to_string(&msg).unwrap().into(),
+                                ))
+                                .await;
+                            s
+                        }
+                    }
+                    // Case 2: No session ID, but user_id exists - create new session for user
+                    (None, Some(uid)) => {
                         let s = state
                             .sessions
-                            .create_session_with_user(user_id_opt.as_ref().unwrap())
+                            .create_session_with_user(uid)
                             .await;
                         let msg = ServerMessage::SessionCreated {
                             session_id: s.session_id.as_str().to_string(),
@@ -172,21 +192,38 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
                             .await;
                         s
                     }
-                } else {
-                    // No session_id provided - create new session for this user
-                    let s = state
-                        .sessions
-                        .create_session_with_user(user_id_opt.as_ref().unwrap())
-                        .await;
-                    let msg = ServerMessage::SessionCreated {
-                        session_id: s.session_id.as_str().to_string(),
-                    };
-                    let _ = sender
-                        .send(Message::Text(
-                            serde_json::to_string(&msg).unwrap().into(),
-                        ))
-                        .await;
-                    s
+                    // Case 3: No user_id (auth disabled) - use original methods without user filtering
+                    (Some(sid), None) => {
+                        let session_id_obj = SessionId::from_string(sid);
+                        if let Some(existing) = state.sessions.get_session(&session_id_obj).await {
+                            existing
+                        } else {
+                            // Session not found - create new session
+                            let s = state.sessions.create_session().await;
+                            let msg = ServerMessage::SessionCreated {
+                                session_id: s.session_id.as_str().to_string(),
+                            };
+                            let _ = sender
+                                .send(Message::Text(
+                                    serde_json::to_string(&msg).unwrap().into(),
+                                ))
+                                .await;
+                            s
+                        }
+                    }
+                    // Case 4: No session_id and no user_id - create new session
+                    (None, None) => {
+                        let s = state.sessions.create_session().await;
+                        let msg = ServerMessage::SessionCreated {
+                            session_id: s.session_id.as_str().to_string(),
+                        };
+                        let _ = sender
+                            .send(Message::Text(
+                                serde_json::to_string(&msg).unwrap().into(),
+                            ))
+                            .await;
+                        s
+                    }
                 };
 
                 let sid_str = session.session_id.as_str().to_string();
