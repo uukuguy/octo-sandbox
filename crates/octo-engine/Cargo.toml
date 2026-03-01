@@ -21,6 +21,7 @@ chrono = { workspace = true }
 glob = "0.3"
 rusqlite = { workspace = true }
 tokio-rusqlite = { workspace = true }
+sqlx = { workspace = true }
 ulid = { workspace = true }
 bincode = { workspace = true }
 dashmap = { workspace = true }
