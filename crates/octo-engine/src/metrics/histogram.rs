@@ -82,6 +82,30 @@ impl Histogram {
         self.0.sum.store(0, Ordering::Relaxed);
         self.0.count.store(0, Ordering::Relaxed);
     }
+
+    /// Get a snapshot of the histogram state
+    pub fn snapshot(&self) -> HistogramSnapshot {
+        let mut cumulative = 0u64;
+        let buckets: Vec<Bucket> = self
+            .0
+            .buckets
+            .iter()
+            .zip(self.0.counts.iter())
+            .map(|(&le, count)| {
+                cumulative += count.load(Ordering::Relaxed);
+                Bucket {
+                    le,
+                    cumulative_count: cumulative,
+                }
+            })
+            .collect();
+
+        HistogramSnapshot {
+            buckets,
+            sum: self.sum(),
+            count: self.count() as u64,
+        }
+    }
 }
 
 impl std::fmt::Debug for Histogram {
@@ -92,4 +116,19 @@ impl std::fmt::Debug for Histogram {
             .field("mean", &self.mean())
             .finish()
     }
+}
+
+/// Histogram snapshot containing bucket distribution
+#[derive(Debug, Clone)]
+pub struct HistogramSnapshot {
+    pub buckets: Vec<Bucket>,
+    pub sum: f64,
+    pub count: u64,
+}
+
+/// Individual histogram bucket
+#[derive(Debug, Clone)]
+pub struct Bucket {
+    pub le: f64,
+    pub cumulative_count: u64,
 }
