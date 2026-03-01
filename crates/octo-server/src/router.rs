@@ -11,7 +11,7 @@ use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
 use crate::api;
-use crate::middleware::RateLimiter;
+use crate::middleware::{audit_middleware, AuditMiddlewareState, RateLimiter};
 use crate::state::AppState;
 use crate::ws::ws_handler;
 
@@ -85,6 +85,9 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     // Rate limiter: 100 requests per minute per IP
     let rate_limiter = RateLimiter::new(100, 60);
 
+    // Audit middleware state - uses the same database path as AppState
+    let audit_state = AuditMiddlewareState::new(state.db_path.clone());
+
     // Clone state for auth middleware (we need to pass a separate Arc<AppState> for the middleware)
     let auth_state = state.clone();
 
@@ -99,6 +102,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .nest("/api", api::routes())
         .with_state(state)
         .with_state(rate_limiter.clone())
+        .with_state(audit_state.clone())
         .layer(cors)
         .layer(TraceLayer::new_for_http())
         // Rate limiting middleware
@@ -110,5 +114,10 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .layer(axum::middleware::from_fn_with_state(
             auth_state,
             auth_middleware_wrapper,
+        ))
+        // Audit middleware - logs all requests to audit log
+        .layer(axum::middleware::from_fn_with_state(
+            audit_state,
+            audit_middleware,
         ))
 }
