@@ -53,9 +53,11 @@ impl SchedulerStorage for SqliteSchedulerStorage {
              FROM scheduled_tasks WHERE id = ?1"
         ).map_err(|e| SchedulerError::Storage(e.to_string()))?;
 
-        let task = stmt.query_row([task_id], |row| {
-            Ok(row_to_task(row))
-        }).ok();
+        let task = match stmt.query_row([task_id], |row| row_to_task(row)) {
+            Ok(task) => Some(task),
+            Err(rusqlite::Error::QueryReturnedNoRows) => None,
+            Err(e) => return Err(SchedulerError::Storage(e.to_string())),
+        };
 
         Ok(task)
     }
@@ -69,7 +71,7 @@ impl SchedulerStorage for SqliteSchedulerStorage {
                     "SELECT id, user_id, name, cron, agent_config, enabled, last_run, next_run, created_at, updated_at
                      FROM scheduled_tasks WHERE user_id = ?1"
                 ).map_err(|e| SchedulerError::Storage(e.to_string()))?;
-                let result = stmt.query_map([uid], |row| Ok(row_to_task(row)))
+                let result = stmt.query_map([uid], row_to_task)
                     .map_err(|e| SchedulerError::Storage(e.to_string()))?
                     .filter_map(|r| r.ok())
                     .collect();
@@ -80,7 +82,7 @@ impl SchedulerStorage for SqliteSchedulerStorage {
                     "SELECT id, user_id, name, cron, agent_config, enabled, last_run, next_run, created_at, updated_at
                      FROM scheduled_tasks"
                 ).map_err(|e| SchedulerError::Storage(e.to_string()))?;
-                let result = stmt.query_map([], |row| Ok(row_to_task(row)))
+                let result = stmt.query_map([], row_to_task)
                     .map_err(|e| SchedulerError::Storage(e.to_string()))?
                     .filter_map(|r| r.ok())
                     .collect();
@@ -143,11 +145,10 @@ impl SchedulerStorage for SqliteSchedulerStorage {
              FROM task_executions WHERE task_id = ?1 ORDER BY started_at DESC LIMIT ?2"
         ).map_err(|e| SchedulerError::Storage(e.to_string()))?;
 
-        let executions = stmt.query_map([task_id, &limit.to_string()], |row| {
-            Ok(row_to_execution(row))
-        }).map_err(|e| SchedulerError::Storage(e.to_string()))?
-        .filter_map(|r| r.ok())
-        .collect();
+        let executions = stmt.query_map(rusqlite::params![task_id, limit as i64], row_to_execution)
+            .map_err(|e| SchedulerError::Storage(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect();
 
         Ok(executions)
     }
@@ -160,53 +161,62 @@ impl SchedulerStorage for SqliteSchedulerStorage {
              FROM scheduled_tasks WHERE enabled = 1 AND next_run IS NOT NULL AND next_run <= ?1"
         ).map_err(|e| SchedulerError::Storage(e.to_string()))?;
 
-        let tasks = stmt.query_map([&now], |row| {
-            Ok(row_to_task(row))
-        }).map_err(|e| SchedulerError::Storage(e.to_string()))?
-        .filter_map(|r| r.ok())
-        .collect();
+        let tasks = stmt.query_map([&now], row_to_task)
+            .map_err(|e| SchedulerError::Storage(e.to_string()))?
+            .filter_map(|r| r.ok())
+            .collect();
 
         Ok(tasks)
     }
 }
 
-fn row_to_task(row: &rusqlite::Row) -> ScheduledTask {
-    let agent_config_json: String = row.get(4).unwrap_or_default();
-    let agent_config: AgentTaskConfig = serde_json::from_str(&agent_config_json).unwrap_or_default();
+fn row_to_task(row: &rusqlite::Row) -> Result<ScheduledTask, rusqlite::Error> {
+    let agent_config_json: String = row.get(4)?;
+    let agent_config: AgentTaskConfig = serde_json::from_str(&agent_config_json)
+        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+            4,
+            rusqlite::types::Type::Text,
+            Box::new(e),
+        ))?;
 
     fn parse_datetime(s: &str) -> Option<DateTime<Utc>> {
         DateTime::parse_from_rfc3339(s).ok().map(|d| d.with_timezone(&Utc))
     }
 
-    ScheduledTask {
-        id: row.get(0).unwrap_or_default(),
+    Ok(ScheduledTask {
+        id: row.get(0)?,
         user_id: row.get(1).ok(),
-        name: row.get(2).unwrap_or_default(),
-        cron: row.get(3).unwrap_or_default(),
+        name: row.get(2)?,
+        cron: row.get(3)?,
         agent_config,
-        enabled: row.get::<_, i32>(5).unwrap_or(1) == 1,
-        last_run: row.get::<_, Option<String>>(6).ok().flatten().and_then(|s| parse_datetime(&s)),
-        next_run: row.get::<_, Option<String>>(7).ok().flatten().and_then(|s| parse_datetime(&s)),
+        enabled: row.get::<_, i32>(5)? == 1,
+        last_run: row.get::<_, Option<String>>(6)?.and_then(|s| parse_datetime(&s)),
+        next_run: row.get::<_, Option<String>>(7)?.and_then(|s| parse_datetime(&s)),
         created_at: row.get::<_, String>(8).ok().and_then(|s| parse_datetime(&s)).unwrap_or_else(Utc::now),
         updated_at: row.get::<_, String>(9).ok().and_then(|s| parse_datetime(&s)).unwrap_or_else(Utc::now),
-    }
+    })
 }
 
-fn row_to_execution(row: &rusqlite::Row) -> TaskExecution {
-    let status_str: String = row.get(4).unwrap_or_default();
-    let status: ExecutionStatus = serde_json::from_str(&status_str).unwrap_or(ExecutionStatus::Failed);
+fn row_to_execution(row: &rusqlite::Row) -> Result<TaskExecution, rusqlite::Error> {
+    let status_str: String = row.get(4)?;
+    let status: ExecutionStatus = serde_json::from_str(&status_str)
+        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(
+            4,
+            rusqlite::types::Type::Text,
+            Box::new(e),
+        ))?;
 
     fn parse_datetime(s: &str) -> Option<DateTime<Utc>> {
         DateTime::parse_from_rfc3339(s).ok().map(|d| d.with_timezone(&Utc))
     }
 
-    TaskExecution {
-        id: row.get(0).unwrap_or_default(),
-        task_id: row.get(1).unwrap_or_default(),
+    Ok(TaskExecution {
+        id: row.get(0)?,
+        task_id: row.get(1)?,
         started_at: row.get::<_, String>(2).ok().and_then(|s| parse_datetime(&s)).unwrap_or_else(Utc::now),
-        finished_at: row.get::<_, Option<String>>(3).ok().flatten().and_then(|s| parse_datetime(&s)),
+        finished_at: row.get::<_, Option<String>>(3)?.and_then(|s| parse_datetime(&s)),
         status,
         result: row.get(5).ok(),
         error: row.get(6).ok(),
-    }
+    })
 }
