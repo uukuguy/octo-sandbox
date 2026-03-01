@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 use tracing::info;
 
-const CURRENT_VERSION: u32 = 3;
+const CURRENT_VERSION: u32 = 4;
 
 const MIGRATION_V1: &str = "
 -- Working Memory blocks persistence
@@ -166,6 +166,30 @@ CREATE INDEX IF NOT EXISTS idx_mcp_logs_server_time
     ON mcp_logs(server_id, logged_at);
 ";
 
+const MIGRATION_V4: &str = "
+-- Add user_id to session_messages for isolation
+ALTER TABLE session_messages ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default';
+
+-- Add user_id to tool_executions for isolation
+ALTER TABLE tool_executions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default';
+
+-- Add user_id to mcp_servers for isolation
+ALTER TABLE mcp_servers ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default';
+
+-- Add user_id to mcp_executions for isolation
+ALTER TABLE mcp_executions ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default';
+
+-- Add user_id to mcp_logs for isolation
+ALTER TABLE mcp_logs ADD COLUMN user_id TEXT NOT NULL DEFAULT 'default';
+
+-- Create indexes for user_id filtering
+CREATE INDEX IF NOT EXISTS idx_session_messages_user_id ON session_messages(user_id);
+CREATE INDEX IF NOT EXISTS idx_tool_executions_user_id ON tool_executions(user_id);
+CREATE INDEX IF NOT EXISTS idx_mcp_servers_user_id ON mcp_servers(user_id);
+CREATE INDEX IF NOT EXISTS idx_mcp_executions_user_id ON mcp_executions(user_id);
+CREATE INDEX IF NOT EXISTS idx_mcp_logs_user_id ON mcp_logs(user_id);
+";
+
 pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
     let version: u32 = conn.pragma_query_value(None, "user_version", |row| row.get(0))?;
 
@@ -189,6 +213,11 @@ pub fn migrate(conn: &Connection) -> rusqlite::Result<()> {
         if version < 3 {
             conn.execute_batch(MIGRATION_V3)?;
             info!("Applied migration v3");
+        }
+
+        if version < 4 {
+            conn.execute_batch(MIGRATION_V4)?;
+            info!("Applied migration v4");
         }
 
         conn.pragma_update(None, "user_version", CURRENT_VERSION)?;

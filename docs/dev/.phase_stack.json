@@ -5,9 +5,9 @@
       "started_at": "2026-03-01T09:30:00+08:00",
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "30%",
+      "progress": "35%",
       "design_doc": "docs/design/PHASE_2_5_DESIGN.md",
-      "note": "2.5.1 Sandbox (15%) + 2.5.2 Auth (15%) done, next: 2.5.3 User Isolation"
+      "note": "2.5.1 Sandbox (15%) + 2.5.2 Auth (15%) done, 2.5.3 User Isolation in progress: DB migration + SessionStore/McpStorage updated. Next: API handlers with user filtering."
     }
   ],
   "suspended_phases": []

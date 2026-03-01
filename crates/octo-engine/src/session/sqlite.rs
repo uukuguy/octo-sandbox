@@ -26,9 +26,13 @@ impl SqliteSessionStore {
 #[async_trait]
 impl SessionStore for SqliteSessionStore {
     async fn create_session(&self) -> SessionData {
+        self.create_session_with_user(&UserId::from_string("default")).await
+    }
+
+    async fn create_session_with_user(&self, user_id: &UserId) -> SessionData {
         let data = SessionData {
             session_id: SessionId::new(),
-            user_id: UserId::from_string("default"),
+            user_id: user_id.clone(),
             sandbox_id: SandboxId::new(),
         };
         let sid = data.session_id.as_str().to_string();
@@ -50,7 +54,7 @@ impl SessionStore for SqliteSessionStore {
             })
             .await;
 
-        debug!(session_id = %data.session_id, "Created session");
+        debug!(session_id = %data.session_id, user_id = %data.user_id, "Created session");
         data
     }
 
@@ -91,6 +95,16 @@ impl SessionStore for SqliteSessionStore {
         } else {
             None
         }
+    }
+
+    async fn get_session_for_user(&self, session_id: &SessionId, user_id: &UserId) -> Option<SessionData> {
+        // First check if session belongs to user
+        if let Some(data) = self.get_session(session_id).await {
+            if data.user_id.as_str() == user_id.as_str() {
+                return Some(data);
+            }
+        }
+        None
     }
 
     async fn get_messages(&self, session_id: &SessionId) -> Option<Vec<ChatMessage>> {
@@ -216,6 +230,35 @@ impl SessionStore for SqliteSessionStore {
                 )?;
                 let rows = stmt
                     .query_map(rusqlite::params![limit as i64, offset as i64], |row| {
+                        Ok(SessionSummary {
+                            session_id: row.get(0)?,
+                            created_at: row.get(1)?,
+                            message_count: row.get::<_, i64>(2)? as usize,
+                        })
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                Ok(rows)
+            })
+            .await;
+
+        result.unwrap_or_default()
+    }
+
+    async fn list_sessions_for_user(&self, user_id: &UserId, limit: usize, offset: usize) -> Vec<SessionSummary> {
+        let uid = user_id.as_str().to_string();
+        let result = self
+            .conn
+            .call(move |conn| {
+                let mut stmt = conn.prepare(
+                    "SELECT s.session_id, s.created_at,
+                            (SELECT COUNT(*) FROM session_messages m WHERE m.session_id = s.session_id) AS msg_count
+                     FROM sessions s
+                     WHERE s.user_id = ?1
+                     ORDER BY s.created_at DESC
+                     LIMIT ?2 OFFSET ?3",
+                )?;
+                let rows = stmt
+                    .query_map(rusqlite::params![uid, limit as i64, offset as i64], |row| {
                         Ok(SessionSummary {
                             session_id: row.get(0)?,
                             created_at: row.get(1)?,

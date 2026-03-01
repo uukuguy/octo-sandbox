@@ -13,6 +13,7 @@ pub struct McpServerRecord {
     pub enabled: bool,
     pub transport: Option<String>,
     pub url: Option<String>,
+    pub user_id: String,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -26,6 +27,7 @@ pub struct McpExecutionRecord {
     pub result: Option<String>,
     pub error: Option<String>,
     pub duration_ms: Option<i64>,
+    pub user_id: String,
     pub executed_at: String,
 }
 
@@ -40,6 +42,7 @@ pub struct McpLogRecord {
     pub result: Option<String>,
     pub raw_data: Option<String>,
     pub duration_ms: Option<i64>,
+    pub user_id: String,
     pub logged_at: String,
 }
 
@@ -56,7 +59,7 @@ impl McpStorage {
     // Server CRUD
     pub fn list_servers(&self) -> rusqlite::Result<Vec<McpServerRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, source, command, args, env, enabled, COALESCE(transport, 'stdio') as transport, url, created_at, updated_at FROM mcp_servers ORDER BY name"
+            "SELECT id, name, source, command, args, env, enabled, COALESCE(transport, 'stdio') as transport, url, COALESCE(user_id, 'default') as user_id, created_at, updated_at FROM mcp_servers ORDER BY name"
         )?;
         let rows = stmt.query_map([], |row| {
             Ok(McpServerRecord {
@@ -69,8 +72,33 @@ impl McpStorage {
                 enabled: row.get::<_, i32>(6)? == 1,
                 transport: row.get(7)?,
                 url: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                user_id: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
+        })?;
+        rows.collect()
+    }
+
+    /// List servers filtered by user_id
+    pub fn list_servers_for_user(&self, user_id: &str) -> rusqlite::Result<Vec<McpServerRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, source, command, args, env, enabled, COALESCE(transport, 'stdio') as transport, url, COALESCE(user_id, 'default') as user_id, created_at, updated_at FROM mcp_servers WHERE user_id = ? OR user_id = 'default' ORDER BY name"
+        )?;
+        let rows = stmt.query_map([user_id], |row| {
+            Ok(McpServerRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                source: row.get(2)?,
+                command: row.get(3)?,
+                args: row.get(4)?,
+                env: row.get(5)?,
+                enabled: row.get::<_, i32>(6)? == 1,
+                transport: row.get(7)?,
+                url: row.get(8)?,
+                user_id: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
             })
         })?;
         rows.collect()
@@ -78,7 +106,7 @@ impl McpStorage {
 
     pub fn get_server(&self, id: &str) -> rusqlite::Result<Option<McpServerRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, source, command, args, env, enabled, COALESCE(transport, 'stdio') as transport, url, created_at, updated_at FROM mcp_servers WHERE id = ?"
+            "SELECT id, name, source, command, args, env, enabled, COALESCE(transport, 'stdio') as transport, url, COALESCE(user_id, 'default') as user_id, created_at, updated_at FROM mcp_servers WHERE id = ?"
         )?;
         let mut rows = stmt.query_map([id], |row| {
             Ok(McpServerRecord {
@@ -91,8 +119,33 @@ impl McpStorage {
                 enabled: row.get::<_, i32>(6)? == 1,
                 transport: row.get(7)?,
                 url: row.get(8)?,
-                created_at: row.get(9)?,
-                updated_at: row.get(10)?,
+                user_id: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
+            })
+        })?;
+        Ok(rows.next().transpose()?)
+    }
+
+    /// Get server only if it belongs to the user
+    pub fn get_server_for_user(&self, id: &str, user_id: &str) -> rusqlite::Result<Option<McpServerRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, source, command, args, env, enabled, COALESCE(transport, 'stdio') as transport, url, COALESCE(user_id, 'default') as user_id, created_at, updated_at FROM mcp_servers WHERE id = ? AND (user_id = ? OR user_id = 'default')"
+        )?;
+        let mut rows = stmt.query_map(rusqlite::params![id, user_id], |row| {
+            Ok(McpServerRecord {
+                id: row.get(0)?,
+                name: row.get(1)?,
+                source: row.get(2)?,
+                command: row.get(3)?,
+                args: row.get(4)?,
+                env: row.get(5)?,
+                enabled: row.get::<_, i32>(6)? == 1,
+                transport: row.get(7)?,
+                url: row.get(8)?,
+                user_id: row.get(9)?,
+                created_at: row.get(10)?,
+                updated_at: row.get(11)?,
             })
         })?;
         Ok(rows.next().transpose()?)
@@ -100,7 +153,7 @@ impl McpStorage {
 
     pub fn insert_server(&self, server: &McpServerRecord) -> rusqlite::Result<()> {
         self.conn.execute(
-            "INSERT INTO mcp_servers (id, name, source, command, args, env, enabled, transport, url, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO mcp_servers (id, name, source, command, args, env, enabled, transport, url, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 server.id,
                 server.name,
@@ -111,6 +164,7 @@ impl McpStorage {
                 server.enabled as i32,
                 server.transport,
                 server.url,
+                server.user_id,
                 server.created_at,
                 server.updated_at
             ],
@@ -120,7 +174,7 @@ impl McpStorage {
 
     pub fn update_server(&self, server: &McpServerRecord) -> rusqlite::Result<()> {
         self.conn.execute(
-            "UPDATE mcp_servers SET name = ?, source = ?, command = ?, args = ?, env = ?, enabled = ?, transport = ?, url = ?, updated_at = ? WHERE id = ?",
+            "UPDATE mcp_servers SET name = ?, source = ?, command = ?, args = ?, env = ?, enabled = ?, transport = ?, url = ?, user_id = ?, updated_at = ? WHERE id = ?",
             rusqlite::params![
                 server.name,
                 server.source,
@@ -130,6 +184,7 @@ impl McpStorage {
                 server.enabled as i32,
                 server.transport,
                 server.url,
+                server.user_id,
                 server.updated_at,
                 server.id
             ],
@@ -146,7 +201,7 @@ impl McpStorage {
     // Execution records
     pub fn insert_execution(&self, exec: &McpExecutionRecord) -> rusqlite::Result<()> {
         self.conn.execute(
-            "INSERT INTO mcp_executions (id, server_id, tool_name, params, result, error, duration_ms, executed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO mcp_executions (id, server_id, tool_name, params, result, error, duration_ms, user_id, executed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 exec.id,
                 exec.server_id,
@@ -155,6 +210,7 @@ impl McpStorage {
                 exec.result,
                 exec.error,
                 exec.duration_ms,
+                exec.user_id,
                 exec.executed_at
             ],
         )?;
@@ -167,7 +223,7 @@ impl McpStorage {
         limit: usize,
     ) -> rusqlite::Result<Vec<McpExecutionRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, server_id, tool_name, params, result, error, duration_ms, executed_at FROM mcp_executions WHERE server_id = ? ORDER BY executed_at DESC LIMIT ?"
+            "SELECT id, server_id, tool_name, params, result, error, duration_ms, COALESCE(user_id, 'default') as user_id, executed_at FROM mcp_executions WHERE server_id = ? ORDER BY executed_at DESC LIMIT ?"
         )?;
         let rows = stmt.query_map(rusqlite::params![server_id, limit as i64], |row| {
             Ok(McpExecutionRecord {
@@ -178,7 +234,8 @@ impl McpStorage {
                 result: row.get(4)?,
                 error: row.get(5)?,
                 duration_ms: row.get(6)?,
-                executed_at: row.get(7)?,
+                user_id: row.get(7)?,
+                executed_at: row.get(8)?,
             })
         })?;
         rows.collect()
@@ -187,7 +244,7 @@ impl McpStorage {
     // Log records
     pub fn insert_log(&self, log: &McpLogRecord) -> rusqlite::Result<()> {
         self.conn.execute(
-            "INSERT INTO mcp_logs (id, server_id, level, direction, method, params, result, raw_data, duration_ms, logged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO mcp_logs (id, server_id, level, direction, method, params, result, raw_data, duration_ms, user_id, logged_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             rusqlite::params![
                 log.id,
                 log.server_id,
@@ -198,6 +255,7 @@ impl McpStorage {
                 log.result,
                 log.raw_data,
                 log.duration_ms,
+                log.user_id,
                 log.logged_at
             ],
         )?;
@@ -212,7 +270,7 @@ impl McpStorage {
         offset: usize,
     ) -> rusqlite::Result<Vec<McpLogRecord>> {
         let mut sql = String::from(
-            "SELECT id, server_id, level, direction, method, params, result, raw_data, duration_ms, logged_at FROM mcp_logs WHERE server_id = ?"
+            "SELECT id, server_id, level, direction, method, params, result, raw_data, duration_ms, COALESCE(user_id, 'default') as user_id, logged_at FROM mcp_logs WHERE server_id = ?"
         );
         let mut params: Vec<Box<dyn rusqlite::ToSql>> = vec![Box::new(server_id.to_string())];
 
@@ -238,7 +296,8 @@ impl McpStorage {
                 result: row.get(6)?,
                 raw_data: row.get(7)?,
                 duration_ms: row.get(8)?,
-                logged_at: row.get(9)?,
+                user_id: row.get(9)?,
+                logged_at: row.get(10)?,
             })
         })?;
         rows.collect()

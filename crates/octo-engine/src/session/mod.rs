@@ -22,11 +22,14 @@ pub struct SessionSummary {
 #[async_trait]
 pub trait SessionStore: Send + Sync {
     async fn create_session(&self) -> SessionData;
+    async fn create_session_with_user(&self, user_id: &UserId) -> SessionData;
     async fn get_session(&self, session_id: &SessionId) -> Option<SessionData>;
+    async fn get_session_for_user(&self, session_id: &SessionId, user_id: &UserId) -> Option<SessionData>;
     async fn get_messages(&self, session_id: &SessionId) -> Option<Vec<ChatMessage>>;
     async fn push_message(&self, session_id: &SessionId, message: ChatMessage);
     async fn set_messages(&self, session_id: &SessionId, messages: Vec<ChatMessage>);
     async fn list_sessions(&self, limit: usize, offset: usize) -> Vec<SessionSummary>;
+    async fn list_sessions_for_user(&self, user_id: &UserId, limit: usize, offset: usize) -> Vec<SessionSummary>;
 }
 
 pub use memory::InMemorySessionStore;

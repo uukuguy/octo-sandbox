@@ -27,9 +27,13 @@ impl Default for InMemorySessionStore {
 #[async_trait]
 impl SessionStore for InMemorySessionStore {
     async fn create_session(&self) -> SessionData {
+        self.create_session_with_user(&UserId::from_string("default")).await
+    }
+
+    async fn create_session_with_user(&self, user_id: &UserId) -> SessionData {
         let data = SessionData {
             session_id: SessionId::new(),
-            user_id: UserId::from_string("default"),
+            user_id: user_id.clone(),
             sandbox_id: SandboxId::new(),
         };
         let sid = data.session_id.as_str().to_string();
@@ -40,6 +44,13 @@ impl SessionStore for InMemorySessionStore {
 
     async fn get_session(&self, session_id: &SessionId) -> Option<SessionData> {
         self.sessions.get(session_id.as_str()).map(|v| v.clone())
+    }
+
+    async fn get_session_for_user(&self, session_id: &SessionId, user_id: &UserId) -> Option<SessionData> {
+        self.sessions
+            .get(session_id.as_str())
+            .filter(|v| v.user_id.as_str() == user_id.as_str())
+            .map(|v| v.clone())
     }
 
     async fn get_messages(&self, session_id: &SessionId) -> Option<Vec<ChatMessage>> {
@@ -67,6 +78,25 @@ impl SessionStore for InMemorySessionStore {
                 SessionSummary {
                     session_id: sid,
                     created_at: 0, // InMemory does not track created_at
+                    message_count: msg_count,
+                }
+            })
+            .collect();
+        summaries.sort_by(|a, b| b.session_id.cmp(&a.session_id));
+        summaries.into_iter().skip(offset).take(limit).collect()
+    }
+
+    async fn list_sessions_for_user(&self, user_id: &UserId, limit: usize, offset: usize) -> Vec<SessionSummary> {
+        let mut summaries: Vec<SessionSummary> = self
+            .sessions
+            .iter()
+            .filter(|entry| entry.user_id.as_str() == user_id.as_str())
+            .map(|entry| {
+                let sid = entry.key().clone();
+                let msg_count = self.messages.get(&sid).map(|m| m.len()).unwrap_or(0);
+                SessionSummary {
+                    session_id: sid,
+                    created_at: 0,
                     message_count: msg_count,
                 }
             })

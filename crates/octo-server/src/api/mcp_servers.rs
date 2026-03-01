@@ -185,6 +185,7 @@ pub async fn create_server(
         enabled,
         transport: Some(transport.clone()),
         url: req.url.clone(),
+        user_id: "default".to_string(),
         created_at: now.clone(),
         updated_at: now.clone(),
     };
@@ -243,6 +244,7 @@ pub async fn update_server(
         enabled: req.enabled.unwrap_or(true),
         transport: req.transport.clone(),
         url: req.url.clone(),
+        user_id: "default".to_string(),
         created_at,
         updated_at: now,
     };
