@@ -7,7 +7,8 @@ use axum::{
 };
 use chrono::Utc;
 use octo_engine::mcp::{
-    manager::ServerRuntimeState, traits::McpServerConfigV2, traits::McpTransport, McpManager,
+    manager::ServerRuntimeState, storage::McpServerRecord, traits::McpServerConfigV2,
+    traits::McpTransport, McpManager,
 };
 use serde::{Deserialize, Serialize};
 
@@ -211,12 +212,70 @@ pub async fn create_server(
 
 // Update server
 pub async fn update_server(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
     Json(req): Json<McpServerConfigRequest>,
 ) -> Json<Option<McpServerResponse>> {
-    // TODO: Implement with storage
-    Json(None)
+    let storage = match state.mcp_storage() {
+        Some(s) => s,
+        None => return Json(None),
+    };
+
+    // Get existing server to preserve created_at
+    let existing = storage.get_server(&id).ok().flatten();
+    let created_at = existing.map(|r| r.created_at).unwrap_or_else(|| chrono::Utc::now().to_rfc3339());
+
+    let now = chrono::Utc::now().to_rfc3339();
+    let env_str = req.env.as_ref().map(|e| {
+        e.iter()
+            .map(|(k, v)| format!("{}={}", k, v))
+            .collect::<Vec<_>>()
+            .join(",")
+    }).unwrap_or_default();
+
+    let record = McpServerRecord {
+        id: id.clone(),
+        name: req.name,
+        source: req.source.unwrap_or_else(|| "custom".to_string()),
+        command: req.command.unwrap_or_default(),
+        args: req.args.map(|a| a.join(" ")).unwrap_or_default(),
+        env: env_str,
+        enabled: req.enabled.unwrap_or(true),
+        transport: req.transport.clone(),
+        url: req.url.clone(),
+        created_at,
+        updated_at: now,
+    };
+
+    match storage.update_server(&record) {
+        Ok(_) => {
+            // Get runtime status from manager
+            let runtime = state.mcp_manager.lock().await.get_runtime_state(&id);
+            let runtime_status = match runtime {
+                ServerRuntimeState::Stopped => "stopped",
+                ServerRuntimeState::Starting => "starting",
+                ServerRuntimeState::Running { .. } => "running",
+                ServerRuntimeState::Error { .. } => "error",
+            }.to_string();
+
+            Json(Some(McpServerResponse {
+                id: record.id,
+                name: record.name,
+                source: record.source,
+                command: record.command,
+                args: record.args.split_whitespace().map(String::from).collect(),
+                env: req.env.unwrap_or_default(),
+                enabled: record.enabled,
+                transport: record.transport.unwrap_or_else(|| "stdio".to_string()),
+                url: record.url,
+                runtime_status,
+                tool_count: 0,
+                created_at: record.created_at,
+                updated_at: record.updated_at,
+            }))
+        },
+        Err(_) => Json(None),
+    }
 }
 
 // Delete server

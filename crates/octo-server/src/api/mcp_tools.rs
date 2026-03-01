@@ -79,11 +79,26 @@ pub async fn call_tool(
 
 // List execution history
 pub async fn list_executions(
-    State(_state): State<Arc<AppState>>,
+    State(state): State<Arc<AppState>>,
     Path(server_id): Path<String>,
 ) -> Json<Vec<McpToolCallResponse>> {
-    // TODO: Get from storage
-    Json(vec![])
+    let storage = match state.mcp_storage() {
+        Some(s) => s,
+        None => return Json(vec![]),
+    };
+
+    match storage.list_executions(&server_id, 100) {
+        Ok(execs) => Json(execs.into_iter().map(|e| McpToolCallResponse {
+            id: e.id,
+            server_id: e.server_id,
+            tool_name: e.tool_name,
+            result: e.result.map(|r| serde_json::from_str(&r).unwrap_or_default()),
+            error: e.error,
+            duration_ms: e.duration_ms.unwrap_or(0),
+            executed_at: e.executed_at,
+        }).collect()),
+        Err(_) => Json(vec![]),
+    }
 }
 
 pub fn routes() -> Router<Arc<AppState>> {
