@@ -6,6 +6,7 @@ pub mod extension;
 pub mod mcp;
 pub mod memory;
 pub mod providers;
+pub mod sandbox;
 pub mod session;
 pub mod skills;
 pub mod tools;
@@ -13,6 +14,10 @@ pub mod security;
 
 pub use agent::{AgentEvent, AgentLoop};
 pub use event::{EventBus, OctoEvent};
+pub use sandbox::{
+    DockerAdapter, ExecResult, RuntimeAdapter, SandboxConfig, SandboxError, SandboxId,
+    SandboxType, SubprocessAdapter, WasmAdapter,
+};
 pub use context::{
     BootstrapFile, ContextBudgetManager, ContextPruner, DegradationLevel, SystemPromptBuilder,
 };
