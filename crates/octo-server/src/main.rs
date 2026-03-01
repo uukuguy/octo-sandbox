@@ -190,6 +190,7 @@ async fn main() -> Result<()> {
         model,
         Some(recorder),
         skill_registry,
+        None, // scheduler - will be added in integration
         cfg.clone(),
     ));
 

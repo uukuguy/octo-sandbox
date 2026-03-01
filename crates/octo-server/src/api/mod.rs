@@ -5,6 +5,7 @@ pub mod memories;
 pub mod mcp_logs;
 pub mod mcp_servers;
 pub mod mcp_tools;
+pub mod scheduler;
 pub mod sessions;
 pub mod tools;
 pub mod user_context;
@@ -53,4 +54,6 @@ pub fn routes() -> Router<Arc<AppState>> {
         .merge(mcp_servers::routes())
         .merge(mcp_tools::routes())
         .merge(mcp_logs::routes())
+        // Scheduler
+        .nest("/scheduler", scheduler::create_router())
 }

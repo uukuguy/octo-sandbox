@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use octo_engine::{
     auth::AuthConfig,
-    mcp::{McpManager, McpStorage}, MemoryStore, Provider,
+    mcp::{McpManager, McpStorage}, scheduler::Scheduler, MemoryStore, Provider,
     SessionStore, SkillRegistry, ToolExecutionRecorder, ToolRegistry, WorkingMemory,
 };
 
@@ -21,6 +21,8 @@ pub struct AppState {
     pub recorder: Option<Arc<ToolExecutionRecorder>>,
     #[allow(dead_code)]
     pub skill_registry: Arc<SkillRegistry>,
+    /// Scheduler for periodic tasks (optional)
+    pub scheduler: Option<Arc<Scheduler>>,
     /// Server configuration for frontend
     pub config: Config,
     /// Auth configuration for request authentication
@@ -39,6 +41,7 @@ impl AppState {
         model: Option<String>,
         recorder: Option<Arc<ToolExecutionRecorder>>,
         skill_registry: Arc<SkillRegistry>,
+        scheduler: Option<Arc<Scheduler>>,
         config: Config,
     ) -> Self {
         // Convert YAML config to runtime AuthConfig
@@ -55,6 +58,7 @@ impl AppState {
             model,
             recorder,
             skill_registry,
+            scheduler,
             config,
             auth_config,
         }
