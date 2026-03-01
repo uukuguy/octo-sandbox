@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::sync::Arc;
+use tokio::sync::RwLock;
+use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -35,5 +39,156 @@ pub enum FailoverPolicy {
 impl Default for FailoverPolicy {
     fn default() -> Self {
         FailoverPolicy::Automatic
+    }
+}
+
+/// ProviderChain 管理多个 LLM 实例
+pub struct ProviderChain {
+    instances: Arc<RwLock<Vec<LlmInstance>>>,
+    health: Arc<RwLock<HashMap<String, InstanceHealth>>>,
+    policy: FailoverPolicy,
+    manual_instance_id: Arc<RwLock<Option<String>>>,
+}
+
+impl ProviderChain {
+    /// 创建新的 ProviderChain
+    pub fn new(policy: FailoverPolicy) -> Self {
+        Self {
+            instances: Arc::new(RwLock::new(Vec::new())),
+            health: Arc::new(RwLock::new(HashMap::new())),
+            policy,
+            manual_instance_id: Arc::new(RwLock::new(None)),
+        }
+    }
+
+    /// 添加实例
+    pub async fn add_instance(&self, instance: LlmInstance) {
+        let mut instances = self.instances.write().await;
+        instances.push(instance.clone());
+
+        // 初始化健康状态
+        let mut health = self.health.write().await;
+        health.insert(instance.id, InstanceHealth::Unknown);
+    }
+
+    /// 移除实例
+    pub async fn remove_instance(&self, id: &str) -> Result<()> {
+        let mut instances = self.instances.write().await;
+        let len_before = instances.len();
+        instances.retain(|i| i.id != id);
+
+        if instances.len() == len_before {
+            return Err(anyhow!("Instance not found: {}", id));
+        }
+
+        let mut health = self.health.write().await;
+        health.remove(id);
+
+        // 如果移除的是手动选择的实例，清除选择
+        let mut manual = self.manual_instance_id.write().await;
+        if manual.as_deref() == Some(id) {
+            *manual = None;
+        }
+
+        Ok(())
+    }
+
+    /// 列出所有实例
+    pub async fn list_instances(&self) -> Vec<LlmInstance> {
+        self.instances.read().await.clone()
+    }
+
+    /// 获取实例健康状态
+    pub async fn get_health(&self, id: &str) -> InstanceHealth {
+        let health = self.health.read().await;
+        health.get(id).cloned().unwrap_or(InstanceHealth::Unknown)
+    }
+
+    /// 获取可用的实例
+    pub async fn get_available(&self) -> Result<Arc<LlmInstance>> {
+        // 1. 手动选择优先
+        if let Some(id) = self.manual_instance_id.read().await.as_ref() {
+            let instances = self.instances.read().await;
+            if let Some(instance) = instances.iter().find(|i| &i.id == id) {
+                if instance.enabled {
+                    let health = self.health.read().await;
+                    if matches!(health.get(&instance.id), Some(InstanceHealth::Healthy) | None | Some(InstanceHealth::Unknown)) {
+                        return Ok(Arc::new(instance.clone()));
+                    }
+                }
+            }
+        }
+
+        // 2. 自动模式
+        match self.policy {
+            FailoverPolicy::Manual => {
+                Err(anyhow!("No manual instance selected"))
+            }
+            _ => self.get_next_healthy_instance().await,
+        }
+    }
+
+    async fn get_next_healthy_instance(&self) -> Result<Arc<LlmInstance>> {
+        let instances = self.instances.read().await;
+        let health = self.health.read().await;
+
+        let mut sorted: Vec<_> = instances.iter()
+            .filter(|i| i.enabled)
+            .collect();
+        sorted.sort_by_key(|i| i.priority);
+
+        for instance in sorted {
+            let instance_health = health.get(&instance.id);
+            if matches!(instance_health, Some(InstanceHealth::Healthy) | None | Some(InstanceHealth::Unknown)) {
+                return Ok(Arc::new(instance.clone()));
+            }
+        }
+
+        Err(anyhow!("No healthy instances available"))
+    }
+
+    /// 标记实例不健康
+    pub async fn mark_unhealthy(&self, instance_id: &str, reason: &str) {
+        let mut health = self.health.write().await;
+        health.insert(instance_id.to_string(), InstanceHealth::Unhealthy {
+            reason: reason.to_string(),
+            failed_at: Utc::now(),
+        });
+    }
+
+    /// 手动选择实例
+    pub async fn select_instance(&self, instance_id: &str) -> Result<()> {
+        let instances = self.instances.read().await;
+        if !instances.iter().any(|i| i.id == instance_id) {
+            return Err(anyhow!("Instance not found: {}", instance_id));
+        }
+        drop(instances);
+
+        let mut manual = self.manual_instance_id.write().await;
+        *manual = Some(instance_id.to_string());
+        Ok(())
+    }
+
+    /// 清除手动选择
+    pub async fn clear_selection(&self) {
+        let mut manual = self.manual_instance_id.write().await;
+        *manual = None;
+    }
+
+    /// 获取当前选择
+    pub async fn get_current_selection(&self) -> Option<String> {
+        self.manual_instance_id.read().await.clone()
+    }
+
+    /// 重置实例健康状态
+    pub async fn reset_health(&self, instance_id: &str) -> Result<()> {
+        let instances = self.instances.read().await;
+        if !instances.iter().any(|i| i.id == instance_id) {
+            return Err(anyhow!("Instance not found: {}", instance_id));
+        }
+
+        let mut health = self.health.write().await;
+        health.insert(instance_id.to_string(), InstanceHealth::Healthy);
+        Ok(())
     }
 }
