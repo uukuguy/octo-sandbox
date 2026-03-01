@@ -14,7 +14,7 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 use octo_engine::{
     create_provider, default_tools, register_memory_tools, Database, mcp::McpManager,
-    MemoryStore, SessionStore, SkillLoader, SkillRegistry, SkillTool,
+    providers::ProviderChain, MemoryStore, SessionStore, SkillLoader, SkillRegistry, SkillTool,
     SqliteMemoryStore, SqliteSessionStore, SqliteWorkingMemory, ToolExecutionRecorder,
     WorkingMemory,
 };
@@ -126,7 +126,48 @@ async fn main() -> Result<()> {
     let conn = db.conn().clone();
 
     let provider: Arc<dyn octo_engine::Provider> =
-        Arc::from(create_provider(&provider_name, api_key, base_url));
+        Arc::from(create_provider(&provider_name, api_key, base_url.clone()));
+
+    // Initialize provider chain if configured
+    let provider_chain = if let Some(ref pc_config) = cfg.provider_chain {
+        let chain = Arc::new(ProviderChain::new(pc_config.failover_policy));
+        let chain_clone = Arc::clone(&chain);
+
+        // Add instances to the chain
+        for instance_config in &pc_config.instances {
+            // Resolve API key from env var if needed
+            let api_key = if instance_config.api_key.starts_with("${") && instance_config.api_key.ends_with("}") {
+                let env_var = &instance_config.api_key[2..instance_config.api_key.len()-1];
+                std::env::var(env_var).unwrap_or_else(|_| instance_config.api_key.clone())
+            } else {
+                instance_config.api_key.clone()
+            };
+
+            let instance = octo_engine::providers::LlmInstance {
+                id: instance_config.id.clone(),
+                provider: instance_config.provider.clone(),
+                api_key,
+                base_url: instance_config.base_url.clone(),
+                model: instance_config.model.clone(),
+                priority: instance_config.priority,
+                max_rpm: instance_config.max_rpm,
+                enabled: instance_config.enabled,
+            };
+            // Note: add_instance takes &self, so we need Arc<ProviderChain>
+            chain_clone.add_instance(instance).await;
+        }
+
+        // Start health checker if configured
+        chain.start_health_checker(octo_engine::providers::HealthCheckConfig {
+            interval: std::time::Duration::from_secs(pc_config.health_check_interval_sec),
+            timeout: std::time::Duration::from_secs(10),
+        }).await;
+
+        tracing::info!("Provider chain initialized with {} instances", pc_config.instances.len());
+        Some(chain)
+    } else {
+        None
+    };
 
     // Working memory (Layer 0) -- SQLite-backed
     let memory: Arc<dyn WorkingMemory> =
@@ -181,6 +222,7 @@ async fn main() -> Result<()> {
 
     let state = Arc::new(AppState::new(
         provider,
+        provider_chain,
         tools,
         memory,
         sessions,

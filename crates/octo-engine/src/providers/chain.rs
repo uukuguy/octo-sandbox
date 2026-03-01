@@ -83,6 +83,11 @@ impl ProviderChain {
         }
     }
 
+    /// Get the failover policy
+    pub fn policy(&self) -> FailoverPolicy {
+        self.policy
+    }
+
     /// 添加实例
     pub async fn add_instance(&self, instance: LlmInstance) {
         let mut instances = self.instances.write().await;

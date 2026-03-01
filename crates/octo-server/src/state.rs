@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use octo_engine::{
     auth::AuthConfig,
-    mcp::{McpManager, McpStorage}, scheduler::Scheduler, MemoryStore, Provider,
+    mcp::{McpManager, McpStorage}, providers::ProviderChain, scheduler::Scheduler, MemoryStore, Provider,
     SessionStore, SkillRegistry, ToolExecutionRecorder, ToolRegistry, WorkingMemory,
 };
 
@@ -11,6 +11,8 @@ use crate::config::Config;
 
 pub struct AppState {
     pub provider: Arc<dyn Provider>,
+    /// Provider chain for LLM failover (optional), stored as Arc for cheap cloning
+    pub provider_chain: Option<Arc<ProviderChain>>,
     pub tools: Arc<ToolRegistry>,
     pub memory: Arc<dyn WorkingMemory>,
     pub sessions: Arc<dyn SessionStore>,
@@ -32,6 +34,7 @@ pub struct AppState {
 impl AppState {
     pub fn new(
         provider: Arc<dyn Provider>,
+        provider_chain: Option<Arc<ProviderChain>>,
         tools: Arc<ToolRegistry>,
         memory: Arc<dyn WorkingMemory>,
         sessions: Arc<dyn SessionStore>,
@@ -49,6 +52,7 @@ impl AppState {
 
         Self {
             provider,
+            provider_chain,
             tools,
             memory,
             sessions,
