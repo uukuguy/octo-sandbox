@@ -4,6 +4,7 @@ pub mod context;
 pub mod db;
 pub mod event;
 pub mod extension;
+pub mod metrics;
 pub mod mcp;
 pub mod memory;
 pub mod providers;
@@ -28,6 +29,7 @@ pub use extension::{
     AgentResult, Extension, ExtensionContext, ExtensionEvent, ExtensionHostActions,
     ExtensionManager, HostcallInterceptor, InMemoryExtensionHostActions, LoggingExtension,
 };
+pub use metrics::{Counter, Gauge, Histogram, MetricsRegistry};
 pub use mcp::{McpClient, McpManager, McpServerConfig, McpToolBridge, McpToolInfo, StdioMcpClient};
 pub use memory::{
     InMemoryWorkingMemory, MemoryStore, SqliteMemoryStore, SqliteWorkingMemory, TokenBudgetManager,
