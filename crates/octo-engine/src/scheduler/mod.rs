@@ -2,7 +2,9 @@
 
 use async_trait::async_trait;
 use chrono::{DateTime, Utc};
+use cron::Schedule;
 use serde::{Deserialize, Serialize};
+use std::str::FromStr;
 
 /// Scheduled task
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -108,3 +110,39 @@ pub trait SchedulerStorage: Send + Sync {
 
 pub mod storage;
 pub use storage::SqliteSchedulerStorage;
+
+/// Cron parser helper
+pub struct CronParser;
+
+impl CronParser {
+    pub fn new() -> Self {
+        Self
+    }
+
+    /// Parse cron expression and calculate next run time
+    pub fn parse_next(&self, cron_expr: &str, from: DateTime<Utc>) -> Result<DateTime<Utc>, SchedulerError> {
+        // Cron expression uses standard 5-field format: minute hour day month weekday
+        let schedule = Schedule::from_str(cron_expr)
+            .map_err(|e| SchedulerError::InvalidCron(e.to_string()))?;
+
+        let next = schedule
+            .after(&from)
+            .next()
+            .ok_or_else(|| SchedulerError::InvalidCron("No next occurrence found".to_string()))?;
+
+        Ok(next.with_timezone(&Utc))
+    }
+
+    /// Validate cron expression
+    pub fn validate(&self, cron_expr: &str) -> Result<(), SchedulerError> {
+        Schedule::from_str(cron_expr)
+            .map_err(|e| SchedulerError::InvalidCron(e.to_string()))?;
+        Ok(())
+    }
+}
+
+impl Default for CronParser {
+    fn default() -> Self {
+        Self::new()
+    }
+}
