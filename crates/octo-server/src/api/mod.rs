@@ -7,6 +7,7 @@ pub mod mcp_servers;
 pub mod mcp_tools;
 pub mod sessions;
 pub mod tools;
+pub mod user_context;
 
 use std::sync::Arc;
 

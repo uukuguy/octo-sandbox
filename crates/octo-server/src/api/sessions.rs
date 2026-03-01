@@ -7,14 +7,7 @@ use octo_types::{SessionId, UserId};
 
 use crate::state::AppState;
 use super::PaginationParams;
-
-const DEFAULT_USER_ID: &str = "default";
-
-/// Get user_id from UserContext or use default
-fn get_user_id_from_context(ctx: Option<&UserContext>) -> String {
-    ctx.and_then(|c| c.user_id.clone())
-        .unwrap_or_else(|| DEFAULT_USER_ID.to_string())
-}
+use super::user_context::get_user_id_from_context;
 
 pub async fn list_sessions(
     State(state): State<Arc<AppState>>,

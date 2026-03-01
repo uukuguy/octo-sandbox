@@ -8,14 +8,7 @@ use serde::Deserialize;
 use octo_types::{MemoryCategory, MemoryEntry, MemoryFilter, MemoryId, SandboxId, SearchOptions, UserId};
 
 use crate::state::AppState;
-
-const DEFAULT_USER_ID: &str = "default";
-
-/// Get user_id from UserContext or use default
-fn get_user_id_from_context(ctx: Option<&UserContext>) -> String {
-    ctx.and_then(|c| c.user_id.clone())
-        .unwrap_or_else(|| DEFAULT_USER_ID.to_string())
-}
+use super::user_context::get_user_id_from_context;
 
 #[derive(Deserialize)]
 pub struct MemorySearchParams {
