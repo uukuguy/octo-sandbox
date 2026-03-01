@@ -9,6 +9,7 @@ use tokio::sync::RwLock;
 
 /// Local subprocess sandbox adapter
 /// Executes commands in isolated temporary directories
+#[derive(Clone)]
 pub struct SubprocessAdapter {
     instances: Arc<RwLock<HashMap<SandboxId, SubprocessInstance>>>,
 }

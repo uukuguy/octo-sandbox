@@ -44,6 +44,6 @@ fn test_sandbox_id() {
 #[test]
 fn test_adapters_exist() {
     let _wasm = octo_engine::sandbox::WasmAdapter::new();
-    let _docker = octo_engine::sandbox::DockerAdapter::new();
+    let _docker = octo_engine::sandbox::DockerAdapter::new("alpine:latest");
     let _subprocess = octo_engine::sandbox::SubprocessAdapter::new();
 }

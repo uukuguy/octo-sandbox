@@ -7,11 +7,13 @@
 //! - Subprocess: Local subprocess execution (simple)
 
 pub mod docker;
+pub mod router;
 pub mod subprocess;
 pub mod traits;
 pub mod wasm;
 
 pub use docker::DockerAdapter;
+pub use router::{AdapterEnum, SandboxRouter, ToolCategory};
 pub use subprocess::SubprocessAdapter;
 pub use traits::{
     ExecResult, RuntimeAdapter, SandboxConfig, SandboxError, SandboxId, SandboxType,
