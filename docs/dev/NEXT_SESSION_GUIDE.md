@@ -1,8 +1,8 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-01 09:30 GMT+8
+**最后更新**: 2026-03-01 16:30 GMT+8
 **当前分支**: `octo-workbench`
-**当前状态**: ✅ octo-workbench v1.0 完成，50 tests passing
+**当前状态**: ✅ Phase 2.5 用户隔离完成，0 warnings
 
 ---
 
@@ -16,6 +16,7 @@
 | Phase 2.2 记忆系统 | ✅ 完成 | 5 memory tools + Explorer |
 | Phase 2.3 MCP Workbench | ✅ 完成 | 动态 MCP Server 管理 + 前端 |
 | Phase 2.4 Engine Hardening | ✅ 完成 | Loop Guard + 4+1阶段 + Retry + EventBus + Tool Security |
+| Phase 2.5 用户隔离 | ✅ 完成 | DB migration v4 + Auth middleware + API handlers + WebSocket |
 | **octo-workbench v1.0** | ✅ **完成** | 50 tests passing，4 企业级增强 |
 | Phase 3 octo-platform | ⏳ 待开始 | Docker + 多用户 + 生产环境 |
 
@@ -129,6 +130,9 @@ make dev
 | Security 系统 ✅ | P1 | **已整合 (v1.0)** |
 | Message Queue ✅ | P2 | **已实施 (v1.0)** |
 | Extension 系统 ✅ | P2 | **已实施 (v1.0)** |
+| Sandbox (Subprocess/Wasm/Docker) ✅ | P0 | **已实施 (Phase 2.5.1)** |
+| API Key 认证 + Middleware ✅ | P0 | **已实施 (Phase 2.5.2)** |
+| 用户资源隔离 ✅ | P0 | **已实施 (Phase 2.5.3)** |
 | AgentRegistry | P0 | ⏳ Phase 3 |
 | Memory 增强 | P1 | ⏳ Phase 3 |
 | Scheduler | P2 | ⏳ Phase 3 |
