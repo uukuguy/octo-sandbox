@@ -41,6 +41,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/sessions/{id}", get(sessions::get_session))
         // Then less specific
         .route("/sessions", get(sessions::list_sessions))
+        .route("/executions", get(executions::list_user_executions))
         .route("/executions/{id}", get(executions::get_execution))
         .route("/tools", get(tools::list_tools))
         .route("/config", get(config::get_config))

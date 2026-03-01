@@ -1,12 +1,33 @@
 use std::sync::Arc;
 
-use axum::extract::{Path, Query, State};
+use axum::extract::{Extension, Path, Query, State};
 use axum::Json;
-
+use octo_engine::auth::UserContext;
 use octo_types::ToolExecution;
 
 use crate::state::AppState;
 use super::PaginationParams;
+use super::user_context::get_user_id_from_context;
+
+/// List executions for a user.
+pub async fn list_user_executions(
+    State(state): State<Arc<AppState>>,
+    Query(params): Query<PaginationParams>,
+    Extension(ctx): Extension<UserContext>,
+) -> Json<Vec<ToolExecution>> {
+    let user_id = get_user_id_from_context(Some(&ctx));
+    let (limit, offset) = params.clamped();
+    match &state.recorder {
+        Some(recorder) => {
+            let execs = recorder
+                .list_by_user(&user_id, limit, offset)
+                .await
+                .unwrap_or_default();
+            Json(execs)
+        }
+        None => Json(vec![]),
+    }
+}
 
 pub async fn list_session_executions(
     State(state): State<Arc<AppState>>,

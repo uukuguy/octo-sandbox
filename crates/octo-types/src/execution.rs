@@ -17,6 +17,7 @@ pub enum ExecutionStatus {
 pub struct ToolExecution {
     pub id: String,
     pub session_id: String,
+    pub user_id: String,
     pub tool_name: String,
     pub source: ToolSource,
     pub input: serde_json::Value,

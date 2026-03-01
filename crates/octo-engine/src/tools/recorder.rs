@@ -96,12 +96,38 @@ impl ToolExecutionRecorder {
         self.conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT id, session_id, tool_name, source, input, output, status, started_at, duration_ms, error
+                    "SELECT id, session_id, user_id, tool_name, source, input, output, status, started_at, duration_ms, error
                      FROM tool_executions WHERE session_id = ?1
                      ORDER BY started_at DESC LIMIT ?2 OFFSET ?3",
                 )?;
                 let rows = stmt
                     .query_map(rusqlite::params![session_id, limit as i64, offset as i64], |row| {
+                        Ok(Self::row_to_execution(row))
+                    })?
+                    .collect::<rusqlite::Result<Vec<_>>>()?;
+                Ok(rows)
+            })
+            .await
+            .map_err(Into::into)
+    }
+
+    /// List executions for a user.
+    pub async fn list_by_user(
+        &self,
+        user_id: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<Vec<ToolExecution>> {
+        let user_id = user_id.to_string();
+        self.conn
+            .call(move |conn| {
+                let mut stmt = conn.prepare(
+                    "SELECT id, session_id, user_id, tool_name, source, input, output, status, started_at, duration_ms, error
+                     FROM tool_executions WHERE user_id = ?1
+                     ORDER BY started_at DESC LIMIT ?2 OFFSET ?3",
+                )?;
+                let rows = stmt
+                    .query_map(rusqlite::params![user_id, limit as i64, offset as i64], |row| {
                         Ok(Self::row_to_execution(row))
                     })?
                     .collect::<rusqlite::Result<Vec<_>>>()?;
@@ -117,7 +143,7 @@ impl ToolExecutionRecorder {
         self.conn
             .call(move |conn| {
                 let mut stmt = conn.prepare(
-                    "SELECT id, session_id, tool_name, source, input, output, status, started_at, duration_ms, error
+                    "SELECT id, session_id, user_id, tool_name, source, input, output, status, started_at, duration_ms, error
                      FROM tool_executions WHERE id = ?1",
                 )?;
                 let result = stmt
@@ -130,16 +156,17 @@ impl ToolExecutionRecorder {
     }
 
     fn row_to_execution(row: &rusqlite::Row<'_>) -> ToolExecution {
-        let source_str: String = row.get(3).unwrap_or_default();
+        let source_str: String = row.get(4).unwrap_or_default();
         let source: ToolSource = serde_json::from_str(&source_str).unwrap_or(ToolSource::BuiltIn);
-        let input_str: String = row.get(4).unwrap_or_default();
-        let output_str: Option<String> = row.get(5).unwrap_or(None);
-        let status_str: String = row.get(6).unwrap_or_default();
+        let input_str: String = row.get(5).unwrap_or_default();
+        let output_str: Option<String> = row.get(6).unwrap_or(None);
+        let status_str: String = row.get(7).unwrap_or_default();
 
         ToolExecution {
             id: row.get(0).unwrap_or_default(),
             session_id: row.get(1).unwrap_or_default(),
-            tool_name: row.get(2).unwrap_or_default(),
+            user_id: row.get(2).unwrap_or_default(),
+            tool_name: row.get(3).unwrap_or_default(),
             source,
             input: serde_json::from_str(&input_str).unwrap_or_default(),
             output: output_str.and_then(|s| serde_json::from_str(&s).ok()),
@@ -150,12 +177,12 @@ impl ToolExecutionRecorder {
                 "timeout" => ExecutionStatus::Timeout,
                 _ => ExecutionStatus::Failed,
             },
-            started_at: row.get(7).unwrap_or(0),
+            started_at: row.get(8).unwrap_or(0),
             duration_ms: row
-                .get::<_, Option<i64>>(8)
+                .get::<_, Option<i64>>(9)
                 .unwrap_or(None)
                 .map(|v| v as u64),
-            error: row.get(9).unwrap_or(None),
+            error: row.get(10).unwrap_or(None),
         }
     }
 }
