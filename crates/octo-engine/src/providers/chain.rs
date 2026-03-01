@@ -7,6 +7,9 @@ use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tracing::info;
+use async_trait::async_trait;
+
+use octo_types::{CompletionRequest, CompletionResponse};
 
 /// LLM 实例配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -275,5 +278,80 @@ impl ProviderChain {
         // 目前简单返回 true
         let _ = timeout;
         true
+    }
+}
+
+/// 包装 ProviderChain 为单一 Provider 接口
+pub struct ChainProvider {
+    chain: Arc<ProviderChain>,
+    max_retries: u32,
+}
+
+impl ChainProvider {
+    pub fn new(chain: Arc<ProviderChain>, max_retries: u32) -> Self {
+        Self { chain, max_retries }
+    }
+
+    pub fn chain(&self) -> &Arc<ProviderChain> {
+        &self.chain
+    }
+}
+
+#[async_trait]
+impl crate::providers::Provider for ChainProvider {
+    fn id(&self) -> &str {
+        "chain"
+    }
+
+    async fn complete(&self, request: CompletionRequest) -> Result<CompletionResponse> {
+        let mut last_error = None;
+
+        for _ in 0..self.max_retries {
+            let instance = match self.chain.get_available().await {
+                Ok(i) => i,
+                Err(e) => {
+                    last_error = Some(e);
+                    continue;
+                }
+            };
+
+            let provider = crate::providers::create_provider(
+                &instance.provider,
+                instance.api_key.clone(),
+                instance.base_url.clone(),
+            );
+
+            match provider.complete(request.clone()).await {
+                Ok(response) => return Ok(response),
+                Err(e) => {
+                    self.chain.mark_unhealthy(&instance.id, &e.to_string()).await;
+                    last_error = Some(e);
+                }
+            }
+        }
+
+        Err(last_error.unwrap_or_else(|| anyhow!("All instances failed")))
+    }
+
+    async fn stream(
+        &self,
+        request: CompletionRequest,
+    ) -> Result<crate::providers::CompletionStream> {
+        // Stream 模式需要特殊处理：选择一个实例后全程使用
+        let instance = self.chain.get_available().await?;
+
+        let provider = crate::providers::create_provider(
+            &instance.provider,
+            instance.api_key.clone(),
+            instance.base_url.clone(),
+        );
+
+        match provider.stream(request).await {
+            Ok(stream) => Ok(stream),
+            Err(e) => {
+                self.chain.mark_unhealthy(&instance.id, &e.to_string()).await;
+                Err(e)
+            }
+        }
     }
 }
