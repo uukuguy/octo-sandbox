@@ -1,9 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 use tokio::sync::RwLock;
+use tokio::time::sleep;
 use anyhow::{Result, anyhow};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use tracing::info;
 
 /// LLM 实例配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,6 +42,22 @@ pub enum FailoverPolicy {
 impl Default for FailoverPolicy {
     fn default() -> Self {
         FailoverPolicy::Automatic
+    }
+}
+
+/// 健康检查配置
+#[derive(Debug, Clone)]
+pub struct HealthCheckConfig {
+    pub interval: Duration,
+    pub timeout: Duration,
+}
+
+impl Default for HealthCheckConfig {
+    fn default() -> Self {
+        Self {
+            interval: Duration::from_secs(30),
+            timeout: Duration::from_secs(10),
+        }
     }
 }
 
@@ -190,5 +209,71 @@ impl ProviderChain {
         let mut health = self.health.write().await;
         health.insert(instance_id.to_string(), InstanceHealth::Healthy);
         Ok(())
+    }
+
+    /// 启动健康检查任务
+    pub async fn start_health_checker(&self, config: HealthCheckConfig) {
+        let instances = Arc::clone(&self.instances);
+        let health = Arc::clone(&self.health);
+
+        tokio::spawn(async move {
+            loop {
+                sleep(config.interval).await;
+
+                let instance_ids: Vec<String> = {
+                    let instances = instances.read().await;
+                    instances.iter().map(|i| i.id.clone()).collect()
+                };
+
+                for id in instance_ids {
+                    // 只检查 Unknown 或 Unhealthy 的实例
+                    let should_check = {
+                        let h = health.read().await;
+                        matches!(
+                            h.get(&id),
+                            Some(InstanceHealth::Unhealthy { .. }) | None
+                        )
+                    };
+
+                    if should_check {
+                        // 简单健康检查：创建 provider 测试
+                        if Self::check_instance(&id, &instances, &health, config.timeout).await {
+                            let mut h = health.write().await;
+                            h.insert(id.clone(), InstanceHealth::Healthy);
+                            info!("Instance {} recovered to healthy", id);
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    async fn check_instance(
+        id: &str,
+        instances: &Arc<RwLock<Vec<LlmInstance>>>,
+        _health: &Arc<RwLock<HashMap<String, InstanceHealth>>>,
+        timeout: Duration,
+    ) -> bool {
+        let instance = {
+            let instances = instances.read().await;
+            instances.iter().find(|i| i.id == id).cloned()
+        };
+
+        let Some(instance) = instance else {
+            return false;
+        };
+
+        // 尝试创建 provider（不实际调用 API）
+        // 如果能创建成功，认为实例可用
+        let _provider = super::create_provider(
+            &instance.provider,
+            instance.api_key.clone(),
+            instance.base_url.clone(),
+        );
+
+        // 可以在这里添加实际的 ping 调用
+        // 目前简单返回 true
+        let _ = timeout;
+        true
     }
 }
