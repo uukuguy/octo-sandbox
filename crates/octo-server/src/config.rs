@@ -20,6 +20,9 @@ pub struct Config {
     /// Auth configuration (optional)
     #[serde(default)]
     pub auth: AuthConfigYaml,
+    /// Scheduler configuration
+    #[serde(default)]
+    pub scheduler: SchedulerConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -118,6 +121,31 @@ impl Default for SkillsConfig {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchedulerConfig {
+    #[serde(default)]
+    pub enabled: bool,
+
+    #[serde(default = "default_check_interval")]
+    pub check_interval_secs: u64,
+
+    #[serde(default = "default_max_concurrent")]
+    pub max_concurrent: usize,
+}
+
+fn default_check_interval() -> u64 { 60 }
+fn default_max_concurrent() -> usize { 5 }
+
+impl Default for SchedulerConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            check_interval_secs: 60,
+            max_concurrent: 5,
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -128,6 +156,7 @@ impl Default for Config {
             mcp: McpConfig::default(),
             skills: SkillsConfig::default(),
             auth: AuthConfigYaml::default(),
+            scheduler: SchedulerConfig::default(),
         }
     }
 }
