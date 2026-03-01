@@ -185,7 +185,7 @@ impl Scheduler {
             storage,
             cron_parser: CronParser::new(),
             running: Arc::new(AtomicBool::new(false)),
-            semaphore: Arc::new(Semaphore::new(5)),
+            semaphore: Arc::new(Semaphore::new(config.max_concurrent)),
         }
     }
 
