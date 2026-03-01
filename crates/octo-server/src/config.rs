@@ -1,4 +1,5 @@
 use octo_engine::auth::AuthConfigYaml;
+use octo_engine::providers::ProviderChainConfig;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -23,6 +24,9 @@ pub struct Config {
     /// Scheduler configuration
     #[serde(default)]
     pub scheduler: SchedulerConfig,
+    /// Provider Chain configuration (optional)
+    #[serde(default)]
+    pub provider_chain: Option<ProviderChainConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -157,6 +161,7 @@ impl Default for Config {
             skills: SkillsConfig::default(),
             auth: AuthConfigYaml::default(),
             scheduler: SchedulerConfig::default(),
+            provider_chain: None,
         }
     }
 }
