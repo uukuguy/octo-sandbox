@@ -360,3 +360,138 @@ impl crate::providers::Provider for ChainProvider {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_add_and_list_instances() {
+        let chain = ProviderChain::new(FailoverPolicy::Automatic);
+
+        chain
+            .add_instance(LlmInstance {
+                id: "test-1".to_string(),
+                provider: "anthropic".to_string(),
+                api_key: "test-key".to_string(),
+                base_url: None,
+                model: "claude-3-sonnet".to_string(),
+                priority: 0,
+                max_rpm: None,
+                enabled: true,
+            })
+            .await;
+
+        let instances = chain.list_instances().await;
+        assert_eq!(instances.len(), 1);
+        assert_eq!(instances[0].id, "test-1");
+    }
+
+    #[tokio::test]
+    async fn test_get_available_auto_mode() {
+        let chain = ProviderChain::new(FailoverPolicy::Automatic);
+
+        chain
+            .add_instance(LlmInstance {
+                id: "test-1".to_string(),
+                provider: "anthropic".to_string(),
+                api_key: "test-key".to_string(),
+                base_url: None,
+                model: "claude-3-sonnet".to_string(),
+                priority: 0,
+                max_rpm: None,
+                enabled: true,
+            })
+            .await;
+
+        let instance = chain.get_available().await.unwrap();
+        assert_eq!(instance.id, "test-1");
+    }
+
+    #[tokio::test]
+    async fn test_manual_selection() {
+        let chain = ProviderChain::new(FailoverPolicy::Hybrid);
+
+        chain
+            .add_instance(LlmInstance {
+                id: "test-1".to_string(),
+                provider: "anthropic".to_string(),
+                api_key: "key-1".to_string(),
+                base_url: None,
+                model: "claude-3-sonnet".to_string(),
+                priority: 0,
+                max_rpm: None,
+                enabled: true,
+            })
+            .await;
+
+        chain
+            .add_instance(LlmInstance {
+                id: "test-2".to_string(),
+                provider: "openai".to_string(),
+                api_key: "key-2".to_string(),
+                base_url: None,
+                model: "gpt-4".to_string(),
+                priority: 1,
+                max_rpm: None,
+                enabled: true,
+            })
+            .await;
+
+        // 手动选择
+        chain.select_instance("test-2").await.unwrap();
+
+        let selected = chain.get_current_selection().await;
+        assert_eq!(selected, Some("test-2".to_string()));
+
+        let instance = chain.get_available().await.unwrap();
+        assert_eq!(instance.id, "test-2");
+    }
+
+    #[tokio::test]
+    async fn test_mark_unhealthy() {
+        let chain = ProviderChain::new(FailoverPolicy::Automatic);
+
+        chain
+            .add_instance(LlmInstance {
+                id: "test-1".to_string(),
+                provider: "anthropic".to_string(),
+                api_key: "test-key".to_string(),
+                base_url: None,
+                model: "claude-3-sonnet".to_string(),
+                priority: 0,
+                max_rpm: None,
+                enabled: true,
+            })
+            .await;
+
+        // 标记不健康
+        chain.mark_unhealthy("test-1", "rate limit").await;
+
+        let health = chain.get_health("test-1").await;
+        assert!(matches!(health, InstanceHealth::Unhealthy { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_remove_instance() {
+        let chain = ProviderChain::new(FailoverPolicy::Automatic);
+
+        chain
+            .add_instance(LlmInstance {
+                id: "test-1".to_string(),
+                provider: "anthropic".to_string(),
+                api_key: "test-key".to_string(),
+                base_url: None,
+                model: "claude-3-sonnet".to_string(),
+                priority: 0,
+                max_rpm: None,
+                enabled: true,
+            })
+            .await;
+
+        chain.remove_instance("test-1").await.unwrap();
+
+        let instances = chain.list_instances().await;
+        assert!(instances.is_empty());
+    }
+}
