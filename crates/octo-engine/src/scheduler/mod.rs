@@ -1,5 +1,6 @@
 //! Scheduler module for periodic task execution
 
+use async_trait::async_trait;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -85,4 +86,22 @@ impl Serialize for SchedulerError {
     {
         serializer.serialize_str(&self.to_string())
     }
+}
+
+/// Scheduler storage trait
+#[async_trait]
+pub trait SchedulerStorage: Send + Sync {
+    async fn save_task(&self, task: &ScheduledTask) -> Result<(), SchedulerError>;
+    async fn get_task(&self, task_id: &str) -> Result<Option<ScheduledTask>, SchedulerError>;
+    async fn list_tasks(&self, user_id: Option<&str>) -> Result<Vec<ScheduledTask>, SchedulerError>;
+    async fn delete_task(&self, task_id: &str) -> Result<(), SchedulerError>;
+    async fn update_timing(
+        &self,
+        task_id: &str,
+        last_run: Option<DateTime<Utc>>,
+        next_run: Option<DateTime<Utc>>,
+    ) -> Result<(), SchedulerError>;
+    async fn save_execution(&self, execution: &TaskExecution) -> Result<(), SchedulerError>;
+    async fn get_executions(&self, task_id: &str, limit: usize) -> Result<Vec<TaskExecution>, SchedulerError>;
+    async fn get_due_tasks(&self) -> Result<Vec<ScheduledTask>, SchedulerError>;
 }
