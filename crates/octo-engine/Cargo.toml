@@ -31,6 +31,7 @@ rmcp = { workspace = true }
 hex = "0.4"
 sha2 = "0.10"
 axum = { version = "0.8", features = ["ws"] }
+thiserror = { workspace = true }
 
 [features]
 default = []
