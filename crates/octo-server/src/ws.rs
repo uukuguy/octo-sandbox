@@ -3,15 +3,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 use axum::extract::ws::{Message, WebSocket};
-use axum::extract::{State, WebSocketUpgrade};
+use axum::extract::{Request, State, WebSocketUpgrade};
 use axum::response::IntoResponse;
 use futures_util::{SinkExt, StreamExt};
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
+use octo_engine::auth::{get_user_context, UserContext};
 use octo_engine::AgentEvent;
-use octo_types::{ChatMessage, SessionId, ToolContext};
+use octo_types::{ChatMessage, SessionId, ToolContext, UserId};
 
 use crate::state::AppState;
 
@@ -89,11 +90,18 @@ enum ServerMessage {
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
+    req: Request,
 ) -> impl IntoResponse {
-    ws.on_upgrade(move |socket| handle_socket(socket, state))
+    // Extract UserContext from request extensions (injected by auth middleware)
+    let user_ctx: UserContext = get_user_context(&req).unwrap_or_else(|| UserContext {
+        user_id: None,
+        permissions: vec![],
+    });
+
+    ws.on_upgrade(move |socket| handle_socket(socket, state, user_ctx))
 }
 
-async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
+async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserContext) {
     let (mut sender, mut receiver) = socket.split();
 
     info!("WebSocket connected");
@@ -130,18 +138,30 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
         let cancel_flag = Arc::new(AtomicBool::new(false));
         let cancel_flag_for_cancel = cancel_flag.clone();
 
+        // Convert user_id from Option<String> to Option<UserId>
+        let user_id_opt = user_ctx.user_id.as_ref().map(|s| UserId::from_string(s));
+
         match client_msg {
             ClientMessage::SendMessage {
                 session_id,
                 content,
             } => {
-                // Get or create session
+                // Get or create session with user isolation
                 let session = if let Some(sid) = session_id {
                     let session_id_obj = SessionId::from_string(&sid);
-                    if let Some(existing) = state.sessions.get_session(&session_id_obj).await {
+                    // Use get_session_for_user to ensure user can only access their own sessions
+                    if let Some(existing) = state
+                        .sessions
+                        .get_session_for_user(&session_id_obj, user_id_opt.as_ref().unwrap())
+                        .await
+                    {
                         existing
                     } else {
-                        let s = state.sessions.create_session().await;
+                        // Session not found or doesn't belong to user - create new session for this user
+                        let s = state
+                            .sessions
+                            .create_session_with_user(user_id_opt.as_ref().unwrap())
+                            .await;
                         let msg = ServerMessage::SessionCreated {
                             session_id: s.session_id.as_str().to_string(),
                         };
@@ -153,7 +173,11 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         s
                     }
                 } else {
-                    let s = state.sessions.create_session().await;
+                    // No session_id provided - create new session for this user
+                    let s = state
+                        .sessions
+                        .create_session_with_user(user_id_opt.as_ref().unwrap())
+                        .await;
                     let msg = ServerMessage::SessionCreated {
                         session_id: s.session_id.as_str().to_string(),
                     };

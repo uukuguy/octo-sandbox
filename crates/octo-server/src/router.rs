@@ -94,7 +94,7 @@ pub fn build_router(state: Arc<AppState>) -> Router {
     Router::new()
         // Health check is open (no auth required)
         .route("/api/health", get(health))
-        // WebSocket endpoint (auth handled via WebSocket protocol)
+        // WebSocket endpoint (auth middleware applied)
         .route("/ws", get(ws_handler))
         // API routes - all protected by auth middleware
         // Auth middleware injects UserContext into request extensions
