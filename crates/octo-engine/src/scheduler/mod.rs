@@ -105,3 +105,6 @@ pub trait SchedulerStorage: Send + Sync {
     async fn get_executions(&self, task_id: &str, limit: usize) -> Result<Vec<TaskExecution>, SchedulerError>;
     async fn get_due_tasks(&self) -> Result<Vec<ScheduledTask>, SchedulerError>;
 }
+
+pub mod storage;
+pub use storage::SqliteSchedulerStorage;
