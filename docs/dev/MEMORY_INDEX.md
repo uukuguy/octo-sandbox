@@ -7,6 +7,28 @@
 
 ## [Active Work] Phase 2.5 - 核心基础设施 [2026-03-01]
 
+- 15:30 | Phase 2.5.4 Scheduler 完成 (10/10 tasks)
+  - DB Migration v5, Scheduler 数据结构, Storage trait+impl
+  - CronParser, Scheduler 核心, REST API (7 endpoints)
+  - 启用配置: scheduler.enabled=true
+- 15:30 | Phase 2.5.3 用户隔离 完成 (代码已实现)
+  - Session: create_session_with_user, get_session_for_user, list_sessions_for_user
+  - Memory: user_id 参数传入 compile
+  - MCP: list_servers_for_user, get_server_for_user
+  - Scheduler: list_tasks, run_now 支持 user_id 过滤
+- 16:00 | Phase 2.6 Provider Chain 设计完成
+  - 实施计划: docs/plans/2026-03-01-phase2-6-provider-chain.md (8 tasks)
+- 16:00 | checkpoint saved - ready for execution
+  - 设计文档: docs/design/PHASE_2_6_PROVIDER_CHAIN_DESIGN.md
+  - LlmInstance, ProviderChain, ChainProvider
+  - 自动/手动/混合故障切换
+  - REST API 6 endpoints
+  - 估算: ~630 LOC
+  - AuthMode: None / ApiKey / Full
+  - ApiKey: key 管理、过期时间、用户绑定
+  - Permission: Read / Write / Admin
+  - AuthConfig: 认证配置 + 密钥验证
+  - UserContext: 用户上下文 + get_user_context 中间件
 - 14:31 | Phase 2.5.4 Scheduler 设计完成
   - 设计文档: docs/design/PHASE_2_5_4_SCHEDULER_DESIGN.md
   - 实施计划: docs/plans/2026-03-01-phase2-5-4-scheduler.md (10 tasks)
