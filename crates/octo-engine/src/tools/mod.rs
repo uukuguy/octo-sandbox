@@ -70,6 +70,11 @@ impl ToolRegistry {
     pub fn names(&self) -> Vec<String> {
         self.tools.keys().cloned().collect()
     }
+
+    /// Iterate over all (name, tool) pairs in the registry.
+    pub fn iter(&self) -> impl Iterator<Item = (&String, Arc<dyn Tool>)> {
+        self.tools.iter().map(|(k, v)| (k, v.clone()))
+    }
 }
 
 impl Default for ToolRegistry {

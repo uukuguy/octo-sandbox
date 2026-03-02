@@ -257,7 +257,7 @@ async fn main() -> Result<()> {
         tools.clone(),
         memory.clone(),
         default_model,
-    ));
+    ).with_skill_registry(skill_registry.clone()));
 
     let state = Arc::new(AppState::new(
         provider,

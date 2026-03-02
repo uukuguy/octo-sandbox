@@ -15,6 +15,7 @@ use crate::context::SystemPromptBuilder;
 use crate::event::EventBus;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
+use crate::skills::{SkillRegistry, SkillTool};
 use crate::tools::ToolRegistry;
 
 /// Shared startup dependencies for spawning AgentLoop tasks.
@@ -22,6 +23,9 @@ pub struct AgentRunner {
     pub registry: Arc<AgentRegistry>,
     provider: Arc<dyn Provider>,
     tools: Arc<ToolRegistry>,
+    /// Optional: when set, build_tool_registry() dynamically includes the
+    /// latest SkillTools from the registry (supports hot-reload).
+    skill_registry: Option<Arc<SkillRegistry>>,
     memory: Arc<dyn WorkingMemory>,
     default_model: String,
     event_bus: Option<Arc<EventBus>>,
@@ -39,10 +43,18 @@ impl AgentRunner {
             registry,
             provider,
             tools,
+            skill_registry: None,
             memory,
             default_model,
             event_bus: None,
         }
+    }
+
+    /// Attach a SkillRegistry so that build_tool_registry() always reflects
+    /// the latest hot-reloaded skills rather than the startup snapshot.
+    pub fn with_skill_registry(mut self, skills: Arc<SkillRegistry>) -> Self {
+        self.skill_registry = Some(skills);
+        self
     }
 
     pub fn with_event_bus(mut self, bus: Arc<EventBus>) -> Self {
@@ -102,17 +114,39 @@ impl AgentRunner {
         self.registry.mark_resumed(id, cancel_token)
     }
 
-    /// Build a ToolRegistry filtered to the names in `tool_filter`.
+    /// Build a ToolRegistry for a specific agent.
     ///
-    /// If `tool_filter` is empty all tools are available (returns a clone of
-    /// the shared registry Arc so no allocation is needed).
+    /// 1. Start from the global `tools` snapshot (built-in tools + startup skills).
+    /// 2. If a `SkillRegistry` is attached, overlay the *current* invocable skills
+    ///    so hot-reloaded skills are always reflected when an agent starts.
+    /// 3. Apply `tool_filter` whitelist (empty = all tools included).
     pub fn build_tool_registry(&self, tool_filter: &[String]) -> Arc<ToolRegistry> {
-        if tool_filter.is_empty() {
+        // If no dynamic skills and no filter, fast path: share the global Arc.
+        if self.skill_registry.is_none() && tool_filter.is_empty() {
             return self.tools.clone();
+        }
+
+        // Build a fresh registry from the global snapshot.
+        let mut registry = ToolRegistry::new();
+        for (name, tool) in self.tools.iter() {
+            registry.register_arc(name.clone(), tool);
+        }
+
+        // Overlay current skills (replaces stale SkillTool entries from startup).
+        if let Some(ref skills) = self.skill_registry {
+            for skill in skills.invocable_skills() {
+                let name = skill.name.clone();
+                registry.register_arc(name, std::sync::Arc::new(SkillTool::new(skill)));
+            }
+        }
+
+        // Apply per-agent tool filter.
+        if tool_filter.is_empty() {
+            return Arc::new(registry);
         }
         let mut filtered = ToolRegistry::new();
         for name in tool_filter {
-            if let Some(tool) = self.tools.get(name) {
+            if let Some(tool) = registry.get(name) {
                 filtered.register_arc(name.clone(), tool);
             }
         }
@@ -165,5 +199,8 @@ fn build_system_prompt(manifest: &crate::agent::registry::AgentManifest) -> Stri
         return parts.join("\n\n");
     }
 
-    SystemPromptBuilder::new().build_system_prompt()
+    // Load SOUL.md / AGENTS.md / CLAUDE.md from the current working directory.
+    SystemPromptBuilder::new()
+        .with_bootstrap_dir(&std::env::current_dir().unwrap_or_default())
+        .build_system_prompt()
 }

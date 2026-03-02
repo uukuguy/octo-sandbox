@@ -1204,8 +1204,8 @@ git commit -m "docs: Phase 2.11 complete - AgentRegistry + context engineering r
 
 | ID | 内容 | 前置条件 | 状态 |
 |----|------|---------|------|
-| D1 | SkillRegistry 热重载后同步 per-agent ToolRegistry：新增/删除 skill 时已运行 Agent 的工具集自动更新 | per-agent ToolRegistry（Task 3）完成后 | ⏳ |
-| D2 | SOUL.md/AGENTS.md 项目文件加载接入 AgentLoop（SystemPromptBuilder.with_bootstrap_dir()） | Task 4 Zone A 重构完成后 | ⏳ |
+| D1 | SkillRegistry 热重载后同步 per-agent ToolRegistry：新增/删除 skill 时已运行 Agent 的工具集自动更新 | per-agent ToolRegistry（Task 3）完成后 | ✅ 已补 |
+| D2 | SOUL.md/AGENTS.md 项目文件加载接入 AgentLoop（SystemPromptBuilder.with_bootstrap_dir()） | Task 4 Zone A 重构完成后 | ✅ 已补 |
 | D3 | AgentLoop 实际运行与 AgentRunner 的 session/messages 管理（AgentRunner 目前 spawn 空任务） | WebSocket/session 层与 AgentRunner 集成设计后 | ⏳ |
 
 ---

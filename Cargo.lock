@@ -2295,6 +2295,7 @@ dependencies = [
  "octo-engine",
  "octo-sandbox",
  "octo-types",
+ "rusqlite",
  "serde",
  "serde_json",
  "serde_yaml",
