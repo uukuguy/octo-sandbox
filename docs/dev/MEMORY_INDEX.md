@@ -5,6 +5,17 @@
 
 ---
 
+## Phase 2.11 - AgentRegistry + 上下文工程重构 [COMPLETED 2026-03-03]
+
+- 05:00 | Phase 2.11 完成: AgentRegistry + AgentRunner + Zone A/B 上下文重构 + SQLite 持久化 + REST API
+  - AgentRegistry: DashMap 三索引 + SQLite 持久化 (7 Tasks, cargo check 0 errors, 149 tests pass)
+  - AgentManifest: role/goal/backstory + system_prompt 优先级构建
+  - AgentRunner: per-agent ToolRegistry 过滤 + start/stop/pause/resume
+  - Zone A/B: working memory 注入首条 Human Message，system prompt 静态
+  - REST API: /api/v1/agents CRUD + lifecycle 8 端点
+
+---
+
 ## Phase 2.9 - MCP SSE Transport [COMPLETED 2026-03-03]
 
 - 00:10 | Phase 2.9 MCP SSE Transport 完成: SseMcpClient + add_server_v2() + transport/url API
