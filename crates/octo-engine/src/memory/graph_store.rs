@@ -7,16 +7,16 @@ use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
 
 pub struct GraphStore {
-    conn: Mutex<Arc<Connection>>,
+    conn: Arc<Mutex<Connection>>,
     fts: FtsStore,
 }
 
 impl GraphStore {
     pub fn new(conn: Connection) -> Self {
-        let conn = Arc::new(conn);
+        let conn = Arc::new(Mutex::new(conn));
         let fts = FtsStore::new(conn.clone());
         Self {
-            conn: Mutex::new(conn),
+            conn,
             fts,
         }
     }
@@ -60,30 +60,35 @@ impl GraphStore {
                 ON kg_relations(relation_type);
             "#,
         )?;
-        drop(conn);
+        // Mutex guard automatically drops here when conn goes out of scope
         self.fts.init()?;
         Ok(())
     }
 
     /// Save entity
     pub fn save_entity(&self, entity: &Entity) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
-        conn.execute(
-            r#"
-            INSERT OR REPLACE INTO kg_entities
-                (id, name, entity_type, properties, created_at, updated_at)
-            VALUES (?1, ?2, ?3, ?4, ?5, ?6)
-            "#,
-            params![
-                entity.id,
-                entity.name,
-                entity.entity_type,
-                serde_json::to_string(&entity.properties)?,
-                entity.created_at,
-                entity.updated_at,
-            ],
-        )?;
-        drop(conn);
+        // Save entity to main database
+        {
+            let conn = self.conn.lock().unwrap();
+            conn.execute(
+                r#"
+                INSERT OR REPLACE INTO kg_entities
+                    (id, name, entity_type, properties, created_at, updated_at)
+                VALUES (?1, ?2, ?3, ?4, ?5, ?6)
+                "#,
+                params![
+                    entity.id,
+                    entity.name,
+                    entity.entity_type,
+                    serde_json::to_string(&entity.properties)?,
+                    entity.created_at,
+                    entity.updated_at,
+                ],
+            )?;
+            // Mutex guard auto-drops when conn goes out of scope here
+        }
+
+        // Index in FTS (FtsStore has its own mutex for thread safety)
         self.fts.index_entity(
             &entity.id,
             &entity.name,
