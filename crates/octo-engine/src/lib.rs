@@ -34,8 +34,8 @@ pub use extension::{
 };
 pub use mcp::{McpClient, McpManager, McpServerConfig, McpToolBridge, McpToolInfo, StdioMcpClient};
 pub use memory::{
-    InMemoryWorkingMemory, MemoryStore, SqliteMemoryStore, SqliteWorkingMemory, TokenBudgetManager,
-    WorkingMemory,
+    Entity, GraphStats, GraphStore, InMemoryWorkingMemory, KnowledgeGraph, MemoryStore,
+    MemorySystem, Relation, SqliteMemoryStore, SqliteWorkingMemory, TokenBudgetManager, WorkingMemory,
 };
 pub use metrics::{Counter, Gauge, Histogram, MetricsRegistry};
 pub use providers::{create_anthropic_provider, create_openai_provider, create_provider, Provider};
