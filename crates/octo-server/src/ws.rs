@@ -227,6 +227,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
                     state.agent_runner.memory(),
                     Some(state.memory_store.clone()),
                     state.model.clone(),
+                    Some(state.sessions.clone()),
                 );
 
                 // Subscribe before sending to avoid missing events

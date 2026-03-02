@@ -46,6 +46,7 @@ impl AgentRuntimeRegistry {
         memory: Arc<dyn WorkingMemory>,
         memory_store: Option<Arc<dyn MemoryStore>>,
         model: Option<String>,
+        session_store: Option<Arc<dyn crate::session::SessionStore>>,
     ) -> AgentRuntimeHandle {
         // 已有 handle 则直接复用
         if let Some(handle) = self.get(&session_id) {
@@ -73,6 +74,7 @@ impl AgentRuntimeRegistry {
             memory,
             memory_store,
             model,
+            session_store,
         );
 
         // Spawn 持久化主循环

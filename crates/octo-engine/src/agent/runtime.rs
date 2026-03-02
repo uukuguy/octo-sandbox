@@ -68,6 +68,7 @@ pub struct AgentRuntime {
     memory: Arc<dyn WorkingMemory>,
     memory_store: Option<Arc<dyn MemoryStore>>,
     model: Option<String>,
+    session_store: Option<Arc<dyn crate::session::SessionStore>>,
 
     // 生命周期
     cancel_flag: Arc<AtomicBool>,
@@ -87,6 +88,7 @@ impl AgentRuntime {
         memory: Arc<dyn WorkingMemory>,
         memory_store: Option<Arc<dyn MemoryStore>>,
         model: Option<String>,
+        session_store: Option<Arc<dyn crate::session::SessionStore>>,
     ) -> Self {
         Self {
             session_id,
@@ -100,6 +102,7 @@ impl AgentRuntime {
             memory,
             memory_store,
             model,
+            session_store,
             cancel_flag: Arc::new(AtomicBool::new(false)),
         }
     }
@@ -155,6 +158,11 @@ impl AgentRuntime {
                         let _ = self.broadcast_tx.send(AgentEvent::Error {
                             message: e.to_string(),
                         });
+                    }
+
+                    // 持久化 history 到 SessionStore
+                    if let Some(ref store) = self.session_store {
+                        store.set_messages(&self.session_id, self.history.clone()).await;
                     }
                 }
                 AgentMessage::Cancel => {
