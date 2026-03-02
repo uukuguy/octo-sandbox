@@ -6,6 +6,7 @@ use anyhow::Result;
 use rusqlite::{params, Connection};
 use std::sync::{Arc, Mutex};
 
+#[derive(Clone)]
 pub struct GraphStore {
     conn: Arc<Mutex<Connection>>,
     fts: FtsStore,

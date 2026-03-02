@@ -17,6 +17,7 @@ use std::sync::Arc;
 use anyhow::Result;
 use rusqlite::Connection;
 use tokio::sync::RwLock;
+use tokio::task;
 
 use super::session::SqliteSessionStore;
 
@@ -71,7 +72,9 @@ impl MemorySystem {
 
     /// Load knowledge graph from storage
     pub async fn load_knowledge_graph(&self) -> Result<()> {
-        let graph = self.graph_store.load_graph()?;
+        // Use spawn_blocking to avoid blocking the async runtime
+        let graph_store = self.graph_store.clone();
+        let graph = task::spawn_blocking(move || graph_store.load_graph()).await??;
         let mut guard = self.knowledge_graph.write().await;
         *guard = graph;
         Ok(())
@@ -79,7 +82,10 @@ impl MemorySystem {
 
     /// Add entity to knowledge graph
     pub async fn add_entity(&self, entity: Entity) -> Result<()> {
-        self.graph_store.save_entity(&entity)?;
+        // Use spawn_blocking to avoid blocking the async runtime
+        let graph_store = self.graph_store.clone();
+        let entity_clone = entity.clone();
+        task::spawn_blocking(move || graph_store.save_entity(&entity_clone)).await??;
         let mut guard = self.knowledge_graph.write().await;
         guard.add_entity(entity);
         Ok(())
@@ -87,11 +93,15 @@ impl MemorySystem {
 
     /// Add relation to knowledge graph
     pub async fn add_relation(&self, relation: Relation) -> Result<bool> {
+        // Persist to DB first (without holding lock) to avoid state inconsistency
+        // Use spawn_blocking to avoid blocking the async runtime
+        let graph_store = self.graph_store.clone();
+        let relation_clone = relation.clone();
+        task::spawn_blocking(move || graph_store.save_relation(&relation_clone)).await??;
+
+        // Now update in-memory graph after DB persisted successfully
         let mut guard = self.knowledge_graph.write().await;
-        let result = guard.add_relation(relation.clone());
-        if result {
-            self.graph_store.save_relation(&relation)?;
-        }
+        let result = guard.add_relation(relation);
         Ok(result)
     }
 
@@ -113,7 +123,10 @@ impl MemorySystem {
 
     /// FTS search in knowledge graph
     pub async fn search_knowledge_fts(&self, query: &str, limit: usize) -> Result<Vec<Entity>> {
-        let ids = self.graph_store.fts_search(query, limit)?;
+        // Use spawn_blocking to avoid blocking the async runtime
+        let graph_store = self.graph_store.clone();
+        let query = query.to_string();
+        let ids = task::spawn_blocking(move || graph_store.fts_search(&query, limit)).await??;
         let guard = self.knowledge_graph.read().await;
         Ok(ids
             .iter()
