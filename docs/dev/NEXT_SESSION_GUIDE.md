@@ -1,8 +1,8 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-02 17:10 GMT+8
+**最后更新**: 2026-03-02 21:30 GMT+8
 **当前分支**: `octo-workbench`
-**当前状态**: ✅ Phase 2.8 - Agent 增强 + Secret Manager 完成
+**当前状态**: ✅ Phase 2.8 - Agent 增强 + Secret Manager 完成，准备 Phase 2.9
 
 ---
 
@@ -20,6 +20,24 @@
 | Phase 2.6 Provider Chain | ✅ 完成 | LlmInstance + ProviderChain + ChainProvider + REST API |
 | Phase 2.7 Metrics + Audit | ✅ 完成 | MetricsRegistry + AuditStorage + REST API + EventBus 集成 |
 | Phase 2.8 Agent 增强 + Secret Manager | ✅ 完成 | Secret Manager + Agent Loop 增强 (10/10 tasks) |
+
+---
+
+## 待实施阶段 (CC 驱动)
+
+| Phase | 任务 | 计划文档 | 状态 |
+|-------|------|----------|------|
+| Phase 2.9 | MCP SSE Transport | `2026-02-27-mcp-sse-transport.md` | ⏳ 待实施 |
+| Phase 2.10 | AgentRegistry 多代理 | `2026-03-02-phase2-9-agent-registry.md` | ⏳ 待实施 |
+| Phase 2.11 | Memory 知识图谱 | `2026-03-02-phase2-10-knowledge-graph.md` | ⏳ 待实施 |
+
+---
+
+## 快速启动
+
+```bash
+# 启动 Phase 2.9 - MCP SSE Transport
+# 计划: docs/plans/2026-02-27-mcp-sse-transport.md
 
 ---
 
