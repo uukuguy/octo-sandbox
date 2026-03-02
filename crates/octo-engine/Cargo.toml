@@ -35,10 +35,19 @@ axum = { version = "0.8", features = ["ws"] }
 thiserror = { workspace = true }
 cron = "0.15"
 
+# Secret Manager
+aes-gcm = "0.10"
+argon2 = "0.5"
+zeroize = { version = "1.7", features = ["derive"] }
+rand = "0.8"
+keyring = { version = "3", optional = true }
+regex = "1"
+
 [features]
 default = ["sandbox-wasm", "sandbox-docker"]
 sandbox-wasm = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:base64"]
 sandbox-docker = ["dep:bollard", "dep:base64"]
+keyring = ["dep:keyring"]
 
 [dependencies.wasmtime]
 version = "25"

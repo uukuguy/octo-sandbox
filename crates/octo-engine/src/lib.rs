@@ -11,6 +11,7 @@ pub mod memory;
 pub mod providers;
 pub mod sandbox;
 pub mod scheduler;
+pub mod secret;
 pub mod security;
 pub mod session;
 pub mod skills;

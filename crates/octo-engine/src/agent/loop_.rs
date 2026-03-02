@@ -17,6 +17,7 @@ use crate::memory::WorkingMemory;
 use crate::providers::{LlmErrorKind, Provider, RetryPolicy};
 use crate::tools::ToolRegistry;
 
+use super::config::AgentConfig;
 use super::context::ContextBuilder;
 
 const MAX_ROUNDS: u32 = 30;
@@ -53,6 +54,10 @@ pub enum AgentEvent {
     TokenBudgetUpdate {
         budget: octo_types::TokenBudgetSnapshot,
     },
+    Typing {
+        /// true = started, false = stopped
+        state: bool,
+    },
     Error {
         message: String,
     },
@@ -71,6 +76,7 @@ pub struct AgentLoop {
     recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
     loop_guard: super::loop_guard::LoopGuard,
     event_bus: Option<Arc<crate::event::EventBus>>,
+    config: AgentConfig,
 }
 
 impl AgentLoop {
@@ -92,6 +98,7 @@ impl AgentLoop {
             recorder: None,
             loop_guard: super::loop_guard::LoopGuard::new(),
             event_bus: None,
+            config: AgentConfig::default(),
         }
     }
 
@@ -107,6 +114,11 @@ impl AgentLoop {
 
     pub fn with_event_bus(mut self, bus: Arc<crate::event::EventBus>) -> Self {
         self.event_bus = Some(bus);
+        self
+    }
+
+    pub fn with_config(mut self, config: AgentConfig) -> Self {
+        self.config = config;
         self
     }
 
@@ -156,7 +168,14 @@ impl AgentLoop {
 
         let tool_specs = self.tools.specs();
 
-        for round in 0..MAX_ROUNDS {
+        // Determine max rounds: 0 means infinite
+        let max_rounds = if self.config.max_rounds == 0 {
+            u32::MAX
+        } else {
+            self.config.max_rounds
+        };
+
+        for round in 0..max_rounds {
             debug!(round, "Agent round starting");
 
             // Check for cancellation
@@ -260,15 +279,26 @@ impl AgentLoop {
             let mut full_thinking = String::new();
             let mut tool_uses: Vec<PendingToolUse> = Vec::new();
             let mut current_tool: Option<PendingToolUse> = None;
+            let mut sent_typing = false;
 
             while let Some(event) = stream.next().await {
                 match event {
                     Ok(StreamEvent::MessageStart { .. }) => {}
                     Ok(StreamEvent::TextDelta { text }) => {
+                        // Send typing indicator when LLM starts responding
+                        if !sent_typing && self.config.enable_typing_signal {
+                            let _ = tx.send(AgentEvent::Typing { state: true });
+                            sent_typing = true;
+                        }
                         full_text.push_str(&text);
                         let _ = tx.send(AgentEvent::TextDelta { text });
                     }
                     Ok(StreamEvent::ThinkingDelta { text }) => {
+                        // Send typing indicator when thinking starts
+                        if !sent_typing && self.config.enable_typing_signal {
+                            let _ = tx.send(AgentEvent::Typing { state: true });
+                            sent_typing = true;
+                        }
                         full_thinking.push_str(&text);
                         let _ = tx.send(AgentEvent::ThinkingDelta { text });
                     }
@@ -340,6 +370,10 @@ impl AgentLoop {
                                 let _ = tx.send(AgentEvent::TextComplete {
                                     text: full_text.clone(),
                                 });
+                            }
+                            // Stop typing indicator
+                            if sent_typing && self.config.enable_typing_signal {
+                                let _ = tx.send(AgentEvent::Typing { state: false });
                             }
                             let _ = tx.send(AgentEvent::Done);
                             return Ok(());

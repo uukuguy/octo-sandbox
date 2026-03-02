@@ -81,6 +81,9 @@ enum ServerMessage {
         budget: octo_types::TokenBudgetSnapshot,
     },
 
+    #[serde(rename = "typing")]
+    Typing { session_id: String, state: bool },
+
     #[serde(rename = "error")]
     Error { session_id: String, message: String },
 
@@ -343,6 +346,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
                                     ServerMessage::TokenBudgetUpdate {
                                         session_id: sid_str.clone(),
                                         budget,
+                                    }
+                                }
+                                AgentEvent::Typing { state } => {
+                                    ServerMessage::Typing {
+                                        session_id: sid_str.clone(),
+                                        state,
                                     }
                                 }
                                 AgentEvent::Error { message } => ServerMessage::Error {
