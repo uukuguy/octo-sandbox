@@ -98,7 +98,7 @@ impl Default for TokenBudget {
     fn default() -> Self {
         Self {
             total: 200_000,
-            system_prompt: 4_000,
+            system_prompt: 16_000,
             memory: 2_000,
             messages: 180_000,
             completion: 4_096,

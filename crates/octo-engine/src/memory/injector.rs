@@ -1,17 +1,27 @@
 use octo_types::{MemoryBlock, MemoryBlockKind};
 
-const WORKING_MEMORY_BUDGET_CHARS: usize = 12_000;
+/// Default character budget for working memory compilation (12,000 chars ≈ 3,000 tokens).
+const DEFAULT_WORKING_MEMORY_BUDGET_CHARS: usize = 12_000;
 
 pub struct ContextInjector;
 
 impl ContextInjector {
-    /// Build Zone B dynamic context message content.
+    /// Build Zone B dynamic context message content with default budget (12,000 chars).
+    ///
+    /// Outputs a `<context>` XML block containing the current datetime and
+    /// non-empty memory blocks sorted by priority (highest first).
+    /// Deprecated block kinds (SandboxContext, AgentPersona) are skipped.
+    pub fn compile(blocks: &[MemoryBlock]) -> String {
+        Self::compile_with_budget(blocks, DEFAULT_WORKING_MEMORY_BUDGET_CHARS)
+    }
+
+    /// Build Zone B dynamic context message content with an explicit character budget.
     ///
     /// Outputs a `<context>` XML block containing the current datetime and
     /// non-empty memory blocks sorted by priority (highest first).
     /// Deprecated block kinds (SandboxContext, AgentPersona) are skipped.
     #[allow(deprecated)]
-    pub fn compile(blocks: &[MemoryBlock]) -> String {
+    pub fn compile_with_budget(blocks: &[MemoryBlock], char_budget: usize) -> String {
         let datetime = chrono::Local::now().format("%Y-%m-%d %H:%M %Z").to_string();
 
         let mut output = format!("<context>\n<datetime>{datetime}</datetime>\n");
@@ -20,7 +30,6 @@ impl ContextInjector {
             blocks.iter().filter(|b| !b.value.is_empty()).collect();
         sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-        let budget = WORKING_MEMORY_BUDGET_CHARS;
         let mut used = output.len();
 
         for block in sorted {
@@ -36,7 +45,7 @@ impl ContextInjector {
                 "<{tag} priority=\"{}\">{}</{tag}>\n",
                 block.priority, block.value
             );
-            if used + entry.len() > budget {
+            if used + entry.len() > char_budget {
                 break;
             }
             used += entry.len();
