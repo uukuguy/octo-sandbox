@@ -26,6 +26,10 @@ pub struct Relation {
 }
 
 /// Knowledge graph with entity-relation storage
+///
+/// Note: This struct uses interior mutability with `RefCell` for thread-safe access
+/// when integrated with the MemorySystem. Currently not thread-safe - must be
+/// wrapped with `RwLock` or similar before sharing across threads.
 pub struct KnowledgeGraph {
     entities: HashMap<String, Entity>,
     relations: HashMap<String, Relation>,
@@ -49,12 +53,26 @@ impl KnowledgeGraph {
     }
 
     /// Add entity
+    ///
+    /// If an entity with the same ID already exists, it will be replaced.
+    /// The type index will be updated to avoid duplicates.
     pub fn add_entity(&mut self, entity: Entity) {
-        self.entities.insert(entity.id.clone(), entity.clone());
-        self.by_type
-            .entry(entity.entity_type.clone())
-            .or_default()
-            .push(entity.id.clone());
+        let entity_id = entity.id.clone();
+        let entity_type = entity.entity_type.clone();
+
+        // Check if entity already exists (update case)
+        let is_update = self.entities.contains_key(&entity_id);
+
+        self.entities.insert(entity_id.clone(), entity);
+
+        // Only add to by_type index if this is a new entity (not an update)
+        // For updates, the old ID already exists in the index
+        if !is_update {
+            self.by_type
+                .entry(entity_type)
+                .or_default()
+                .push(entity_id);
+        }
     }
 
     /// Add relation
@@ -194,20 +212,41 @@ impl KnowledgeGraph {
     }
 
     /// Remove entity and its relations
+    ///
+    /// Removes the entity and cleans up:
+    /// - All relations where this entity is source or target
+    /// - Both outgoing and incoming indexes
+    /// - The type index
     pub fn remove_entity(&mut self, id: &str) -> Option<Entity> {
         if let Some(entity) = self.entities.remove(id) {
-            // Remove outgoing relations
-            if let Some(rel_ids) = self.outgoing.remove(id) {
-                for rel_id in rel_ids {
-                    self.relations.remove(&rel_id);
+            // Collect all relation IDs that reference this entity (as source OR target)
+            let mut relation_ids_to_remove: Vec<String> = Vec::new();
+
+            // Check all relations for references to this entity
+            for (rel_id, relation) in &self.relations {
+                if relation.source_id == id || relation.target_id == id {
+                    relation_ids_to_remove.push(rel_id.clone());
                 }
             }
 
-            // Remove incoming relations
-            if let Some(rel_ids) = self.incoming.remove(id) {
-                for rel_id in rel_ids {
-                    self.relations.remove(&rel_id);
-                }
+            // Remove all collected relations from the relations HashMap
+            for rel_id in &relation_ids_to_remove {
+                self.relations.remove(rel_id);
+            }
+
+            // Clean up outgoing index (relations where this entity is source)
+            self.outgoing.remove(id);
+
+            // Clean up incoming index (relations where this entity is target)
+            self.incoming.remove(id);
+
+            // Also clean up any stale entries in other entities' indexes
+            // (in case the relation cleanup above missed any edge cases)
+            for rel_ids in self.outgoing.values_mut() {
+                rel_ids.retain(|r| !relation_ids_to_remove.contains(r));
+            }
+            for rel_ids in self.incoming.values_mut() {
+                rel_ids.retain(|r| !relation_ids_to_remove.contains(r));
             }
 
             // Remove from type index
