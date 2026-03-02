@@ -71,4 +71,35 @@ mod tests {
         let result = resolver.resolve("nonexistent_key");
         assert!(result.is_none());
     }
+
+    #[test]
+    fn test_parse_dotenv() {
+        let content = "
+# Comment line
+export DB_HOST=localhost
+API_KEY=\"secret-value\"
+SINGLE_QUOTED='hello world'
+";
+        let vars = CredentialResolver::parse_dotenv(content);
+
+        assert_eq!(vars.get("DB_HOST"), Some(&"localhost".to_string()));
+        assert_eq!(vars.get("API_KEY"), Some(&"secret-value".to_string()));
+        assert_eq!(vars.get("SINGLE_QUOTED"), Some(&"hello world".to_string()));
+    }
+
+    #[test]
+    fn test_parse_dotenv_edge_cases() {
+        // Empty values, whitespace, etc.
+        let content = "
+EMPTY=
+SPACED_KEY = spaced_value
+# This is a comment
+NOSPACE=works
+";
+        let vars = CredentialResolver::parse_dotenv(content);
+
+        assert_eq!(vars.get("EMPTY"), Some(&"".to_string()));
+        assert_eq!(vars.get("SPACED_KEY"), Some(&"spaced_value".to_string()));
+        assert_eq!(vars.get("NOSPACE"), Some(&"works".to_string()));
+    }
 }

@@ -689,7 +689,6 @@ mod tests {
 
     #[test]
     fn test_ping_pong_ab_detection() {
-        let mut guard = LoopGuard::new();
         let config = LoopGuardConfig {
             warn_threshold: 100,
             block_threshold: 100,
