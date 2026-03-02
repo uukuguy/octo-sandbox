@@ -55,6 +55,9 @@ impl SqliteWorkingMemory {
                     let char_limit: usize = row.get::<_, i64>(6)? as usize;
                     let is_readonly: bool = row.get::<_, i64>(7)? != 0;
 
+                    // Allow deprecated variants here: DB may contain legacy rows from
+                    // previous versions.  ContextInjector::compile() will skip them.
+                    #[allow(deprecated)]
                     let kind = match id.as_str() {
                         "sandbox_context" => MemoryBlockKind::SandboxContext,
                         "agent_persona" => MemoryBlockKind::AgentPersona,
@@ -292,19 +295,10 @@ impl WorkingMemory for SqliteWorkingMemory {
 }
 
 fn default_blocks() -> Vec<MemoryBlock> {
+    // SandboxContext and AgentPersona are deprecated.
+    // Static agent identity now lives in SystemPromptBuilder (Zone A).
+    // Only dynamic, user-facing blocks are initialised here.
     vec![
-        MemoryBlock::new(
-            MemoryBlockKind::SandboxContext,
-            "Sandbox Context",
-            "Runtime: Native | Tools: bash, file_read, file_write, file_edit, grep, glob, find",
-        ),
-        MemoryBlock::new(
-            MemoryBlockKind::AgentPersona,
-            "Agent Persona",
-            "You are Octo, an AI coding assistant running inside a sandboxed environment. \
-             You can execute bash commands and read files to help users with their tasks. \
-             Be concise, accurate, and helpful.",
-        ),
         MemoryBlock::new(MemoryBlockKind::UserProfile, "User Profile", ""),
         MemoryBlock::new(MemoryBlockKind::TaskContext, "Task Context", ""),
     ]

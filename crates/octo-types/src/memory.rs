@@ -7,7 +7,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum MemoryBlockKind {
+    #[deprecated(note = "Use SystemPromptBuilder capabilities section instead")]
     SandboxContext,
+    #[deprecated(note = "Use AgentManifest for agent identity")]
     AgentPersona,
     UserProfile,
     TaskContext,
@@ -29,6 +31,7 @@ pub struct MemoryBlock {
 }
 
 impl MemoryBlock {
+    #[allow(deprecated)]
     pub fn new(kind: MemoryBlockKind, label: impl Into<String>, value: impl Into<String>) -> Self {
         let kind_str = match &kind {
             MemoryBlockKind::SandboxContext => "sandbox_context",

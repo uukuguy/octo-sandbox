@@ -1,30 +1,49 @@
-use octo_types::MemoryBlock;
+use octo_types::{MemoryBlock, MemoryBlockKind};
 
 const WORKING_MEMORY_BUDGET_CHARS: usize = 12_000;
 
 pub struct ContextInjector;
 
 impl ContextInjector {
+    /// Build Zone B dynamic context message content.
+    ///
+    /// Outputs a `<context>` XML block containing the current datetime and
+    /// non-empty memory blocks sorted by priority (highest first).
+    /// Deprecated block kinds (SandboxContext, AgentPersona) are skipped.
+    #[allow(deprecated)]
     pub fn compile(blocks: &[MemoryBlock]) -> String {
-        let mut sorted: Vec<&MemoryBlock> = blocks.iter().filter(|b| !b.value.is_empty()).collect();
+        let datetime = chrono::Local::now().format("%Y-%m-%d %H:%M %Z").to_string();
+
+        let mut output = format!("<context>\n<datetime>{datetime}</datetime>\n");
+
+        let mut sorted: Vec<&MemoryBlock> =
+            blocks.iter().filter(|b| !b.value.is_empty()).collect();
         sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
 
-        let mut output = String::from("<working_memory>\n");
-        let mut total_chars = 0;
+        let budget = WORKING_MEMORY_BUDGET_CHARS;
+        let mut used = output.len();
 
         for block in sorted {
+            let tag = match &block.kind {
+                MemoryBlockKind::UserProfile => "user_profile",
+                MemoryBlockKind::TaskContext => "task_context",
+                MemoryBlockKind::AutoExtracted => "memory",
+                MemoryBlockKind::Custom => "custom",
+                // Skip deprecated kinds — their content now belongs in Zone A (SystemPromptBuilder)
+                MemoryBlockKind::SandboxContext | MemoryBlockKind::AgentPersona => continue,
+            };
             let entry = format!(
-                "<block kind=\"{}\" priority=\"{}\">{}</block>\n",
-                block.id, block.priority, block.value
+                "<{tag} priority=\"{}\">{}</{tag}>\n",
+                block.priority, block.value
             );
-            if total_chars + entry.len() > WORKING_MEMORY_BUDGET_CHARS {
+            if used + entry.len() > budget {
                 break;
             }
-            total_chars += entry.len();
+            used += entry.len();
             output.push_str(&entry);
         }
 
-        output.push_str("</working_memory>");
+        output.push_str("</context>");
         output
     }
 }

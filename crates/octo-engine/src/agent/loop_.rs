@@ -11,14 +11,15 @@ use octo_types::{
     StreamEvent, ToolContext, UserId,
 };
 
-use crate::context::{ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher};
+use crate::context::{
+    ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher, SystemPromptBuilder,
+};
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::{LlmErrorKind, Provider, RetryPolicy};
 use crate::tools::ToolRegistry;
 
 use super::config::AgentConfig;
-use super::context::ContextBuilder;
 use super::parallel::execute_parallel;
 use super::CancellationToken;
 
@@ -79,6 +80,9 @@ pub struct AgentLoop {
     loop_guard: super::loop_guard::LoopGuard,
     event_bus: Option<Arc<crate::event::EventBus>>,
     config: AgentConfig,
+    /// Zone A: override the entire system prompt (e.g. from AgentManifest).
+    /// When None, SystemPromptBuilder builds the default system prompt.
+    system_prompt_override: Option<String>,
 }
 
 impl AgentLoop {
@@ -101,6 +105,7 @@ impl AgentLoop {
             loop_guard: super::loop_guard::LoopGuard::new(),
             event_bus: None,
             config: AgentConfig::default(),
+            system_prompt_override: None,
         }
     }
 
@@ -121,6 +126,13 @@ impl AgentLoop {
 
     pub fn with_config(mut self, config: AgentConfig) -> Self {
         self.config = config;
+        self
+    }
+
+    /// Zone A: override the system prompt with a custom string (e.g. from AgentManifest).
+    /// When set, the default SystemPromptBuilder is bypassed entirely.
+    pub fn with_system_prompt(mut self, prompt: String) -> Self {
+        self.system_prompt_override = Some(prompt);
         self
     }
 
@@ -154,19 +166,48 @@ impl AgentLoop {
             messages.len()
         );
 
-        // Build system prompt with working memory
+        // Zone A: static system prompt (agent identity + capabilities)
+        // Uses system_prompt_override when set (e.g. from AgentManifest),
+        // otherwise falls back to SystemPromptBuilder defaults.
+        let system_prompt = self
+            .system_prompt_override
+            .clone()
+            .unwrap_or_else(|| SystemPromptBuilder::new().build_system_prompt());
+
+        debug!("System prompt length: {} chars", system_prompt.len());
+
+        // Zone B: dynamic context injected as first human message
+        // Working memory (UserProfile, TaskContext, AutoExtracted, Custom blocks)
+        // is compiled into a <context> XML block and prepended to the conversation.
         let memory_xml = self
             .memory
             .compile(user_id, sandbox_id)
             .await
             .unwrap_or_default();
 
-        let system_prompt = ContextBuilder::new()
-            .with_memory(memory_xml)
-            .with_instructions(String::new())
-            .build_system_prompt();
+        if !memory_xml.is_empty() {
+            let zone_b = ChatMessage {
+                role: MessageRole::User,
+                content: vec![ContentBlock::Text {
+                    text: memory_xml.clone(),
+                }],
+            };
+            // Replace existing Zone B injection (if any) or prepend a new one.
+            let first_is_context = messages
+                .first()
+                .and_then(|m| m.content.first())
+                .map(|b| {
+                    matches!(b, ContentBlock::Text { text } if text.starts_with("<context>"))
+                })
+                .unwrap_or(false);
+            if first_is_context {
+                messages[0] = zone_b;
+            } else {
+                messages.insert(0, zone_b);
+            }
+        }
 
-        debug!("System prompt length: {} chars", system_prompt.len());
+        debug!("Zone B injected: working memory {} chars", memory_xml.len());
 
         let tool_specs = self.tools.specs();
 

@@ -16,19 +16,10 @@ impl InMemoryWorkingMemory {
     pub fn new() -> Self {
         let mut blocks = HashMap::new();
 
+        // Only UserProfile and TaskContext are default blocks.
+        // SandboxContext and AgentPersona are deprecated: static agent identity
+        // now lives in SystemPromptBuilder (Zone A), not in working memory.
         let defaults = vec![
-            MemoryBlock::new(
-                MemoryBlockKind::SandboxContext,
-                "Sandbox Context",
-                "Runtime: Native | Tools: bash, file_read, file_write, file_edit, grep, glob, find",
-            ),
-            MemoryBlock::new(
-                MemoryBlockKind::AgentPersona,
-                "Agent Persona",
-                "You are Octo, an AI coding assistant running inside a sandboxed environment. \
-                 You can execute bash commands and read files to help users with their tasks. \
-                 Be concise, accurate, and helpful.",
-            ),
             MemoryBlock::new(MemoryBlockKind::UserProfile, "User Profile", ""),
             MemoryBlock::new(MemoryBlockKind::TaskContext, "Task Context", ""),
         ];
