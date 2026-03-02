@@ -7,6 +7,7 @@
 
 ## Phase 2.9-2.11 设计方案 [2026-03-02]
 
+- 22:00 | Memory 知识图谱完成: Entity/Relation + Graph + FTS5 + 持久化
 - 21:45 | checkpoint saved - design phase complete, ready for execution
 - 21:30 | 完成三项未完成项设计方案:
   - Phase 2.9 MCP SSE Transport: docs/plans/2026-02-27-mcp-sse-transport.md (已有详细计划)

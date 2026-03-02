@@ -30,6 +30,7 @@
 | Phase 2.9 | MCP SSE Transport | `2026-02-27-mcp-sse-transport.md` | ⏳ 待实施 |
 | Phase 2.10 | AgentRegistry 多代理 | `2026-03-02-phase2-9-agent-registry.md` | ⏳ 待实施 |
 | Phase 2.11 | Memory 知识图谱 | `2026-03-02-phase2-10-knowledge-graph.md` | ⏳ 待实施 |
+| Knowledge Graph | P2 | - | ✅ 已实施 |
 
 ---
 
