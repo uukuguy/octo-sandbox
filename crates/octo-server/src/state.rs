@@ -7,8 +7,8 @@ use octo_engine::{
     metrics::MetricsRegistry,
     providers::ProviderChain,
     scheduler::Scheduler,
-    AgentRunner, MemoryStore, Provider, SessionStore, SkillRegistry, ToolExecutionRecorder,
-    ToolRegistry, WorkingMemory,
+    AgentRunner, AgentRuntimeRegistry, MemoryStore, Provider, SessionStore, SkillRegistry,
+    ToolExecutionRecorder, ToolRegistry, WorkingMemory,
 };
 use tokio::sync::RwLock;
 
@@ -38,6 +38,8 @@ pub struct AppState {
     pub metrics_registry: Arc<RwLock<MetricsRegistry>>,
     /// Agent runner for managing agent lifecycle
     pub agent_runner: Arc<AgentRunner>,
+    /// Session-bound AgentRuntime registry
+    pub runtime_registry: Arc<AgentRuntimeRegistry>,
 }
 
 impl AppState {
@@ -63,6 +65,9 @@ impl AppState {
         // Initialize metrics registry
         let metrics_registry = Arc::new(RwLock::new(MetricsRegistry::new()));
 
+        // Initialize session-bound AgentRuntime registry
+        let runtime_registry = Arc::new(AgentRuntimeRegistry::new());
+
         Self {
             provider,
             provider_chain,
@@ -80,6 +85,7 @@ impl AppState {
             auth_config,
             metrics_registry,
             agent_runner,
+            runtime_registry,
         }
     }
 
