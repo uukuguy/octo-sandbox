@@ -17,7 +17,7 @@ pub mod session;
 pub mod skills;
 pub mod tools;
 
-pub use agent::{AgentEvent, AgentLoop};
+pub use agent::{AgentEntry, AgentError, AgentEvent, AgentId, AgentLoop, AgentManifest, AgentRegistry, AgentStatus};
 pub use audit::{AuditEvent, AuditRecord, AuditStorage};
 pub use auth::{
     auth_middleware, get_user_context, ApiKey, ApiKeyConfig, AuthConfig, AuthConfigYaml, AuthMode,
