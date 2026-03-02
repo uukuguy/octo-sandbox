@@ -1,3 +1,4 @@
+pub mod agents;
 pub mod audit;
 pub mod budget;
 pub mod config;
@@ -75,4 +76,6 @@ pub fn routes() -> Router<Arc<AppState>> {
         .nest("/scheduler", scheduler::create_router())
         // Provider chain
         .merge(providers::router())
+        // Agent registry and lifecycle
+        .nest("/v1", agents::router())
 }
