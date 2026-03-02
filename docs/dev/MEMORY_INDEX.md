@@ -5,19 +5,20 @@
 
 ---
 
-## Phase 2.9-2.11 设计方案 [2026-03-02]
+## Phase 2.9 - MCP SSE Transport [COMPLETED 2026-03-03]
+
+- 00:10 | Phase 2.9 MCP SSE Transport 完成: SseMcpClient + add_server_v2() + transport/url API
+- 00:00 | Phase 2.9 开始实施 (验证已完成的工作)
+
+---
+
+## Phase 2.10 - Knowledge Graph [COMPLETED 2026-03-02]
 
 - 22:00 | Memory 知识图谱完成: Entity/Relation + Graph + FTS5 + 持久化
-- 21:45 | checkpoint saved - design phase complete, ready for execution
-- 21:30 | 完成三项未完成项设计方案:
-  - Phase 2.9 MCP SSE Transport: docs/plans/2026-02-27-mcp-sse-transport.md (已有详细计划)
-  - Phase 2.10 AgentRegistry: docs/plans/2026-03-02-phase2-9-agent-registry.md (新建)
-  - Phase 2.11 Knowledge Graph: docs/plans/2026-03-02-phase2-10-knowledge-graph.md (新建)
-- 21:00 | 检查待完成项:
-  - MCP SSE Transport: 已有详细计划
-  - EventBus: 已实现 (Phase 2.4)
-  - AgentRegistry: P2 待实施
-  - Memory 知识图谱: P2 待实施
+
+---
+
+## Phase 2.9-2.11 设计方案 [2026-03-02]
 
 ---
 
@@ -32,6 +33,8 @@
 
 ## [Active Work]
 
+- 00:10 | Phase 2.9 MCP SSE Transport 完成 (已验证之前会话的实现)
+- 22:00 | Phase 2.10 Knowledge Graph 完成
 - 21:30 | Phase 2.9-2.11 设计方案完成，等待实施
 - 17:00 | Phase 2.8 - Agent 增强 + Secret Manager completed
 
