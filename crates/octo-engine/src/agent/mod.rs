@@ -18,4 +18,6 @@ pub use registry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentRegistry
 pub use runner::AgentRunner;
 
 pub mod runtime;
-pub use runtime::{AgentMessage, AgentRuntimeHandle};
+pub mod runtime_registry;
+pub use runtime::{AgentMessage, AgentRuntime, AgentRuntimeHandle};
+pub use runtime_registry::AgentRuntimeRegistry;
