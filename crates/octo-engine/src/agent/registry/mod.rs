@@ -1,9 +1,13 @@
 //! Agent Registry - concurrent multi-index store
 mod entry;
 pub mod lifecycle;
+mod store;
 
 pub use entry::{AgentEntry, AgentId, AgentManifest, AgentStatus};
 pub use lifecycle::AgentError;
+pub use store::AgentStore;
+
+use std::sync::Arc;
 
 use dashmap::DashMap;
 
@@ -17,6 +21,7 @@ pub struct AgentRegistry {
     pub(crate) by_id: DashMap<AgentId, (AgentEntry, Option<AgentRuntimeHandle>)>,
     by_name: DashMap<String, AgentId>,
     by_tag: DashMap<String, Vec<AgentId>>,
+    store: Option<Arc<AgentStore>>,
 }
 
 impl AgentRegistry {
@@ -25,6 +30,36 @@ impl AgentRegistry {
             by_id: DashMap::new(),
             by_name: DashMap::new(),
             by_tag: DashMap::new(),
+            store: None,
+        }
+    }
+
+    /// Attach a persistent store to this registry.
+    pub fn with_store(mut self, store: Arc<AgentStore>) -> Self {
+        self.store = Some(store);
+        self
+    }
+
+    /// Load persisted entries from store into memory indexes.
+    /// Called once at startup after with_store().
+    pub fn load_from_store(&self) -> anyhow::Result<usize> {
+        if let Some(store) = &self.store {
+            let entries = store.load_all()?;
+            let count = entries.len();
+            for entry in entries {
+                let id = entry.id.clone();
+                let name = entry.manifest.name.clone();
+                let tags = entry.manifest.tags.clone();
+                // Insert by_id FIRST (same ordering as register())
+                self.by_id.insert(id.clone(), (entry, None));
+                self.by_name.insert(name, id.clone());
+                for tag in &tags {
+                    self.by_tag.entry(tag.clone()).or_default().push(id.clone());
+                }
+            }
+            Ok(count)
+        } else {
+            Ok(0)
         }
     }
 
@@ -41,6 +76,14 @@ impl AgentRegistry {
         self.by_name.insert(name, id.clone());
         for tag in &tags {
             self.by_tag.entry(tag.clone()).or_default().push(id.clone());
+        }
+        // Persist to store (fire-and-forget: store error does not fail the operation)
+        if let Some(store) = &self.store {
+            if let Some(slot) = self.by_id.get(&id) {
+                if let Err(e) = store.save(&slot.value().0) {
+                    tracing::warn!("AgentStore.save failed for {id}: {e}");
+                }
+            }
         }
         id
     }
@@ -82,12 +125,21 @@ impl AgentRegistry {
             }
         }
         // Finally remove from by_id and cancel any live handle.
-        self.by_id.remove(id).map(|(_, (entry, handle))| {
+        let result = self.by_id.remove(id).map(|(_, (entry, handle))| {
             if let Some(h) = handle {
                 h.cancel_token.cancel();
             }
             entry
-        })
+        });
+        // Persist deletion to store (fire-and-forget)
+        if result.is_some() {
+            if let Some(store) = &self.store {
+                if let Err(e) = store.delete(id) {
+                    tracing::warn!("AgentStore.delete failed for {id}: {e}");
+                }
+            }
+        }
+        result
     }
 
     pub fn state(&self, id: &AgentId) -> Option<AgentStatus> {

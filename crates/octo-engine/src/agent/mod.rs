@@ -13,4 +13,4 @@ pub use config::AgentConfig;
 pub use extension::{AgentExtension, ExtensionEvent, ExtensionRegistry};
 pub use loop_::{AgentEvent, AgentLoop};
 pub use queue::{MessageQueue, QueueKind, QueueMode};
-pub use registry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentRegistry, AgentStatus};
+pub use registry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentRegistry, AgentStatus, AgentStore};
