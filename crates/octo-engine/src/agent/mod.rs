@@ -16,3 +16,6 @@ pub use loop_::{AgentEvent, AgentLoop};
 pub use queue::{MessageQueue, QueueKind, QueueMode};
 pub use registry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentRegistry, AgentStatus, AgentStore};
 pub use runner::AgentRunner;
+
+pub mod runtime;
+pub use runtime::{AgentMessage, AgentRuntimeHandle};
