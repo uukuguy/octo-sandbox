@@ -1,11 +1,11 @@
 {
-  "plan_file": "docs/plans/2026-03-02-phase2-9-agent-registry.md",
-  "phase": "completed",
+  "plan_file": "docs/plans/2026-03-03-d3-agent-runtime.md",
+  "phase": "design",
   "created_at": "2026-03-03T04:45:00+08:00",
-  "updated_at": "2026-03-03T06:30:00+08:00",
-  "completed_tasks": ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5", "Task 6", "Task 7", "D1", "D2"],
+  "updated_at": "2026-03-03T07:20:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "execution_mode": "subagent-driven-development",
-  "phase_name": "Phase 2.11: AgentRegistry",
-  "notes": "全部 7/7 Tasks + D1/D2 Deferred 完成。D1: AgentRunner.build_tool_registry() 叠加 SkillRegistry 热重载 skills；D2: build_system_prompt() 兜底通过 with_bootstrap_dir() 加载 SOUL.md/AGENTS.md。cargo check 0 errors，149 tests pass。D3 保持 ⏳（需 WebSocket/session 层集成设计）。"
+  "execution_mode": null,
+  "phase_name": "D3: AgentRuntime 持久化主循环",
+  "notes": "设计阶段完成。核心设计：AgentRuntime（持久化主循环）+ AgentRuntimeRegistry（Session绑定）+ ws.rs 改为纯Channel层。设计文档：docs/design/AGENT_RUNTIME_DESIGN.md。Phase 2.11 D3 状态更新为 📋 设计完成。准备进入实现阶段（7 Tasks）。"
 }
