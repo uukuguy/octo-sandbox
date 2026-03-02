@@ -1,6 +1,7 @@
 pub mod budget;
 pub mod extractor;
 pub mod graph;
+pub mod graph_store;
 pub mod injector;
 pub mod semantic;
 pub mod sqlite_store;
@@ -11,6 +12,7 @@ pub mod working;
 
 pub use budget::TokenBudgetManager;
 pub use graph::{Entity, GraphStats, KnowledgeGraph, Relation};
+pub use graph_store::GraphStore;
 pub use semantic::{EntityRelation, SemanticEntity, SemanticMemory};
 pub use sqlite_store::SqliteMemoryStore;
 pub use sqlite_working::SqliteWorkingMemory;
