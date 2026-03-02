@@ -41,6 +41,13 @@ pub struct AgentTaskConfig {
     pub input: String,
     pub max_rounds: u32,
     pub timeout_secs: u64,
+    /// Model to use for this task (e.g., "claude-3-5-sonnet-20241022")
+    #[serde(default = "default_model")]
+    pub model: String,
+}
+
+fn default_model() -> String {
+    "claude-3-5-sonnet-20241022".to_string()
 }
 
 impl Default for AgentTaskConfig {
@@ -50,6 +57,7 @@ impl Default for AgentTaskConfig {
             input: String::new(),
             max_rounds: 50,
             timeout_secs: 300,
+            model: default_model(),
         }
     }
 }
@@ -332,7 +340,7 @@ impl Scheduler {
             self.tools.clone(),
             self.memory.clone(),
         )
-        .with_model("claude-3-5-sonnet-20241022".to_string()); // TODO: make configurable
+        .with_model(config.model.clone());
 
         // Run agent with timeout
         let result = tokio::time::timeout(

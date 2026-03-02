@@ -35,7 +35,8 @@ pub struct DockerAdapter {
 /// Internal representation of a Docker sandbox instance
 #[cfg(feature = "sandbox-docker")]
 struct DockerInstance {
-    /// Sandbox configuration
+    /// Sandbox configuration (stored for future use)
+    #[allow(dead_code)]
     config: SandboxConfig,
     /// Docker container ID
     container_id: String,
