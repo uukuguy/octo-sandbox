@@ -2,10 +2,10 @@
   "plan_file": "docs/plans/2026-03-02-phase2-9-agent-registry.md",
   "phase": "completed",
   "created_at": "2026-03-03T04:45:00+08:00",
-  "updated_at": "2026-03-03T05:10:00+08:00",
-  "completed_tasks": ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5", "Task 6", "Task 7"],
+  "updated_at": "2026-03-03T06:30:00+08:00",
+  "completed_tasks": ["Task 1", "Task 2", "Task 3", "Task 4", "Task 5", "Task 6", "Task 7", "D1", "D2"],
   "current_task": null,
   "execution_mode": "subagent-driven-development",
   "phase_name": "Phase 2.11: AgentRegistry",
-  "notes": "全部 7/7 Tasks 完成。AgentRegistry DashMap 三索引 + SQLite 持久化、AgentRunner per-agent ToolRegistry、Zone A/B 上下文分离、Budget 统一、REST API /api/v1/agents。cargo check 0 errors，149 tests pass，tsc clean。Deferred: D1/D2/D3 保持 ⏳（前置条件未完全满足或属于下一阶段）。"
+  "notes": "全部 7/7 Tasks + D1/D2 Deferred 完成。D1: AgentRunner.build_tool_registry() 叠加 SkillRegistry 热重载 skills；D2: build_system_prompt() 兜底通过 with_bootstrap_dir() 加载 SOUL.md/AGENTS.md。cargo check 0 errors，149 tests pass。D3 保持 ⏳（需 WebSocket/session 层集成设计）。"
 }
