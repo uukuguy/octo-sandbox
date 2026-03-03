@@ -76,6 +76,9 @@ pub struct AgentExecutor {
 
     // 生命周期
     cancel_flag: Arc<AtomicBool>,
+
+    // 工作目录
+    working_dir: PathBuf,
 }
 
 impl AgentExecutor {
@@ -95,6 +98,7 @@ impl AgentExecutor {
         session_store: Option<Arc<dyn crate::session::SessionStore>>,
         system_prompt: Option<String>,
         config: AgentConfig,
+        working_dir: PathBuf,
     ) -> Self {
         Self {
             session_id,
@@ -112,6 +116,7 @@ impl AgentExecutor {
             system_prompt,
             config,
             cancel_flag: Arc::new(AtomicBool::new(false)),
+            working_dir,
         }
     }
 
@@ -152,7 +157,7 @@ impl AgentExecutor {
 
                     let tool_ctx = ToolContext {
                         sandbox_id: self.sandbox_id.clone(),
-                        working_dir: PathBuf::from("/tmp/octo-sandbox"),
+                        working_dir: self.working_dir.clone(),
                     };
                     let _ = tokio::fs::create_dir_all(&tool_ctx.working_dir).await;
 
