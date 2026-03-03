@@ -14,11 +14,14 @@ pub async fn list_sessions(
     Query(params): Query<PaginationParams>,
     Extension(ctx): Extension<UserContext>,
 ) -> Json<serde_json::Value> {
+    let sessions = match state.agent_supervisor.session_store() {
+        Some(s) => s,
+        None => return Json(serde_json::json!([])),
+    };
     let user_id_str = get_user_id_from_context(Some(&ctx));
     let user_id = UserId::from_string(&user_id_str);
     let limit = params.limit.min(100);
-    let summaries = state
-        .sessions
+    let summaries = sessions
         .list_sessions_for_user(&user_id, limit, params.offset)
         .await;
     Json(serde_json::to_value(summaries).unwrap_or_default())
@@ -29,13 +32,20 @@ pub async fn get_session(
     Path(id): Path<String>,
     Extension(ctx): Extension<UserContext>,
 ) -> Json<serde_json::Value> {
+    let sessions = match state.agent_supervisor.session_store() {
+        Some(s) => s,
+        None => {
+            return Json(serde_json::json!({
+                "error": "Session not found or access denied"
+            }))
+        }
+    };
     let user_id_str = get_user_id_from_context(Some(&ctx));
     let user_id = UserId::from_string(&user_id_str);
     let session_id = SessionId::from_string(&id);
 
     // Use get_session_for_user to ensure user can only access their own sessions
-    let session_data = state
-        .sessions
+    let session_data = sessions
         .get_session_for_user(&session_id, &user_id)
         .await;
     if session_data.is_none() {
@@ -44,7 +54,7 @@ pub async fn get_session(
         }));
     }
 
-    let messages = state.sessions.get_messages(&session_id).await;
+    let messages = sessions.get_messages(&session_id).await;
     Json(serde_json::json!({
         "id": id,
         "messages": messages.unwrap_or_default(),
