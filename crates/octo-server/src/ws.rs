@@ -217,7 +217,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
                     .unwrap_or_default();
 
                 // Get or spawn persistent AgentRuntime for this session
-                let handle = state.runtime_registry.get_or_spawn(
+                let handle = state.agent_supervisor.get_or_spawn(
                     session.session_id.clone(),
                     session.user_id.clone(),
                     session.sandbox_id.clone(),
@@ -335,7 +335,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
             }
             ClientMessage::Cancel { session_id } => {
                 let sid = SessionId::from_string(&session_id);
-                if let Some(handle) = state.runtime_registry.get(&sid) {
+                if let Some(handle) = state.agent_supervisor.get(&sid) {
                     let _ = handle.send(AgentMessage::Cancel).await;
                 }
                 info!("Agent cancellation requested for session {session_id}");

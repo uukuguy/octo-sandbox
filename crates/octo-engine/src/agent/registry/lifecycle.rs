@@ -1,6 +1,6 @@
 //! Lifecycle state machine: start / stop / pause / resume
 
-use super::{AgentId, AgentRegistry, AgentRuntimeHandle, AgentStatus};
+use super::{AgentId, AgentCatalog, AgentRuntimeHandle, AgentStatus};
 use crate::agent::CancellationToken;
 
 #[derive(Debug)]
@@ -22,7 +22,7 @@ impl std::fmt::Display for AgentError {
 
 impl std::error::Error for AgentError {}
 
-impl AgentRegistry {
+impl AgentCatalog {
     /// Mark agent as Running. Actual AgentLoop spawned by AgentRunner.
     /// State check and write happen in a single get_mut to avoid TOCTOU races.
     pub fn mark_running(

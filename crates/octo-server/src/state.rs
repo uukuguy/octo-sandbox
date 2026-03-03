@@ -7,7 +7,7 @@ use octo_engine::{
     metrics::MetricsRegistry,
     providers::ProviderChain,
     scheduler::Scheduler,
-    AgentRunner, AgentRuntimeRegistry, MemoryStore, Provider, SessionStore, SkillRegistry,
+    AgentRunner, AgentSupervisor, MemoryStore, SessionStore, SkillRegistry,
     ToolExecutionRecorder, ToolRegistry, WorkingMemory,
 };
 use tokio::sync::RwLock;
@@ -15,7 +15,6 @@ use tokio::sync::RwLock;
 use crate::config::Config;
 
 pub struct AppState {
-    pub provider: Arc<dyn Provider>,
     /// Provider chain for LLM failover (optional), stored as Arc for cheap cloning
     pub provider_chain: Option<Arc<ProviderChain>>,
     pub tools: Arc<ToolRegistry>,
@@ -39,12 +38,11 @@ pub struct AppState {
     /// Agent runner for managing agent lifecycle
     pub agent_runner: Arc<AgentRunner>,
     /// Session-bound AgentRuntime registry
-    pub runtime_registry: Arc<AgentRuntimeRegistry>,
+    pub agent_supervisor: Arc<AgentSupervisor>,
 }
 
 impl AppState {
     pub fn new(
-        provider: Arc<dyn Provider>,
         provider_chain: Option<Arc<ProviderChain>>,
         tools: Arc<ToolRegistry>,
         memory: Arc<dyn WorkingMemory>,
@@ -65,11 +63,10 @@ impl AppState {
         // Initialize metrics registry
         let metrics_registry = Arc::new(RwLock::new(MetricsRegistry::new()));
 
-        // Initialize session-bound AgentRuntime registry
-        let runtime_registry = Arc::new(AgentRuntimeRegistry::new());
+        // Initialize AgentSupervisor (manages running AgentRuntime instances)
+        let agent_supervisor = Arc::new(AgentSupervisor::new());
 
         Self {
-            provider,
             provider_chain,
             tools,
             memory,
@@ -85,7 +82,7 @@ impl AppState {
             auth_config,
             metrics_registry,
             agent_runner,
-            runtime_registry,
+            agent_supervisor,
         }
     }
 

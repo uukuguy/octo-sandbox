@@ -14,10 +14,10 @@ pub use config::AgentConfig;
 pub use extension::{AgentExtension, ExtensionEvent, ExtensionRegistry};
 pub use loop_::{AgentEvent, AgentLoop};
 pub use queue::{MessageQueue, QueueKind, QueueMode};
-pub use registry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentRegistry, AgentStatus, AgentStore};
+pub use registry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentCatalog, AgentStatus, AgentStore};
 pub use runner::AgentRunner;
 
 pub mod runtime;
 pub mod runtime_registry;
 pub use runtime::{AgentMessage, AgentRuntime, AgentRuntimeHandle};
-pub use runtime_registry::AgentRuntimeRegistry;
+pub use runtime_registry::AgentSupervisor;

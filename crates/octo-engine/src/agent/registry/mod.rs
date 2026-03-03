@@ -17,14 +17,14 @@ pub(crate) struct AgentRuntimeHandle {
     pub cancel_token: CancellationToken,
 }
 
-pub struct AgentRegistry {
+pub struct AgentCatalog {
     pub(crate) by_id: DashMap<AgentId, (AgentEntry, Option<AgentRuntimeHandle>)>,
     by_name: DashMap<String, AgentId>,
     by_tag: DashMap<String, Vec<AgentId>>,
     store: Option<Arc<AgentStore>>,
 }
 
-impl AgentRegistry {
+impl AgentCatalog {
     pub fn new() -> Self {
         Self {
             by_id: DashMap::new(),
@@ -155,7 +155,7 @@ impl AgentRegistry {
     }
 }
 
-impl Default for AgentRegistry {
+impl Default for AgentCatalog {
     fn default() -> Self {
         Self::new()
     }

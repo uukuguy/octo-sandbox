@@ -1,4 +1,4 @@
-//! AgentRegistry SQLite persistence layer
+//! AgentCatalog SQLite persistence layer
 //! Pattern mirrors McpStorage: load-on-startup, persist-on-write
 
 use anyhow::Result;

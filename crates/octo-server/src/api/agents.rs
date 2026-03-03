@@ -1,4 +1,4 @@
-//! Agent registry REST API
+//! Agent catalog REST API
 //!
 //! POST   /api/v1/agents              register new agent
 //! GET    /api/v1/agents              list all agents
@@ -24,23 +24,23 @@ use crate::state::AppState;
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/agents", get(list_agents).post(create_agent))
-        .route("/agents/:id", get(get_agent).delete(delete_agent))
-        .route("/agents/:id/start", post(start_agent))
-        .route("/agents/:id/stop", post(stop_agent))
-        .route("/agents/:id/pause", post(pause_agent))
-        .route("/agents/:id/resume", post(resume_agent))
+        .route("/agents/{id}", get(get_agent).delete(delete_agent))
+        .route("/agents/{id}/start", post(start_agent))
+        .route("/agents/{id}/stop", post(stop_agent))
+        .route("/agents/{id}/pause", post(pause_agent))
+        .route("/agents/{id}/resume", post(resume_agent))
 }
 
 async fn list_agents(State(s): State<Arc<AppState>>) -> Json<Vec<AgentEntry>> {
-    Json(s.agent_runner.registry.list_all())
+    Json(s.agent_runner.catalog.list_all())
 }
 
 async fn create_agent(
     State(s): State<Arc<AppState>>,
     Json(manifest): Json<AgentManifest>,
 ) -> (StatusCode, Json<AgentEntry>) {
-    let id = s.agent_runner.registry.register(manifest);
-    let entry = s.agent_runner.registry.get(&id).unwrap();
+    let id = s.agent_runner.catalog.register(manifest);
+    let entry = s.agent_runner.catalog.get(&id).unwrap();
     (StatusCode::CREATED, Json(entry))
 }
 
@@ -49,7 +49,7 @@ async fn get_agent(
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
     s.agent_runner
-        .registry
+        .catalog
         .get(&AgentId(id))
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -65,7 +65,7 @@ async fn start_agent(
         .await
         .map_err(|_| StatusCode::CONFLICT)?;
     s.agent_runner
-        .registry
+        .catalog
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -81,7 +81,7 @@ async fn stop_agent(
         .await
         .map_err(|_| StatusCode::CONFLICT)?;
     s.agent_runner
-        .registry
+        .catalog
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -97,7 +97,7 @@ async fn pause_agent(
         .await
         .map_err(|_| StatusCode::CONFLICT)?;
     s.agent_runner
-        .registry
+        .catalog
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -113,7 +113,7 @@ async fn resume_agent(
         .await
         .map_err(|_| StatusCode::CONFLICT)?;
     s.agent_runner
-        .registry
+        .catalog
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -123,7 +123,7 @@ async fn delete_agent(
     State(s): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> StatusCode {
-    if s.agent_runner.registry.unregister(&AgentId(id)).is_some() {
+    if s.agent_runner.catalog.unregister(&AgentId(id)).is_some() {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::NOT_FOUND

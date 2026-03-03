@@ -16,11 +16,11 @@ const MPSC_CAPACITY: usize = 32;
 const BROADCAST_CAPACITY: usize = 256;
 
 /// Session → AgentRuntimeHandle 的注册表
-pub struct AgentRuntimeRegistry {
+pub struct AgentSupervisor {
     handles: DashMap<SessionId, AgentRuntimeHandle>,
 }
 
-impl AgentRuntimeRegistry {
+impl AgentSupervisor {
     pub fn new() -> Self {
         Self {
             handles: DashMap::new(),
@@ -103,7 +103,7 @@ impl AgentRuntimeRegistry {
     }
 }
 
-impl Default for AgentRuntimeRegistry {
+impl Default for AgentSupervisor {
     fn default() -> Self {
         Self::new()
     }

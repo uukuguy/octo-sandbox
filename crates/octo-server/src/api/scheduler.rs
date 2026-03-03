@@ -14,11 +14,11 @@ pub fn create_router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/tasks", get(list_tasks))
         .route("/tasks", post(create_task))
-        .route("/tasks/:id", get(get_task))
-        .route("/tasks/:id", put(update_task))
-        .route("/tasks/:id", delete(delete_task))
-        .route("/tasks/:id/run", post(run_task))
-        .route("/tasks/:id/executions", get(list_executions))
+        .route("/tasks/{id}", get(get_task))
+        .route("/tasks/{id}", put(update_task))
+        .route("/tasks/{id}", delete(delete_task))
+        .route("/tasks/{id}/run", post(run_task))
+        .route("/tasks/{id}/executions", get(list_executions))
 }
 
 #[derive(Debug, Deserialize)]

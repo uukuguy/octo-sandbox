@@ -170,8 +170,8 @@ pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/providers", get(list_providers))
         .route("/providers", post(add_provider))
-        .route("/providers/:id", delete(delete_provider))
-        .route("/providers/:id/select", post(select_provider))
-        .route("/providers/:id/reset", post(reset_provider))
+        .route("/providers/{id}", delete(delete_provider))
+        .route("/providers/{id}/select", post(select_provider))
+        .route("/providers/{id}/reset", post(reset_provider))
         .route("/providers/selection", delete(clear_selection))
 }

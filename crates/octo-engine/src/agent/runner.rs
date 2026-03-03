@@ -1,7 +1,7 @@
 //! AgentRunner - owns startup dependencies, builds per-agent ToolRegistry,
 //! and manages AgentLoop task lifecycle.
 //!
-//! AgentRunner bridges the AgentRegistry (which tracks state) with the actual
+//! AgentRunner bridges the AgentCatalog (which tracks state) with the actual
 //! AgentLoop execution. It is responsible for:
 //! - Building a per-agent ToolRegistry filtered by the agent's `tool_filter`
 //! - Spawning a tokio task that wraps AgentLoop execution
@@ -10,7 +10,7 @@
 
 use std::sync::Arc;
 
-use crate::agent::{AgentError, AgentId, AgentRegistry, CancellationToken};
+use crate::agent::{AgentError, AgentId, AgentCatalog, CancellationToken};
 use crate::context::SystemPromptBuilder;
 use crate::event::EventBus;
 use crate::memory::WorkingMemory;
@@ -20,7 +20,7 @@ use crate::tools::ToolRegistry;
 
 /// Shared startup dependencies for spawning AgentLoop tasks.
 pub struct AgentRunner {
-    pub registry: Arc<AgentRegistry>,
+    pub catalog: Arc<AgentCatalog>,
     provider: Arc<dyn Provider>,
     tools: Arc<ToolRegistry>,
     /// Optional: when set, build_tool_registry() dynamically includes the
@@ -33,14 +33,14 @@ pub struct AgentRunner {
 
 impl AgentRunner {
     pub fn new(
-        registry: Arc<AgentRegistry>,
+        catalog: Arc<AgentCatalog>,
         provider: Arc<dyn Provider>,
         tools: Arc<ToolRegistry>,
         memory: Arc<dyn WorkingMemory>,
         default_model: String,
     ) -> Self {
         Self {
-            registry,
+            catalog,
             provider,
             tools,
             skill_registry: None,
@@ -71,7 +71,7 @@ impl AgentRunner {
     pub async fn start(&self, id: &AgentId) -> Result<(), AgentError> {
         // Verify the agent exists before doing any work.
         let entry = self
-            .registry
+            .catalog
             .get(id)
             .ok_or_else(|| AgentError::NotFound(id.clone()))?;
 
@@ -91,7 +91,7 @@ impl AgentRunner {
         let cancel_token = CancellationToken::new();
 
         // Advance state machine. mark_running() validates the transition.
-        self.registry.mark_running(id, cancel_token)?;
+        self.catalog.mark_running(id, cancel_token)?;
 
         Ok(())
     }
@@ -99,19 +99,19 @@ impl AgentRunner {
     /// Stop a running or paused agent: cancel its token and mark Stopped.
     pub async fn stop(&self, id: &AgentId) -> Result<(), AgentError> {
         // mark_stopped() cancels the stored CancellationToken internally.
-        self.registry.mark_stopped(id)
+        self.catalog.mark_stopped(id)
     }
 
     /// Pause a running agent: cancel current execution and mark Paused.
     pub async fn pause(&self, id: &AgentId) -> Result<(), AgentError> {
         // mark_paused() cancels the stored CancellationToken internally.
-        self.registry.mark_paused(id)
+        self.catalog.mark_paused(id)
     }
 
     /// Resume a paused agent: install a fresh token and mark Running again.
     pub async fn resume(&self, id: &AgentId) -> Result<(), AgentError> {
         let cancel_token = CancellationToken::new();
-        self.registry.mark_resumed(id, cancel_token)
+        self.catalog.mark_resumed(id, cancel_token)
     }
 
     /// Build a ToolRegistry for a specific agent.

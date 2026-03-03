@@ -18,7 +18,7 @@ use octo_engine::{
     providers::ProviderChain,
     register_memory_tools,
     scheduler::{Scheduler, SqliteSchedulerStorage},
-    AgentRegistry, AgentRunner, AgentStore, Database, MemoryStore, SessionStore, SkillLoader,
+    AgentCatalog, AgentRunner, AgentStore, Database, MemoryStore, SessionStore, SkillLoader,
     SkillRegistry, SkillTool, SqliteMemoryStore, SqliteSessionStore, SqliteWorkingMemory,
     ToolExecutionRecorder, WorkingMemory,
 };
@@ -247,12 +247,12 @@ async fn main() -> Result<()> {
         Arc::new(Mutex::new(raw))
     };
     let agent_store = Arc::new(AgentStore::new(agent_conn).expect("failed to init AgentStore"));
-    let agent_registry = Arc::new(AgentRegistry::new().with_store(agent_store));
-    let loaded = agent_registry.load_from_store().unwrap_or(0);
+    let agent_catalog = Arc::new(AgentCatalog::new().with_store(agent_store));
+    let loaded = agent_catalog.load_from_store().unwrap_or(0);
     tracing::info!("Loaded {loaded} persisted agents");
     let default_model = model.clone().unwrap_or_else(|| "claude-opus-4-5".to_string());
     let agent_runner = Arc::new(AgentRunner::new(
-        agent_registry,
+        agent_catalog,
         provider.clone(),
         tools.clone(),
         memory.clone(),
@@ -260,7 +260,6 @@ async fn main() -> Result<()> {
     ).with_skill_registry(skill_registry.clone()));
 
     let state = Arc::new(AppState::new(
-        provider,
         provider_chain,
         tools,
         memory,
