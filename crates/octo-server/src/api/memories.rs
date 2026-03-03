@@ -43,6 +43,10 @@ pub async fn search_memories(
     Query(params): Query<MemorySearchParams>,
     Extension(ctx): Extension<UserContext>,
 ) -> Json<serde_json::Value> {
+    let mem_store = match state.agent_supervisor.memory_store() {
+        Some(s) => s,
+        None => return Json(serde_json::json!({ "results": [] })),
+    };
     let user_id = get_user_id_from_context(Some(&ctx));
     let query = params.q.unwrap_or_default();
 
@@ -53,7 +57,7 @@ pub async fn search_memories(
             limit: params.limit.min(100),
             ..Default::default()
         };
-        return match state.memory_store.list(filter).await {
+        return match mem_store.list(filter).await {
             Ok(entries) => Json(serde_json::json!({ "results": entries })),
             Err(_) => Json(serde_json::json!({ "results": [] })),
         };
@@ -66,7 +70,7 @@ pub async fn search_memories(
         ..Default::default()
     };
 
-    match state.memory_store.search(&query, opts).await {
+    match mem_store.search(&query, opts).await {
         Ok(entries) => Json(serde_json::json!({ "results": entries })),
         Err(_) => Json(serde_json::json!({ "results": [] })),
     }
@@ -85,7 +89,7 @@ pub async fn get_working_memory(
     let user_id_str = get_user_id_from_context(Some(&ctx));
     let user_id = UserId::from_string(&user_id_str);
     let sandbox_id = SandboxId::from_string(params.sandbox_id.as_deref().unwrap_or(&user_id_str));
-    match state.memory.get_blocks(&user_id, &sandbox_id).await {
+    match state.agent_supervisor.memory().get_blocks(&user_id, &sandbox_id).await {
         Ok(blocks) => Json(serde_json::json!({ "blocks": blocks })),
         Err(_) => Json(serde_json::json!({ "blocks": [] })),
     }
@@ -96,9 +100,13 @@ pub async fn get_memory(
     Path(id): Path<String>,
     Extension(ctx): Extension<UserContext>,
 ) -> Json<serde_json::Value> {
+    let mem_store = match state.agent_supervisor.memory_store() {
+        Some(s) => s,
+        None => return Json(serde_json::json!({"error": "not found"})),
+    };
     let user_id = get_user_id_from_context(Some(&ctx));
     let mem_id = MemoryId::from_string(&id);
-    match state.memory_store.get(&mem_id).await {
+    match mem_store.get(&mem_id).await {
         Ok(Some(entry)) => {
             // Verify the entry belongs to the user
             if entry.user_id != user_id {
@@ -116,17 +124,21 @@ pub async fn delete_memory(
     Path(id): Path<String>,
     Extension(ctx): Extension<UserContext>,
 ) -> Json<serde_json::Value> {
+    let mem_store = match state.agent_supervisor.memory_store() {
+        Some(s) => s,
+        None => return Json(serde_json::json!({"error": "not found or access denied"})),
+    };
     let user_id = get_user_id_from_context(Some(&ctx));
     let mem_id = MemoryId::from_string(&id);
 
     // Check ownership before deleting
-    if let Ok(Some(entry)) = state.memory_store.get(&mem_id).await {
+    if let Ok(Some(entry)) = mem_store.get(&mem_id).await {
         if entry.user_id != user_id {
             return Json(serde_json::json!({"error": "not found or access denied"}));
         }
     }
 
-    match state.memory_store.delete(&mem_id).await {
+    match mem_store.delete(&mem_id).await {
         Ok(()) => Json(serde_json::json!({"deleted": id})),
         Err(e) => Json(serde_json::json!({"error": e.to_string()})),
     }
@@ -143,6 +155,10 @@ pub async fn delete_memories_by_filter(
     Query(params): Query<DeleteFilterParams>,
     Extension(ctx): Extension<UserContext>,
 ) -> Json<serde_json::Value> {
+    let mem_store = match state.agent_supervisor.memory_store() {
+        Some(s) => s,
+        None => return Json(serde_json::json!({"deleted": 0})),
+    };
     let user_id = get_user_id_from_context(Some(&ctx));
     let categories = params
         .category
@@ -157,7 +173,7 @@ pub async fn delete_memories_by_filter(
         ..Default::default()
     };
 
-    match state.memory_store.delete_by_filter(filter).await {
+    match mem_store.delete_by_filter(filter).await {
         Ok(count) => Json(serde_json::json!({"deleted": count})),
         Err(e) => Json(serde_json::json!({"error": e.to_string()})),
     }
@@ -169,6 +185,10 @@ pub async fn create_memory(
     Extension(ctx): Extension<UserContext>,
     Json(req): Json<CreateMemoryRequest>,
 ) -> Json<serde_json::Value> {
+    let mem_store = match state.agent_supervisor.memory_store() {
+        Some(s) => s,
+        None => return Json(serde_json::json!({"error": "memory store not available"})),
+    };
     let user_id = get_user_id_from_context(Some(&ctx));
 
     // Parse category or default to "profile"
@@ -189,7 +209,7 @@ pub async fn create_memory(
     }
 
     // Save to store
-    match state.memory_store.store(entry).await {
+    match mem_store.store(entry).await {
         Ok(id) => Json(serde_json::json!({
             "id": id,
             "created": true,
