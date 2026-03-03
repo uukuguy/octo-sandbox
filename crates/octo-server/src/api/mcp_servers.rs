@@ -8,8 +8,7 @@ use axum::{
 use chrono::Utc;
 use octo_engine::auth::UserContext;
 use octo_engine::mcp::{
-    manager::ServerRuntimeState, storage::McpServerRecord, traits::McpServerConfigV2,
-    traits::McpTransport,
+    manager::ServerRuntimeState, storage::McpServerRecord, traits::McpServerConfig,
 };
 use serde::{Deserialize, Serialize};
 
@@ -68,7 +67,7 @@ pub async fn list_servers(
         return Json(vec![]);
     };
 
-    let manager = state.mcp_manager.lock().await;
+    let runtime_states = state.agent_supervisor.list_mcp_servers();
 
     // Use list_servers_for_user to filter by user_id
     match storage.list_servers_for_user(&user_id) {
@@ -76,14 +75,21 @@ pub async fn list_servers(
             let responses: Vec<McpServerResponse> = records
                 .into_iter()
                 .map(|r| {
-                    let runtime_state = manager.get_runtime_state(&r.id);
-                    let runtime_status = match runtime_state {
-                        ServerRuntimeState::Running { .. } => "running",
-                        ServerRuntimeState::Stopped => "stopped",
-                        ServerRuntimeState::Starting => "starting",
-                        ServerRuntimeState::Error { .. } => "error",
-                    };
-                    let tool_count = manager.get_tool_count(&r.id);
+                    // Find runtime state for this server
+                    let runtime_status = runtime_states
+                        .iter()
+                        .find(|state| {
+                            match state {
+                                octo_engine::mcp::manager::ServerRuntimeState::Running { .. } => true,
+                                _ => false,
+                            }
+                        })
+                        .map(|_| "running")
+                        .unwrap_or("stopped");
+
+                    // Tool count is managed by AgentRuntime - return 0 for now
+                    // The actual tool count is tracked internally by AgentRuntime
+                    let tool_count = 0;
 
                     // Default to stdio transport for backward compatibility
                     let transport = r.transport.unwrap_or_else(|| "stdio".to_string());
@@ -352,39 +358,17 @@ pub async fn start_server(
         }
     };
 
-    // Create McpServerConfigV2 from storage record
-    let transport = server_record
-        .transport
-        .as_deref()
-        .unwrap_or("stdio")
-        .parse::<McpTransport>()
-        .unwrap_or(McpTransport::Stdio);
-
-    let config = McpServerConfigV2 {
-        id: server_record.id.clone(),
+    // Create McpServerConfig from storage record (convert from V2 to simple config)
+    let config = McpServerConfig {
         name: server_record.name.clone(),
-        source: server_record.source.clone(),
         command: server_record.command.clone(),
         args: serde_json::from_str(&server_record.args).unwrap_or_default(),
         env: serde_json::from_str(&server_record.env).unwrap_or_default(),
-        enabled: server_record.enabled,
-        transport,
-        url: server_record.url,
     };
 
-    // Add and connect the server via McpManager
-    let mut manager = state.mcp_manager.lock().await;
-    tracing::debug!(
-        "MCP Manager runtime states before start: {:?}",
-        manager.all_runtime_states()
-    );
-    match manager.add_server_v2(config).await {
+    // Add and connect the server via AgentRuntime
+    match state.agent_supervisor.add_mcp_server(config).await {
         Ok(tools) => {
-            manager.set_runtime_state(&id, ServerRuntimeState::Running { pid: 0 });
-            tracing::debug!(
-                "MCP Manager runtime states after start: {:?}",
-                manager.all_runtime_states()
-            );
             tracing::info!(server = %id, tool_count = tools.len(), "MCP server started");
             Json(serde_json::json!({
                 "started": id,
@@ -414,11 +398,9 @@ pub async fn stop_server(
         }
     }
 
-    let mut manager = state.mcp_manager.lock().await;
-
-    match manager.remove_server(&id).await {
+    // Use AgentRuntime to remove the MCP server
+    match state.agent_supervisor.remove_mcp_server(&id).await {
         Ok(()) => {
-            manager.set_runtime_state(&id, ServerRuntimeState::Stopped);
             tracing::info!(server = %id, "MCP server stopped");
             Json(serde_json::json!({"stopped": id}))
         }
