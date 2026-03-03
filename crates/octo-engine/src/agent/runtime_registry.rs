@@ -37,7 +37,6 @@ pub struct AgentSupervisor {
 }
 
 impl AgentSupervisor {
-    #[allow(clippy::too_many_arguments)]
     pub fn new(
         catalog: Arc<AgentCatalog>,
         provider: Arc<dyn Provider>,
