@@ -20,5 +20,5 @@ pub use executor::{AgentExecutor, AgentExecutorHandle, AgentMessage};
 pub use extension::{AgentExtension, ExtensionEvent, ExtensionRegistry};
 pub use loop_::{AgentEvent, AgentLoop};
 pub use queue::{MessageQueue, QueueKind, QueueMode};
-pub use runtime::AgentRuntime;
+pub use runtime::{AgentRuntime, AgentRuntimeConfig};
 pub use store::AgentStore;

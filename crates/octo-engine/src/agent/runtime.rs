@@ -143,9 +143,11 @@ impl AgentRuntime {
         let recorder = Arc::new(ToolExecutionRecorder::new(conn));
 
         // 6. Create Provider
+        let api_key = config.provider.api_key.clone()
+            .unwrap_or_else(|| std::env::var("ANTHROPIC_API_KEY").unwrap_or_default());
         let provider: Arc<dyn Provider> = Arc::from(create_provider(
             &config.provider.name,
-            config.provider.api_key.clone(),
+            api_key,
             config.provider.base_url.clone(),
         ));
 

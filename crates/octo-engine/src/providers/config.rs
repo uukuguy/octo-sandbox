@@ -1,6 +1,30 @@
 use super::chain::{FailoverPolicy, LlmInstance};
 use serde::{Deserialize, Serialize};
 
+/// LLM Provider configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProviderConfig {
+    /// Provider name (e.g., "anthropic", "openai")
+    pub name: String,
+    /// API key (supports ${ENV_VAR} format)
+    pub api_key: Option<String>,
+    /// Base URL for API (optional, provider-specific default used if not set)
+    pub base_url: Option<String>,
+    /// Model name (optional, provider-specific default used if not set)
+    pub model: Option<String>,
+}
+
+impl Default for ProviderConfig {
+    fn default() -> Self {
+        Self {
+            name: "anthropic".to_string(),
+            api_key: None,
+            base_url: None,
+            model: None,
+        }
+    }
+}
+
 /// Provider Chain 配置
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProviderChainConfig {

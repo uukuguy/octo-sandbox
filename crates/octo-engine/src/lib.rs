@@ -17,7 +17,7 @@ pub mod session;
 pub mod skills;
 pub mod tools;
 
-pub use agent::{AgentCatalog, AgentEntry, AgentError, AgentEvent, AgentId, AgentLoop, AgentManifest, AgentMessage, AgentExecutor, AgentExecutorHandle, AgentStatus, AgentStore, AgentRuntime};
+pub use agent::{AgentCatalog, AgentEntry, AgentError, AgentEvent, AgentId, AgentLoop, AgentManifest, AgentMessage, AgentExecutor, AgentExecutorHandle, AgentRuntimeConfig, AgentStatus, AgentStore, AgentRuntime};
 pub use audit::{AuditEvent, AuditRecord, AuditStorage};
 pub use auth::{
     auth_middleware, get_user_context, ApiKey, ApiKeyConfig, AuthConfig, AuthConfigYaml, AuthMode,
@@ -38,7 +38,7 @@ pub use memory::{
     MemorySystem, Relation, SqliteMemoryStore, SqliteWorkingMemory, TokenBudgetManager, WorkingMemory,
 };
 pub use metrics::{Counter, Gauge, Histogram, MetricsRegistry};
-pub use providers::{create_anthropic_provider, create_openai_provider, create_provider, Provider};
+pub use providers::{create_anthropic_provider, create_openai_provider, create_provider, Provider, ProviderConfig};
 pub use sandbox::{
     DockerAdapter, ExecResult, RuntimeAdapter, SandboxConfig, SandboxError, SandboxId, SandboxType,
     SubprocessAdapter, WasmAdapter,
