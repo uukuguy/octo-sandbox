@@ -6,7 +6,10 @@ use tracing::info;
 
 use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
 
-use crate::agent::{AgentCatalog, AgentConfig, AgentError, AgentEvent, AgentId, AgentManifest, AgentMessage, AgentExecutor, AgentExecutorHandle, CancellationToken};
+use crate::agent::{
+    AgentCatalog, AgentConfig, AgentError, AgentEvent, AgentId, AgentManifest,
+    AgentMessage, AgentExecutor, AgentExecutorHandle, AgentStatus, CancellationToken,
+};
 use crate::event::EventBus;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
@@ -22,6 +25,8 @@ const BROADCAST_CAPACITY: usize = 256;
 /// Session → AgentExecutorHandle 的注册表，同时持有所有共享运行时依赖
 pub struct AgentRuntime {
     handles: DashMap<SessionId, AgentExecutorHandle>,
+    /// AgentId → CancellationToken，用于 stop/pause 时取消正在运行的 AgentExecutor
+    agent_handles: DashMap<AgentId, CancellationToken>,
     // 定义层
     catalog: Arc<AgentCatalog>,
     // 共享依赖（构造时注入一次）
@@ -48,6 +53,7 @@ impl AgentRuntime {
     ) -> Self {
         Self {
             handles: DashMap::new(),
+            agent_handles: DashMap::new(),
             catalog,
             provider,
             tools,
@@ -178,7 +184,8 @@ impl AgentRuntime {
 
         if let Some(id) = agent_id {
             let cancel_token = CancellationToken::new();
-            let _ = self.catalog.mark_running(id, cancel_token);
+            self.agent_handles.insert(id.clone(), cancel_token);
+            self.catalog.update_state(id, AgentStatus::Running);
         }
 
         info!(session_id = %session_id.as_str(), "AgentExecutor spawned");
@@ -300,29 +307,66 @@ impl AgentRuntime {
 
     /// 停止 agent：发送 Cancel，移除 handle，更新 catalog 状态。
     pub async fn stop(&self, agent_id: &AgentId, session_id: &SessionId) -> Result<(), AgentError> {
+        let entry = self.catalog
+            .get(agent_id)
+            .ok_or_else(|| AgentError::NotFound(agent_id.clone()))?;
+        if entry.state == AgentStatus::Stopped {
+            return Err(AgentError::InvalidTransition {
+                from: AgentStatus::Stopped,
+                action: "stop",
+            });
+        }
+        if let Some((_, token)) = self.agent_handles.remove(agent_id) {
+            token.cancel();
+        }
         if let Some(handle) = self.get(session_id) {
             if let Err(e) = handle.send(AgentMessage::Cancel).await {
                 tracing::warn!(session_id = %session_id.as_str(), "cancel send failed on stop: {e}");
             }
         }
         self.remove(session_id);
-        self.catalog.mark_stopped(agent_id)
+        self.catalog.update_state(agent_id, AgentStatus::Stopped);
+        Ok(())
     }
 
     /// 暂停 agent：发送 Cancel（中断当前 round），更新 catalog 状态。
     pub async fn pause(&self, agent_id: &AgentId, session_id: &SessionId) -> Result<(), AgentError> {
+        let entry = self.catalog
+            .get(agent_id)
+            .ok_or_else(|| AgentError::NotFound(agent_id.clone()))?;
+        if entry.state != AgentStatus::Running {
+            return Err(AgentError::InvalidTransition {
+                from: entry.state.clone(),
+                action: "pause",
+            });
+        }
+        if let Some((_, token)) = self.agent_handles.remove(agent_id) {
+            token.cancel();
+        }
         if let Some(handle) = self.get(session_id) {
             if let Err(e) = handle.send(AgentMessage::Cancel).await {
                 tracing::warn!(session_id = %session_id.as_str(), "cancel send failed on pause: {e}");
             }
         }
-        self.catalog.mark_paused(agent_id)
+        self.catalog.update_state(agent_id, AgentStatus::Paused);
+        Ok(())
     }
 
     /// 恢复 agent：更新 catalog 状态（Runtime 仍在运行，cancel_flag 已重置）。
     pub fn resume(&self, agent_id: &AgentId) -> Result<(), AgentError> {
+        let entry = self.catalog
+            .get(agent_id)
+            .ok_or_else(|| AgentError::NotFound(agent_id.clone()))?;
+        if entry.state != AgentStatus::Paused {
+            return Err(AgentError::InvalidTransition {
+                from: entry.state.clone(),
+                action: "resume",
+            });
+        }
         let cancel_token = CancellationToken::new();
-        self.catalog.mark_resumed(agent_id, cancel_token)
+        self.agent_handles.insert(agent_id.clone(), cancel_token);
+        self.catalog.update_state(agent_id, AgentStatus::Running);
+        Ok(())
     }
 
     /// 按 agent_id 解析运行时配置（从 catalog 读取 manifest）
