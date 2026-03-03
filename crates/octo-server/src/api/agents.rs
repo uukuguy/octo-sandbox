@@ -17,9 +17,16 @@ use axum::{
     routing::{get, post},
     Json, Router,
 };
-use octo_engine::{agent::CancellationToken, AgentEntry, AgentId, AgentManifest};
+use octo_engine::{agent::CancellationToken, AgentEntry, AgentError, AgentId, AgentManifest};
 
 use crate::state::AppState;
+
+fn agent_err_to_status(e: AgentError) -> StatusCode {
+    match e {
+        AgentError::NotFound(_) => StatusCode::NOT_FOUND,
+        AgentError::InvalidTransition { .. } => StatusCode::CONFLICT,
+    }
+}
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
@@ -38,10 +45,10 @@ async fn list_agents(State(s): State<Arc<AppState>>) -> Json<Vec<AgentEntry>> {
 async fn create_agent(
     State(s): State<Arc<AppState>>,
     Json(manifest): Json<AgentManifest>,
-) -> (StatusCode, Json<AgentEntry>) {
+) -> Result<(StatusCode, Json<AgentEntry>), StatusCode> {
     let id = s.catalog.register(manifest);
-    let entry = s.catalog.get(&id).unwrap();
-    (StatusCode::CREATED, Json(entry))
+    let entry = s.catalog.get(&id).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    Ok((StatusCode::CREATED, Json(entry)))
 }
 
 async fn get_agent(
@@ -61,7 +68,7 @@ async fn start_agent(
     let agent_id = AgentId(id);
     s.catalog
         .mark_running(&agent_id, CancellationToken::new())
-        .map_err(|_| StatusCode::CONFLICT)?;
+        .map_err(agent_err_to_status)?;
     s.catalog
         .get(&agent_id)
         .map(Json)
@@ -75,7 +82,7 @@ async fn stop_agent(
     let agent_id = AgentId(id);
     s.catalog
         .mark_stopped(&agent_id)
-        .map_err(|_| StatusCode::CONFLICT)?;
+        .map_err(agent_err_to_status)?;
     s.catalog
         .get(&agent_id)
         .map(Json)
@@ -89,7 +96,7 @@ async fn pause_agent(
     let agent_id = AgentId(id);
     s.catalog
         .mark_paused(&agent_id)
-        .map_err(|_| StatusCode::CONFLICT)?;
+        .map_err(agent_err_to_status)?;
     s.catalog
         .get(&agent_id)
         .map(Json)
@@ -103,7 +110,7 @@ async fn resume_agent(
     let agent_id = AgentId(id);
     s.catalog
         .mark_resumed(&agent_id, CancellationToken::new())
-        .map_err(|_| StatusCode::CONFLICT)?;
+        .map_err(agent_err_to_status)?;
     s.catalog
         .get(&agent_id)
         .map(Json)
