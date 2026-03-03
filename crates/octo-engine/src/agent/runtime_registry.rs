@@ -16,7 +16,6 @@ use crate::skills::{SkillRegistry, SkillTool};
 use crate::tools::recorder::ToolExecutionRecorder;
 use crate::tools::ToolRegistry;
 
-
 const MPSC_CAPACITY: usize = 32;
 const BROADCAST_CAPACITY: usize = 256;
 
@@ -33,6 +32,7 @@ pub struct AgentSupervisor {
     memory_store: Option<Arc<dyn MemoryStore>>,
     session_store: Option<Arc<dyn SessionStore>>,
     default_model: String,
+    // TODO: forward to AgentRuntime once observability wiring is added
     event_bus: Option<Arc<EventBus>>,
     recorder: Option<Arc<ToolExecutionRecorder>>,
 }
