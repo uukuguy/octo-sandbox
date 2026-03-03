@@ -1,30 +1,74 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
+use anyhow::Result;
 use dashmap::DashMap;
-use tokio::sync::{broadcast, mpsc};
+use tokio::sync::{broadcast, mpsc, Mutex};
 use tracing::info;
 
-use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
+use octo_types::{ChatMessage, ContentBlock, MessageRole, SandboxId, SessionId, ToolContext, UserId};
 
 use crate::agent::{
     AgentCatalog, AgentConfig, AgentError, AgentEvent, AgentId, AgentManifest,
-    AgentMessage, AgentExecutor, AgentExecutorHandle, AgentStatus, CancellationToken,
+    AgentMessage, AgentExecutor, AgentExecutorHandle, AgentLoop, AgentStatus, CancellationToken,
 };
+use crate::db::Database;
 use crate::event::EventBus;
 use crate::memory::store_traits::MemoryStore;
-use crate::memory::WorkingMemory;
-use crate::providers::{create_provider, Provider, ProviderChain};
-use crate::session::SessionStore;
-use crate::skills::{SkillRegistry, SkillTool};
+use crate::memory::{SqliteMemoryStore, SqliteWorkingMemory, WorkingMemory};
+use crate::providers::{create_provider, Provider, ProviderChain, ProviderChainConfig};
+use crate::providers::ProviderConfig;
+use crate::scheduler::ScheduledTask;
+use crate::session::{SessionStore, SqliteSessionStore};
+use crate::skills::{SkillLoader, SkillRegistry, SkillTool};
 use crate::tools::recorder::ToolExecutionRecorder;
-use crate::tools::ToolRegistry;
+use crate::tools::{default_tools, register_memory_tools, ToolRegistry};
 
 const MPSC_CAPACITY: usize = 32;
 const BROADCAST_CAPACITY: usize = 256;
 
+/// AgentRuntime configuration - a subset of server Config needed by AgentRuntime
+#[derive(Debug, Clone)]
+pub struct AgentRuntimeConfig {
+    /// Database path for SQLite storage
+    pub db_path: String,
+    /// LLM provider configuration
+    pub provider: ProviderConfig,
+    /// Skills directories to load from
+    pub skills_dirs: Vec<String>,
+    /// Provider chain configuration (optional)
+    pub provider_chain: Option<ProviderChainConfig>,
+    /// Working directory for sandbox (optional)
+    pub working_dir: Option<PathBuf>,
+    /// Enable event bus for observability
+    pub enable_event_bus: bool,
+}
+
+impl AgentRuntimeConfig {
+    /// Create from full server Config fields
+    pub fn from_parts(
+        db_path: String,
+        provider: ProviderConfig,
+        skills_dirs: Vec<String>,
+        provider_chain: Option<ProviderChainConfig>,
+        working_dir: Option<PathBuf>,
+        enable_event_bus: bool,
+    ) -> Self {
+        Self {
+            db_path,
+            provider,
+            skills_dirs,
+            provider_chain,
+            working_dir,
+            enable_event_bus,
+        }
+    }
+}
+
 /// Session → AgentExecutorHandle 的注册表，同时持有所有共享运行时依赖
 pub struct AgentRuntime {
-    handles: DashMap<SessionId, AgentExecutorHandle>,
+    /// 单一主 executor（单用户场景）- 使用 Mutex 实现内部可变性
+    primary_handle: Mutex<Option<AgentExecutorHandle>>,
     /// AgentId → CancellationToken，用于 stop/pause 时取消正在运行的 AgentExecutor
     agent_handles: DashMap<AgentId, CancellationToken>,
     // 定义层
@@ -34,47 +78,143 @@ pub struct AgentRuntime {
     tools: Arc<ToolRegistry>,
     skill_registry: Option<Arc<SkillRegistry>>,
     memory: Arc<dyn WorkingMemory>,
-    memory_store: Option<Arc<dyn MemoryStore>>,
-    session_store: Option<Arc<dyn SessionStore>>,
+    memory_store: Arc<dyn MemoryStore>,
+    session_store: Arc<dyn SessionStore>,
     default_model: String,
     // TODO: forward to AgentExecutor once observability wiring is added
     event_bus: Option<Arc<EventBus>>,
-    recorder: Option<Arc<ToolExecutionRecorder>>,
+    recorder: Arc<ToolExecutionRecorder>,
     provider_chain: Option<Arc<ProviderChain>>,
 }
 
 impl AgentRuntime {
-    pub fn new(
+    /// Create a new AgentRuntime with all components internalized.
+    ///
+    /// # Arguments
+    /// * `catalog` - Agent catalog (created externally with store)
+    /// * `config` - Runtime configuration containing db_path, provider, skills, etc.
+    ///
+    /// # Returns
+    /// A fully initialized AgentRuntime with:
+    /// - Database connection (from db_path)
+    /// - WorkingMemory (SqliteWorkingMemory)
+    /// - SessionStore (SqliteSessionStore)
+    /// - MemoryStore (SqliteMemoryStore)
+    /// - ToolExecutionRecorder
+    /// - ToolRegistry (default + memory + skills)
+    /// - SkillRegistry (loaded from config.skills_dirs)
+    /// - Provider (from config.provider)
+    /// - ProviderChain (if configured)
+    pub async fn new(
         catalog: Arc<AgentCatalog>,
-        provider_name: &str,
-        provider_api_key: String,
-        provider_base_url: Option<String>,
-        tools: Arc<ToolRegistry>,
-        memory: Arc<dyn WorkingMemory>,
-        default_model: String,
-    ) -> Self {
-        // Create provider internally based on config
+        config: AgentRuntimeConfig,
+    ) -> Result<Self, AgentError> {
+        // 1. Open database
+        let db = Database::open(&config.db_path).await.map_err(|e| {
+            AgentError::Internal(format!("Failed to open database: {}", e))
+        })?;
+        let conn = db.conn().clone();
+
+        // 2. Create WorkingMemory (Layer 0)
+        let memory: Arc<dyn WorkingMemory> = Arc::new(
+            SqliteWorkingMemory::new(conn.clone()).await.map_err(|e| {
+                AgentError::Internal(format!("Failed to create working memory: {}", e))
+            })?
+        );
+
+        // 3. Create SessionStore
+        let session_store: Arc<dyn SessionStore> = Arc::new(
+            SqliteSessionStore::new(conn.clone()).await.map_err(|e| {
+                AgentError::Internal(format!("Failed to create session store: {}", e))
+            })?
+        );
+
+        // 4. Create MemoryStore (Layer 2)
+        let memory_store: Arc<dyn MemoryStore> = Arc::new(
+            SqliteMemoryStore::new(conn.clone())
+        );
+
+        // 5. Create ToolExecutionRecorder
+        let recorder = Arc::new(ToolExecutionRecorder::new(conn));
+
+        // 6. Create Provider
         let provider: Arc<dyn Provider> = Arc::from(create_provider(
-            provider_name,
-            provider_api_key,
-            provider_base_url,
+            &config.provider.name,
+            config.provider.api_key.clone(),
+            config.provider.base_url.clone(),
         ));
 
-        Self {
-            handles: DashMap::new(),
+        // 7. Create ToolRegistry with default + memory + skills
+        let mut tools = default_tools();
+        register_memory_tools(&mut tools, memory_store.clone(), provider.clone());
+
+        // 8. Create and load SkillRegistry
+        let skill_registry = Arc::new(SkillRegistry::new());
+        // Load skills from config directories
+        if !config.skills_dirs.is_empty() {
+            let home_dir = std::env::var("HOME").map(PathBuf::from).ok();
+            let project_dir = std::env::current_dir().ok();
+            let skill_loader = SkillLoader::new(project_dir.as_deref(), home_dir.as_deref());
+            if let Err(e) = skill_registry.load_from(&skill_loader) {
+                tracing::warn!("Failed to load skills: {}", e);
+            }
+            // Register skills as tools
+            for skill in skill_registry.invocable_skills() {
+                tools.register(SkillTool::new(skill));
+            }
+            // Start hot-reload watcher
+            if let Err(e) = skill_registry.start_watching(skill_loader) {
+                tracing::warn!("Failed to start skill watcher: {}", e);
+            }
+        }
+
+        // 9. Create ProviderChain if configured
+        let provider_chain = if let Some(pc_config) = config.provider_chain {
+            let chain = Arc::new(ProviderChain::new(pc_config.failover_policy));
+            // Note: instances would need to be added separately if needed
+            Some(chain)
+        } else {
+            None
+        };
+
+        // 10. Get default model
+        let default_model = config
+            .provider
+            .model
+            .unwrap_or_else(|| "claude-opus-4-5".to_string());
+
+        Ok(Self {
+            primary_handle: Mutex::new(None),
             agent_handles: DashMap::new(),
             catalog,
             provider,
-            tools,
-            skill_registry: None,
+            tools: Arc::new(tools),
+            skill_registry: Some(skill_registry),
             memory,
-            memory_store: None,
-            session_store: None,
+            memory_store,
+            session_store,
             default_model,
             event_bus: None,
-            recorder: None,
-            provider_chain: None,
-        }
+            recorder,
+            provider_chain,
+        })
+    }
+
+    /// Legacy constructor for backward compatibility during transition.
+    /// Prefer using `new()` which creates all components internally.
+    #[deprecated(since = "0.4.0", note = "Use new() instead")]
+    #[allow(dead_code)]
+    pub fn new_legacy(
+        _catalog: Arc<AgentCatalog>,
+        _provider_config: &ProviderConfig,
+        _tools: Arc<ToolRegistry>,
+        _memory: Arc<dyn WorkingMemory>,
+        _default_model: String,
+    ) -> Self {
+        // This legacy constructor is deprecated and should not be used.
+        // Use new() instead which creates all components internally.
+        // We still need this for compilation during the transition period.
+        unimplemented!("Use AgentRuntime::new() instead")
     }
 
     pub fn with_skill_registry(mut self, skills: Arc<SkillRegistry>) -> Self {
@@ -83,12 +223,12 @@ impl AgentRuntime {
     }
 
     pub fn with_memory_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
-        self.memory_store = Some(store);
+        self.memory_store = store;
         self
     }
 
     pub fn with_session_store(mut self, store: Arc<dyn SessionStore>) -> Self {
-        self.session_store = Some(store);
+        self.session_store = store;
         self
     }
 
@@ -98,7 +238,7 @@ impl AgentRuntime {
     }
 
     pub fn with_recorder(mut self, recorder: Arc<ToolExecutionRecorder>) -> Self {
-        self.recorder = Some(recorder);
+        self.recorder = recorder;
         self
     }
 
@@ -121,30 +261,39 @@ impl AgentRuntime {
         &self.memory
     }
 
-    pub fn memory_store(&self) -> Option<&Arc<dyn MemoryStore>> {
-        self.memory_store.as_ref()
+    pub fn memory_store(&self) -> &Arc<dyn MemoryStore> {
+        &self.memory_store
     }
 
-    pub fn session_store(&self) -> Option<&Arc<dyn SessionStore>> {
-        self.session_store.as_ref()
+    pub fn session_store(&self) -> &Arc<dyn SessionStore> {
+        &self.session_store
     }
 
-    pub fn recorder(&self) -> Option<&Arc<ToolExecutionRecorder>> {
-        self.recorder.as_ref()
+    pub fn recorder(&self) -> &Arc<ToolExecutionRecorder> {
+        &self.recorder
     }
 
     pub fn provider_chain(&self) -> Option<&Arc<ProviderChain>> {
         self.provider_chain.as_ref()
     }
 
-    /// 获取已有的 AgentExecutorHandle（如果存在）
-    pub fn get(&self, session_id: &SessionId) -> Option<AgentExecutorHandle> {
-        self.handles.get(session_id).map(|h| h.clone())
+    pub fn provider(&self) -> &Arc<dyn Provider> {
+        &self.provider
     }
 
-    /// 获取或 spawn 与 session 绑定的 AgentExecutor。
-    /// agent_id: 可选，指定要绑定的 AgentCatalog 中的 agent 定义（携带 manifest）。
-    pub fn get_or_spawn(
+    /// 获取主 AgentExecutorHandle（如果已启动）
+    pub async fn primary(&self) -> Option<AgentExecutorHandle> {
+        let guard = self.primary_handle.lock().await;
+        guard.clone()
+    }
+
+    /// 启动主 Runtime 并返回其 Handle。
+    /// 由 main.rs 在 server 启动时调用一次。
+    /// channels（ws.rs 等）通过持有返回的 Handle 与 Agent 通信，
+    /// 无需持有 AgentRuntime 引用（解耦）。
+    ///
+    /// 如果 primary 已存在，直接返回现有的 handle
+    pub async fn start_primary(
         &self,
         session_id: SessionId,
         user_id: UserId,
@@ -152,9 +301,12 @@ impl AgentRuntime {
         initial_history: Vec<ChatMessage>,
         agent_id: Option<&AgentId>,
     ) -> AgentExecutorHandle {
-        // 已有 handle 则直接复用
-        if let Some(handle) = self.get(&session_id) {
-            return handle;
+        // 先检查是否已有 primary handle
+        {
+            let guard = self.primary_handle.lock().await;
+            if let Some(ref handle) = *guard {
+                return handle.clone();
+            }
         }
 
         // 从 manifest 解析运行时配置
@@ -179,9 +331,9 @@ impl AgentRuntime {
             self.provider.clone(),
             tools,
             self.memory.clone(),
-            self.memory_store.clone(),
+            Some(self.memory_store.clone()),
             Some(model),
-            self.session_store.clone(),
+            Some(self.session_store.clone()),
             system_prompt,
             config,
         );
@@ -197,39 +349,25 @@ impl AgentRuntime {
             self.catalog.update_state(id, AgentStatus::Running);
         }
 
-        info!(session_id = %session_id.as_str(), "AgentExecutor spawned");
+        info!(session_id = %session_id.as_str(), "Primary AgentExecutor started");
 
-        self.handles.insert(session_id, handle.clone());
+        // 保存 primary handle
+        let mut handle_guard = self.primary_handle.lock().await;
+        *handle_guard = Some(handle.clone());
+
         handle
     }
 
-    /// 启动主 Runtime 并返回其 Handle。
-    /// 由 main.rs 在 server 启动时调用一次。
-    /// channels（ws.rs 等）通过持有返回的 Handle 与 Agent 通信，
-    /// 无需持有 AgentRuntime 引用（解耦）。
-    pub fn start_primary(
-        &self,
-        session_id: SessionId,
-        user_id: UserId,
-        sandbox_id: SandboxId,
-        initial_history: Vec<ChatMessage>,
-        agent_id: Option<&AgentId>,
-    ) -> AgentExecutorHandle {
-        self.get_or_spawn(session_id, user_id, sandbox_id, initial_history, agent_id)
-    }
-
-    /// 移除 session 对应的 handle（当 session 销毁时调用）
-    pub fn remove(&self, session_id: &SessionId) {
-        self.handles.remove(session_id);
-        info!(session_id = %session_id.as_str(), "AgentExecutor handle removed");
-    }
-
-    pub fn len(&self) -> usize {
-        self.handles.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.handles.is_empty()
+    /// 停止主 Runtime
+    pub async fn stop_primary(&self) {
+        let handle = {
+            let mut guard = self.primary_handle.lock().await;
+            guard.take()
+        };
+        if let Some(h) = handle {
+            let _ = h.send(AgentMessage::Cancel).await;
+            info!("Primary AgentExecutor stopped");
+        }
     }
 
     /// 按 tool_filter 构建 ToolRegistry（含 SkillRegistry 热重载 overlay）
@@ -287,9 +425,9 @@ impl AgentRuntime {
         None  // 返回 None 表示使用 AgentLoop 默认（SOUL.md）
     }
 
-    /// 启动 agent：从 catalog 读取 manifest，spawn AgentExecutor，更新状态机。
+    /// 启动 agent：从 catalog 读取 manifest，启动 primary Executor，更新状态机。
     /// session_id：为该 agent 创建或复用的会话标识。
-    pub fn start(
+    pub async fn start(
         &self,
         agent_id: &AgentId,
         session_id: SessionId,
@@ -302,20 +440,20 @@ impl AgentRuntime {
             .get(agent_id)
             .ok_or_else(|| AgentError::NotFound(agent_id.clone()))?;
 
-        // spawn Runtime（内部会调用 catalog.mark_running）
-        let handle = self.get_or_spawn(
+        // 启动 primary Runtime
+        let handle = self.start_primary(
             session_id,
             user_id,
             sandbox_id,
             initial_history,
             Some(agent_id),
-        );
+        ).await;
 
         Ok(handle)
     }
 
-    /// 停止 agent：发送 Cancel，移除 handle，更新 catalog 状态。
-    pub async fn stop(&self, agent_id: &AgentId, session_id: &SessionId) -> Result<(), AgentError> {
+    /// 停止 agent：发送 Cancel，更新 catalog 状态。
+    pub async fn stop(&self, agent_id: &AgentId) -> Result<(), AgentError> {
         let entry = self.catalog
             .get(agent_id)
             .ok_or_else(|| AgentError::NotFound(agent_id.clone()))?;
@@ -328,18 +466,21 @@ impl AgentRuntime {
         if let Some((_, token)) = self.agent_handles.remove(agent_id) {
             token.cancel();
         }
-        if let Some(handle) = self.get(session_id) {
-            if let Err(e) = handle.send(AgentMessage::Cancel).await {
-                tracing::warn!(session_id = %session_id.as_str(), "cancel send failed on stop: {e}");
+        let handle = {
+            let mut guard = self.primary_handle.lock().await;
+            guard.take()
+        };
+        if let Some(ref h) = handle {
+            if let Err(e) = h.send(AgentMessage::Cancel).await {
+                tracing::warn!("cancel send failed on stop: {e}");
             }
         }
-        self.remove(session_id);
         self.catalog.update_state(agent_id, AgentStatus::Stopped);
         Ok(())
     }
 
     /// 暂停 agent：发送 Cancel（中断当前 round），更新 catalog 状态。
-    pub async fn pause(&self, agent_id: &AgentId, session_id: &SessionId) -> Result<(), AgentError> {
+    pub async fn pause(&self, agent_id: &AgentId) -> Result<(), AgentError> {
         let entry = self.catalog
             .get(agent_id)
             .ok_or_else(|| AgentError::NotFound(agent_id.clone()))?;
@@ -352,9 +493,13 @@ impl AgentRuntime {
         if let Some((_, token)) = self.agent_handles.remove(agent_id) {
             token.cancel();
         }
-        if let Some(handle) = self.get(session_id) {
-            if let Err(e) = handle.send(AgentMessage::Cancel).await {
-                tracing::warn!(session_id = %session_id.as_str(), "cancel send failed on pause: {e}");
+        let handle = {
+            let guard = self.primary_handle.lock().await;
+            guard.clone()
+        };
+        if let Some(ref h) = handle {
+            if let Err(e) = h.send(AgentMessage::Cancel).await {
+                tracing::warn!("cancel send failed on pause: {e}");
             }
         }
         self.catalog.update_state(agent_id, AgentStatus::Paused);
@@ -400,5 +545,103 @@ impl AgentRuntime {
             self.default_model.clone(),
             AgentConfig::default(),
         )
+    }
+
+    /// Execute a scheduled task: create session, run agent, return result.
+    /// Reuses provider/tools/memory from this AgentRuntime.
+    pub async fn execute_scheduled_task(
+        &self,
+        task: &ScheduledTask,
+    ) -> Result<String, AgentError> {
+        let config = &task.agent_config;
+
+        // Create session for the task using the session store
+        let user_id = task
+            .user_id
+            .as_ref()
+            .map(|u| UserId::from_string(u.clone()))
+            .unwrap_or_else(|| UserId::from_string("scheduler".to_string()));
+
+        let session = self
+            .session_store
+            .create_session_with_user(&user_id)
+            .await;
+        let session_id = session.session_id.clone();
+        let sandbox_id = session.sandbox_id.clone();
+
+        // Prepare initial message with the task input
+        let user_message = ChatMessage::user(config.input.clone());
+        let mut messages = vec![user_message];
+
+        // Create tool context
+        let tool_ctx = ToolContext {
+            sandbox_id: sandbox_id.clone(),
+            working_dir: PathBuf::from("/tmp"),
+        };
+
+        // Create event channel (discard events)
+        let (tx, _) = tokio::sync::broadcast::channel::<AgentEvent>(100);
+
+        // Create and configure agent loop using this runtime's dependencies
+        let mut agent_loop = AgentLoop::new(
+            self.provider.clone(),
+            self.tools.clone(),
+            self.memory.clone(),
+        )
+        .with_model(config.model.clone());
+
+        // Run agent with timeout
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(config.timeout_secs),
+            agent_loop.run(
+                &session_id,
+                &user_id,
+                &sandbox_id,
+                &mut messages,
+                tx,
+                tool_ctx,
+                None,
+            ),
+        )
+        .await;
+
+        match result {
+            Ok(Ok(_)) => {
+                // Extract response from last assistant message
+                let response = messages
+                    .iter()
+                    .rev()
+                    .find(|m| m.role == MessageRole::Assistant)
+                    .and_then(|m| {
+                        m.content.iter().find_map(|c| {
+                            if let ContentBlock::Text { text } = c {
+                                Some(text.clone())
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .unwrap_or_else(|| "Task completed".to_string());
+
+                tracing::info!(
+                    task_id = %task.id,
+                    session_id = %session_id,
+                    "Scheduled task completed successfully"
+                );
+
+                Ok(response)
+            }
+            Ok(Err(e)) => {
+                tracing::error!(task_id = %task.id, error = %e, "Agent execution error");
+                Err(AgentError::ScheduledTask(e.to_string()))
+            }
+            Err(_) => {
+                tracing::error!(task_id = %task.id, "Agent execution timed out");
+                Err(AgentError::ScheduledTask(format!(
+                    "Timeout after {} seconds",
+                    config.timeout_secs
+                )))
+            }
+        }
     }
 }
