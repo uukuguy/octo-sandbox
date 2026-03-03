@@ -79,6 +79,8 @@ pub struct AgentExecutor {
 
     // 工作目录
     working_dir: PathBuf,
+    // 事件总线
+    event_bus: Option<Arc<crate::event::EventBus>>,
 }
 
 impl AgentExecutor {
@@ -99,6 +101,7 @@ impl AgentExecutor {
         system_prompt: Option<String>,
         config: AgentConfig,
         working_dir: PathBuf,
+        event_bus: Option<Arc<crate::event::EventBus>>,
     ) -> Self {
         Self {
             session_id,
@@ -117,6 +120,7 @@ impl AgentExecutor {
             config,
             cancel_flag: Arc::new(AtomicBool::new(false)),
             working_dir,
+            event_bus,
         }
     }
 
@@ -154,6 +158,11 @@ impl AgentExecutor {
                         agent_loop = agent_loop.with_system_prompt(prompt.clone());
                     }
                     agent_loop = agent_loop.with_config(self.config.clone());
+
+                    // 注入事件总线
+                    if let Some(ref bus) = self.event_bus {
+                        agent_loop = agent_loop.with_event_bus(bus.clone());
+                    }
 
                     let tool_ctx = ToolContext {
                         sandbox_id: self.sandbox_id.clone(),

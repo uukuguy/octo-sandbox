@@ -461,6 +461,8 @@ impl AgentRuntime {
             Some(self.session_store.clone()),
             system_prompt,
             config,
+            self.working_dir.clone(),
+            self.event_bus.clone(),
         );
 
         // Spawn 持久化主循环
