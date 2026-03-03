@@ -18,15 +18,13 @@ pub async fn list_user_executions(
 ) -> Json<Vec<ToolExecution>> {
     let user_id = get_user_id_from_context(Some(&ctx));
     let (limit, offset) = params.clamped();
-    match state.agent_supervisor.recorder() {
-        Some(recorder) => match recorder.list_by_user(&user_id, limit, offset).await {
-            Ok(execs) => Json(execs),
-            Err(e) => {
-                error!(error = %e, user_id = %user_id, "Failed to list user executions");
-                Json(vec![])
-            }
-        },
-        None => Json(vec![]),
+    let recorder = state.agent_supervisor.recorder();
+    match recorder.list_by_user(&user_id, limit, offset).await {
+        Ok(execs) => Json(execs),
+        Err(e) => {
+            error!(error = %e, user_id = %user_id, "Failed to list user executions");
+            Json(vec![])
+        }
     }
 }
 
@@ -42,25 +40,21 @@ pub async fn list_session_executions(
     let session_id_obj = SessionId::from_string(&session_id);
 
     // Verify the session belongs to the user (authorization check)
-    let session = match state.agent_supervisor.session_store() {
-        Some(sessions) => sessions.get_session_for_user(&session_id_obj, &user_id).await,
-        None => None,
-    };
+    let sessions = state.agent_supervisor.session_store();
+    let session = sessions.get_session_for_user(&session_id_obj, &user_id).await;
     if session.is_none() {
         debug!(session_id = %session_id, user_id = %user_id_str, "Session not found or access denied");
         return Json(vec![]);
     }
 
     let (limit, offset) = params.clamped();
-    match state.agent_supervisor.recorder() {
-        Some(recorder) => match recorder.list_by_session(&session_id, limit, offset).await {
-            Ok(execs) => Json(execs),
-            Err(e) => {
-                error!(error = %e, session_id = %session_id, "Failed to list session executions");
-                Json(vec![])
-            }
-        },
-        None => Json(vec![]),
+    let recorder = state.agent_supervisor.recorder();
+    match recorder.list_by_session(&session_id, limit, offset).await {
+        Ok(execs) => Json(execs),
+        Err(e) => {
+            error!(error = %e, session_id = %session_id, "Failed to list session executions");
+            Json(vec![])
+        }
     }
 }
 
@@ -68,18 +62,16 @@ pub async fn get_execution(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Json<serde_json::Value> {
-    match state.agent_supervisor.recorder() {
-        Some(recorder) => match recorder.get(&id).await {
-            Ok(Some(exec)) => Json(serde_json::to_value(exec).unwrap_or_else(|e| {
-                error!(error = %e, execution_id = %id, "Failed to serialize execution");
-                serde_json::json!(null)
-            })),
-            Ok(None) => Json(serde_json::json!(null)),
-            Err(e) => {
-                error!(error = %e, execution_id = %id, "Failed to get execution");
-                Json(serde_json::json!(null))
-            }
-        },
-        None => Json(serde_json::json!(null)),
+    let recorder = state.agent_supervisor.recorder();
+    match recorder.get(&id).await {
+        Ok(Some(exec)) => Json(serde_json::to_value(exec).unwrap_or_else(|e| {
+            error!(error = %e, execution_id = %id, "Failed to serialize execution");
+            serde_json::json!(null)
+        })),
+        Ok(None) => Json(serde_json::json!(null)),
+        Err(e) => {
+            error!(error = %e, execution_id = %id, "Failed to get execution");
+            Json(serde_json::json!(null))
+        }
     }
 }

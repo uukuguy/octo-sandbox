@@ -25,6 +25,11 @@ fn agent_err_to_status(e: AgentError) -> StatusCode {
     match e {
         AgentError::NotFound(_) => StatusCode::NOT_FOUND,
         AgentError::InvalidTransition { .. } => StatusCode::CONFLICT,
+        AgentError::ScheduledTask(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        AgentError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        AgentError::McpNotInitialized => StatusCode::SERVICE_UNAVAILABLE,
+        AgentError::McpError(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        AgentError::McpServerNotFound(_) => StatusCode::NOT_FOUND,
     }
 }
 
@@ -73,6 +78,7 @@ async fn start_agent(
     let sandbox_id = SandboxId::from_string("default");
     s.agent_supervisor
         .start(&agent_id, session_id, user_id, sandbox_id, vec![])
+        .await
         .map_err(agent_err_to_status)?;
     s.agent_supervisor
         .catalog()
@@ -85,11 +91,9 @@ async fn stop_agent(
     State(s): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
-    use octo_types::SessionId;
     let agent_id = AgentId(id);
-    let session_id = SessionId::from_string(agent_id.0.clone());
     s.agent_supervisor
-        .stop(&agent_id, &session_id)
+        .stop(&agent_id)
         .await
         .map_err(agent_err_to_status)?;
     s.agent_supervisor
@@ -103,11 +107,9 @@ async fn pause_agent(
     State(s): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
-    use octo_types::SessionId;
     let agent_id = AgentId(id);
-    let session_id = SessionId::from_string(agent_id.0.clone());
     s.agent_supervisor
-        .pause(&agent_id, &session_id)
+        .pause(&agent_id)
         .await
         .map_err(agent_err_to_status)?;
     s.agent_supervisor
@@ -124,6 +126,7 @@ async fn resume_agent(
     let agent_id = AgentId(id);
     s.agent_supervisor
         .resume(&agent_id)
+        .await
         .map_err(agent_err_to_status)?;
     s.agent_supervisor
         .catalog()

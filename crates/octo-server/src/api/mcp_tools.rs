@@ -32,11 +32,8 @@ pub async fn list_tools(
     State(state): State<Arc<AppState>>,
     Path(server_id): Path<String>,
 ) -> Json<Vec<McpToolInfo>> {
-    let manager = state.mcp_manager.lock().await;
-    match manager.get_tool_infos(&server_id) {
-        Some(tools) => Json(tools),
-        None => Json(vec![]),
-    }
+    let tools = state.agent_supervisor.get_mcp_tool_infos(&server_id).await;
+    Json(tools)
 }
 
 // Call a tool
@@ -48,9 +45,8 @@ pub async fn call_tool(
     let start = std::time::Instant::now();
     let now = chrono::Utc::now();
 
-    let manager = state.mcp_manager.lock().await;
-    let result = manager
-        .call_tool(&server_id, &req.tool_name, req.arguments)
+    let result = state.agent_supervisor
+        .call_mcp_tool(&server_id, &req.tool_name, req.arguments)
         .await;
 
     let duration_ms = start.elapsed().as_millis() as i64;
@@ -70,7 +66,7 @@ pub async fn call_tool(
             server_id,
             tool_name: req.tool_name,
             result: None,
-            error: Some(e.to_string()),
+            error: Some(e),
             duration_ms,
             executed_at: now.to_rfc3339(),
         }),

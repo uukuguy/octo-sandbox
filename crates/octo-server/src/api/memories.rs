@@ -43,10 +43,7 @@ pub async fn search_memories(
     Query(params): Query<MemorySearchParams>,
     Extension(ctx): Extension<UserContext>,
 ) -> Json<serde_json::Value> {
-    let mem_store = match state.agent_supervisor.memory_store() {
-        Some(s) => s,
-        None => return Json(serde_json::json!({ "results": [] })),
-    };
+    let mem_store = state.agent_supervisor.memory_store();
     let user_id = get_user_id_from_context(Some(&ctx));
     let query = params.q.unwrap_or_default();
 

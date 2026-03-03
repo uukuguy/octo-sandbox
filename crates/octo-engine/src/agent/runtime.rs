@@ -356,7 +356,7 @@ impl AgentRuntime {
             .ok_or(AgentError::McpNotInitialized)?;
 
         // 先获取要移除的 tools 信息
-        let removed_tool_names: Vec<String> = {
+        let _removed_tool_names: Vec<String> = {
             let guard = mcp.lock().await;
             guard.get_tool_infos(name)
                 .map(|tools| tools.iter().map(|t| t.name.clone()).collect())
@@ -405,6 +405,58 @@ impl AgentRuntime {
                 states.into_iter().map(|(_, state)| state).collect()
             }
             None => vec![],
+        }
+    }
+
+    /// 获取指定 MCP server 的 tools
+    pub async fn get_mcp_tool_infos(&self, server_id: &str) -> Vec<crate::mcp::traits::McpToolInfo> {
+        match &self.mcp_manager {
+            Some(mcp) => {
+                let guard = mcp.lock().await;
+                guard.get_tool_infos(server_id).unwrap_or_default()
+            }
+            None => vec![],
+        }
+    }
+
+    /// 调用 MCP tool
+    pub async fn call_mcp_tool(
+        &self,
+        server_id: &str,
+        tool_name: &str,
+        arguments: serde_json::Value,
+    ) -> Result<serde_json::Value, String> {
+        use futures_util::TryFutureExt;
+        match &self.mcp_manager {
+            Some(mcp) => {
+                let mut guard = mcp.lock().await;
+                guard.call_tool(server_id, tool_name, arguments)
+                    .await
+                    .map_err(|e| e.to_string())
+            }
+            None => Err("MCP manager not initialized".to_string()),
+        }
+    }
+
+    /// 获取指定 MCP server 的运行时状态
+    pub fn get_mcp_runtime_state(&self, server_id: &str) -> crate::mcp::manager::ServerRuntimeState {
+        match &self.mcp_manager {
+            Some(mcp) => {
+                let guard = mcp.blocking_lock();
+                guard.get_runtime_state(server_id)
+            }
+            None => crate::mcp::manager::ServerRuntimeState::Stopped,
+        }
+    }
+
+    /// 获取指定 MCP server 的 tool 数量
+    pub async fn get_mcp_tool_count(&self, server_id: &str) -> usize {
+        match &self.mcp_manager {
+            Some(mcp) => {
+                let guard = mcp.lock().await;
+                guard.get_tool_count(server_id)
+            }
+            None => 0,
         }
     }
 

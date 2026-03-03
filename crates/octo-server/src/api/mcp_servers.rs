@@ -282,7 +282,7 @@ pub async fn update_server(
     match storage.update_server(&record) {
         Ok(_) => {
             // Get runtime status from manager
-            let runtime = state.mcp_manager.lock().await.get_runtime_state(&id);
+            let runtime = state.agent_supervisor.get_mcp_runtime_state(&id);
             let runtime_status = match runtime {
                 ServerRuntimeState::Stopped => "stopped",
                 ServerRuntimeState::Starting => "starting",
@@ -427,9 +427,8 @@ pub async fn get_server_status(
         }
     }
 
-    let manager = state.mcp_manager.lock().await;
-    let runtime_state = manager.get_runtime_state(&id);
-    let tool_count = manager.get_tool_count(&id);
+    let runtime_state = state.agent_supervisor.get_mcp_runtime_state(&id);
+    let tool_count = state.agent_supervisor.get_mcp_tool_count(&id).await;
 
     let (status, pid, error) = match runtime_state {
         ServerRuntimeState::Running { pid: p } => ("running", Some(p), None),
