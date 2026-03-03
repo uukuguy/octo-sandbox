@@ -6,25 +6,83 @@ use tracing::info;
 
 use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
 
-use crate::agent::{AgentEvent, AgentMessage, AgentRuntime, AgentRuntimeHandle};
+use crate::agent::{AgentCatalog, AgentEvent, AgentMessage, AgentRuntime, AgentRuntimeHandle};
+use crate::event::EventBus;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
+use crate::session::SessionStore;
+use crate::skills::SkillRegistry;
+use crate::tools::recorder::ToolExecutionRecorder;
 use crate::tools::ToolRegistry;
 
 const MPSC_CAPACITY: usize = 32;
 const BROADCAST_CAPACITY: usize = 256;
 
-/// Session → AgentRuntimeHandle 的注册表
+/// Session → AgentRuntimeHandle 的注册表，同时持有所有共享运行时依赖
 pub struct AgentSupervisor {
     handles: DashMap<SessionId, AgentRuntimeHandle>,
+    // 定义层
+    pub catalog: Arc<AgentCatalog>,
+    // 共享依赖（构造时注入一次）
+    provider: Arc<dyn Provider>,
+    tools: Arc<ToolRegistry>,
+    skill_registry: Option<Arc<SkillRegistry>>,
+    memory: Arc<dyn WorkingMemory>,
+    memory_store: Option<Arc<dyn MemoryStore>>,
+    session_store: Option<Arc<dyn SessionStore>>,
+    default_model: String,
+    event_bus: Option<Arc<EventBus>>,
+    recorder: Option<Arc<ToolExecutionRecorder>>,
 }
 
 impl AgentSupervisor {
-    pub fn new() -> Self {
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        catalog: Arc<AgentCatalog>,
+        provider: Arc<dyn Provider>,
+        tools: Arc<ToolRegistry>,
+        memory: Arc<dyn WorkingMemory>,
+        default_model: String,
+    ) -> Self {
         Self {
             handles: DashMap::new(),
+            catalog,
+            provider,
+            tools,
+            skill_registry: None,
+            memory,
+            memory_store: None,
+            session_store: None,
+            default_model,
+            event_bus: None,
+            recorder: None,
         }
+    }
+
+    pub fn with_skill_registry(mut self, skills: Arc<SkillRegistry>) -> Self {
+        self.skill_registry = Some(skills);
+        self
+    }
+
+    pub fn with_memory_store(mut self, store: Arc<dyn MemoryStore>) -> Self {
+        self.memory_store = Some(store);
+        self
+    }
+
+    pub fn with_session_store(mut self, store: Arc<dyn SessionStore>) -> Self {
+        self.session_store = Some(store);
+        self
+    }
+
+    pub fn with_event_bus(mut self, bus: Arc<EventBus>) -> Self {
+        self.event_bus = Some(bus);
+        self
+    }
+
+    pub fn with_recorder(mut self, recorder: Arc<ToolExecutionRecorder>) -> Self {
+        self.recorder = Some(recorder);
+        self
     }
 
     /// 获取已有的 AgentRuntimeHandle（如果存在）
@@ -100,11 +158,5 @@ impl AgentSupervisor {
 
     pub fn is_empty(&self) -> bool {
         self.handles.is_empty()
-    }
-}
-
-impl Default for AgentSupervisor {
-    fn default() -> Self {
-        Self::new()
     }
 }
