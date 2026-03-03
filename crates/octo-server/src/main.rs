@@ -251,8 +251,8 @@ async fn main() -> Result<()> {
     let loaded = agent_catalog.load_from_store().unwrap_or(0);
     tracing::info!("Loaded {loaded} persisted agents");
     let default_model = model.clone().unwrap_or_else(|| "claude-opus-4-5".to_string());
-    let agent_supervisor = Arc::new(
-        AgentSupervisor::new(
+    let agent_supervisor = {
+        let mut s = AgentSupervisor::new(
             agent_catalog.clone(),
             provider.clone(),
             tools.clone(),
@@ -262,8 +262,12 @@ async fn main() -> Result<()> {
         .with_skill_registry(skill_registry.clone())
         .with_memory_store(memory_store.clone())
         .with_session_store(sessions.clone())
-        .with_recorder(recorder.clone()),
-    );
+        .with_recorder(recorder.clone());
+        if let Some(ref chain) = provider_chain {
+            s = s.with_provider_chain(chain.clone());
+        }
+        Arc::new(s)
+    };
 
     // 创建主 session 并预热主 Runtime
     let primary_session = sessions.create_session().await;
@@ -285,19 +289,10 @@ async fn main() -> Result<()> {
     );
 
     let state = Arc::new(AppState::new(
-        provider_chain,
-        tools,
-        memory,
-        sessions,
-        memory_store,
         std::path::PathBuf::from(&db_path),
         mcp_manager,
-        model,
-        Some(recorder),
-        skill_registry,
         scheduler,
         cfg.clone(),
-        agent_catalog,
         agent_supervisor,
         agent_handle,
     ));
