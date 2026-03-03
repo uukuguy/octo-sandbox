@@ -6,13 +6,13 @@ use tracing::info;
 
 use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
 
-use crate::agent::{AgentCatalog, AgentEvent, AgentMessage, AgentRuntime, AgentRuntimeHandle};
+use crate::agent::{AgentCatalog, AgentConfig, AgentEvent, AgentId, AgentManifest, AgentMessage, AgentRuntime, AgentRuntimeHandle};
 use crate::event::EventBus;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
 use crate::session::SessionStore;
-use crate::skills::SkillRegistry;
+use crate::skills::{SkillRegistry, SkillTool};
 use crate::tools::recorder::ToolExecutionRecorder;
 use crate::tools::ToolRegistry;
 
@@ -157,5 +157,84 @@ impl AgentSupervisor {
 
     pub fn is_empty(&self) -> bool {
         self.handles.is_empty()
+    }
+
+    /// 按 tool_filter 构建 ToolRegistry（含 SkillRegistry 热重载 overlay）
+    fn build_tool_registry(&self, tool_filter: &[String]) -> Arc<ToolRegistry> {
+        // 快速路径：无动态 skills 且无 filter
+        if self.skill_registry.is_none() && tool_filter.is_empty() {
+            return self.tools.clone();
+        }
+
+        // 从全局工具快照构建
+        let mut registry = ToolRegistry::new();
+        for (name, tool) in self.tools.iter() {
+            registry.register_arc(name.clone(), tool);
+        }
+
+        // 覆盖当前热重载的 skill tools
+        if let Some(ref skills) = self.skill_registry {
+            for skill in skills.invocable_skills() {
+                let name = skill.name.clone();
+                registry.register_arc(name, std::sync::Arc::new(SkillTool::new(skill)));
+            }
+        }
+
+        // 应用 per-agent tool filter
+        if tool_filter.is_empty() {
+            return Arc::new(registry);
+        }
+        let mut filtered = ToolRegistry::new();
+        for name in tool_filter {
+            if let Some(tool) = registry.get(name) {
+                filtered.register_arc(name.clone(), tool);
+            }
+        }
+        Arc::new(filtered)
+    }
+
+    /// 从 AgentManifest 构建 system prompt
+    fn build_system_prompt(manifest: &AgentManifest) -> Option<String> {
+        if let Some(ref prompt) = manifest.system_prompt {
+            return Some(prompt.clone());
+        }
+        if manifest.role.is_some() || manifest.goal.is_some() || manifest.backstory.is_some() {
+            let mut parts: Vec<String> = Vec::new();
+            if let Some(ref role) = manifest.role {
+                parts.push(format!("## Role\n{role}"));
+            }
+            if let Some(ref goal) = manifest.goal {
+                parts.push(format!("## Goal\n{goal}"));
+            }
+            if let Some(ref backstory) = manifest.backstory {
+                parts.push(format!("## Backstory\n{backstory}"));
+            }
+            return Some(parts.join("\n\n"));
+        }
+        None  // 返回 None 表示使用 AgentLoop 默认（SOUL.md）
+    }
+
+    /// 按 agent_id 解析运行时配置（从 catalog 读取 manifest）
+    fn resolve_runtime_config(
+        &self,
+        agent_id: Option<&AgentId>,
+    ) -> (Arc<ToolRegistry>, Option<String>, String, AgentConfig) {
+        if let Some(id) = agent_id {
+            if let Some(entry) = self.catalog.get(id) {
+                let manifest = &entry.manifest;
+                let tools = self.build_tool_registry(&manifest.tool_filter);
+                let system_prompt = Self::build_system_prompt(manifest);
+                let model = manifest.model.clone().unwrap_or_else(|| self.default_model.clone());
+                let config = manifest.config.clone();
+                return (tools, system_prompt, model, config);
+            }
+        }
+        // 无 agent_id 或 agent 不存在：使用全局默认
+        (
+            self.tools.clone(),
+            None,
+            self.default_model.clone(),
+            AgentConfig::default(),
+        )
     }
 }
