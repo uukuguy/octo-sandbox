@@ -15,6 +15,6 @@ pub use queue::{MessageQueue, QueueKind, QueueMode};
 pub use registry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentCatalog, AgentStatus, AgentStore};
 
 pub mod executor;
-pub mod runtime_registry;
+pub mod runtime;
 pub use executor::{AgentMessage, AgentExecutor, AgentExecutorHandle};
-pub use runtime_registry::AgentSupervisor;
+pub use runtime::AgentRuntime;

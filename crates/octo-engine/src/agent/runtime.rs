@@ -20,7 +20,7 @@ const MPSC_CAPACITY: usize = 32;
 const BROADCAST_CAPACITY: usize = 256;
 
 /// Session → AgentExecutorHandle 的注册表，同时持有所有共享运行时依赖
-pub struct AgentSupervisor {
+pub struct AgentRuntime {
     handles: DashMap<SessionId, AgentExecutorHandle>,
     // 定义层
     catalog: Arc<AgentCatalog>,
@@ -38,7 +38,7 @@ pub struct AgentSupervisor {
     provider_chain: Option<Arc<ProviderChain>>,
 }
 
-impl AgentSupervisor {
+impl AgentRuntime {
     pub fn new(
         catalog: Arc<AgentCatalog>,
         provider: Arc<dyn Provider>,
@@ -190,7 +190,7 @@ impl AgentSupervisor {
     /// 启动主 Runtime 并返回其 Handle。
     /// 由 main.rs 在 server 启动时调用一次。
     /// channels（ws.rs 等）通过持有返回的 Handle 与 Agent 通信，
-    /// 无需持有 AgentSupervisor 引用（解耦）。
+    /// 无需持有 AgentRuntime 引用（解耦）。
     pub fn start_primary(
         &self,
         session_id: SessionId,

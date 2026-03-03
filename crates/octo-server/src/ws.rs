@@ -124,7 +124,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
         match client_msg {
             ClientMessage::SendMessage { content } => {
-                // 直接使用注入的主 Handle，不持有 AgentSupervisor
+                // 直接使用注入的主 Handle，不持有 AgentRuntime
                 let handle = &state.agent_handle;
                 let sid_str = handle.session_id.as_str().to_string();
 

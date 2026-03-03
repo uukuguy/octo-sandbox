@@ -18,7 +18,7 @@ use octo_engine::{
     providers::ProviderChain,
     register_memory_tools,
     scheduler::{Scheduler, SqliteSchedulerStorage},
-    AgentCatalog, AgentStore, AgentSupervisor, Database, MemoryStore, SessionStore, SkillLoader,
+    AgentCatalog, AgentStore, AgentRuntime, Database, MemoryStore, SessionStore, SkillLoader,
     SkillRegistry, SkillTool, SqliteMemoryStore, SqliteSessionStore, SqliteWorkingMemory,
     ToolExecutionRecorder, WorkingMemory,
 };
@@ -252,7 +252,7 @@ async fn main() -> Result<()> {
     tracing::info!("Loaded {loaded} persisted agents");
     let default_model = model.clone().unwrap_or_else(|| "claude-opus-4-5".to_string());
     let agent_supervisor = {
-        let mut s = AgentSupervisor::new(
+        let mut s = AgentRuntime::new(
             agent_catalog.clone(),
             provider.clone(),
             tools.clone(),

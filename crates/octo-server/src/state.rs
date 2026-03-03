@@ -6,7 +6,7 @@ use octo_engine::{
     mcp::{McpManager, McpStorage},
     metrics::MetricsRegistry,
     scheduler::Scheduler,
-    AgentExecutorHandle, AgentSupervisor,
+    AgentExecutorHandle, AgentRuntime,
 };
 use tokio::sync::RwLock;
 
@@ -24,7 +24,7 @@ pub struct AppState {
     /// Metrics registry for collecting application metrics
     pub metrics_registry: Arc<RwLock<MetricsRegistry>>,
     /// Runtime supervisor: owns all agent dependencies and manages AgentExecutor lifecycle
-    pub agent_supervisor: Arc<AgentSupervisor>,
+    pub agent_supervisor: Arc<AgentRuntime>,
     /// 主 AgentExecutor 的通信句柄（channels 唯一的 Agent 接入点）
     pub agent_handle: AgentExecutorHandle,
 }
@@ -35,7 +35,7 @@ impl AppState {
         mcp_manager: Arc<tokio::sync::Mutex<McpManager>>,
         scheduler: Option<Arc<Scheduler>>,
         config: Config,
-        agent_supervisor: Arc<AgentSupervisor>,
+        agent_supervisor: Arc<AgentRuntime>,
         agent_handle: AgentExecutorHandle,
     ) -> Self {
         // Convert YAML config to runtime AuthConfig
