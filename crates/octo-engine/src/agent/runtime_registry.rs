@@ -6,7 +6,7 @@ use tracing::info;
 
 use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
 
-use crate::agent::{AgentCatalog, AgentConfig, AgentEvent, AgentId, AgentManifest, AgentMessage, AgentRuntime, AgentRuntimeHandle, CancellationToken};
+use crate::agent::{AgentCatalog, AgentConfig, AgentError, AgentEvent, AgentId, AgentManifest, AgentMessage, AgentRuntime, AgentRuntimeHandle, CancellationToken};
 use crate::event::EventBus;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
@@ -217,6 +217,56 @@ impl AgentSupervisor {
             return Some(parts.join("\n\n"));
         }
         None  // 返回 None 表示使用 AgentLoop 默认（SOUL.md）
+    }
+
+    /// 启动 agent：从 catalog 读取 manifest，spawn AgentRuntime，更新状态机。
+    /// session_id：为该 agent 创建或复用的会话标识。
+    pub async fn start(
+        &self,
+        agent_id: &AgentId,
+        session_id: SessionId,
+        user_id: UserId,
+        sandbox_id: SandboxId,
+        initial_history: Vec<ChatMessage>,
+    ) -> Result<AgentRuntimeHandle, AgentError> {
+        // 验证 agent 存在
+        self.catalog
+            .get(agent_id)
+            .ok_or_else(|| AgentError::NotFound(agent_id.clone()))?;
+
+        // spawn Runtime（内部会调用 catalog.mark_running）
+        let handle = self.get_or_spawn(
+            session_id,
+            user_id,
+            sandbox_id,
+            initial_history,
+            Some(agent_id),
+        );
+
+        Ok(handle)
+    }
+
+    /// 停止 agent：发送 Cancel，移除 handle，更新 catalog 状态。
+    pub async fn stop(&self, agent_id: &AgentId, session_id: &SessionId) -> Result<(), AgentError> {
+        if let Some(handle) = self.get(session_id) {
+            let _ = handle.send(AgentMessage::Cancel).await;
+        }
+        self.remove(session_id);
+        self.catalog.mark_stopped(agent_id)
+    }
+
+    /// 暂停 agent：发送 Cancel（中断当前 round），更新 catalog 状态。
+    pub async fn pause(&self, agent_id: &AgentId, session_id: &SessionId) -> Result<(), AgentError> {
+        if let Some(handle) = self.get(session_id) {
+            let _ = handle.send(AgentMessage::Cancel).await;
+        }
+        self.catalog.mark_paused(agent_id)
+    }
+
+    /// 恢复 agent：更新 catalog 状态（Runtime 仍在运行，cancel_flag 已重置）。
+    pub async fn resume(&self, agent_id: &AgentId) -> Result<(), AgentError> {
+        let cancel_token = CancellationToken::new();
+        self.catalog.mark_resumed(agent_id, cancel_token)
     }
 
     /// 按 agent_id 解析运行时配置（从 catalog 读取 manifest）
