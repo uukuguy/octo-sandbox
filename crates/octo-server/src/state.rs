@@ -7,7 +7,7 @@ use octo_engine::{
     metrics::MetricsRegistry,
     providers::ProviderChain,
     scheduler::Scheduler,
-    AgentCatalog, AgentSupervisor, MemoryStore, SessionStore, SkillRegistry,
+    AgentCatalog, AgentRuntimeHandle, AgentSupervisor, MemoryStore, SessionStore, SkillRegistry,
     ToolExecutionRecorder, ToolRegistry, WorkingMemory,
 };
 use tokio::sync::RwLock;
@@ -39,6 +39,9 @@ pub struct AppState {
     pub catalog: Arc<AgentCatalog>,
     /// Runtime supervisor: holds shared deps and manages AgentRuntime lifecycle
     pub agent_supervisor: Arc<AgentSupervisor>,
+    /// 主 AgentRuntime 的通信句柄（channels 唯一的 Agent 接入点）。
+    /// channels 通过此 handle 发消息、订阅事件，无需持有 AgentSupervisor。
+    pub agent_handle: AgentRuntimeHandle,
 }
 
 impl AppState {
@@ -57,6 +60,7 @@ impl AppState {
         config: Config,
         catalog: Arc<AgentCatalog>,
         agent_supervisor: Arc<AgentSupervisor>,
+        agent_handle: AgentRuntimeHandle,
     ) -> Self {
         // Convert YAML config to runtime AuthConfig
         let auth_config = config.auth.to_auth_config();
@@ -81,6 +85,7 @@ impl AppState {
             metrics_registry,
             catalog,
             agent_supervisor,
+            agent_handle,
         }
     }
 

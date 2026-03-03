@@ -150,6 +150,21 @@ impl AgentSupervisor {
         handle
     }
 
+    /// 启动主 Runtime 并返回其 Handle。
+    /// 由 main.rs 在 server 启动时调用一次。
+    /// channels（ws.rs 等）通过持有返回的 Handle 与 Agent 通信，
+    /// 无需持有 AgentSupervisor 引用（解耦）。
+    pub fn start_primary(
+        &self,
+        session_id: SessionId,
+        user_id: UserId,
+        sandbox_id: SandboxId,
+        initial_history: Vec<ChatMessage>,
+        agent_id: Option<&AgentId>,
+    ) -> AgentRuntimeHandle {
+        self.get_or_spawn(session_id, user_id, sandbox_id, initial_history, agent_id)
+    }
+
     /// 移除 session 对应的 handle（当 session 销毁时调用）
     pub fn remove(&self, session_id: &SessionId) {
         self.handles.remove(session_id);

@@ -265,6 +265,25 @@ async fn main() -> Result<()> {
         .with_recorder(recorder.clone()),
     );
 
+    // 创建主 session 并预热主 Runtime
+    let primary_session = sessions.create_session().await;
+    let primary_history = sessions
+        .get_messages(&primary_session.session_id)
+        .await
+        .unwrap_or_default();
+    let primary_agent_id = agent_catalog.list_all().into_iter().next().map(|e| e.id);
+    let agent_handle = agent_supervisor.start_primary(
+        primary_session.session_id.clone(),
+        primary_session.user_id.clone(),
+        primary_session.sandbox_id.clone(),
+        primary_history,
+        primary_agent_id.as_ref(),
+    );
+    tracing::info!(
+        session_id = %primary_session.session_id.as_str(),
+        "Primary AgentRuntime started"
+    );
+
     let state = Arc::new(AppState::new(
         provider_chain,
         tools,
@@ -280,6 +299,7 @@ async fn main() -> Result<()> {
         cfg.clone(),
         agent_catalog,
         agent_supervisor,
+        agent_handle,
     ));
 
     let app = router::build_router(state);

@@ -8,9 +8,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast;
 use tracing::{debug, info, warn};
 
-use octo_engine::auth::{get_user_context, UserContext};
 use octo_engine::{AgentEvent, AgentMessage};
-use octo_types::{SessionId, UserId};
 
 use crate::state::AppState;
 
@@ -20,12 +18,9 @@ use crate::state::AppState;
 #[serde(tag = "type")]
 enum ClientMessage {
     #[serde(rename = "send_message")]
-    SendMessage {
-        session_id: Option<String>,
-        content: String,
-    },
+    SendMessage { content: String },
     #[serde(rename = "cancel")]
-    Cancel { session_id: String },
+    Cancel,
 }
 
 // --- Server → Client messages ---
@@ -89,18 +84,12 @@ enum ServerMessage {
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
-    req: Request,
+    _req: Request,
 ) -> impl IntoResponse {
-    // Extract UserContext from request extensions (injected by auth middleware)
-    let user_ctx: UserContext = get_user_context(&req).unwrap_or_else(|| UserContext {
-        user_id: None,
-        permissions: vec![],
-    });
-
-    ws.on_upgrade(move |socket| handle_socket(socket, state, user_ctx))
+    ws.on_upgrade(move |socket| handle_socket(socket, state))
 }
 
-async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserContext) {
+async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
     let (mut sender, mut receiver) = socket.split();
 
     info!("WebSocket connected");
@@ -133,99 +122,19 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
             }
         };
 
-        // Convert user_id from Option<String> to Option<UserId>
-        let user_id_opt = user_ctx.user_id.as_ref().map(|s| UserId::from_string(s));
-
         match client_msg {
-            ClientMessage::SendMessage {
-                session_id,
-                content,
-            } => {
-                // Get or create session with user isolation
-                // Handle both authenticated (with user_id) and unauthenticated modes
-                let session = match (&session_id, &user_id_opt) {
-                    // Case 1: Session ID provided with user_id - use user-aware methods
-                    (Some(sid), Some(uid)) => {
-                        let session_id_obj = SessionId::from_string(sid);
-                        // Use get_session_for_user to ensure user can only access their own sessions
-                        if let Some(existing) = state
-                            .sessions
-                            .get_session_for_user(&session_id_obj, uid)
-                            .await
-                        {
-                            existing
-                        } else {
-                            // Session not found or doesn't belong to user - create new session for this user
-                            let s = state.sessions.create_session_with_user(uid).await;
-                            let msg = ServerMessage::SessionCreated {
-                                session_id: s.session_id.as_str().to_string(),
-                            };
-                            let _ = sender
-                                .send(Message::Text(serde_json::to_string(&msg).unwrap().into()))
-                                .await;
-                            s
-                        }
-                    }
-                    // Case 2: No session ID, but user_id exists - create new session for user
-                    (None, Some(uid)) => {
-                        let s = state.sessions.create_session_with_user(uid).await;
-                        let msg = ServerMessage::SessionCreated {
-                            session_id: s.session_id.as_str().to_string(),
-                        };
-                        let _ = sender
-                            .send(Message::Text(serde_json::to_string(&msg).unwrap().into()))
-                            .await;
-                        s
-                    }
-                    // Case 3: No user_id (auth disabled) - use original methods without user filtering
-                    (Some(sid), None) => {
-                        let session_id_obj = SessionId::from_string(sid);
-                        if let Some(existing) = state.sessions.get_session(&session_id_obj).await {
-                            existing
-                        } else {
-                            // Session not found - create new session
-                            let s = state.sessions.create_session().await;
-                            let msg = ServerMessage::SessionCreated {
-                                session_id: s.session_id.as_str().to_string(),
-                            };
-                            let _ = sender
-                                .send(Message::Text(serde_json::to_string(&msg).unwrap().into()))
-                                .await;
-                            s
-                        }
-                    }
-                    // Case 4: No session_id and no user_id - create new session
-                    (None, None) => {
-                        let s = state.sessions.create_session().await;
-                        let msg = ServerMessage::SessionCreated {
-                            session_id: s.session_id.as_str().to_string(),
-                        };
-                        let _ = sender
-                            .send(Message::Text(serde_json::to_string(&msg).unwrap().into()))
-                            .await;
-                        s
-                    }
-                };
+            ClientMessage::SendMessage { content } => {
+                // 直接使用注入的主 Handle，不持有 AgentSupervisor
+                let handle = &state.agent_handle;
+                let sid_str = handle.session_id.as_str().to_string();
 
-                let sid_str = session.session_id.as_str().to_string();
+                // 告知客户端 session_id（前端 UI 显示用）
+                let created_msg = ServerMessage::SessionCreated { session_id: sid_str.clone() };
+                let _ = sender
+                    .send(Message::Text(serde_json::to_string(&created_msg).unwrap().into()))
+                    .await;
 
-                // Get current message history for initial seeding (only needed on first spawn)
-                let initial_history = state
-                    .sessions
-                    .get_messages(&session.session_id)
-                    .await
-                    .unwrap_or_default();
-
-                // Get or spawn persistent AgentRuntime for this session
-                let handle = state.agent_supervisor.get_or_spawn(
-                    session.session_id.clone(),
-                    session.user_id.clone(),
-                    session.sandbox_id.clone(),
-                    initial_history,
-                    None,  // no bound agent_id — use default config
-                );
-
-                // Subscribe before sending to avoid missing events
+                // 先订阅，再发消息（避免丢失事件）
                 let mut rx = handle.subscribe();
 
                 // Forward user message to AgentRuntime
@@ -328,12 +237,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>, user_ctx: UserCo
                 }
 
             }
-            ClientMessage::Cancel { session_id } => {
-                let sid = SessionId::from_string(&session_id);
-                if let Some(handle) = state.agent_supervisor.get(&sid) {
-                    let _ = handle.send(AgentMessage::Cancel).await;
-                }
-                info!("Agent cancellation requested for session {session_id}");
+            ClientMessage::Cancel => {
+                let _ = state.agent_handle.send(AgentMessage::Cancel).await;
+                info!("Agent cancellation requested");
             }
         }
     }
