@@ -39,15 +39,15 @@ pub fn router() -> Router<Arc<AppState>> {
 }
 
 async fn list_agents(State(s): State<Arc<AppState>>) -> Json<Vec<AgentEntry>> {
-    Json(s.catalog.list_all())
+    Json(s.agent_supervisor.catalog().list_all())
 }
 
 async fn create_agent(
     State(s): State<Arc<AppState>>,
     Json(manifest): Json<AgentManifest>,
 ) -> Result<(StatusCode, Json<AgentEntry>), StatusCode> {
-    let id = s.catalog.register(manifest);
-    let entry = s.catalog.get(&id).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    let id = s.agent_supervisor.catalog().register(manifest);
+    let entry = s.agent_supervisor.catalog().get(&id).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((StatusCode::CREATED, Json(entry)))
 }
 
@@ -55,7 +55,8 @@ async fn get_agent(
     State(s): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .get(&AgentId(id))
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -66,10 +67,12 @@ async fn start_agent(
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
     let agent_id = AgentId(id);
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .mark_running(&agent_id, CancellationToken::new())
         .map_err(agent_err_to_status)?;
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -80,10 +83,12 @@ async fn stop_agent(
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
     let agent_id = AgentId(id);
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .mark_stopped(&agent_id)
         .map_err(agent_err_to_status)?;
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -94,10 +99,12 @@ async fn pause_agent(
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
     let agent_id = AgentId(id);
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .mark_paused(&agent_id)
         .map_err(agent_err_to_status)?;
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -108,10 +115,12 @@ async fn resume_agent(
     Path(id): Path<String>,
 ) -> Result<Json<AgentEntry>, StatusCode> {
     let agent_id = AgentId(id);
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .mark_resumed(&agent_id, CancellationToken::new())
         .map_err(agent_err_to_status)?;
-    s.catalog
+    s.agent_supervisor
+        .catalog()
         .get(&agent_id)
         .map(Json)
         .ok_or(StatusCode::NOT_FOUND)
@@ -121,7 +130,7 @@ async fn delete_agent(
     State(s): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> StatusCode {
-    if s.catalog.unregister(&AgentId(id)).is_some() {
+    if s.agent_supervisor.catalog().unregister(&AgentId(id)).is_some() {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::NOT_FOUND
