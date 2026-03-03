@@ -176,7 +176,7 @@ impl AgentSupervisor {
         if let Some(ref skills) = self.skill_registry {
             for skill in skills.invocable_skills() {
                 let name = skill.name.clone();
-                registry.register_arc(name, std::sync::Arc::new(SkillTool::new(skill)));
+                registry.register_arc(name, Arc::new(SkillTool::new(skill)));
             }
         }
 
