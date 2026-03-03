@@ -110,6 +110,13 @@ impl AgentEntry {
 pub enum AgentError {
     NotFound(AgentId),
     InvalidTransition { from: AgentStatus, action: &'static str },
+    ScheduledTask(String),
+    Internal(String),
+
+    // MCP-related errors
+    McpNotInitialized,
+    McpError(String),
+    McpServerNotFound(String),
 }
 
 impl std::fmt::Display for AgentError {
@@ -119,6 +126,13 @@ impl std::fmt::Display for AgentError {
             Self::InvalidTransition { from, action } => {
                 write!(f, "cannot {action} agent in state {from}")
             }
+            Self::ScheduledTask(msg) => write!(f, "scheduled task error: {msg}"),
+            Self::Internal(msg) => write!(f, "internal error: {msg}"),
+
+            // MCP-related errors
+            Self::McpNotInitialized => write!(f, "MCP manager not initialized"),
+            Self::McpError(msg) => write!(f, "MCP error: {msg}"),
+            Self::McpServerNotFound(name) => write!(f, "MCP server not found: {name}"),
         }
     }
 }
