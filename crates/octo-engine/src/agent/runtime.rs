@@ -306,6 +306,10 @@ impl AgentRuntime {
         &self.provider
     }
 
+    pub fn mcp_manager(&self) -> Option<&Arc<Mutex<crate::mcp::manager::McpManager>>> {
+        self.mcp_manager.as_ref()
+    }
+
     // ── MCP Server 管理 API ─────────────────────────────────────────────────
 
     /// 添加 MCP Server → 自动注册 tools
