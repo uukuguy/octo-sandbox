@@ -23,7 +23,7 @@ impl std::fmt::Display for AgentError {
 impl std::error::Error for AgentError {}
 
 impl AgentCatalog {
-    /// Mark agent as Running. Actual AgentLoop spawned by AgentRunner.
+    /// Mark agent as Running. Actual AgentLoop spawned by AgentSupervisor.
     /// State check and write happen in a single get_mut to avoid TOCTOU races.
     pub fn mark_running(
         &self,
