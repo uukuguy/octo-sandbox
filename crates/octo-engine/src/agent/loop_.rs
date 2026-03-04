@@ -221,6 +221,15 @@ impl AgentLoop {
         for round in 0..max_rounds {
             debug!(round, "Agent round starting");
 
+            // 发布 LoopTurnStarted 事件（用于指标统计）
+            if let Some(ref bus) = self.event_bus {
+                bus.publish(crate::event::OctoEvent::LoopTurnStarted {
+                    session_id: session_id.as_str().to_string(),
+                    turn: round,
+                })
+                .await;
+            }
+
             // Check for cancellation
             if let Some(flag) = &cancel_flag {
                 if flag.load(Ordering::Relaxed) {
