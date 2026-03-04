@@ -54,6 +54,19 @@ const CRON_EXAMPLES = [
   { label: "Every 30 minutes", value: "*/30 * * * *" },
 ];
 
+interface ApiResponse<T> {
+  tasks?: T;
+}
+
+// Basic cron validation: 5 fields (minute, hour, day, month, weekday)
+function isValidCron(cron: string): boolean {
+  const parts = cron.trim().split(/\s+/);
+  if (parts.length !== 5) return false;
+  // Allow digits, *, and simple ranges like 0-5, lists like 1,2,3
+  const fieldPattern = /^(\*|[0-9]+(-[0-9]+)?(,[0-9]+(-[0-9]+)?)*)$/;
+  return parts.every((p) => fieldPattern.test(p));
+}
+
 export default function Schedule() {
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [loading, setLoading] = useState(false);
@@ -62,20 +75,30 @@ export default function Schedule() {
   const [executions, setExecutions] = useState<TaskExecution[]>([]);
   const [executionsLoading, setExecutionsLoading] = useState(false);
   const [runningTaskId, setRunningTaskId] = useState<string | null>(null);
+  const [deletingTaskId, setDeletingTaskId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch("/api/scheduler/tasks");
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      const data = await res.json();
-      setTasks(data.tasks || []);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to fetch tasks";
+      const data: unknown = await res.json();
+      // Validate response structure
+      if (data && typeof data === "object" && "tasks" in data) {
+        const response = data as ApiResponse<ScheduledTask[]>;
+        setTasks(Array.isArray(response.tasks) ? response.tasks : []);
+      } else {
+        console.warn("Invalid response format:", data);
+        setTasks([]);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch tasks";
       console.error("Failed to fetch tasks:", msg);
-      window.alert(`Error: ${msg}`);
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -88,12 +111,18 @@ export default function Schedule() {
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      const data: TaskExecution[] = await res.json();
-      setExecutions(data);
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to fetch executions";
+      const data: unknown = await res.json();
+      // Validate response is an array
+      if (Array.isArray(data)) {
+        setExecutions(data as TaskExecution[]);
+      } else {
+        console.warn("Invalid executions response:", data);
+        setExecutions([]);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to fetch executions";
       console.error("Failed to fetch executions:", msg);
-      window.alert(`Error: ${msg}`);
+      setError(msg);
     } finally {
       setExecutionsLoading(false);
     }
@@ -106,6 +135,7 @@ export default function Schedule() {
 
   const deleteTask = async (id: string) => {
     if (!confirm("Are you sure you want to delete this scheduled task?")) return;
+    setDeletingTaskId(id);
     try {
       const res = await fetch(`/api/scheduler/tasks/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -116,31 +146,37 @@ export default function Schedule() {
         setSelectedTask(null);
         setExecutions([]);
       }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to delete task";
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to delete task";
       console.error("Failed to delete task:", msg);
-      window.alert(`Error: ${msg}`);
+      setError(msg);
+    } finally {
+      setDeletingTaskId(null);
     }
   };
 
   const runTaskNow = async (id: string) => {
     setRunningTaskId(id);
+    setError(null);
     try {
       const res = await fetch(`/api/scheduler/tasks/${id}/run`, { method: "POST" });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
-      const execution: TaskExecution = await res.json();
-      setExecutions((prev) => [execution, ...prev]);
+      const data: unknown = await res.json();
+      // Validate execution response
+      if (data && typeof data === "object" && "id" in data) {
+        const execution = data as TaskExecution;
+        setExecutions((prev) => [execution, ...prev]);
+      }
       await fetchTasks();
       if (selectedTask?.id === id) {
         await fetchExecutions(id);
       }
-      window.alert("Task triggered successfully!");
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : "Failed to run task";
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Failed to run task";
       console.error("Failed to run task:", msg);
-      window.alert(`Error: ${msg}`);
+      setError(msg);
     } finally {
       setRunningTaskId(null);
     }
@@ -176,6 +212,21 @@ export default function Schedule() {
           </button>
         </div>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <div className="px-4 py-2 bg-destructive/10 border-b border-destructive/20">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-destructive">{error}</span>
+            <button
+              onClick={() => setError(null)}
+              className="text-xs text-destructive hover:underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Task List and Detail */}
       <div className="flex-1 overflow-hidden flex">
@@ -230,9 +281,10 @@ export default function Schedule() {
                           e.stopPropagation();
                           deleteTask(task.id);
                         }}
-                        className="text-xs text-muted-foreground hover:text-destructive px-1"
+                        disabled={deletingTaskId === task.id}
+                        className="text-xs text-muted-foreground hover:text-destructive px-1 disabled:opacity-40"
                       >
-                        Delete
+                        {deletingTaskId === task.id ? "..." : "Delete"}
                       </button>
                     </div>
                   </div>
@@ -482,6 +534,21 @@ function AddTaskModal({ onClose, onCreated }: AddTaskModalProps) {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cronError, setCronError] = useState<string | null>(null);
+
+  const handleCronChange = (value: string) => {
+    setForm({ ...form, cron: value });
+    // Validate on change
+    if (value.trim()) {
+      if (!isValidCron(value)) {
+        setCronError("Invalid cron format. Use: minute hour day month weekday");
+      } else {
+        setCronError(null);
+      }
+    } else {
+      setCronError(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -491,6 +558,11 @@ function AddTaskModal({ onClose, onCreated }: AddTaskModalProps) {
     }
     if (!form.cron.trim()) {
       setError("Cron expression is required");
+      return;
+    }
+    if (!isValidCron(form.cron)) {
+      setCronError("Invalid cron format. Use: minute hour day month weekday");
+      setError("Please fix cron expression errors");
       return;
     }
     if (!form.input.trim()) {
@@ -567,16 +639,21 @@ function AddTaskModal({ onClose, onCreated }: AddTaskModalProps) {
             <input
               type="text"
               value={form.cron}
-              onChange={(e) => setForm({ ...form, cron: e.target.value })}
+              onChange={(e) => handleCronChange(e.target.value)}
               placeholder="e.g., 0 * * * *"
-              className="w-full px-3 py-2 text-sm bg-secondary border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-primary font-mono"
+              className={`w-full px-3 py-2 text-sm bg-secondary border rounded-md focus:outline-none focus:ring-2 focus:ring-primary font-mono ${
+                cronError ? "border-destructive" : "border-border"
+              }`}
             />
+            {cronError && (
+              <p className="mt-1 text-xs text-destructive">{cronError}</p>
+            )}
             <div className="mt-2 flex flex-wrap gap-1">
               {CRON_EXAMPLES.map((ex) => (
                 <button
                   key={ex.value}
                   type="button"
-                  onClick={() => setForm({ ...form, cron: ex.value })}
+                  onClick={() => handleCronChange(ex.value)}
                   className="text-xs px-2 py-0.5 rounded bg-secondary hover:bg-secondary/80 text-muted-foreground"
                 >
                   {ex.label}
