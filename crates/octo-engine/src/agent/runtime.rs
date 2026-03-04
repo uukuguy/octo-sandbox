@@ -408,6 +408,19 @@ impl AgentRuntime {
         }
     }
 
+    /// 获取所有 MCP servers 的运行时状态（包含名称）
+    pub fn get_all_mcp_server_states(
+        &self,
+    ) -> std::collections::HashMap<String, crate::mcp::manager::ServerRuntimeState> {
+        match &self.mcp_manager {
+            Some(mcp) => {
+                let guard = mcp.blocking_lock();
+                guard.all_runtime_states()
+            }
+            None => std::collections::HashMap::new(),
+        }
+    }
+
     /// 获取指定 MCP server 的 tools
     pub async fn get_mcp_tool_infos(&self, server_id: &str) -> Vec<crate::mcp::traits::McpToolInfo> {
         match &self.mcp_manager {

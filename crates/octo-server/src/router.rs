@@ -1,7 +1,8 @@
 use std::sync::Arc;
 
-use axum::{body::Body, extract::Request, routing::get, Router};
+use axum::{body::Body, extract::Request, extract::State, routing::get, Json, Router};
 use octo_engine::auth::{auth_middleware, AuthConfig};
+use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
@@ -10,8 +11,41 @@ use crate::middleware::{audit_middleware, AuditMiddlewareState, RateLimiter};
 use crate::state::AppState;
 use crate::ws::ws_handler;
 
-async fn health() -> &'static str {
-    "ok"
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+    uptime_secs: u64,
+    provider: String,
+    mcp_servers: Vec<McpServerStatus>,
+    version: &'static str,
+}
+
+#[derive(Serialize)]
+struct McpServerStatus {
+    name: String,
+    status: String,
+}
+
+async fn health(State(state): State<Arc<AppState>>) -> Json<HealthResponse> {
+    let uptime = state.start_time.elapsed().as_secs();
+
+    // Get MCP server states
+    let mcp_states = state.agent_supervisor.get_all_mcp_server_states();
+    let mcp_servers: Vec<McpServerStatus> = mcp_states
+        .into_iter()
+        .map(|(name, state)| McpServerStatus {
+            name,
+            status: format!("{:?}", state),
+        })
+        .collect();
+
+    Json(HealthResponse {
+        status: "ok",
+        uptime_secs: uptime,
+        provider: state.config.provider.name.clone(),
+        mcp_servers,
+        version: env!("CARGO_PKG_VERSION"),
+    })
 }
 
 /// Rate limiting middleware
