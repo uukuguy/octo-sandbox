@@ -5,9 +5,11 @@ use tracing::{debug, warn};
 
 use octo_types::SkillDefinition;
 
+use crate::skill_runtime::SkillContext;
 use crate::skills::validate_allowed_tools;
 use crate::skills::validate_skill_structure;
 use crate::skills::SkillMetadata;
+use crate::skills::SkillRuntimeBridge;
 
 pub struct SkillLoader {
     search_dirs: Vec<PathBuf>,
@@ -279,6 +281,102 @@ impl SkillLoader {
         }
 
         anyhow::bail!("Skill not found: {}", name)
+    }
+
+    /// Execute a script from the skill's scripts/ directory.
+    ///
+    /// This method:
+    /// 1. Loads the skill to get its base directory
+    /// 2. Finds the script in `base_dir/scripts/<script_name>`
+    /// 3. Determines the runtime based on file extension
+    /// 4. Executes the script with the given arguments
+    pub async fn execute_script(
+        &self,
+        runtime_bridge: &SkillRuntimeBridge,
+        skill_name: &str,
+        script_name: &str,
+        args: serde_json::Value,
+    ) -> Result<serde_json::Value> {
+        // 1. Load the skill to get its base_dir
+        let skill = self.load_skill(skill_name)?;
+        let base_dir = &skill.base_dir;
+
+        // 2. Find the script in scripts/ directory
+        let scripts_dir = base_dir.join("scripts");
+        if !scripts_dir.is_dir() {
+            anyhow::bail!(
+                "Scripts directory not found for skill '{}': {}",
+                skill_name,
+                scripts_dir.display()
+            );
+        }
+
+        let script_path = scripts_dir.join(script_name);
+        if !script_path.exists() {
+            anyhow::bail!(
+                "Script not found: {} (in skill '{}')",
+                script_path.display(),
+                skill_name
+            );
+        }
+
+        // Verify script has a valid extension
+        let ext = script_path
+            .extension()
+            .and_then(|e| e.to_str())
+            .ok_or_else(|| anyhow::anyhow!("Script has no file extension: {}", script_path.display()))?;
+
+        // Check if we have a runtime for this extension
+        if runtime_bridge.get_runtime_for_extension(ext).is_none() {
+            anyhow::bail!(
+                "No runtime available for script extension '{}' in skill '{}'",
+                ext,
+                skill_name
+            );
+        }
+
+        // 3. Create skill context
+        let context = SkillContext::new(skill_name.to_string(), base_dir.clone());
+
+        // 4. Execute the script using the runtime bridge
+        debug!(
+            skill = skill_name,
+            script = script_name,
+            extension = ext,
+            "Executing skill script"
+        );
+
+        runtime_bridge
+            .execute_script_file(&script_path, args, &context)
+            .await
+    }
+
+    /// List all available scripts in a skill's scripts/ directory.
+    pub fn list_scripts(&self, skill_name: &str) -> Result<Vec<PathBuf>> {
+        // Load the skill to get its base_dir
+        let skill = self.load_skill(skill_name)?;
+        let scripts_dir = skill.base_dir.join("scripts");
+
+        if !scripts_dir.is_dir() {
+            return Ok(Vec::new());
+        }
+
+        let mut scripts = Vec::new();
+        let entries = std::fs::read_dir(&scripts_dir)?;
+
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                // Only include files with recognized extensions
+                if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                    if SkillRuntimeBridge::detect_runtime_type(ext).is_some() {
+                        scripts.push(path);
+                    }
+                }
+            }
+        }
+
+        Ok(scripts)
     }
 }
 
@@ -743,5 +841,244 @@ Valid skill content.
         // load_skill should fail for invalid skill (same as load_all skipping it)
         let result = loader.load_skill("consistent-invalid");
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_list_scripts_empty() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill without scripts directory
+        let skill_dir = skills_dir.join("test-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            r#"---
+name: test-skill
+description: A test skill
+---
+
+# Body
+"#,
+        )
+        .unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let scripts = loader.list_scripts("test-skill").unwrap();
+
+        // Should return empty list when no scripts directory
+        assert!(scripts.is_empty());
+    }
+
+    #[test]
+    fn test_list_scripts_with_python_script() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill with scripts directory
+        let skill_dir = skills_dir.join("test-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            r#"---
+name: test-skill
+description: A test skill
+---
+
+# Body
+"#,
+        )
+        .unwrap();
+
+        let scripts_dir = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts_dir).unwrap();
+        std::fs::write(scripts_dir.join("hello.py"), "print('hello')").unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let scripts = loader.list_scripts("test-skill").unwrap();
+
+        // Should find the Python script
+        assert_eq!(scripts.len(), 1);
+        assert!(scripts[0].to_string_lossy().ends_with("hello.py"));
+    }
+
+    #[test]
+    fn test_list_scripts_filters_by_extension() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill with mixed files
+        let skill_dir = skills_dir.join("test-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            r#"---
+name: test-skill
+description: A test skill
+---
+
+# Body
+"#,
+        )
+        .unwrap();
+
+        let scripts_dir = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts_dir).unwrap();
+        // Python script (recognized)
+        std::fs::write(scripts_dir.join("valid.py"), "print('hello')").unwrap();
+        // Unknown extension (not recognized)
+        std::fs::write(scripts_dir.join("unknown.xyz"), "data").unwrap();
+        // Text file without extension (not recognized)
+        std::fs::write(scripts_dir.join("readme"), "readme").unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let scripts = loader.list_scripts("test-skill").unwrap();
+
+        // Should only find the Python script
+        assert_eq!(scripts.len(), 1);
+        assert!(scripts[0].to_string_lossy().ends_with("valid.py"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_script_skill_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill without scripts directory
+        let skill_dir = skills_dir.join("test-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            r#"---
+name: test-skill
+description: A test skill
+---
+
+# Body
+"#,
+        )
+        .unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let bridge = SkillRuntimeBridge::new_mock();
+
+        // Try to execute a script from a non-existent skill
+        let result = loader
+            .execute_script(&bridge, "non-existent", "test.py", serde_json::json!({}))
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Skill not found"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_script_no_scripts_dir() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill without scripts directory
+        let skill_dir = skills_dir.join("test-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            r#"---
+name: test-skill
+description: A test skill
+---
+
+# Body
+"#,
+        )
+        .unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let bridge = SkillRuntimeBridge::new_mock();
+
+        // Try to execute a script when no scripts directory exists
+        let result = loader
+            .execute_script(&bridge, "test-skill", "test.py", serde_json::json!({}))
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Scripts directory not found"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_script_script_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill with empty scripts directory
+        let skill_dir = skills_dir.join("test-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            r#"---
+name: test-skill
+description: A test skill
+---
+
+# Body
+"#,
+        )
+        .unwrap();
+
+        let scripts_dir = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts_dir).unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let bridge = SkillRuntimeBridge::new_mock();
+
+        // Try to execute a non-existent script
+        let result = loader
+            .execute_script(&bridge, "test-skill", "non_existent.py", serde_json::json!({}))
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Script not found"));
+    }
+
+    #[tokio::test]
+    async fn test_execute_script_no_runtime_available() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill with a Python script
+        let skill_dir = skills_dir.join("test-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+        std::fs::write(
+            skill_dir.join("SKILL.md"),
+            r#"---
+name: test-skill
+description: A test skill
+---
+
+# Body
+"#,
+        )
+        .unwrap();
+
+        let scripts_dir = skill_dir.join("scripts");
+        std::fs::create_dir_all(&scripts_dir).unwrap();
+        std::fs::write(scripts_dir.join("test.py"), "print('hello')").unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        // Use mock bridge with no runtimes
+        let bridge = SkillRuntimeBridge::new_mock();
+
+        // Try to execute with no runtime available
+        let result = loader
+            .execute_script(&bridge, "test-skill", "test.py", serde_json::json!({}))
+            .await;
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("No runtime available"));
     }
 }
