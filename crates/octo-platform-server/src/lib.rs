@@ -15,11 +15,17 @@ use axum::{
 use dashmap::DashMap;
 use serde::Serialize;
 
+pub mod agent_pool;
 pub mod api;
 pub mod auth;
 pub mod db;
 pub mod user_runtime;
 pub mod ws;
+
+// Re-export agent_pool types
+pub use agent_pool::{
+    AgentInstance, AgentPool, InstanceId, InstanceState, IsolationStrategy, PoolConfig, Workspace,
+};
 
 // Re-export user_runtime types
 pub use user_runtime::{Session, SessionStatus, UserRuntime};
