@@ -74,6 +74,17 @@ impl Default for PoolConfig {
     }
 }
 
+/// Pool statistics
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PoolStats {
+    /// Total number of instances
+    pub total: usize,
+    /// Number of idle instances
+    pub idle: usize,
+    /// Number of busy instances
+    pub busy: usize,
+}
+
 /// Agent instance ID
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct InstanceId(pub String);
@@ -288,6 +299,60 @@ impl AgentPool {
     /// Get the number of idle instances
     pub async fn idle_count(&self) -> usize {
         self.idle_instances.lock().await.len()
+    }
+
+    /// Periodic cleanup check (should be called periodically)
+    pub async fn cleanup(&self) {
+        let mut idle_instances = self.idle_instances.lock().await;
+        let now = Utc::now();
+        let timeout = self.config.idle_timeout;
+        let timeout_delta = chrono::Duration::from_std(timeout).unwrap_or_else(|_| chrono::Duration::zero());
+
+        // Find timed out instances
+        let to_remove: Vec<InstanceId> = idle_instances
+            .iter()
+            .filter(|id| {
+                if let Some(instance) = self.instances.get(*id) {
+                    (now - instance.last_used) > timeout_delta
+                } else {
+                    true // Instance no longer exists
+                }
+            })
+            .cloned()
+            .collect();
+
+        // Remove timed out instances
+        for id in &to_remove {
+            idle_instances.retain(|i| i != id);
+            self.instances.remove(id);
+            tracing::info!("Recycled idle agent instance: {}", id.0);
+        }
+
+        // Maintain min_idle
+        // If idle instances are less than min_idle, no extra action needed
+        // (will be created in get_instance when needed)
+    }
+
+    /// Get pool statistics
+    pub async fn stats(&self) -> PoolStats {
+        let idle_len = self.idle_instances.lock().await.len();
+        PoolStats {
+            total: self.instances.len(),
+            idle: idle_len,
+            busy: self.instances.len() - idle_len,
+        }
+    }
+
+    /// Spawn background cleanup task
+    pub fn spawn_cleanup_task(self: &Arc<Self>) {
+        let pool = Arc::clone(self);
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(Duration::from_secs(60)); // Check every minute
+            loop {
+                interval.tick().await;
+                pool.cleanup().await;
+            }
+        });
     }
 
     /// Get an instance from the pool
