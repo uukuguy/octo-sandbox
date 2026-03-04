@@ -10,5 +10,5 @@ pub use config::*;
 // Re-export middleware types
 pub use middleware::*;
 
-// Re-export api_key types (excluding ApiKey to avoid conflict with config)
-pub use api_key::{ApiKeyResponse, ApiKeyStorage, UserRole};
+// Re-export api_key types (StoredApiKey to avoid conflict with config's ApiKey)
+pub use api_key::{ApiKeyResponse, ApiKeyStorage, StoredApiKey, UserRole};

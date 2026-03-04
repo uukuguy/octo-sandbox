@@ -31,6 +31,7 @@ notify-debouncer-mini = { workspace = true }
 rmcp = { workspace = true }
 hex = "0.4"
 sha2 = "0.10"
+subtle = "2.5"
 axum = { version = "0.8", features = ["ws"] }
 thiserror = { workspace = true }
 cron = "0.15"

@@ -5,6 +5,7 @@ use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::path::Path;
+use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
 use super::Permission;
@@ -46,9 +47,9 @@ impl UserRole {
     }
 }
 
-/// API Key 实体
+/// API Key 实体（数据库存储版本）
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ApiKey {
+pub struct StoredApiKey {
     pub id: String,
     pub key_hash: String,           // 存储 hash
     pub user_id: String,
@@ -59,7 +60,7 @@ pub struct ApiKey {
     pub description: Option<String>,
 }
 
-impl ApiKey {
+impl StoredApiKey {
     /// 生成新的 API Key
     pub fn generate(user_id: &str, role: UserRole) -> (Self, String) {
         let id = Uuid::new_v4().to_string();
@@ -87,9 +88,12 @@ impl ApiKey {
         (api_key, key)
     }
 
-    /// 验证 key 是否匹配
+    /// 验证 key 是否匹配（使用常量时间比较防止时序攻击）
     pub fn verify(&self, key: &str) -> bool {
-        Self::hash_key(key) == self.key_hash
+        let input_hash = Self::hash_key(key);
+        // 使用常量时间比较防止时序攻击
+        // ConstantTimeEq is implemented for &[u8]
+        input_hash.as_bytes().ct_eq(self.key_hash.as_bytes()).into()
     }
 
     /// 检查是否过期
@@ -171,7 +175,7 @@ impl ApiKeyStorage {
     }
 
     /// 创建 API Key
-    pub fn create(&self, api_key: &ApiKey) -> rusqlite::Result<()> {
+    pub fn create(&self, api_key: &StoredApiKey) -> rusqlite::Result<()> {
         self.conn.execute(
             "INSERT INTO api_keys (id, key_hash, user_id, role, created_at, expires_at, last_used_at, description)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -191,8 +195,9 @@ impl ApiKeyStorage {
 
     /// 验证 API Key
     /// 返回 (user_id, role) 如果验证成功
+    /// 验证成功后会更新 last_used_at
     pub fn verify(&self, key: &str) -> rusqlite::Result<Option<(String, UserRole)>> {
-        let key_hash = ApiKey::hash_key(key);
+        let key_hash = StoredApiKey::hash_key(key);
 
         let mut stmt = self.conn.prepare(
             "SELECT user_id, role, expires_at FROM api_keys WHERE key_hash = ?1",
@@ -217,6 +222,9 @@ impl ApiKeyStorage {
                     }
                 }
 
+                // 验证成功，更新最后使用时间
+                let _ = self.update_last_used(&key_hash);
+
                 // 解析 role
                 let role: UserRole = serde_json::from_str(&role_str).unwrap_or_default();
                 Ok(Some((user_id, role)))
@@ -236,7 +244,7 @@ impl ApiKeyStorage {
     }
 
     /// 获取用户的所有 API Key
-    pub fn list_by_user(&self, user_id: &str) -> rusqlite::Result<Vec<ApiKey>> {
+    pub fn list_by_user(&self, user_id: &str) -> rusqlite::Result<Vec<StoredApiKey>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, key_hash, user_id, role, created_at, expires_at, last_used_at, description
              FROM api_keys WHERE user_id = ?1 ORDER BY created_at DESC",
@@ -247,7 +255,7 @@ impl ApiKeyStorage {
             let expires_at: Option<String> = row.get(5)?;
             let last_used_at: Option<String> = row.get(6)?;
 
-            Ok(ApiKey {
+            Ok(StoredApiKey {
                 id: row.get(0)?,
                 key_hash: row.get(1)?,
                 user_id: row.get(2)?,
@@ -267,7 +275,7 @@ impl ApiKeyStorage {
     }
 
     /// 获取单个 API Key
-    pub fn get(&self, id: &str) -> rusqlite::Result<Option<ApiKey>> {
+    pub fn get(&self, id: &str) -> rusqlite::Result<Option<StoredApiKey>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, key_hash, user_id, role, created_at, expires_at, last_used_at, description
              FROM api_keys WHERE id = ?1",
@@ -278,7 +286,7 @@ impl ApiKeyStorage {
             let expires_at: Option<String> = row.get(5)?;
             let last_used_at: Option<String> = row.get(6)?;
 
-            Ok(ApiKey {
+            Ok(StoredApiKey {
                 id: row.get(0)?,
                 key_hash: row.get(1)?,
                 user_id: row.get(2)?,
@@ -326,8 +334,8 @@ pub struct ApiKeyResponse {
     pub description: Option<String>,
 }
 
-impl From<ApiKey> for ApiKeyResponse {
-    fn from(api_key: ApiKey) -> Self {
+impl From<StoredApiKey> for ApiKeyResponse {
+    fn from(api_key: StoredApiKey) -> Self {
         Self {
             id: api_key.id,
             user_id: api_key.user_id,
@@ -347,7 +355,7 @@ mod tests {
 
     #[test]
     fn test_api_key_generate() {
-        let (api_key, raw_key) = ApiKey::generate("user1", UserRole::User);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::User);
 
         assert!(!api_key.id.is_empty());
         assert!(!api_key.key_hash.is_empty());
@@ -362,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_api_key_verify() {
-        let (api_key, raw_key) = ApiKey::generate("user1", UserRole::Admin);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::Admin);
 
         assert!(api_key.verify(&raw_key));
         assert!(!api_key.verify("invalid_key"));
@@ -372,13 +380,13 @@ mod tests {
     #[test]
     fn test_api_key_expiry() {
         let past = Utc::now() - chrono::Duration::hours(1);
-        let (api_key, _) = ApiKey::generate("user1", UserRole::User);
+        let (api_key, _) = StoredApiKey::generate("user1", UserRole::User);
         let api_key = api_key.with_expiry(past);
 
         assert!(api_key.is_expired());
 
         let future = Utc::now() + chrono::Duration::hours(1);
-        let (api_key2, _) = ApiKey::generate("user1", UserRole::User);
+        let (api_key2, _) = StoredApiKey::generate("user1", UserRole::User);
         let api_key2 = api_key2.with_expiry(future);
 
         assert!(!api_key2.is_expired());
@@ -390,7 +398,7 @@ mod tests {
         let storage = ApiKeyStorage::new(temp_file.path()).unwrap();
 
         // 创建
-        let (api_key, raw_key) = ApiKey::generate("user1", UserRole::User);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::User);
         let api_key_id = api_key.id.clone();
         storage.create(&api_key).unwrap();
 
@@ -423,7 +431,7 @@ mod tests {
 
         // 创建过期的 key
         let past = Utc::now() - chrono::Duration::hours(1);
-        let (api_key, raw_key) = ApiKey::generate("user1", UserRole::User);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::User);
         let api_key = api_key.with_expiry(past);
         storage.create(&api_key).unwrap();
 
