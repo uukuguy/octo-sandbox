@@ -1,7 +1,7 @@
 # octo-platform 设计方案
 
 > 日期：2026-03-04
-> 状态：设计进行中（已确认：产品定位、架构总览、目录结构、前端策略）
+> 状态：设计完成（已确认：产品定位、架构总览、目录结构、前端策略、编排层、数据模型、实施路线图）
 > 基础：octo-workbench v1.0 冲刺完成后开始实施
 
 ---
@@ -202,12 +202,240 @@ export const baseConfig = {
 
 ---
 
-## 六、待设计（下一节）
+## 六、Multi-Agent 编排层
 
-- [ ] Multi-Agent 编排层（三种模式详细设计）
-- [ ] 核心数据模型（Tenant、PlatformUser、AgentGraph）
-- [ ] API 设计（REST + WebSocket）
-- [ ] 实施计划（Phase 1-4）
+### 统一抽象：AgentGraph（DAG）
+
+三种模式统一用有向图表达，区别在于拓扑结构和消息路由规则：
+
+```
+┌─────────────────────────────────────────────────────┐
+│                 AgentOrchestrator                    │
+│                                                      │
+│  AgentGraph（DAG）                                   │
+│  ├── 节点（AgentNode）= 一个 AgentRuntime 实例      │
+│  ├── 边（GraphEdge）= 消息/数据流向                 │
+│  └── 拓扑类型决定路由规则                           │
+│                                                      │
+│  ┌────────────┬──────────────┬──────────────┐       │
+│  │ Supervisor  │  Peer-to-Peer │   Pipeline   │       │
+│  │            │              │              │       │
+│  │  Root      │  A ←──→ B   │  A → B → C  │       │
+│  │  ├─Worker A │  ↕          │             │       │
+│  │  └─Worker B │  C ←──→ D   │  并行分支：  │       │
+│  │            │              │  A → B      │       │
+│  │  Root 分解 │  任意节点可  │      ↘ D   │       │
+│  │  任务分发  │  向任意节点  │  A → C ↗   │       │
+│  │  汇总结果  │  发消息      │             │       │
+│  └────────────┴──────────────┴──────────────┘       │
+└─────────────────────────────────────────────────────┘
+```
+
+### 核心数据结构
+
+```rust
+pub struct AgentGraph {
+    pub id: GraphId,
+    pub tenant_id: TenantId,
+    pub topology: GraphTopology,       // Supervisor / Peer / Pipeline
+    pub nodes: Vec<AgentNode>,
+    pub edges: Vec<GraphEdge>,
+    pub status: GraphStatus,           // Pending / Running / Done / Failed
+}
+
+pub enum GraphTopology {
+    Supervisor,   // 树形，有 Root 节点分配任务
+    Peer,         // 任意图，Agent 间平等通信
+    Pipeline,     // 线性或带分支的 DAG
+}
+
+pub struct AgentNode {
+    pub id: NodeId,
+    pub agent_id: AgentId,
+    pub role: NodeRole,                // Root / Worker / Peer / Stage
+    pub input_schema: Option<Schema>,
+    pub output_schema: Option<Schema>,
+}
+
+pub struct GraphEdge {
+    pub from: NodeId,
+    pub to: NodeId,
+    pub condition: Option<EdgeCondition>, // 条件路由（如：仅当输出含 "error"）
+}
+
+// Agent 间消息
+pub struct AgentInterMessage {
+    pub id: MessageId,
+    pub graph_id: GraphId,
+    pub from: NodeId,
+    pub to: NodeId,
+    pub content: String,
+    pub message_type: InterMessageType,
+}
+
+pub enum InterMessageType {
+    Task,       // Root → Worker：分配子任务
+    Result,     // Worker → Root：返回结果
+    Delegate,   // 任意节点委托子任务
+    Broadcast,  // 广播给所有节点
+}
+```
+
+### octo-engine 最小扩展接口
+
+编排逻辑全部在 `octo-platform-server/orchestrator/` 实现，octo-engine 只加最小接口：
+
+```rust
+impl AgentRuntime {
+    /// 接收来自其他 Agent 的任务，执行后返回结果
+    pub async fn execute_agent_task(
+        &self,
+        task: AgentInterMessage,
+    ) -> AgentTaskResult { ... }
+
+    /// 向 Orchestrator 注册消息回调（用于 Peer 模式）
+    pub fn register_message_handler(
+        &self,
+        handler: Arc<dyn AgentMessageHandler>,
+    ) { ... }
+}
+```
+
+**原则**：不向 octo-engine 注入编排概念，保持引擎层纯粹。
+
+---
+
+## 七、核心数据模型
+
+```rust
+// ── 租户层 ──────────────────────────────────────────
+
+pub struct Tenant {
+    pub id: TenantId,                      // UUID
+    pub name: String,
+    pub slug: String,                      // URL 友好标识（如 "acme-corp"）
+    pub plan: TenantPlan,                  // Free / Pro / Enterprise
+    pub quota: ResourceQuota,
+    pub mcp_config: Vec<McpServerConfig>,  // 租户级共享 MCP
+    pub auth_config: TenantAuthConfig,     // SSO 配置（OIDC issuer 等）
+    pub db_path: PathBuf,                  // 租户独立 SQLite 文件
+    pub created_at: DateTime<Utc>,
+}
+
+pub struct ResourceQuota {
+    pub max_agents: u32,                   // 并发 Agent 实例上限
+    pub max_sessions_per_user: u32,        // 每用户并发会话上限
+    pub max_api_calls_per_day: u64,        // 每日 LLM 调用上限
+    pub max_memory_mb: u64,                // 记忆存储上限
+    pub max_mcp_servers: u32,             // MCP 服务器数量上限
+}
+
+// ── 用户层 ──────────────────────────────────────────
+
+pub struct PlatformUser {
+    pub id: UserId,
+    pub tenant_id: TenantId,
+    pub email: String,
+    pub display_name: String,
+    pub role: UserRole,                    // TenantAdmin / Member / Viewer
+    pub auth_provider: AuthProvider,       // Local / Google / GitHub / Okta
+    pub api_keys: Vec<ApiKey>,
+    pub created_at: DateTime<Utc>,
+}
+
+pub enum UserRole {
+    TenantAdmin,  // 管理租户配置、用户、配额
+    Member,       // 使用 Agent，创建任务图
+    Viewer,       // 只读查看
+}
+
+// ── 运行时映射 ───────────────────────────────────────
+
+pub struct PlatformState {
+    // 懒加载：首次请求时创建，长期不活跃后回收
+    pub tenants: DashMap<TenantId, Arc<TenantRuntime>>,
+    pub config: PlatformConfig,
+}
+
+pub struct TenantRuntime {
+    pub tenant: Tenant,
+    // 每用户独立 AgentRuntime（懒加载）
+    pub user_runtimes: DashMap<UserId, Arc<AgentRuntime>>,
+    pub orchestrator: Arc<AgentOrchestrator>,
+}
+```
+
+---
+
+## 八、实施路线图
+
+基于 octo-workbench v1.0 完成为起点，分四个阶段（总计约 18 周）：
+
+```
+octo-workbench v1.0 → P1（~4周）→ P2（~4周）→ P3（~6周）→ P4（~4周）
+  认证+单租户多用户    多租户+配额    Multi-Agent    生产就绪
+```
+
+### Platform P1：认证 + 单租户多用户
+
+**目标**：`octo-platform-server` 可运行，多用户登录，每用户独立 AgentRuntime。
+
+| 任务 | 内容 |
+|------|------|
+| P1-1 | 新建 `octo-platform-server` crate，基础 Axum 服务 |
+| P1-2 | 自建用户系统：注册/登录/JWT |
+| P1-3 | `PlatformState`：单租户 + `DashMap<UserId, Arc<AgentRuntime>>` |
+| P1-4 | 每用户独立 WebSocket + AgentRuntime 懒加载 |
+| P1-5 | Admin API：用户 CRUD、角色管理 |
+| P1-6 | `web-platform/` 初始化：登录页 + 用户工作空间 |
+
+**验收**：3 用户同时登录，各自独立对话，互不干扰。
+
+### Platform P2：多租户 + 配额 + MCP 隔离
+
+**目标**：完整两级隔离，租户间物理隔离，资源配额生效。
+
+| 任务 | 内容 |
+|------|------|
+| P2-1 | `TenantManager`：租户 CRUD，独立 SQLite 文件 |
+| P2-2 | `QuotaManager`：配额检查中间件，超限返回 429 |
+| P2-3 | 租户级 MCP 配置：每租户独立 McpManager |
+| P2-4 | 超级管理员控制台：租户管理、配额设置 |
+| P2-5 | 插拔式 OAuth2/OIDC（Google、GitHub 优先） |
+| P2-6 | 审计日志：所有操作记录（操作人、时间、资源） |
+
+**验收**：两租户数据完全隔离，配额超限 429，SSO 登录正常。
+
+### Platform P3：Multi-Agent 编排
+
+**目标**：三种编排模式可运行，有可视化界面。
+
+| 任务 | 内容 |
+|------|------|
+| P3-1 | `AgentOrchestrator` 核心：DAG 存储 + 执行引擎 |
+| P3-2 | Supervisor 模式：Root 分解任务，Workers 并行执行 |
+| P3-3 | Pipeline 模式：节点串并行，条件路由 |
+| P3-4 | Peer 模式：Agent 间消息总线，双向通信 |
+| P3-5 | octo-engine 最小扩展：`execute_agent_task()` 接口 |
+| P3-6 | `web-platform/orchestrator/`：DAG 可视化（节点/边/状态实时更新） |
+| P3-7 | 编排执行历史：节点日志、耗时、结果 |
+
+**验收**：三模式各跑通端到端示例，DAG 界面实时显示节点状态。
+
+### Platform P4：生产就绪
+
+**目标**：可对外发布，有监控、容灾、文档。
+
+| 任务 | 内容 |
+|------|------|
+| P4-1 | Prometheus 指标暴露（租户/用户/Agent 维度） |
+| P4-2 | `/health` 涵盖所有组件状态 |
+| P4-3 | Docker Compose + K8s Helm Chart |
+| P4-4 | OpenAPI 3.1 开发者 API 文档 |
+| P4-5 | 压测：100 并发用户，验证配额和隔离稳定性 |
+| P4-6 | 数据迁移工具：从 octo-workbench 导入历史数据 |
+
+**验收**：`docker compose up` 一键启动，`helm install` K8s 部署，API 文档完整。
 
 ---
 
