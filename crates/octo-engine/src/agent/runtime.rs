@@ -88,7 +88,7 @@ pub struct AgentRuntime {
     recorder: Arc<ToolExecutionRecorder>,
     provider_chain: Option<Arc<ProviderChain>>,
     // Runtime fields (Task 2)
-    mcp_manager: Option<Arc<Mutex<crate::mcp::manager::McpManager>>>,
+    mcp_manager: Arc<Mutex<crate::mcp::manager::McpManager>>,
     working_dir: PathBuf,
 }
 
@@ -196,7 +196,7 @@ impl AgentRuntime {
         };
 
         // 11. McpManager initialization
-        let mcp_manager = Some(Arc::new(Mutex::new(McpManager::new())));
+        let mcp_manager = Arc::new(Mutex::new(McpManager::new()));
 
         // 12. Working directory
         let working_dir = config.working_dir
@@ -308,8 +308,8 @@ impl AgentRuntime {
         &self.provider
     }
 
-    pub fn mcp_manager(&self) -> Option<&Arc<Mutex<crate::mcp::manager::McpManager>>> {
-        self.mcp_manager.as_ref()
+    pub fn mcp_manager(&self) -> &Arc<Mutex<crate::mcp::manager::McpManager>> {
+        &self.mcp_manager
     }
 
     // ── MCP Server 管理 API ─────────────────────────────────────────────────
@@ -319,8 +319,7 @@ impl AgentRuntime {
         &self,
         config: crate::mcp::traits::McpServerConfig,
     ) -> Result<Vec<McpToolInfo>, AgentError> {
-        let mcp = self.mcp_manager.as_ref()
-            .ok_or(AgentError::McpNotInitialized)?;
+        let mcp = &self.mcp_manager;
 
         let tools = {
             let mut guard = mcp.lock().await;
@@ -352,8 +351,7 @@ impl AgentRuntime {
         &self,
         name: &str,
     ) -> Result<(), AgentError> {
-        let mcp = self.mcp_manager.as_ref()
-            .ok_or(AgentError::McpNotInitialized)?;
+        let mcp = &self.mcp_manager;
 
         // 先获取要移除的 tools 信息
         let _removed_tool_names: Vec<String> = {
@@ -398,38 +396,23 @@ impl AgentRuntime {
 
     /// 列出运行中的 MCP servers
     pub fn list_mcp_servers(&self) -> Vec<crate::mcp::manager::ServerRuntimeState> {
-        match &self.mcp_manager {
-            Some(mcp) => {
-                let guard = mcp.blocking_lock();
-                let states = guard.all_runtime_states();
-                states.into_iter().map(|(_, state)| state).collect()
-            }
-            None => vec![],
-        }
+        let guard = self.mcp_manager.blocking_lock();
+        let states = guard.all_runtime_states();
+        states.into_iter().map(|(_, state)| state).collect()
     }
 
     /// 获取所有 MCP servers 的运行时状态（包含名称）
     pub fn get_all_mcp_server_states(
         &self,
     ) -> std::collections::HashMap<String, crate::mcp::manager::ServerRuntimeState> {
-        match &self.mcp_manager {
-            Some(mcp) => {
-                let guard = mcp.blocking_lock();
-                guard.all_runtime_states()
-            }
-            None => std::collections::HashMap::new(),
-        }
+        let guard = self.mcp_manager.blocking_lock();
+        guard.all_runtime_states()
     }
 
     /// 获取指定 MCP server 的 tools
     pub async fn get_mcp_tool_infos(&self, server_id: &str) -> Vec<crate::mcp::traits::McpToolInfo> {
-        match &self.mcp_manager {
-            Some(mcp) => {
-                let guard = mcp.lock().await;
-                guard.get_tool_infos(server_id).unwrap_or_default()
-            }
-            None => vec![],
-        }
+        let guard = self.mcp_manager.lock().await;
+        guard.get_tool_infos(server_id).unwrap_or_default()
     }
 
     /// 调用 MCP tool
@@ -439,37 +422,22 @@ impl AgentRuntime {
         tool_name: &str,
         arguments: serde_json::Value,
     ) -> Result<serde_json::Value, String> {
-        match &self.mcp_manager {
-            Some(mcp) => {
-                let guard = mcp.lock().await;
-                guard.call_tool(server_id, tool_name, arguments)
-                    .await
-                    .map_err(|e| e.to_string())
-            }
-            None => Err("MCP manager not initialized".to_string()),
-        }
+        let guard = self.mcp_manager.lock().await;
+        guard.call_tool(server_id, tool_name, arguments)
+            .await
+            .map_err(|e| e.to_string())
     }
 
     /// 获取指定 MCP server 的运行时状态
     pub fn get_mcp_runtime_state(&self, server_id: &str) -> crate::mcp::manager::ServerRuntimeState {
-        match &self.mcp_manager {
-            Some(mcp) => {
-                let guard = mcp.blocking_lock();
-                guard.get_runtime_state(server_id)
-            }
-            None => crate::mcp::manager::ServerRuntimeState::Stopped,
-        }
+        let guard = self.mcp_manager.blocking_lock();
+        guard.get_runtime_state(server_id)
     }
 
     /// 获取指定 MCP server 的 tool 数量
     pub async fn get_mcp_tool_count(&self, server_id: &str) -> usize {
-        match &self.mcp_manager {
-            Some(mcp) => {
-                let guard = mcp.lock().await;
-                guard.get_tool_count(server_id)
-            }
-            None => 0,
-        }
+        let guard = self.mcp_manager.lock().await;
+        guard.get_tool_count(server_id)
     }
 
     /// 获取主 AgentExecutorHandle（如果已启动）

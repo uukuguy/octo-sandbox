@@ -241,11 +241,10 @@ async fn main() -> Result<()> {
 
     // Graceful shutdown: clean up MCP servers
     tracing::info!("Shutting down MCP servers...");
-    if let Some(mcp_manager) = state.agent_supervisor.mcp_manager() {
-        let mut guard = mcp_manager.lock().await;
-        let _ = guard.shutdown_all().await;
-        tracing::info!("MCP servers shut down");
-    }
+    let mcp_manager = state.agent_supervisor.mcp_manager();
+    let mut guard = mcp_manager.lock().await;
+    let _ = guard.shutdown_all().await;
+    tracing::info!("MCP servers shut down");
 
     Ok(())
 }
