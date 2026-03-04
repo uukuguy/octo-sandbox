@@ -91,18 +91,32 @@ impl AppState {
         })
     }
 
-    pub fn get_or_create_user_runtime(&self, user_id: &str) -> Arc<UserRuntime> {
-        self.users
-            .entry(user_id.to_string())
-            .or_insert_with(|| {
-                Arc::new(
-                    UserRuntime::new(
-                        user_id.to_string(),
-                        Arc::new(self.config.user_runtime.clone()),
-                    ).expect("create user runtime")
-                )
-            })
-            .clone()
+    pub fn get_or_create_user_runtime(&self, user_id: &str) -> Result<Arc<UserRuntime>, anyhow::Error> {
+        // Try to get existing user runtime first (read-only, fast path)
+        if let Some(existing) = self.users.get(user_id) {
+            return Ok(existing.clone());
+        }
+
+        // Create new user runtime with proper error handling
+        let user_runtime = Arc::new(
+            UserRuntime::new(
+                user_id.to_string(),
+                Arc::new(self.config.user_runtime.clone()),
+            ).context("create user runtime")?
+        );
+
+        // Try to insert - another thread might have created it first
+        let entry = self.users.entry(user_id.to_string());
+        match entry {
+            dashmap::Entry::Occupied(existing) => {
+                // Another thread beat us to it, return their runtime
+                Ok(Arc::clone(existing.get()))
+            }
+            dashmap::Entry::Vacant(vacant) => {
+                // We won the race, insert our runtime
+                Ok(Arc::clone(&vacant.insert(user_runtime)))
+            }
+        }
     }
 }
 

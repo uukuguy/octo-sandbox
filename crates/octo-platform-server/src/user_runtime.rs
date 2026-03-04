@@ -101,7 +101,10 @@ impl UserRuntime {
 
     pub fn create_session(&self, name: Option<String>) -> Result<Session> {
         // Use lock to prevent TOCTOU race condition between check and insert
-        let _guard = self.session_creation_lock.lock().unwrap();
+        // Handle poisoned mutex gracefully instead of panicking
+        let _guard = self.session_creation_lock.lock().map_err(|_| {
+            anyhow::anyhow!("Session creation is temporarily unavailable due to a concurrent error")
+        })?;
 
         // Check concurrent limit while holding the lock
         let current = self.sessions.len() as u32;
