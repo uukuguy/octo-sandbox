@@ -101,121 +101,25 @@ async fn submit_task(
         }
     };
 
-    // Clone the components needed for execution to avoid Send issues with &self
-    let provider = state.agent_supervisor.provider().clone();
-    let tools = state.agent_supervisor.tools().clone();
-    let memory = state.agent_supervisor.memory().clone();
-    let session_store = state.agent_supervisor.session_store().clone();
+    // Execute task via scheduler to store execution result in database
+    let execution_result = scheduler.run_now(&scheduled.id, Some("api-task")).await;
 
-    // Execute in a spawned task with the cloned components
-    let task_id_clone = task_id.clone();
-    let input = scheduled.agent_config.input.clone();
-    let model = scheduled.agent_config.model.clone();
-    let timeout = scheduled.agent_config.timeout_secs;
-
-    let exec_result = tokio::spawn(async move {
-        // Build tool registry snapshot - drop guard BEFORE any await
-        let tools_snapshot = {
-            let tools_guard = tools.lock().unwrap();
-            let mut registry = octo_engine::tools::ToolRegistry::new();
-            for (name, tool) in tools_guard.iter() {
-                registry.register_arc(name.clone(), tool);
-            }
-            Arc::new(registry)
-        }; // tools_guard is dropped here
-
-        // Create session
-        let user_id = octo_types::UserId::from_string("api-task");
-        let session = session_store.create_session_with_user(&user_id).await;
-        let session_id = session.session_id.clone();
-        let sandbox_id = session.sandbox_id.clone();
-
-        // Create messages
-        let mut messages = vec![octo_types::ChatMessage::user(input)];
-
-        // Create tool context
-        let tool_ctx = octo_types::ToolContext {
-            sandbox_id: sandbox_id.clone(),
-            working_dir: std::path::PathBuf::from("/tmp"),
-        };
-
-        // Create event channel
-        let (tx, _) = tokio::sync::broadcast::channel(100);
-
-        // Create and run agent
-        let mut agent_loop = octo_engine::agent::AgentLoop::new(
-            provider,
-            tools_snapshot,
-            memory,
-        )
-        .with_model(model);
-
-        // Run with timeout
-        let result = tokio::time::timeout(
-            std::time::Duration::from_secs(timeout),
-            agent_loop.run(
-                &session_id,
-                &user_id,
-                &sandbox_id,
-                &mut messages,
-                tx,
-                tool_ctx,
-                None,
-            ),
-        )
-        .await;
-
-        match result {
-            Ok(Ok(_)) => {
-                // Extract response
-                let response = messages
-                    .iter()
-                    .rev()
-                    .find(|m| m.role == octo_types::MessageRole::Assistant)
-                    .and_then(|m| {
-                        m.content.iter().find_map(|c| {
-                            if let octo_types::ContentBlock::Text { text } = c {
-                                Some(text.clone())
-                            } else {
-                                None
-                            }
-                        })
-                    })
-                    .unwrap_or_else(|| "Task completed".to_string());
-
-                tracing::info!(task_id = %task_id_clone, "Background task completed");
-                Ok(response)
-            }
-            Ok(Err(e)) => {
-                tracing::error!(task_id = %task_id_clone, error = %e, "Agent error");
-                Err(e.to_string())
-            }
-            Err(_) => {
-                tracing::error!(task_id = %task_id_clone, "Timeout");
-                Err(format!("Timeout after {} seconds", timeout))
+    let response = match execution_result {
+        Ok(execution) => TaskResponse {
+            id: task_id,
+            status: map_execution_status(&execution.status),
+            result: execution.result,
+            error: execution.error,
+        },
+        Err(e) => {
+            tracing::error!("run_now error: {}", e);
+            TaskResponse {
+                id: task_id,
+                status: TaskStatus::Failed,
+                result: None,
+                error: Some(e.to_string()),
             }
         }
-    }).await;
-
-    let response = match exec_result {
-        Ok(Ok(output)) => TaskResponse {
-            id: task_id,
-            status: TaskStatus::Success,
-            result: Some(output),
-            error: None,
-        },
-        Ok(Err(e)) => TaskResponse {
-            id: task_id,
-            status: TaskStatus::Failed,
-            result: None,
-            error: Some(e),
-        },
-        Err(e) => TaskResponse {
-            id: task_id,
-            status: TaskStatus::Failed,
-            result: None,
-            error: Some(e.to_string()),
-        },
     };
 
     Ok(Json(response))
