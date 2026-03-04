@@ -211,7 +211,7 @@ async fn register(
     let user = state
         .db
         .register(&req)
-        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+        .map_err(|_| ErrorResponse { error: "Failed to register user".to_string() })?;
 
     Ok(Json(RegisterResponse { user }))
 }
@@ -223,20 +223,20 @@ async fn login(
     let user = state
         .db
         .authenticate(&req)
-        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+        .map_err(|_| ErrorResponse { error: "Invalid credentials".to_string() })?;
 
     let access_token = state
         .jwt
         .generate_access_token(&user.id, &user.email, &user.role.to_string())
-        .map_err(|e| ErrorResponse {
-            error: e.to_string(),
+        .map_err(|_| ErrorResponse {
+            error: "Failed to generate access token".to_string(),
         })?;
 
     let refresh_token = state
         .jwt
         .generate_refresh_token(&user.id, &user.email, &user.role.to_string())
-        .map_err(|e| ErrorResponse {
-            error: e.to_string(),
+        .map_err(|_| ErrorResponse {
+            error: "Failed to generate refresh token".to_string(),
         })?;
 
     Ok(Json(LoginResponse {
@@ -267,7 +267,7 @@ async fn refresh(
     let user = state
         .db
         .get_user(&claims.sub)
-        .map_err(|e| ErrorResponse { error: e.to_string() })?
+        .map_err(|_| ErrorResponse { error: "Failed to get user".to_string() })?
         .ok_or_else(|| ErrorResponse {
             error: "User not found".to_string(),
         })?;
@@ -275,15 +275,15 @@ async fn refresh(
     let access_token = state
         .jwt
         .generate_access_token(&user.id, &user.email, &user.role.to_string())
-        .map_err(|e| ErrorResponse {
-            error: e.to_string(),
+        .map_err(|_| ErrorResponse {
+            error: "Failed to generate access token".to_string(),
         })?;
 
     let refresh_token = state
         .jwt
         .generate_refresh_token(&user.id, &user.email, &user.role.to_string())
-        .map_err(|e| ErrorResponse {
-            error: e.to_string(),
+        .map_err(|_| ErrorResponse {
+            error: "Failed to generate refresh token".to_string(),
         })?;
 
     Ok(Json(LoginResponse {
@@ -309,7 +309,7 @@ async fn me(
     let user = state
         .db
         .get_user(&claims.claims.sub)
-        .map_err(|e| ErrorResponse { error: e.to_string() })?
+        .map_err(|_| ErrorResponse { error: "Failed to get user".to_string() })?
         .ok_or_else(|| ErrorResponse {
             error: "User not found".to_string(),
         })?;
