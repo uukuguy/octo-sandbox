@@ -246,6 +246,13 @@ impl SkillLoader {
                 if !skill_dir.is_dir() {
                     continue;
                 }
+
+                // Validate skill directory structure before parsing
+                if let Err(e) = validate_skill_structure(&skill_dir) {
+                    debug!(path = %skill_dir.display(), error = %e, "Invalid skill directory structure");
+                    continue;
+                }
+
                 let skill_file = skill_dir.join("SKILL.md");
                 if !skill_file.exists() {
                     continue;
@@ -636,5 +643,105 @@ description: A valid skill
         // Should only load the valid skill
         assert_eq!(skills.len(), 1);
         assert_eq!(skills[0].name, "valid-skill");
+    }
+
+    #[test]
+    fn test_load_skill_validates_structure() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill directory with README.md but no SKILL.md
+        let invalid_dir = skills_dir.join("missing-skill-md");
+        std::fs::create_dir_all(&invalid_dir).unwrap();
+        std::fs::write(invalid_dir.join("README.md"), "not a skill").unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+
+        // load_skill should fail for invalid structure (not found)
+        let result = loader.load_skill("missing-skill-md");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Skill not found"));
+    }
+
+    #[test]
+    fn test_load_skill_validates_allowed_tools() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill with invalid allowed-tools (uppercase)
+        let invalid_dir = skills_dir.join("invalid-tools-uppercase");
+        std::fs::create_dir_all(&invalid_dir).unwrap();
+        std::fs::write(
+            invalid_dir.join("SKILL.md"),
+            r#"---
+name: invalid-tools-uppercase
+description: A skill with invalid tools (uppercase)
+allowed-tools:
+  - Bash
+  - Read
+---
+
+# Invalid
+This should fail validation.
+"#,
+        )
+        .unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+
+        // load_skill should fail due to invalid tool names
+        let result = loader.load_skill("invalid-tools-uppercase");
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid allowed-tools"));
+    }
+
+    #[test]
+    fn test_load_skill_consistent_with_load_all() {
+        // This test verifies that load_skill() has the same validation
+        // as load_all(), ensuring consistent behavior
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a valid skill
+        let valid_dir = skills_dir.join("consistent-valid");
+        std::fs::create_dir_all(&valid_dir).unwrap();
+        std::fs::write(
+            valid_dir.join("SKILL.md"),
+            r#"---
+name: consistent-valid
+description: A valid skill for consistency test
+allowed-tools:
+  - bash
+  - read
+---
+
+# Body
+Valid skill content.
+"#,
+        )
+        .unwrap();
+
+        // Create an invalid skill (missing SKILL.md)
+        let invalid_dir = skills_dir.join("consistent-invalid");
+        std::fs::create_dir_all(&invalid_dir).unwrap();
+        std::fs::write(invalid_dir.join("README.md"), "not a skill").unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+
+        // load_all should only find the valid skill
+        let all_skills = loader.load_all().unwrap();
+        assert_eq!(all_skills.len(), 1);
+        assert_eq!(all_skills[0].name, "consistent-valid");
+
+        // load_skill should succeed for valid skill
+        let skill = loader.load_skill("consistent-valid").unwrap();
+        assert_eq!(skill.name, "consistent-valid");
+
+        // load_skill should fail for invalid skill (same as load_all skipping it)
+        let result = loader.load_skill("consistent-invalid");
+        assert!(result.is_err());
     }
 }
