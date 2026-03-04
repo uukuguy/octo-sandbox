@@ -14,6 +14,7 @@ pub struct SkillDefinition {
     #[serde(default, rename = "allowed-tools")]
     pub allowed_tools: Option<Vec<String>>,
     /// Markdown body (template variables already substituted).
+    /// Lazy-loaded when skill is activated.
     #[serde(skip)]
     pub body: String,
     /// Directory containing SKILL.md.
@@ -22,4 +23,8 @@ pub struct SkillDefinition {
     /// Full path to the SKILL.md file.
     #[serde(skip)]
     pub source_path: PathBuf,
+    /// Flag indicating whether the body has been loaded.
+    /// Used for lazy loading - initially false, set to true when activated.
+    #[serde(skip)]
+    pub body_loaded: bool,
 }

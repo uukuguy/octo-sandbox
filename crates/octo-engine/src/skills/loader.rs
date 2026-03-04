@@ -201,6 +201,51 @@ impl SkillLoader {
     pub fn search_dirs(&self) -> &[PathBuf] {
         &self.search_dirs
     }
+
+    /// Lazily load a single skill by name (called when skill is activated).
+    /// This reads the full SKILL.md file including body.
+    pub fn load_skill(&self, name: &str) -> Result<SkillDefinition> {
+        for dir in &self.search_dirs {
+            let entries = match std::fs::read_dir(dir) {
+                Ok(e) => e,
+                Err(e) => {
+                    debug!(dir = %dir.display(), error = %e, "Cannot read skills directory");
+                    continue;
+                }
+            };
+
+            for entry in entries.flatten() {
+                let skill_dir = entry.path();
+                if !skill_dir.is_dir() {
+                    continue;
+                }
+                let skill_file = skill_dir.join("SKILL.md");
+                if !skill_file.exists() {
+                    continue;
+                }
+
+                // First check if this skill matches the name we're looking for
+                // We do a quick frontmatter check to avoid parsing all files
+                if let Ok(content) = std::fs::read_to_string(&skill_file) {
+                    if let Ok((frontmatter, _)) = Self::split_frontmatter(&content) {
+                        if let Ok(fm) = serde_yaml::from_str::<serde_yaml::Value>(&frontmatter) {
+                            // Extract name from frontmatter
+                            if let Some(skill_name) = fm.get("name").and_then(|v| v.as_str()) {
+                                if skill_name == name {
+                                    // Found the skill, now parse fully
+                                    let mut skill = Self::parse_skill(&skill_file)?;
+                                    skill.body_loaded = true;
+                                    return Ok(skill);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        anyhow::bail!("Skill not found: {}", name)
+    }
 }
 
 #[cfg(test)]
@@ -357,5 +402,89 @@ This should not be read.
             metadata.allowed_tools,
             Some(vec!["tool1".to_string(), "tool2".to_string()])
         );
+    }
+
+    #[test]
+    fn test_lazy_load_skill_body() {
+        let temp_dir = TempDir::new().unwrap();
+        create_skill_with_large_body(&temp_dir, 10000); // 10KB body
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+
+        // 1. First get the index (does not load body)
+        let index = loader.build_index();
+        assert_eq!(index.len(), 1);
+        assert!(!index[0].has_body(), "Index should not have body loaded");
+
+        // 2. Activate skill - load full content
+        let skill = loader.load_skill("test-skill").unwrap();
+        assert!(skill.body_loaded, "Body should be marked as loaded");
+        assert!(!skill.body.is_empty(), "Body should not be empty");
+        // Body size should be at least the expected size (may have trailing newline)
+        assert!(
+            skill.body.len() >= 10000,
+            "Body should be at least expected size"
+        );
+    }
+
+    #[test]
+    fn test_lazy_load_skill_not_found() {
+        let temp_dir = TempDir::new().unwrap();
+        create_skill_with_optional_fields(&temp_dir, "existing-skill");
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+
+        // Try to load a non-existent skill
+        let result = loader.load_skill("non-existent-skill");
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_lazy_load_skill_with_template_variable() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        let skill_dir = skills_dir.join("template-skill");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+
+        // Create a skill that uses ${baseDir} template variable
+        let content = r#"---
+name: template-skill
+description: A skill with template variable
+---
+
+# Template Test
+Base dir: ${baseDir}
+File path: ${baseDir}/test.txt
+"#;
+
+        std::fs::write(skill_dir.join("SKILL.md"), content).unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let skill = loader.load_skill("template-skill").unwrap();
+
+        // Verify template variable was substituted
+        let base_dir_str = skill.base_dir.to_string_lossy().to_string();
+        assert!(skill.body.contains(&base_dir_str));
+        assert!(skill.body.contains("Template Test"));
+    }
+
+    #[test]
+    fn test_lazy_load_multiple_skills() {
+        let temp_dir = TempDir::new().unwrap();
+        create_skill_with_optional_fields(&temp_dir, "skill-one");
+        create_skill_with_optional_fields(&temp_dir, "skill-two");
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+
+        // Build index first
+        let index = loader.build_index();
+        assert_eq!(index.len(), 2);
+
+        // Load only one skill
+        let skill = loader.load_skill("skill-one").unwrap();
+        assert_eq!(skill.name, "skill-one");
+        assert!(skill.body_loaded);
     }
 }

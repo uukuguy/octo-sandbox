@@ -14,6 +14,14 @@ pub struct SkillMetadata {
 }
 
 impl SkillMetadata {
+    /// Check if this metadata entry has body loaded.
+    /// Since SkillMetadata is always built from frontmatter only (no body),
+    /// this always returns false.
+    /// This method is useful for distinguishing between index entries and fully loaded skills.
+    pub fn has_body(&self) -> bool {
+        false
+    }
+
     /// Parse skill metadata from SKILL.md frontmatter only (without reading body).
     pub fn from_frontmatter(path: &std::path::Path) -> anyhow::Result<Self> {
         let content = std::fs::read_to_string(path)
