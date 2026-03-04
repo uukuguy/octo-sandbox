@@ -8,10 +8,10 @@ use std::sync::Arc;
 use anyhow::{Context, Result};
 use axum::{
     body::Body,
-    extract::State,
-    http::{header::AUTHORIZATION, StatusCode, Request},
+    extract::{FromRequestParts, State},
+    http::{header::AUTHORIZATION, request::Parts, StatusCode, Request},
     response::{IntoResponse, Json, Response},
-    routing::{get, post},
+    routing::{delete, get, post},
     Router,
 };
 use dashmap::DashMap;
@@ -23,6 +23,7 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt};
 pub mod auth;
 pub mod db;
 pub mod user_runtime;
+pub mod api;
 pub use user_runtime::UserRuntime;
 
 /// Platform configuration
@@ -154,6 +155,51 @@ fn extract_bearer_token(headers: &axum::http::HeaderMap) -> Result<String, Error
         .ok_or_else(|| ErrorResponse {
             error: "Missing or invalid Authorization header".to_string(),
         })
+}
+
+/// Type alias for Arc<AppState>
+pub type ArcAppState = Arc<AppState>;
+
+/// User ID extracted from JWT
+#[derive(Debug, Clone)]
+pub struct AuthExtractor {
+    pub user_id: String,
+    pub email: String,
+    pub role: String,
+}
+
+impl<S> FromRequestParts<S> for AuthExtractor
+where
+    S: Send + Sync,
+{
+    type Rejection = (StatusCode, Json<ErrorResponse>);
+
+    async fn from_request_parts(parts: &mut Parts, _state: &S) -> Result<Self, Self::Rejection> {
+        // Get state from extensions instead - this is how Axum State extraction works
+        let state = parts
+            .extensions
+            .get::<ArcAppState>()
+            .cloned()
+            .ok_or_else(|| (StatusCode::INTERNAL_SERVER_ERROR, Json(ErrorResponse {
+                error: "State not found".to_string(),
+            })))?;
+
+        let token = extract_bearer_token(&parts.headers)
+            .map_err(|e| (StatusCode::UNAUTHORIZED, Json(e)))?;
+
+        let claims = state
+            .jwt
+            .verify_token(&token)
+            .map_err(|_| (StatusCode::UNAUTHORIZED, Json(ErrorResponse {
+                error: "Invalid token".to_string(),
+            })))?;
+
+        Ok(Self {
+            user_id: claims.claims.sub,
+            email: claims.claims.email,
+            role: claims.claims.role,
+        })
+    }
 }
 
 // ============ Auth Handlers ============
@@ -298,6 +344,11 @@ async fn main() -> Result<()> {
         .route("/api/auth/login", post(login))
         .route("/api/auth/refresh", post(refresh))
         .route("/api/auth/me", get(me))
+        // Session routes
+        .route("/api/sessions", get(api::sessions::list_sessions))
+        .route("/api/sessions", post(api::sessions::create_session))
+        .route("/api/sessions/{session_id}", get(api::sessions::get_session))
+        .route("/api/sessions/{session_id}", delete(api::sessions::delete_session))
         .layer(TraceLayer::new_for_http())
         .with_state(state);
 
