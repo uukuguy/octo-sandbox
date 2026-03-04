@@ -24,6 +24,7 @@
 # Logging configuration
 # logging:
 #   level: octo_server=debug,octo_engine=debug,tower_http=debug
+#   format: text        # Log format: "text" (default) or "json" (for ELK)
 
 # MCP configuration
 # mcp:
