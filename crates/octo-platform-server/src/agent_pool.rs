@@ -3,11 +3,14 @@
 //! Manages a pool of agent instances for multi-tenant platform.
 
 use std::fmt;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
+use octo_engine::agent::{AgentCatalog, AgentRuntime, AgentRuntimeConfig};
+use octo_engine::providers::ProviderConfig;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use uuid::Uuid;
@@ -107,6 +110,9 @@ pub enum PoolError {
 
     #[error("Instance busy: {0}")]
     Busy(InstanceId),
+
+    #[error("Runtime error: {0}")]
+    RuntimeError(String),
 }
 
 // ============================================================================
@@ -132,13 +138,12 @@ impl Workspace {
 }
 
 /// Agent instance
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AgentInstance {
     /// Instance ID
     pub id: InstanceId,
-    /// Agent runtime (from octo-engine)
-    /// NOTE: Using Option<()> as placeholder - will integrate AgentRuntime in Task 3
-    pub runtime: Option<()>,
+    /// Agent runtime (from octo-engine), wrapped in Arc for sharing
+    pub runtime: Option<Arc<AgentRuntime>>,
     /// Current workspace (if occupied)
     pub workspace: Option<Workspace>,
     /// Current state
@@ -147,7 +152,21 @@ pub struct AgentInstance {
     pub last_used: DateTime<Utc>,
 }
 
+impl fmt::Debug for AgentInstance {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AgentInstance")
+            .field("id", &self.id)
+            .field("runtime", &"<AgentRuntime>")
+            .field("workspace", &self.workspace)
+            .field("state", &self.state)
+            .field("last_used", &self.last_used)
+            .finish()
+    }
+}
+
 impl AgentInstance {
+    /// Create a new agent instance (without runtime - used for placeholder/testing)
+    #[allow(dead_code)]
     pub fn new() -> Self {
         Self {
             id: InstanceId::new(),
@@ -244,12 +263,39 @@ impl AgentPool {
         Ok(instance)
     }
 
-    /// Create a new agent instance (placeholder)
+    /// Create a new agent instance with AgentRuntime from octo-engine
     async fn create_instance(&self, user_id: &str) -> Result<AgentInstance, PoolError> {
-        // TODO: Create AgentRuntime from octo-engine
+        // Create AgentRuntime configuration
+        // Note: In production, these should come from pool configuration
+        let provider_config = ProviderConfig {
+            name: "anthropic".to_string(),
+            api_key: std::env::var("ANTHROPIC_API_KEY").ok(),
+            base_url: None,
+            model: None,
+        };
+
+        let runtime_config = AgentRuntimeConfig::from_parts(
+            // Use a temporary in-memory database path for this instance
+            // In production, each instance could have its own DB or share one with isolation
+            format!("/tmp/octo-platform-agent-{}.db", uuid::Uuid::new_v4()),
+            provider_config,
+            Vec::new(), // No skills dirs for now
+            None,      // No provider chain
+            Some(PathBuf::from("/tmp/octo-sandbox")),
+            false, // Disable event bus for pool instances
+        );
+
+        // Create AgentCatalog (shared for all instances in the pool)
+        let catalog = Arc::new(AgentCatalog::new());
+
+        // Create the AgentRuntime
+        let runtime = AgentRuntime::new(catalog, runtime_config)
+            .await
+            .map_err(|e| PoolError::RuntimeError(e.to_string()))?;
+
         let instance = AgentInstance {
             id: InstanceId::new(),
-            runtime: None,
+            runtime: Some(Arc::new(runtime)),
             workspace: Some(Workspace::new(user_id.to_string())),
             state: InstanceState::Busy,
             last_used: Utc::now(),
