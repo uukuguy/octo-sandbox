@@ -8,8 +8,6 @@ use octo_engine::{
     scheduler::Scheduler,
     AgentExecutorHandle, AgentRuntime,
 };
-
-use crate::api::tasks::TaskStore;
 use tokio::sync::RwLock;
 
 use crate::config::Config;
@@ -28,8 +26,6 @@ pub struct AppState {
     pub agent_supervisor: Arc<AgentRuntime>,
     /// 主 AgentExecutor 的通信句柄（channels 唯一的 Agent 接入点）
     pub agent_handle: AgentExecutorHandle,
-    /// Background task store for one-off async tasks
-    pub task_store: Option<Arc<TaskStore>>,
 }
 
 impl AppState {
@@ -46,9 +42,6 @@ impl AppState {
         // Initialize metrics registry
         let metrics_registry = Arc::new(RwLock::new(MetricsRegistry::new()));
 
-        // Initialize task store
-        let task_store = Some(Arc::new(TaskStore::new()));
-
         Self {
             db_path,
             scheduler,
@@ -57,7 +50,6 @@ impl AppState {
             metrics_registry,
             agent_supervisor,
             agent_handle,
-            task_store,
         }
     }
 

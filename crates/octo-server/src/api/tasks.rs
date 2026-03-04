@@ -74,9 +74,8 @@ async fn submit_task(
     // Get scheduler
     let scheduler = state.scheduler.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
-    // Create task config
-    let task_id = Uuid::new_v4().to_string();
-    let model = req.model.unwrap_or_else(|| "claude-3-5-sonnet-20241022".to_string());
+    // Get model from config or use default
+    let model = req.model.or_else(|| state.config.provider.model.clone()).unwrap_or_else(|| "claude-sonnet-4-20250514".to_string());
 
     let config = octo_engine::scheduler::AgentTaskConfig {
         system_prompt: String::new(),
@@ -89,7 +88,7 @@ async fn submit_task(
     // Create scheduled task via scheduler
     let scheduled = match scheduler.create_task(
         Some("api-task".to_string()),
-        format!("ad-hoc-{}", &task_id[..8]),
+        format!("ad-hoc-{}", Uuid::new_v4().to_string()[..8].to_string()),
         "0 0 1 1 2099".to_string(),
         config,
         true,
@@ -106,7 +105,7 @@ async fn submit_task(
 
     let response = match execution_result {
         Ok(execution) => TaskResponse {
-            id: task_id,
+            id: scheduled.id.clone(),
             status: map_execution_status(&execution.status),
             result: execution.result,
             error: execution.error,
@@ -114,7 +113,7 @@ async fn submit_task(
         Err(e) => {
             tracing::error!("run_now error: {}", e);
             TaskResponse {
-                id: task_id,
+                id: scheduled.id.clone(),
                 status: TaskStatus::Failed,
                 result: None,
                 error: Some(e.to_string()),
