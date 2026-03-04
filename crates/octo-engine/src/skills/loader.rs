@@ -5,6 +5,8 @@ use tracing::{debug, warn};
 
 use octo_types::SkillDefinition;
 
+use crate::skills::validate_allowed_tools;
+use crate::skills::validate_skill_structure;
 use crate::skills::SkillMetadata;
 
 pub struct SkillLoader {
@@ -52,6 +54,13 @@ impl SkillLoader {
                 if !skill_dir.is_dir() {
                     continue;
                 }
+
+                // Validate skill directory structure
+                if let Err(e) = validate_skill_structure(&skill_dir) {
+                    warn!(path = %skill_dir.display(), error = %e, "Invalid skill directory structure");
+                    continue;
+                }
+
                 let skill_file = skill_dir.join("SKILL.md");
                 if !skill_file.exists() {
                     continue;
@@ -102,6 +111,13 @@ impl SkillLoader {
                 if !skill_dir.is_dir() {
                     continue;
                 }
+
+                // Validate skill directory structure
+                if let Err(e) = validate_skill_structure(&skill_dir) {
+                    warn!(path = %skill_dir.display(), error = %e, "Invalid skill directory structure");
+                    continue;
+                }
+
                 let skill_file = skill_dir.join("SKILL.md");
                 if !skill_file.exists() {
                     continue;
@@ -155,6 +171,17 @@ impl SkillLoader {
                 "SKILL.md missing required field 'description' in {}",
                 path.display()
             );
+        }
+
+        // Validate allowed-tools if present
+        if let Some(ref tools) = skill.allowed_tools {
+            if let Err(e) = validate_allowed_tools(tools) {
+                bail!(
+                    "Invalid allowed-tools in {}: {}",
+                    path.display(),
+                    e
+                );
+            }
         }
 
         let base_dir = path.parent().unwrap_or(Path::new(".")).to_path_buf();
@@ -486,5 +513,128 @@ File path: ${baseDir}/test.txt
         let skill = loader.load_skill("skill-one").unwrap();
         assert_eq!(skill.name, "skill-one");
         assert!(skill.body_loaded);
+    }
+
+    #[test]
+    fn test_build_index_skips_invalid_structure() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a skill directory without SKILL.md
+        let invalid_dir = skills_dir.join("no-skill-md");
+        std::fs::create_dir_all(&invalid_dir).unwrap();
+        std::fs::write(invalid_dir.join("README.md"), "not a skill").unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let index = loader.build_index();
+
+        // Should skip invalid skill
+        assert!(index.is_empty());
+    }
+
+    #[test]
+    fn test_parse_skill_rejects_invalid_allowed_tools() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        let skill_dir = skills_dir.join("invalid-tools");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+
+        // Create a skill with invalid allowed-tools (uppercase)
+        let content = r#"---
+name: invalid-tools
+description: A skill with invalid tools
+allowed-tools:
+  - Bash
+  - Read
+---
+
+# Invalid
+This should fail validation.
+"#;
+
+        std::fs::write(skill_dir.join("SKILL.md"), content).unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let result = loader.load_skill("invalid-tools");
+
+        // Should fail due to invalid tool names
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains("Invalid allowed-tools"));
+    }
+
+    #[test]
+    fn test_parse_skill_accepts_valid_allowed_tools() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        let skill_dir = skills_dir.join("valid-tools");
+        std::fs::create_dir_all(&skill_dir).unwrap();
+
+        // Create a skill with valid allowed-tools
+        let content = r#"---
+name: valid-tools
+description: A skill with valid tools
+allowed-tools:
+  - bash
+  - read_file
+  - tool-123
+---
+
+# Valid
+This should pass validation.
+"#;
+
+        std::fs::write(skill_dir.join("SKILL.md"), content).unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let skill = loader.load_skill("valid-tools").unwrap();
+
+        assert_eq!(skill.name, "valid-tools");
+        assert_eq!(
+            skill.allowed_tools,
+            Some(vec![
+                "bash".to_string(),
+                "read_file".to_string(),
+                "tool-123".to_string()
+            ])
+        );
+    }
+
+    #[test]
+    fn test_load_all_validates_structure() {
+        let temp_dir = TempDir::new().unwrap();
+        let skills_dir = temp_dir.path().join(".octo").join("skills");
+        std::fs::create_dir_all(&skills_dir).unwrap();
+
+        // Create a valid skill
+        let valid_dir = skills_dir.join("valid-skill");
+        std::fs::create_dir_all(&valid_dir).unwrap();
+        std::fs::write(
+            valid_dir.join("SKILL.md"),
+            r#"---
+name: valid-skill
+description: A valid skill
+---
+
+# Valid
+"#,
+        )
+        .unwrap();
+
+        // Create an invalid skill (no SKILL.md)
+        let invalid_dir = skills_dir.join("invalid-skill");
+        std::fs::create_dir_all(&invalid_dir).unwrap();
+        std::fs::write(invalid_dir.join("README.md"), "not a skill").unwrap();
+
+        let loader = SkillLoader::new(Some(temp_dir.path()), None);
+        let skills = loader.load_all().unwrap();
+
+        // Should only load the valid skill
+        assert_eq!(skills.len(), 1);
+        assert_eq!(skills[0].name, "valid-skill");
     }
 }
