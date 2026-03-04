@@ -2,12 +2,14 @@
 //!
 //! Manages a pool of agent instances for multi-tenant platform.
 
+use std::fmt;
 use std::sync::Arc;
 use std::time::Duration;
 
 use chrono::{DateTime, Utc};
 use dashmap::DashMap;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 use uuid::Uuid;
 
 // ============================================================================
@@ -85,6 +87,28 @@ impl Default for InstanceId {
     }
 }
 
+impl fmt::Display for InstanceId {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+/// Pool errors
+#[derive(Debug, Error)]
+pub enum PoolError {
+    #[error("Pool exhausted: {current}/{max}")]
+    Exhausted { current: u32, max: u32 },
+
+    #[error("Not implemented: {0}")]
+    NotImplemented(String),
+
+    #[error("Instance not found: {0}")]
+    NotFound(InstanceId),
+
+    #[error("Instance busy: {0}")]
+    Busy(InstanceId),
+}
+
 // ============================================================================
 // Step 2: Workspace and Agent Instance
 // ============================================================================
@@ -98,8 +122,17 @@ pub struct Workspace {
     pub session_ids: Vec<String>,
 }
 
+impl Workspace {
+    pub fn new(user_id: String) -> Self {
+        Self {
+            user_id,
+            session_ids: Vec::new(),
+        }
+    }
+}
+
 /// Agent instance
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AgentInstance {
     /// Instance ID
     pub id: InstanceId,
@@ -171,9 +204,89 @@ impl AgentPool {
         self.instances.len()
     }
 
+    /// Get the total number of instances (alias for total_instances)
+    pub fn total_count(&self) -> usize {
+        self.instances.len()
+    }
+
     /// Get the number of idle instances
     pub async fn idle_count(&self) -> usize {
         self.idle_instances.lock().await.len()
+    }
+
+    /// Get an instance from the pool
+    pub async fn get_instance(&self, user_id: &str) -> Result<AgentInstance, PoolError> {
+        // 1. Try to get from idle pool
+        {
+            let mut idle_instances = self.idle_instances.lock().await;
+            if let Some(instance_id) = idle_instances.pop() {
+                // Get instance and mark as busy
+                if let Some(mut instance) = self.instances.get_mut(&instance_id) {
+                    instance.state = InstanceState::Busy;
+                    instance.workspace = Some(Workspace::new(user_id.to_string()));
+                    instance.last_used = Utc::now();
+                    return Ok(instance.clone());
+                }
+            }
+        }
+
+        // 2. No idle instances, check if we can create a new one
+        let current_total = self.instances.len() as u32;
+        if current_total >= self.config.hard_max_total {
+            return Err(PoolError::Exhausted {
+                current: current_total,
+                max: self.config.hard_max_total,
+            });
+        }
+
+        // 3. Create new instance (placeholder)
+        let instance = self.create_instance(user_id).await?;
+        Ok(instance)
+    }
+
+    /// Create a new agent instance (placeholder)
+    async fn create_instance(&self, user_id: &str) -> Result<AgentInstance, PoolError> {
+        // TODO: Create AgentRuntime from octo-engine
+        let instance = AgentInstance {
+            id: InstanceId::new(),
+            runtime: None,
+            workspace: Some(Workspace::new(user_id.to_string())),
+            state: InstanceState::Busy,
+            last_used: Utc::now(),
+        };
+
+        // Add to instances map
+        self.instances.insert(instance.id.clone(), instance.clone());
+
+        Ok(instance)
+    }
+
+    /// Release an instance back to the pool
+    pub async fn release_instance(&self, instance_id: InstanceId) -> Result<(), PoolError> {
+        // 1. Get the instance
+        let mut instance = self
+            .instances
+            .get_mut(&instance_id)
+            .ok_or(PoolError::NotFound(instance_id.clone()))?;
+
+        // 2. State check
+        if instance.state != InstanceState::Busy {
+            return Err(PoolError::Busy(instance_id.clone()));
+        }
+
+        // 3. Clear workspace (isolation guarantee)
+        instance.workspace = None;
+        instance.state = InstanceState::Idle;
+        instance.last_used = Utc::now();
+
+        // 4. Add to idle pool
+        let instance_id_clone = instance_id.clone();
+        drop(instance);
+
+        let mut idle_instances = self.idle_instances.lock().await;
+        idle_instances.push(instance_id_clone);
+
+        Ok(())
     }
 }
 
