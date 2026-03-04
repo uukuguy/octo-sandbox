@@ -19,14 +19,14 @@ fn test_get_user_context_with_context() {
     req.extensions_mut().insert(UserContext {
         user_id: Some("user-001".to_string()),
         permissions: vec![Permission::Read, Permission::Write],
-        role: Some(UserRole::User),
+        role: Some(Role::User),
     });
 
     let ctx = get_user_context(&req).unwrap();
     assert_eq!(ctx.user_id, Some("user-001".to_string()));
     assert!(ctx.permissions.contains(&Permission::Read));
     assert!(ctx.permissions.contains(&Permission::Write));
-    assert_eq!(ctx.role, Some(UserRole::User));
+    assert_eq!(ctx.role, Some(Role::User));
 }
 
 // Test UserContext::has_permission
@@ -35,7 +35,7 @@ fn test_user_context_has_permission() {
     let ctx = UserContext {
         user_id: Some("user-001".to_string()),
         permissions: vec![Permission::Read, Permission::Write],
-        role: Some(UserRole::User),
+        role: Some(Role::User),
     };
 
     assert!(ctx.has_permission(&Permission::Read));
@@ -50,7 +50,7 @@ fn test_user_context_has_role() {
     let ctx_user = UserContext {
         user_id: Some("user-001".to_string()),
         permissions: vec![Permission::Read, Permission::Write],
-        role: Some(UserRole::User),
+        role: Some(Role::User),
     };
 
     assert!(ctx_user.has_role(Role::User));
@@ -60,7 +60,7 @@ fn test_user_context_has_role() {
     let ctx_admin = UserContext {
         user_id: Some("admin-001".to_string()),
         permissions: vec![Permission::Read, Permission::Write, Permission::Admin],
-        role: Some(UserRole::Admin),
+        role: Some(Role::Admin),
     };
 
     assert!(ctx_admin.has_role(Role::User));
@@ -70,7 +70,7 @@ fn test_user_context_has_role() {
     let ctx_owner = UserContext {
         user_id: Some("owner-001".to_string()),
         permissions: vec![Permission::Read, Permission::Write, Permission::Admin],
-        role: Some(UserRole::Owner),
+        role: Some(Role::Owner),
     };
 
     assert!(ctx_owner.has_role(Role::Viewer));
@@ -144,7 +144,7 @@ fn test_auth_config_with_role() {
         "admin-key",
         Some("admin-001".to_string()),
         vec![Permission::Read, Permission::Write, Permission::Admin],
-        Some(UserRole::Admin),
+        Some(Role::Admin),
     );
 
     // Validate the key
@@ -152,7 +152,7 @@ fn test_auth_config_with_role() {
 
     // Get role
     let role = config.get_role("admin-key");
-    assert_eq!(role, Some(UserRole::Admin));
+    assert_eq!(role, Some(Role::Admin));
 
     // Get user_id
     let user_id = config.get_user_id("admin-key");

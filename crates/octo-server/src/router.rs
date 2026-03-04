@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::{body::Body, extract::Request, extract::State, routing::get, Json, Router};
-use octo_engine::auth::{auth_middleware, AuthConfig};
+use octo_engine::auth::{auth_middleware_with_role, AuthConfig};
 use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
@@ -93,7 +93,7 @@ async fn auth_middleware_wrapper(
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     let config: &AuthConfig = &state.auth_config;
-    match auth_middleware(req, next, config).await {
+    match auth_middleware_with_role(req, next, config).await {
         Ok(response) => response,
         Err(status) => {
             tracing::debug!("Auth middleware rejected request: {}", status);

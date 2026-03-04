@@ -21,8 +21,8 @@ pub mod tools;
 pub use agent::{AgentCatalog, AgentEntry, AgentError, AgentEvent, AgentId, AgentLoop, AgentManifest, AgentMessage, AgentExecutor, AgentExecutorHandle, AgentRuntimeConfig, AgentStatus, AgentStore, AgentRuntime};
 pub use audit::{AuditEvent, AuditRecord, AuditStorage};
 pub use auth::{
-    auth_middleware, get_user_context, ApiKey, ApiKeyConfig, AuthConfig, AuthConfigYaml, AuthMode,
-    ApiKeyStorage, ApiKeyResponse, UserRole, Permission, UserContext,
+    auth_middleware_with_role, get_user_context, ApiKey, ApiKeyConfig, AuthConfig, AuthConfigYaml, AuthMode,
+    ApiKeyStorage, ApiKeyResponse, Permission, UserContext, Role, Action,
 };
 pub use context::{
     BootstrapFile, ContextBudgetManager, ContextPruner, DegradationLevel, SystemPromptBuilder,

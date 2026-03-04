@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
-use super::UserRole;
+use super::roles::Role;
 
 /// 认证模式
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -46,7 +46,7 @@ pub struct ApiKey {
     pub key_hash: String,         // sha256 哈希存储
     pub user_id: Option<String>,  // 可选用户绑定
     pub permissions: Vec<Permission>,
-    pub role: Option<UserRole>,   // 角色信息（用于 RBAC）
+    pub role: Option<Role>,   // 角色信息（用于 RBAC）
     pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }
@@ -72,7 +72,7 @@ impl ApiKey {
         self
     }
 
-    pub fn with_role(mut self, role: UserRole) -> Self {
+    pub fn with_role(mut self, role: Role) -> Self {
         self.role = Some(role);
         self
     }
@@ -121,7 +121,7 @@ impl AuthConfig {
         key: &str,
         user_id: Option<String>,
         permissions: Vec<Permission>,
-        role: Option<UserRole>,
+        role: Option<Role>,
     ) {
         let mut api_key = ApiKey::new(key, user_id, permissions);
         if let Some(r) = role {
@@ -169,7 +169,7 @@ impl AuthConfig {
     }
 
     /// 获取角色
-    pub fn get_role(&self, key: &str) -> Option<UserRole> {
+    pub fn get_role(&self, key: &str) -> Option<Role> {
         let mut hasher = Sha256::new();
         hasher.update(key.as_bytes());
         let key_hash = format!("{:x}", hasher.finalize());
@@ -218,7 +218,7 @@ impl AuthConfigYaml {
                     .collect();
 
                 // 解析角色
-                let role = key_config.role.as_ref().and_then(|r| UserRole::from_str(r));
+                let role = key_config.role.as_ref().and_then(|r| Role::from_str(r));
 
                 config.add_api_key_with_role(
                     &key_config.key,

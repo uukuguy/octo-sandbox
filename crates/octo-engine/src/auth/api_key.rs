@@ -8,52 +8,7 @@ use std::path::Path;
 use subtle::ConstantTimeEq;
 use uuid::Uuid;
 
-use super::Permission;
-
-/// 用户角色（扩展为 5 级角色）
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum UserRole {
-    /// 查看者 - 仅能读取资源
-    Viewer,
-    /// 只读用户（兼容旧版）
-    Readonly,
-    /// 普通用户 - 可以创建会话和运行 Agent
-    User,
-    /// 管理员 - 可以管理 MCP 和 Skills
-    Admin,
-    /// 所有者 - 可以管理用户和配置
-    Owner,
-}
-
-impl Default for UserRole {
-    fn default() -> Self {
-        Self::User
-    }
-}
-
-impl UserRole {
-    pub fn from_str(s: &str) -> Option<Self> {
-        match s.to_lowercase().as_str() {
-            "viewer" => Some(UserRole::Viewer),
-            "readonly" => Some(UserRole::Readonly),
-            "user" => Some(UserRole::User),
-            "admin" => Some(UserRole::Admin),
-            "owner" => Some(UserRole::Owner),
-            _ => None,
-        }
-    }
-
-    pub fn to_permission(&self) -> Vec<Permission> {
-        match self {
-            UserRole::Viewer => vec![Permission::Read],
-            UserRole::Readonly => vec![Permission::Read],
-            UserRole::User => vec![Permission::Read, Permission::Write],
-            UserRole::Admin => vec![Permission::Read, Permission::Write, Permission::Admin],
-            UserRole::Owner => vec![Permission::Read, Permission::Write, Permission::Admin],
-        }
-    }
-}
+use super::roles::Role;
 
 /// API Key 实体（数据库存储版本）
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,7 +16,7 @@ pub struct StoredApiKey {
     pub id: String,
     pub key_hash: String,           // 存储 hash
     pub user_id: String,
-    pub role: UserRole,
+    pub role: Role,
     pub created_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub last_used_at: Option<DateTime<Utc>>,
@@ -70,7 +25,7 @@ pub struct StoredApiKey {
 
 impl StoredApiKey {
     /// 生成新的 API Key
-    pub fn generate(user_id: &str, role: UserRole) -> (Self, String) {
+    pub fn generate(user_id: &str, role: Role) -> (Self, String) {
         let id = Uuid::new_v4().to_string();
         let key = Uuid::new_v4().to_string(); // 原始 key，返回给用户
         let key_hash = Self::hash_key(&key);
@@ -90,7 +45,7 @@ impl StoredApiKey {
     }
 
     /// 生成带过期时间的 API Key
-    pub fn generate_with_expiry(user_id: &str, role: UserRole, expires_at: DateTime<Utc>) -> (Self, String) {
+    pub fn generate_with_expiry(user_id: &str, role: Role, expires_at: DateTime<Utc>) -> (Self, String) {
         let (mut api_key, key) = Self::generate(user_id, role);
         api_key.expires_at = Some(expires_at);
         (api_key, key)
@@ -204,7 +159,7 @@ impl ApiKeyStorage {
     /// 验证 API Key
     /// 返回 (user_id, role) 如果验证成功
     /// 验证成功后会更新 last_used_at
-    pub fn verify(&self, key: &str) -> rusqlite::Result<Option<(String, UserRole)>> {
+    pub fn verify(&self, key: &str) -> rusqlite::Result<Option<(String, Role)>> {
         let key_hash = StoredApiKey::hash_key(key);
 
         let mut stmt = self.conn.prepare(
@@ -234,7 +189,7 @@ impl ApiKeyStorage {
                 let _ = self.update_last_used(&key_hash);
 
                 // 解析 role
-                let role: UserRole = serde_json::from_str(&role_str).unwrap_or_default();
+                let role: Role = serde_json::from_str(&role_str).unwrap_or_default();
                 Ok(Some((user_id, role)))
             }
             Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
@@ -335,7 +290,7 @@ impl ApiKeyStorage {
 pub struct ApiKeyResponse {
     pub id: String,
     pub user_id: String,
-    pub role: UserRole,
+    pub role: Role,
     pub created_at: DateTime<Utc>,
     pub expires_at: Option<DateTime<Utc>>,
     pub last_used_at: Option<DateTime<Utc>>,
@@ -363,12 +318,12 @@ mod tests {
 
     #[test]
     fn test_api_key_generate() {
-        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::User);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", Role::User);
 
         assert!(!api_key.id.is_empty());
         assert!(!api_key.key_hash.is_empty());
         assert_eq!(api_key.user_id, "user1");
-        assert_eq!(api_key.role, UserRole::User);
+        assert_eq!(api_key.role, Role::User);
         assert!(!api_key.is_expired());
 
         // 验证 key 正确
@@ -378,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_api_key_verify() {
-        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::Admin);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", Role::Admin);
 
         assert!(api_key.verify(&raw_key));
         assert!(!api_key.verify("invalid_key"));
@@ -388,13 +343,13 @@ mod tests {
     #[test]
     fn test_api_key_expiry() {
         let past = Utc::now() - chrono::Duration::hours(1);
-        let (api_key, _) = StoredApiKey::generate("user1", UserRole::User);
+        let (api_key, _) = StoredApiKey::generate("user1", Role::User);
         let api_key = api_key.with_expiry(past);
 
         assert!(api_key.is_expired());
 
         let future = Utc::now() + chrono::Duration::hours(1);
-        let (api_key2, _) = StoredApiKey::generate("user1", UserRole::User);
+        let (api_key2, _) = StoredApiKey::generate("user1", Role::User);
         let api_key2 = api_key2.with_expiry(future);
 
         assert!(!api_key2.is_expired());
@@ -406,7 +361,7 @@ mod tests {
         let storage = ApiKeyStorage::new(temp_file.path()).unwrap();
 
         // 创建
-        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::User);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", Role::User);
         let api_key_id = api_key.id.clone();
         storage.create(&api_key).unwrap();
 
@@ -439,22 +394,12 @@ mod tests {
 
         // 创建过期的 key
         let past = Utc::now() - chrono::Duration::hours(1);
-        let (api_key, raw_key) = StoredApiKey::generate("user1", UserRole::User);
+        let (api_key, raw_key) = StoredApiKey::generate("user1", Role::User);
         let api_key = api_key.with_expiry(past);
         storage.create(&api_key).unwrap();
 
         // 验证过期 key
         let result = storage.verify(&raw_key).unwrap();
         assert!(result.is_none());
-    }
-
-    #[test]
-    fn test_user_role_permissions() {
-        assert_eq!(UserRole::Readonly.to_permission(), vec![Permission::Read]);
-        assert_eq!(UserRole::User.to_permission(), vec![Permission::Read, Permission::Write]);
-        assert_eq!(
-            UserRole::Admin.to_permission(),
-            vec![Permission::Read, Permission::Write, Permission::Admin]
-        );
     }
 }

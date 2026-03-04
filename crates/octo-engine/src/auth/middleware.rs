@@ -1,6 +1,6 @@
 // crates/octo-engine/src/auth/middleware.rs
 
-use crate::auth::{roles::Role, AuthConfig, AuthMode, Permission, UserRole};
+use crate::auth::{roles::Role, AuthConfig, AuthMode, Permission};
 use axum::{
     body::Body,
     extract::Request,
@@ -14,12 +14,12 @@ use axum::{
 pub struct UserContext {
     pub user_id: Option<String>,
     pub permissions: Vec<Permission>,
-    pub role: Option<UserRole>,
+    pub role: Option<Role>,
 }
 
 impl UserContext {
     /// 创建一个新的用户上下文
-    pub fn new(user_id: Option<String>, permissions: Vec<Permission>, role: Option<UserRole>) -> Self {
+    pub fn new(user_id: Option<String>, permissions: Vec<Permission>, role: Option<Role>) -> Self {
         Self {
             user_id,
             permissions,
@@ -44,55 +44,8 @@ impl UserContext {
     /// 检查是否具有特定角色（如果角色已设置）
     pub fn has_role(&self, required_role: Role) -> bool {
         self.role
-            .map(|r| {
-                let current: Option<Role> = match r {
-                    UserRole::Viewer => Some(Role::Viewer),
-                    UserRole::Readonly => Some(Role::Viewer), // 兼容旧版 Readonly
-                    UserRole::User => Some(Role::User),
-                    UserRole::Admin => Some(Role::Admin),
-                    UserRole::Owner => Some(Role::Owner),
-                };
-                current.map(|r| r.has_at_least(&required_role)).unwrap_or(false)
-            })
+            .map(|r| r.has_at_least(&required_role))
             .unwrap_or(false)
-    }
-}
-
-/// 认证中间件
-pub async fn auth_middleware(
-    req: Request<Body>,
-    next: Next,
-    config: &AuthConfig,
-) -> Result<Response, StatusCode> {
-    match config.mode {
-        AuthMode::None => {
-            // 无认证模式，直接放行，注入匿名用户
-            let mut req = req;
-            req.extensions_mut().insert(UserContext::anonymous());
-            Ok(next.run(req).await)
-        }
-        AuthMode::ApiKey => {
-            // 验证 API Key
-            let key = req.headers().get("X-API-Key").and_then(|v| v.to_str().ok());
-
-            match key {
-                Some(k) if config.validate_key(k) => {
-                    let user_id = config.get_user_id(k);
-                    let permissions = config.get_permissions(k);
-                    // 尝试获取角色信息
-                    let role = config.get_role(k);
-
-                    let mut req = req;
-                    req.extensions_mut().insert(UserContext::new(user_id, permissions, role));
-                    Ok(next.run(req).await)
-                }
-                _ => Err(StatusCode::UNAUTHORIZED),
-            }
-        }
-        AuthMode::Full => {
-            // 完整认证（octo-platform 实现）
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
     }
 }
 

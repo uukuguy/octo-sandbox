@@ -15,4 +15,4 @@ pub use middleware::*;
 pub use roles::*;
 
 // Re-export api_key types (StoredApiKey to avoid conflict with config's ApiKey)
-pub use api_key::{ApiKeyResponse, ApiKeyStorage, StoredApiKey, UserRole};
+pub use api_key::{ApiKeyResponse, ApiKeyStorage, StoredApiKey};
