@@ -11,6 +11,7 @@ pub mod metrics;
 pub mod providers;
 pub mod scheduler;
 pub mod sessions;
+pub mod tasks;
 pub mod tools;
 pub mod user_context;
 
@@ -74,6 +75,8 @@ pub fn routes() -> Router<Arc<AppState>> {
         .merge(mcp_logs::routes())
         // Scheduler
         .nest("/scheduler", scheduler::create_router())
+        // Background tasks
+        .merge(tasks::router())
         // Provider chain
         .merge(providers::router())
         // Agent registry and lifecycle
