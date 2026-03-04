@@ -9,6 +9,7 @@ pub mod logging;
 pub mod mcp;
 pub mod memory;
 pub mod metrics;
+pub mod metering;
 pub mod providers;
 pub mod sandbox;
 pub mod scheduler;
@@ -42,6 +43,7 @@ pub use memory::{
     MemorySystem, Relation, SqliteMemoryStore, SqliteWorkingMemory, TokenBudgetManager, WorkingMemory,
 };
 pub use metrics::{Counter, Gauge, Histogram, MetricsRegistry};
+pub use metering::{Metering, MeteringSnapshot};
 pub use providers::{create_anthropic_provider, create_openai_provider, create_provider, Provider, ProviderConfig};
 pub use sandbox::{
     DockerAdapter, ExecResult, RuntimeAdapter, SandboxConfig, SandboxError, SandboxId, SandboxType,
