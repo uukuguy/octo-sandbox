@@ -24,7 +24,8 @@ pub mod ws;
 
 // Re-export agent_pool types
 pub use agent_pool::{
-    AgentInstance, AgentPool, InstanceId, InstanceState, IsolationStrategy, PoolConfig, Workspace,
+    AgentInstance, AgentPool, InstanceId, InstanceState, IsolationStrategy, PoolConfig, PoolStats,
+    Workspace,
 };
 
 // Re-export user_runtime types
