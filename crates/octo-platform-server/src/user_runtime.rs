@@ -139,9 +139,18 @@ impl UserRuntime {
     }
 
     pub fn delete_session(&self, user_id: &str, session_id: &str) -> bool {
-        self.sessions
-            .remove(session_id)
-            .map(|(_, session)| session.user_id == user_id)
-            .unwrap_or(false)
+        // Get session and clone ownership info BEFORE removing (releases read lock)
+        let is_owned = self
+            .sessions
+            .get(session_id)
+            .map(|s| s.user_id == user_id)
+            .unwrap_or(false);
+
+        // Only attempt removal if the caller owns this session
+        if is_owned {
+            self.sessions.remove(session_id).is_some()
+        } else {
+            false
+        }
     }
 }
