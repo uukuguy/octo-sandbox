@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::EnvFilter;
 
 use octo_engine::{
     scheduler::{Scheduler, SqliteSchedulerStorage},
@@ -71,11 +71,24 @@ async fn main() -> Result<()> {
 
     // Apply logging config (clone to avoid moving)
     let log_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| cfg.logging.level.clone());
-    fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&log_filter)),
-        )
-        .init();
+    let log_format = std::env::var("OCTO_LOG_FORMAT").unwrap_or_default();
+
+    if log_format == "json" {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(
+                EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| EnvFilter::new(&log_filter)),
+            )
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::try_from_default_env()
+                    .unwrap_or_else(|_| EnvFilter::new(&log_filter)),
+            )
+            .init();
+    }
 
     let addr = format!("{}:{}", cfg.server.host, cfg.server.port);
     tracing::info!("Using provider: {}", cfg.provider.name);
