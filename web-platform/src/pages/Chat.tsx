@@ -5,7 +5,6 @@ import { messagesAtom, inputAtom, isStreamingAtom, isConnectedAtom } from '../at
 import { accessTokenAtom } from '../atoms/auth';
 import { wsManager } from '../ws/manager';
 import { WsMessage, ChatMessage } from '../api/types';
-import { AppLayout } from '../components/layout/AppLayout';
 import { MessageList } from '../components/chat/MessageList';
 import { ChatInput } from '../components/chat/ChatInput';
 
@@ -151,21 +150,19 @@ export function ChatPage() {
   };
 
   return (
-    <AppLayout>
-      <div className="flex flex-col h-full">
-        <div className="flex-1 overflow-auto mb-4">
-          <MessageList messages={messages} />
-          <div ref={messagesEndRef} />
-        </div>
-        <ChatInput
-          value={input}
-          onChange={setInput}
-          onSend={handleSend}
-          onStop={handleStop}
-          disabled={!isConnected}
-          isStreaming={isStreaming}
-        />
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-auto mb-4">
+        <MessageList messages={messages} />
+        <div ref={messagesEndRef} />
       </div>
-    </AppLayout>
+      <ChatInput
+        value={input}
+        onChange={setInput}
+        onSend={handleSend}
+        onStop={handleStop}
+        disabled={!isConnected}
+        isStreaming={isStreaming}
+      />
+    </div>
   );
 }
