@@ -16,7 +16,10 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc;
 use tracing::{debug, warn};
 
-use crate::{AppState, AuthExtractor, ErrorResponse};
+use crate::{
+    agent_pool::{AgentPool, InstanceId},
+    AppState, AuthExtractor, ErrorResponse,
+};
 
 /// Maximum message size limit (1MB)
 const MAX_MESSAGE_SIZE: usize = 1024 * 1024;
@@ -76,10 +79,36 @@ pub async fn ws_handler(
             .into_response();
     }
 
-    ws.on_upgrade(move |socket| handle_socket(session_id, socket))
+    // Get AgentPool from state
+    let pool = state.agent_pool();
+
+    // Get instance from pool
+    let instance = match pool.get_instance(&auth.user_id).await {
+        Ok(i) => i,
+        Err(e) => {
+            return (
+                StatusCode::SERVICE_UNAVAILABLE,
+                Json(ErrorResponse {
+                    error: format!("Agent pool exhausted: {}", e),
+                }),
+            )
+                .into_response();
+        }
+    };
+
+    // Save instance_id for returning to pool
+    let instance_id = instance.id.clone();
+    let pool = Arc::clone(pool);
+
+    ws.on_upgrade(move |socket| handle_socket(session_id, socket, instance_id, pool))
 }
 
-async fn handle_socket(session_id: String, socket: WebSocket) {
+async fn handle_socket(
+    session_id: String,
+    socket: WebSocket,
+    instance_id: InstanceId,
+    pool: Arc<AgentPool>,
+) {
     let (mut sender, mut receiver) = socket.split();
 
     // Create a channel for sending messages back to client
@@ -154,5 +183,9 @@ async fn handle_socket(session_id: String, socket: WebSocket) {
     }
 
     send_task.abort();
-    tracing::info!("WebSocket closed for session: {}", session_id);
+
+    // Return instance to pool (ignore errors - pool will handle cleanup)
+    let _ = pool.release_instance(instance_id).await;
+
+    tracing::info!("WebSocket closed for session: {}, instance returned to pool", session_id);
 }

@@ -257,6 +257,7 @@ impl Default for AgentInstance {
 // ============================================================================
 
 /// Agent pool for managing agent instances
+#[derive(Debug)]
 pub struct AgentPool {
     /// Pool configuration
     config: PoolConfig,

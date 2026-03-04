@@ -75,6 +75,7 @@ pub struct AppState {
     pub db: Arc<db::UserDatabase>,
     pub jwt: Arc<auth::JwtManager>,
     pub users: DashMap<String, Arc<UserRuntime>>,
+    pub agent_pool: Arc<AgentPool>,
 }
 
 impl AppState {
@@ -86,11 +87,14 @@ impl AppState {
             auth::JwtConfig::from_env().context("JWT configuration from environment")?;
         let jwt = Arc::new(auth::JwtManager::new(jwt_config));
 
+        let agent_pool = Arc::new(AgentPool::new());
+
         Ok(Self {
             config,
             db,
             jwt,
             users: DashMap::new(),
+            agent_pool,
         })
     }
 
@@ -124,6 +128,11 @@ impl AppState {
                 Ok(Arc::clone(&vacant.insert(user_runtime)))
             }
         }
+    }
+
+    /// Get the agent pool
+    pub fn agent_pool(&self) -> &Arc<AgentPool> {
+        &self.agent_pool
     }
 }
 
