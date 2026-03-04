@@ -116,8 +116,48 @@ pub enum PoolError {
 }
 
 // ============================================================================
-// Step 2: Workspace and Agent Instance
+// Step 2: Workspace, Context Snapshot, and Agent Instance
 // ============================================================================
+
+/// Simplified MemoryBlock (for context snapshot)
+/// Note: In production, this would use octo_engine::memory::MemoryBlock
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MemoryBlock {
+    /// Unique identifier for the memory block
+    pub id: String,
+    /// Content of the memory block
+    pub content: String,
+    /// Kind of memory (e.g., "working", "session", "persistent")
+    pub kind: String,
+}
+
+/// Agent context snapshot (for state persistence and recovery)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ContextSnapshot {
+    /// Working memory blocks
+    pub working_memory: Vec<MemoryBlock>,
+    /// Session memory blocks
+    pub session_memory: Vec<MemoryBlock>,
+    /// Timestamp when snapshot was created
+    pub created_at: DateTime<Utc>,
+}
+
+impl ContextSnapshot {
+    /// Create a new empty context snapshot
+    pub fn new() -> Self {
+        Self {
+            working_memory: Vec::new(),
+            session_memory: Vec::new(),
+            created_at: Utc::now(),
+        }
+    }
+}
+
+impl Default for ContextSnapshot {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 /// User workspace - isolated memory/session context
 #[derive(Debug, Clone)]
@@ -126,14 +166,31 @@ pub struct Workspace {
     pub user_id: String,
     /// Session IDs in this workspace
     pub session_ids: Vec<String>,
+    /// Agent context snapshot (for persistence and recovery)
+    pub context: Option<ContextSnapshot>,
 }
 
 impl Workspace {
+    /// Create a new workspace for a user
     pub fn new(user_id: String) -> Self {
         Self {
             user_id,
             session_ids: Vec::new(),
+            context: None,
         }
+    }
+
+    /// Add a session to the workspace
+    pub fn add_session(&mut self, session_id: String) {
+        if !self.session_ids.contains(&session_id) {
+            self.session_ids.push(session_id);
+        }
+    }
+
+    /// Clear workspace (called when returning to pool)
+    pub fn clear(&mut self) {
+        self.session_ids.clear();
+        self.context = None;
     }
 }
 
@@ -320,12 +377,17 @@ impl AgentPool {
             return Err(PoolError::Busy(instance_id.clone()));
         }
 
-        // 3. Clear workspace (isolation guarantee)
+        // 3. Persist user workspace state before clearing
+        if let Some(ref workspace) = instance.workspace {
+            self.persist_workspace(workspace).await;
+        }
+
+        // 4. Clear workspace (isolation guarantee)
         instance.workspace = None;
         instance.state = InstanceState::Idle;
         instance.last_used = Utc::now();
 
-        // 4. Add to idle pool
+        // 5. Add to idle pool
         let instance_id_clone = instance_id.clone();
         drop(instance);
 
@@ -333,6 +395,28 @@ impl AgentPool {
         idle_instances.push(instance_id_clone);
 
         Ok(())
+    }
+
+    /// Persist workspace data to session store
+    /// TODO: Implement actual persistence to Session Store
+    /// - WorkingMemory -> Session Store
+    /// - ContextSnapshot -> Persistent storage
+    async fn persist_workspace(&self, workspace: &Workspace) {
+        // Log the persistence action (in production, this would save to database)
+        tracing::debug!(
+            "Persisting workspace for user: {}, sessions: {:?}",
+            workspace.user_id,
+            workspace.session_ids
+        );
+
+        // If there's a context snapshot, log its details
+        if let Some(ref context) = workspace.context {
+            tracing::debug!(
+                "Persisting context: {} working memory blocks, {} session memory blocks",
+                context.working_memory.len(),
+                context.session_memory.len()
+            );
+        }
     }
 }
 
