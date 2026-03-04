@@ -312,6 +312,18 @@ impl SkillLoader {
         }
 
         let script_path = scripts_dir.join(script_name);
+
+        // Validate path to prevent path traversal attacks
+        // Check for ".." components that could escape the scripts directory
+        for component in script_path.components() {
+            if let std::path::Component::ParentDir = component {
+                anyhow::bail!(
+                    "Invalid script path: path traversal not allowed (in skill '{}')",
+                    skill_name
+                );
+            }
+        }
+
         if !script_path.exists() {
             anyhow::bail!(
                 "Script not found: {} (in skill '{}')",

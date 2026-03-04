@@ -41,15 +41,25 @@ impl SkillRuntimeBridge {
         self.runtimes.insert(rt_type, runtime);
     }
 
+    /// Private helper to map file extension to RuntimeType.
+    /// Returns None for unknown extensions.
+    fn runtime_type_from_ext(ext: &str) -> Option<RuntimeType> {
+        match ext.to_lowercase().as_str() {
+            "py" | "python" => Some(RuntimeType::Python),
+            "js" | "mjs" | "node" => Some(RuntimeType::NodeJS),
+            "wasm" => Some(RuntimeType::WASM),
+            "rs" | "builtin" => Some(RuntimeType::Builtin),
+            _ => None,
+        }
+    }
+
     /// Get runtime for a given file extension.
     /// Returns None if the runtime is not available.
     pub fn get_runtime_for_extension(&self, ext: &str) -> Option<&dyn SkillRuntime> {
-        match ext.to_lowercase().as_str() {
-            "py" | "python" => self.python_runtime.as_ref().map(|r| r as &dyn SkillRuntime),
-            "js" | "mjs" | "node" => self.runtimes.get(&RuntimeType::NodeJS).map(|r| r.as_ref()),
-            "wasm" => self.runtimes.get(&RuntimeType::WASM).map(|r| r.as_ref()),
-            "rs" | "builtin" => self.runtimes.get(&RuntimeType::Builtin).map(|r| r.as_ref()),
-            _ => None,
+        match Self::runtime_type_from_ext(ext) {
+            Some(RuntimeType::Python) => self.python_runtime.as_ref().map(|r| r as &dyn SkillRuntime),
+            Some(rt) => self.runtimes.get(&rt).map(|r| r.as_ref()),
+            None => None,
         }
     }
 
@@ -58,21 +68,13 @@ impl SkillRuntimeBridge {
     pub fn get_runtime(&self, runtime_type: RuntimeType) -> Option<&dyn SkillRuntime> {
         match runtime_type {
             RuntimeType::Python => self.python_runtime.as_ref().map(|r| r as &dyn SkillRuntime),
-            RuntimeType::NodeJS => self.runtimes.get(&RuntimeType::NodeJS).map(|r| r.as_ref()),
-            RuntimeType::WASM => self.runtimes.get(&RuntimeType::WASM).map(|r| r.as_ref()),
-            RuntimeType::Builtin => self.runtimes.get(&RuntimeType::Builtin).map(|r| r.as_ref()),
+            rt => self.runtimes.get(&rt).map(|r| r.as_ref()),
         }
     }
 
     /// Detect runtime type from file extension.
     pub fn detect_runtime_type(ext: &str) -> Option<RuntimeType> {
-        match ext.to_lowercase().as_str() {
-            "py" | "python" => Some(RuntimeType::Python),
-            "js" | "mjs" | "node" => Some(RuntimeType::NodeJS),
-            "wasm" => Some(RuntimeType::WASM),
-            "rs" | "builtin" => Some(RuntimeType::Builtin),
-            _ => None,
-        }
+        Self::runtime_type_from_ext(ext)
     }
 
     /// Execute a script file with the given arguments and context.
