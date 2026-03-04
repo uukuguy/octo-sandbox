@@ -16,7 +16,13 @@ pub struct ToolInfo {
 }
 
 pub async fn list_tools(State(state): State<Arc<AppState>>) -> Json<Vec<ToolInfo>> {
-    let registry = state.agent_supervisor.tools().lock().unwrap();
+    let registry = match state.agent_supervisor.tools().lock() {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!("Failed to lock tool registry: {}", e);
+            return Json(vec![]);
+        }
+    };
     let specs = registry.specs();
     let tools: Vec<ToolInfo> = specs
         .into_iter()

@@ -227,23 +227,6 @@ impl AgentRuntime {
         })
     }
 
-    /// Legacy constructor for backward compatibility during transition.
-    /// Prefer using `new()` which creates all components internally.
-    #[deprecated(since = "0.4.0", note = "Use new() instead")]
-    #[allow(dead_code)]
-    pub fn new_legacy(
-        _catalog: Arc<AgentCatalog>,
-        _provider_config: &ProviderConfig,
-        _tools: Arc<ToolRegistry>,
-        _memory: Arc<dyn WorkingMemory>,
-        _default_model: String,
-    ) -> Self {
-        // This legacy constructor is deprecated and should not be used.
-        // Use new() instead which creates all components internally.
-        // We still need this for compilation during the transition period.
-        unimplemented!("Use AgentRuntime::new() instead")
-    }
-
     pub fn with_skill_registry(mut self, skills: Arc<SkillRegistry>) -> Self {
         self.skill_registry = Some(skills);
         self

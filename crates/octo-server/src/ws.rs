@@ -115,9 +115,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                     session_id: String::new(),
                     message: format!("Invalid message: {e}"),
                 };
-                let _ = sender
-                    .send(Message::Text(serde_json::to_string(&err).unwrap().into()))
-                    .await;
+                if let Ok(text) = serde_json::to_string(&err) {
+                    let _ = sender.send(Message::Text(text.into())).await;
+                }
                 continue;
             }
         };
@@ -130,9 +130,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
 
                 // 告知客户端 session_id（前端 UI 显示用）
                 let created_msg = ServerMessage::SessionCreated { session_id: sid_str.clone() };
-                let _ = sender
-                    .send(Message::Text(serde_json::to_string(&created_msg).unwrap().into()))
-                    .await;
+                if let Ok(text) = serde_json::to_string(&created_msg) {
+                    let _ = sender.send(Message::Text(text.into())).await;
+                }
 
                 // 先订阅，再发消息（避免丢失事件）
                 let mut rx = handle.subscribe();
@@ -214,11 +214,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                     let done_msg = ServerMessage::Done {
                                         session_id: sid_str.clone(),
                                     };
-                                    let _ = sender
-                                        .send(Message::Text(
-                                            serde_json::to_string(&done_msg).unwrap().into(),
-                                        ))
-                                        .await;
+                                    if let Ok(text) = serde_json::to_string(&done_msg) {
+                                        let _ = sender.send(Message::Text(text.into())).await;
+                                    }
                                     break;
                                 }
                             };
