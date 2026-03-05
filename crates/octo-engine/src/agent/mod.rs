@@ -11,6 +11,7 @@ pub mod parallel;
 pub mod queue;
 pub mod runtime;
 pub mod store;
+pub mod tenant;  // 新增
 
 pub use cancellation::{CancellationToken, ChildCancellationToken};
 pub use catalog::AgentCatalog;
@@ -22,3 +23,4 @@ pub use loop_::{AgentEvent, AgentLoop};
 pub use queue::{MessageQueue, QueueKind, QueueMode};
 pub use runtime::{AgentRuntime, AgentRuntimeConfig};
 pub use store::AgentStore;
+pub use tenant::{TenantContext, Role, Action};
