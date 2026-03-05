@@ -12,7 +12,8 @@ use octo_types::{
 };
 
 use crate::context::{
-    ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher, SystemPromptBuilder,
+    ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher,
+    NewSystemPromptBuilder as SystemPromptBuilder, // Zone A builder
 };
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
@@ -20,6 +21,7 @@ use crate::providers::{LlmErrorKind, Provider, RetryPolicy};
 use crate::tools::ToolRegistry;
 
 use super::config::AgentConfig;
+use super::entry::AgentManifest;
 use super::parallel::execute_parallel;
 use super::CancellationToken;
 
@@ -80,8 +82,11 @@ pub struct AgentLoop {
     loop_guard: super::loop_guard::LoopGuard,
     event_bus: Option<Arc<crate::event::EventBus>>,
     config: AgentConfig,
-    /// Zone A: override the entire system prompt (e.g. from AgentManifest).
-    /// When None, SystemPromptBuilder builds the default system prompt.
+    /// Zone A: Agent manifest containing role/goal/backstory/system_prompt
+    manifest: Option<AgentManifest>,
+    /// Zone A: override the entire system prompt (deprecated, use manifest instead).
+    /// Kept for backward compatibility.
+    #[deprecated(since = "0.1.0", note = "Use with_manifest() instead")]
     system_prompt_override: Option<String>,
 }
 
@@ -105,6 +110,7 @@ impl AgentLoop {
             loop_guard: super::loop_guard::LoopGuard::new(),
             event_bus: None,
             config: AgentConfig::default(),
+            manifest: None,
             system_prompt_override: None,
         }
     }
@@ -129,8 +135,19 @@ impl AgentLoop {
         self
     }
 
+    /// Zone A: set the agent manifest (role/goal/backstory/system_prompt).
+    ///
+    /// The manifest is used by SystemPromptBuilder to construct Zone A:
+    /// - system_prompt: Full override (highest priority)
+    /// - role/goal/backstory: CrewAI pattern (second priority)
+    pub fn with_manifest(mut self, manifest: AgentManifest) -> Self {
+        self.manifest = Some(manifest);
+        self
+    }
+
     /// Zone A: override the system prompt with a custom string (e.g. from AgentManifest).
     /// When set, the default SystemPromptBuilder is bypassed entirely.
+    #[allow(deprecated)]
     pub fn with_system_prompt(mut self, prompt: String) -> Self {
         self.system_prompt_override = Some(prompt);
         self
@@ -167,12 +184,21 @@ impl AgentLoop {
         );
 
         // Zone A: static system prompt (agent identity + capabilities)
-        // Uses system_prompt_override when set (e.g. from AgentManifest),
-        // otherwise falls back to SystemPromptBuilder defaults.
-        let system_prompt = self
-            .system_prompt_override
-            .clone()
-            .unwrap_or_else(|| SystemPromptBuilder::new().build_system_prompt());
+        //
+        // Priority:
+        // 1. system_prompt_override (deprecated, for backward compatibility)
+        // 2. manifest with role/goal/backstory/system_prompt
+        // 3. default SystemPromptBuilder
+        #[allow(deprecated)]
+        let system_prompt = if let Some(ref r#override) = self.system_prompt_override {
+            r#override.clone()
+        } else if let Some(ref manifest) = self.manifest {
+            SystemPromptBuilder::new()
+                .with_manifest(manifest.clone())
+                .build()
+        } else {
+            SystemPromptBuilder::new().build()
+        };
 
         debug!("System prompt length: {} chars", system_prompt.len());
 
