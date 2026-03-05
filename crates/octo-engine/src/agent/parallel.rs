@@ -287,4 +287,125 @@ mod tests {
         assert_eq!(results[2].0, "echo");
         assert!(results[2].1.output.contains("third"));
     }
+
+    /// Delay tool for timing tests - accepts "ms" parameter for delay duration
+    #[derive(Debug)]
+    struct DelayTool;
+
+    impl DelayTool {
+        fn new() -> Self {
+            Self
+        }
+    }
+
+    #[async_trait]
+    impl Tool for DelayTool {
+        fn name(&self) -> &str {
+            "delay"
+        }
+
+        fn description(&self) -> &str {
+            "Delay tool for testing"
+        }
+
+        fn parameters(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "ms": { "type": "number", "description": "Delay in milliseconds" }
+                },
+                "required": ["ms"]
+            })
+        }
+
+        async fn execute(
+            &self,
+            params: serde_json::Value,
+            _ctx: &ToolContext,
+        ) -> Result<ToolResult> {
+            let ms = params
+                .get("ms")
+                .and_then(|v| v.as_u64())
+                .unwrap_or(10);
+            tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
+            Ok(ToolResult::success(format!("delayed {}ms", ms)))
+        }
+
+        fn source(&self) -> ToolSource {
+            ToolSource::BuiltIn
+        }
+
+        fn spec(&self) -> ToolSpec {
+            ToolSpec {
+                name: self.name().to_string(),
+                description: self.description().to_string(),
+                input_schema: self.parameters(),
+            }
+        }
+    }
+
+    fn test_registry_with_delay() -> Arc<ToolRegistry> {
+        let mut registry = ToolRegistry::new();
+        registry.register(TestTool::new("echo", "Echo tool"));
+        registry.register(DelayTool::new());
+        Arc::new(registry)
+    }
+
+    #[tokio::test]
+    async fn test_execute_parallel_is_faster_than_sequential() {
+        let registry = test_registry_with_delay();
+        let cancellation = CancellationToken::new();
+        let ctx = test_tool_ctx();
+
+        // Two tools each taking 100ms
+        let tools = vec![
+            ("delay".to_string(), serde_json::json!({"ms": 100})),
+            ("delay".to_string(), serde_json::json!({"ms": 100})),
+        ];
+
+        // Parallel execution with max_parallel=2
+        let start = std::time::Instant::now();
+        let results = execute_parallel(tools, &registry, 2, &cancellation, &ctx).await;
+        let parallel_duration = start.elapsed().as_millis();
+
+        // Should complete in roughly 100ms (parallel) not 200ms (sequential)
+        // Allow some overhead but should be well under 150ms
+        assert!(
+            parallel_duration < 150,
+            "Parallel execution took {}ms, expected < 150ms",
+            parallel_duration
+        );
+
+        assert_eq!(results.len(), 2);
+        assert!(!results[0].1.is_error);
+        assert!(!results[1].1.is_error);
+    }
+
+    #[tokio::test]
+    async fn test_execute_parallel_semaphore_limits_concurrency() {
+        let registry = test_registry_with_delay();
+        let cancellation = CancellationToken::new();
+        let ctx = test_tool_ctx();
+
+        // Three tools each taking 100ms, but semaphore limits to 1
+        let tools = vec![
+            ("delay".to_string(), serde_json::json!({"ms": 100})),
+            ("delay".to_string(), serde_json::json!({"ms": 100})),
+            ("delay".to_string(), serde_json::json!({"ms": 100})),
+        ];
+
+        // Parallel execution with max_parallel=1 (should be sequential)
+        let start = std::time::Instant::now();
+        let results = execute_parallel(tools, &registry, 1, &cancellation, &ctx).await;
+        let duration = start.elapsed().as_millis();
+
+        // Should take at least 300ms (sequential)
+        assert!(
+            duration >= 290,
+            "With semaphore=1, execution took {}ms, expected >= 290ms",
+            duration
+        );
+
+        assert_eq!(results.len(), 3);
+    }
 }
