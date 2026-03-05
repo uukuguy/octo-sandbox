@@ -33,3 +33,7 @@ argon2 = "0.5"
 rand = "0.8"
 # Error handling
 thiserror = { workspace = true }
+# OAuth
+async-trait = { workspace = true }
+reqwest = { workspace = true }
+urlencoding = { workspace = true }
