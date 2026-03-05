@@ -3,17 +3,10 @@
 use axum::{
     extract::{Path, State},
     http::StatusCode,
-    routing::{delete, get, post},
-    Json, Router,
+    Json,
 };
 
 use crate::{ArcAppState, AuthExtractor, ErrorResponse};
-
-pub fn router() -> Router<ArcAppState> {
-    Router::new()
-        .route("/api/mcp", get(list_mcp).post(add_mcp))
-        .route("/api/mcp/:id", delete(delete_mcp).get(get_mcp))
-}
 
 pub async fn list_mcp(
     State(state): State<ArcAppState>,
