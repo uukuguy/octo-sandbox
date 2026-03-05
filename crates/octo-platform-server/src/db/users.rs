@@ -51,6 +51,7 @@ impl From<&str> for UserRole {
 /// Platform user
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct User {
+    pub tenant_id: String,
     pub id: String,
     pub email: String,
     pub password_hash: String,
@@ -94,6 +95,7 @@ pub struct PaginatedUsersResponse {
 
 #[derive(Debug, Serialize)]
 pub struct UserResponse {
+    pub tenant_id: String,
     pub id: String,
     pub email: String,
     pub display_name: String,
@@ -104,6 +106,7 @@ pub struct UserResponse {
 impl From<User> for UserResponse {
     fn from(user: User) -> Self {
         Self {
+            tenant_id: user.tenant_id,
             id: user.id,
             email: user.email,
             display_name: user.display_name,
@@ -143,6 +146,7 @@ impl UserDatabase {
         let conn = self.conn.lock().unwrap();
         conn.execute(
             "CREATE TABLE IF NOT EXISTS users (
+                tenant_id TEXT NOT NULL DEFAULT 'default',
                 id TEXT PRIMARY KEY,
                 email TEXT UNIQUE NOT NULL,
                 password_hash TEXT NOT NULL,
@@ -155,6 +159,11 @@ impl UserDatabase {
 
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)",
+            [],
+        )?;
+
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_users_tenant ON users(tenant_id)",
             [],
         )?;
 
@@ -187,6 +196,7 @@ impl UserDatabase {
 
         // Create user
         let user = User {
+            tenant_id: "default".to_string(),
             id: Uuid::new_v4().to_string(),
             email: req.email.clone(),
             password_hash,
@@ -199,9 +209,10 @@ impl UserDatabase {
         };
 
         conn.execute(
-            "INSERT INTO users (id, email, password_hash, display_name, role, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            "INSERT INTO users (tenant_id, id, email, password_hash, display_name, role, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
             params![
+                user.tenant_id,
                 user.id,
                 user.email,
                 user.password_hash,
@@ -219,17 +230,18 @@ impl UserDatabase {
     pub fn authenticate(&self, req: &LoginRequest) -> Result<UserResponse> {
         let conn = self.conn.lock().unwrap();
         let user: User = conn.query_row(
-            "SELECT id, email, password_hash, display_name, role, created_at
+            "SELECT tenant_id, id, email, password_hash, display_name, role, created_at
              FROM users WHERE email = ?1",
             [&req.email],
             |row| {
                 Ok(User {
-                    id: row.get(0)?,
-                    email: row.get(1)?,
-                    password_hash: row.get(2)?,
-                    display_name: row.get(3)?,
-                    role: UserRole::from(row.get::<_, String>(4)?.as_str()),
-                    created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
+                    tenant_id: row.get(0)?,
+                    id: row.get(1)?,
+                    email: row.get(2)?,
+                    password_hash: row.get(3)?,
+                    display_name: row.get(4)?,
+                    role: UserRole::from(row.get::<_, String>(5)?.as_str()),
+                    created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?)
                         .map(|dt| dt.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now()),
                 })
@@ -251,17 +263,18 @@ impl UserDatabase {
     pub fn get_user(&self, user_id: &str) -> Result<Option<UserResponse>> {
         let conn = self.conn.lock().unwrap();
         let result = conn.query_row(
-            "SELECT id, email, password_hash, display_name, role, created_at
+            "SELECT tenant_id, id, email, password_hash, display_name, role, created_at
              FROM users WHERE id = ?1",
             [user_id],
             |row| {
                 Ok(User {
-                    id: row.get(0)?,
-                    email: row.get(1)?,
-                    password_hash: row.get(2)?,
-                    display_name: row.get(3)?,
-                    role: UserRole::from(row.get::<_, String>(4)?.as_str()),
-                    created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
+                    tenant_id: row.get(0)?,
+                    id: row.get(1)?,
+                    email: row.get(2)?,
+                    password_hash: row.get(3)?,
+                    display_name: row.get(4)?,
+                    role: UserRole::from(row.get::<_, String>(5)?.as_str()),
+                    created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?)
                         .map(|dt| dt.with_timezone(&Utc))
                         .unwrap_or_else(|_| Utc::now()),
                 })
@@ -286,18 +299,19 @@ impl UserDatabase {
         let total_pages = (total as f64 / per_page as f64).ceil() as i64;
 
         let mut stmt = conn.prepare(
-            "SELECT id, email, password_hash, display_name, role, created_at
+            "SELECT tenant_id, id, email, password_hash, display_name, role, created_at
              FROM users ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
         )?;
 
         let users = stmt.query_map(params![per_page, offset], |row| {
             Ok(User {
-                id: row.get(0)?,
-                email: row.get(1)?,
-                password_hash: row.get(2)?,
-                display_name: row.get(3)?,
-                role: UserRole::from(row.get::<_, String>(4)?.as_str()),
-                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(5)?)
+                tenant_id: row.get(0)?,
+                id: row.get(1)?,
+                email: row.get(2)?,
+                password_hash: row.get(3)?,
+                display_name: row.get(4)?,
+                role: UserRole::from(row.get::<_, String>(5)?.as_str()),
+                created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(6)?)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now()),
             })
