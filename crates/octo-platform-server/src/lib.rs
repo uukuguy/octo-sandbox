@@ -19,6 +19,7 @@ pub mod agent_pool;
 pub mod api;
 pub mod auth;
 pub mod db;
+pub mod tenant;
 pub mod user_runtime;
 pub mod ws;
 
@@ -30,6 +31,9 @@ pub use agent_pool::{
 
 // Re-export user_runtime types
 pub use user_runtime::{Session, SessionStatus, UserRuntime};
+
+// Re-export tenant types
+pub use tenant::{ResourceQuota, Tenant, TenantManager, TenantRuntime, TenantPlan};
 
 /// User runtime configuration
 #[derive(Debug, Clone)]
