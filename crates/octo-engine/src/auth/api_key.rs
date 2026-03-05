@@ -14,7 +14,7 @@ use super::roles::Role;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredApiKey {
     pub id: String,
-    pub key_hash: String,           // 存储 hash
+    pub key_hash: String, // 存储 hash
     pub user_id: String,
     pub role: Role,
     pub created_at: DateTime<Utc>,
@@ -45,7 +45,11 @@ impl StoredApiKey {
     }
 
     /// 生成带过期时间的 API Key
-    pub fn generate_with_expiry(user_id: &str, role: Role, expires_at: DateTime<Utc>) -> (Self, String) {
+    pub fn generate_with_expiry(
+        user_id: &str,
+        role: Role,
+        expires_at: DateTime<Utc>,
+    ) -> (Self, String) {
         let (mut api_key, key) = Self::generate(user_id, role);
         api_key.expires_at = Some(expires_at);
         (api_key, key)
@@ -162,9 +166,9 @@ impl ApiKeyStorage {
     pub fn verify(&self, key: &str) -> rusqlite::Result<Option<(String, Role)>> {
         let key_hash = StoredApiKey::hash_key(key);
 
-        let mut stmt = self.conn.prepare(
-            "SELECT user_id, role, expires_at FROM api_keys WHERE key_hash = ?1",
-        )?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT user_id, role, expires_at FROM api_keys WHERE key_hash = ?1")?;
 
         let result = stmt.query_row([&key_hash], |row| {
             let user_id: String = row.get(0)?;
@@ -226,9 +230,11 @@ impl ApiKeyStorage {
                 created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now()),
-                expires_at: expires_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                expires_at: expires_at
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
-                last_used_at: last_used_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                last_used_at: last_used_at
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
                 description: row.get(7)?,
             })
@@ -257,9 +263,11 @@ impl ApiKeyStorage {
                 created_at: DateTime::parse_from_rfc3339(&row.get::<_, String>(4)?)
                     .map(|dt| dt.with_timezone(&Utc))
                     .unwrap_or_else(|_| Utc::now()),
-                expires_at: expires_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                expires_at: expires_at
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
-                last_used_at: last_used_at.and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
+                last_used_at: last_used_at
+                    .and_then(|s| DateTime::parse_from_rfc3339(&s).ok())
                     .map(|dt| dt.with_timezone(&Utc)),
                 description: row.get(7)?,
             })
@@ -274,13 +282,17 @@ impl ApiKeyStorage {
 
     /// 删除 API Key
     pub fn delete(&self, id: &str) -> rusqlite::Result<bool> {
-        let rows_affected = self.conn.execute("DELETE FROM api_keys WHERE id = ?1", [id])?;
+        let rows_affected = self
+            .conn
+            .execute("DELETE FROM api_keys WHERE id = ?1", [id])?;
         Ok(rows_affected > 0)
     }
 
     /// 删除用户的所有 API Key
     pub fn delete_by_user(&self, user_id: &str) -> rusqlite::Result<usize> {
-        let rows_affected = self.conn.execute("DELETE FROM api_keys WHERE user_id = ?1", [user_id])?;
+        let rows_affected = self
+            .conn
+            .execute("DELETE FROM api_keys WHERE user_id = ?1", [user_id])?;
         Ok(rows_affected)
     }
 }

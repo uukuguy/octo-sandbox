@@ -57,7 +57,9 @@ impl SkillRuntimeBridge {
     /// Returns None if the runtime is not available.
     pub fn get_runtime_for_extension(&self, ext: &str) -> Option<&dyn SkillRuntime> {
         match Self::runtime_type_from_ext(ext) {
-            Some(RuntimeType::Python) => self.python_runtime.as_ref().map(|r| r as &dyn SkillRuntime),
+            Some(RuntimeType::Python) => {
+                self.python_runtime.as_ref().map(|r| r as &dyn SkillRuntime)
+            }
             Some(rt) => self.runtimes.get(&rt).map(|r| r.as_ref()),
             None => None,
         }
@@ -130,10 +132,7 @@ mod tests {
             SkillRuntimeBridge::detect_runtime_type("wasm"),
             Some(RuntimeType::WASM)
         );
-        assert_eq!(
-            SkillRuntimeBridge::detect_runtime_type("unknown"),
-            None
-        );
+        assert_eq!(SkillRuntimeBridge::detect_runtime_type("unknown"), None);
     }
 
     #[test]

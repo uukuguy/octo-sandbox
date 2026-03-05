@@ -66,9 +66,8 @@ impl FtsStore {
     /// Search entities
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<String>> {
         let conn = self.conn.lock().unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT entity_id FROM kg_fts WHERE kg_fts MATCH ?1 LIMIT ?2",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT entity_id FROM kg_fts WHERE kg_fts MATCH ?1 LIMIT ?2")?;
 
         let ids = stmt
             .query_map(params![query, limit as i64], |row| row.get(0))?
@@ -78,10 +77,7 @@ impl FtsStore {
     }
 
     /// Rebuild index from entities
-    pub fn rebuild(
-        &self,
-        entities: &[(String, String, String, serde_json::Value)],
-    ) -> Result<()> {
+    pub fn rebuild(&self, entities: &[(String, String, String, serde_json::Value)]) -> Result<()> {
         let conn = self.conn.lock().unwrap();
         conn.execute("DELETE FROM kg_fts", [])?;
 

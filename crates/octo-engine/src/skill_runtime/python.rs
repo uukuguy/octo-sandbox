@@ -83,7 +83,12 @@ impl PythonRuntime {
                 .args(["-m", "venv", venv_path.to_string_lossy().as_ref()])
                 .output()
                 .await
-                .with_context(|| format!("Failed to create Python virtual environment using {}", python_cmd))?;
+                .with_context(|| {
+                    format!(
+                        "Failed to create Python virtual environment using {}",
+                        python_cmd
+                    )
+                })?;
 
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
@@ -146,11 +151,7 @@ impl PythonRuntime {
     }
 
     /// Write the skill script to a temporary file and get its path.
-    async fn write_script(
-        &self,
-        script: &str,
-        context: &SkillContext,
-    ) -> Result<PathBuf> {
+    async fn write_script(&self, script: &str, context: &SkillContext) -> Result<PathBuf> {
         let script_name = format!("{}.py", context.skill_name);
         let script_path = context.working_dir.join(&script_name);
 
@@ -213,12 +214,7 @@ impl SkillRuntime for PythonRuntime {
         RuntimeType::Python
     }
 
-    async fn execute(
-        &self,
-        script: &str,
-        args: Value,
-        context: &SkillContext,
-    ) -> Result<Value> {
+    async fn execute(&self, script: &str, args: Value, context: &SkillContext) -> Result<Value> {
         // First check Python environment
         self.check_environment().await?;
 
@@ -250,7 +246,11 @@ impl SkillRuntime for PythonRuntime {
         }
 
         let version = String::from_utf8_lossy(&output.stdout);
-        tracing::info!("Python runtime check passed: {} (using {})", version.trim(), python_cmd);
+        tracing::info!(
+            "Python runtime check passed: {} (using {})",
+            version.trim(),
+            python_cmd
+        );
 
         Ok(())
     }

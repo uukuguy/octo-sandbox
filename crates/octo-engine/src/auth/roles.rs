@@ -251,12 +251,21 @@ mod tests {
     #[test]
     fn test_action_from_str() {
         assert_eq!(Action::from_str("read"), Some(Action::Read));
-        assert_eq!(Action::from_str("create_session"), Some(Action::CreateSession));
+        assert_eq!(
+            Action::from_str("create_session"),
+            Some(Action::CreateSession)
+        );
         assert_eq!(Action::from_str("run_agent"), Some(Action::RunAgent));
         assert_eq!(Action::from_str("manage_mcp"), Some(Action::ManageMcp));
-        assert_eq!(Action::from_str("manage_skills"), Some(Action::ManageSkills));
+        assert_eq!(
+            Action::from_str("manage_skills"),
+            Some(Action::ManageSkills)
+        );
         assert_eq!(Action::from_str("manage_users"), Some(Action::ManageUsers));
-        assert_eq!(Action::from_str("manage_config"), Some(Action::ManageConfig));
+        assert_eq!(
+            Action::from_str("manage_config"),
+            Some(Action::ManageConfig)
+        );
         assert_eq!(Action::from_str("unknown"), None);
     }
 }

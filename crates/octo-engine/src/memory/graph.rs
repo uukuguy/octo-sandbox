@@ -68,10 +68,7 @@ impl KnowledgeGraph {
         // Only add to by_type index if this is a new entity (not an update)
         // For updates, the old ID already exists in the index
         if !is_update {
-            self.by_type
-                .entry(entity_type)
-                .or_default()
-                .push(entity_id);
+            self.by_type.entry(entity_type).or_default().push(entity_id);
         }
     }
 
@@ -105,11 +102,7 @@ impl KnowledgeGraph {
     pub fn get_entities_by_type(&self, entity_type: &str) -> Vec<&Entity> {
         self.by_type
             .get(entity_type)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.entities.get(id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.entities.get(id)).collect())
             .unwrap_or_default()
     }
 
@@ -117,11 +110,7 @@ impl KnowledgeGraph {
     pub fn get_outgoing(&self, entity_id: &str) -> Vec<&Relation> {
         self.outgoing
             .get(entity_id)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.relations.get(id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.relations.get(id)).collect())
             .unwrap_or_default()
     }
 
@@ -129,20 +118,12 @@ impl KnowledgeGraph {
     pub fn get_incoming(&self, entity_id: &str) -> Vec<&Relation> {
         self.incoming
             .get(entity_id)
-            .map(|ids| {
-                ids.iter()
-                    .filter_map(|id| self.relations.get(id))
-                    .collect()
-            })
+            .map(|ids| ids.iter().filter_map(|id| self.relations.get(id)).collect())
             .unwrap_or_default()
     }
 
     /// Breadth-first search traversal
-    pub fn traverse_bfs(
-        &self,
-        start_id: &str,
-        max_depth: usize,
-    ) -> Vec<(String, Entity, usize)> {
+    pub fn traverse_bfs(&self, start_id: &str, max_depth: usize) -> Vec<(String, Entity, usize)> {
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
         let mut results = Vec::new();

@@ -102,13 +102,19 @@ mod tests {
 
         let args = serde_json::json!({"key": "value"});
         let context = SkillContext::new("test".to_string(), PathBuf::from("/tmp"));
-        let result = runtime.execute("print('hello')", args, &context).await.unwrap();
+        let result = runtime
+            .execute("print('hello')", args, &context)
+            .await
+            .unwrap();
         assert_eq!(result, serde_json::json!({"key": "value"}));
     }
 
     #[tokio::test]
     async fn test_mock_runtime_check_environment() {
         let runtime = MockRuntime::new(RuntimeType::WASM);
-        runtime.check_environment().await.expect("check should pass");
+        runtime
+            .check_environment()
+            .await
+            .expect("check should pass");
     }
 }

@@ -45,7 +45,8 @@ pub async fn call_tool(
     let start = std::time::Instant::now();
     let now = chrono::Utc::now();
 
-    let result = state.agent_supervisor
+    let result = state
+        .agent_supervisor
         .call_mcp_tool(&server_id, &req.tool_name, req.arguments)
         .await;
 

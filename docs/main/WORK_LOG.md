@@ -1,5 +1,45 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-03-05 — Phase 2.11a 多租户支持 - Task 1 完成
+
+### 会话概要
+
+完成 Phase 2.11a (octo-engine 多租户适配) 的第一个任务：为 AgentCatalog 添加 TenantId 索引支持。
+
+### 技术实现
+
+**修改文件**：
+
+1. **`crates/octo-types/src/id.rs`**
+   - 添加 `TenantId` 类型（使用 `newtype_id!` 宏）
+   - 添加 `DEFAULT_TENANT_ID = "default"` 常量用于向后兼容
+
+2. **`crates/octo-engine/src/agent/entry.rs`**
+   - `AgentEntry` 结构体添加 `tenant_id: TenantId` 字段
+   - `AgentEntry::new()` 方法接受 `Option<TenantId>` 参数，默认使用 DEFAULT_TENANT_ID
+
+3. **`crates/octo-engine/src/agent/catalog.rs`**
+   - 添加 `by_tenant_id: DashMap<TenantId, Vec<AgentId>>` 索引
+   - `register()` 方法接受 `tenant_id: Option<TenantId>` 参数
+   - 新增 `get_by_tenant()` 方法查询租户下所有 Agent
+   - `load_from_store()` 和 `unregister()` 同步更新 tenant 索引
+
+4. **`crates/octo-engine/src/agent/store.rs`**
+   - 数据库 schema 添加 `tenant_id` 列和索引
+   - `save()` 和 `load_all()` 方法支持 tenant_id 持久化
+
+### 验证结果
+
+- `cargo check -p octo-engine` 编译通过，无错误
+- Git commit 成功：`a741987 feat(agent): add TenantId to AgentCatalog and AgentEntry`
+
+### 向后兼容
+
+- 现有 agent 无需迁移：空 tenant_id 自动填充为 "default"
+- 单用户场景使用默认租户 ID，无需修改调用代码
+
+---
+
 ## 2026-03-04 — v1.0 发布冲刺设计 + AgentRuntime 深度架构分析
 
 ### 会话概要

@@ -43,10 +43,10 @@ impl Permission {
 /// API Key
 #[derive(Debug, Clone)]
 pub struct ApiKey {
-    pub key_hash: String,         // sha256 哈希存储
-    pub user_id: Option<String>,  // 可选用户绑定
+    pub key_hash: String,        // sha256 哈希存储
+    pub user_id: Option<String>, // 可选用户绑定
     pub permissions: Vec<Permission>,
-    pub role: Option<Role>,   // 角色信息（用于 RBAC）
+    pub role: Option<Role>, // 角色信息（用于 RBAC）
     pub expires_at: Option<DateTime<Utc>>,
     pub created_at: DateTime<Utc>,
 }

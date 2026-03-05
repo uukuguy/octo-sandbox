@@ -21,8 +21,8 @@ pub mod skills;
 pub mod tools;
 
 pub use agent::{
-    AgentCatalog, AgentEntry, AgentError, AgentEvent, AgentExecutor, AgentExecutorHandle,
-    AgentId, AgentLoop, AgentManifest, AgentMessage, AgentRuntime, AgentRuntimeConfig, AgentStatus,
+    AgentCatalog, AgentEntry, AgentError, AgentEvent, AgentExecutor, AgentExecutorHandle, AgentId,
+    AgentLoop, AgentManifest, AgentMessage, AgentRuntime, AgentRuntimeConfig, AgentStatus,
     AgentStore, TenantContext,
 };
 pub use audit::{AuditEvent, AuditRecord, AuditStorage};

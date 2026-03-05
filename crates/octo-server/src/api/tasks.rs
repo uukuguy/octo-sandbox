@@ -72,10 +72,16 @@ async fn submit_task(
     }
 
     // Get scheduler
-    let scheduler = state.scheduler.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let scheduler = state
+        .scheduler
+        .as_ref()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     // Get model from config or use default
-    let model = req.model.or_else(|| state.config.provider.model.clone()).unwrap_or_else(|| "claude-sonnet-4-20250514".to_string());
+    let model = req
+        .model
+        .or_else(|| state.config.provider.model.clone())
+        .unwrap_or_else(|| "claude-sonnet-4-20250514".to_string());
 
     let config = octo_engine::scheduler::AgentTaskConfig {
         system_prompt: String::new(),
@@ -86,13 +92,16 @@ async fn submit_task(
     };
 
     // Create scheduled task via scheduler
-    let scheduled = match scheduler.create_task(
-        Some("api-task".to_string()),
-        format!("ad-hoc-{}", Uuid::new_v4().to_string()[..8].to_string()),
-        "0 0 1 1 2099".to_string(),
-        config,
-        true,
-    ).await {
+    let scheduled = match scheduler
+        .create_task(
+            Some("api-task".to_string()),
+            format!("ad-hoc-{}", Uuid::new_v4().to_string()[..8].to_string()),
+            "0 0 1 1 2099".to_string(),
+            config,
+            true,
+        )
+        .await
+    {
         Ok(t) => t,
         Err(e) => {
             tracing::error!("create task error: {}", e);
@@ -158,7 +167,10 @@ fn scheduled_task_to_response(
 async fn list_tasks(
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Vec<TaskResponse>>, StatusCode> {
-    let scheduler = state.scheduler.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let scheduler = state
+        .scheduler
+        .as_ref()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     let tasks = scheduler.list_tasks(None).await.map_err(|e| {
         tracing::error!("list_tasks error: {}", e);
@@ -184,7 +196,10 @@ async fn get_task(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<Json<TaskDetailResponse>, StatusCode> {
-    let scheduler = state.scheduler.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let scheduler = state
+        .scheduler
+        .as_ref()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     let task = scheduler.get_task(&id).await.map_err(|e| {
         tracing::error!("get_task error: {}", e);
@@ -227,7 +242,10 @@ async fn cancel_task(
     State(state): State<Arc<AppState>>,
     Path(id): Path<String>,
 ) -> Result<StatusCode, StatusCode> {
-    let scheduler = state.scheduler.as_ref().ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
+    let scheduler = state
+        .scheduler
+        .as_ref()
+        .ok_or(StatusCode::SERVICE_UNAVAILABLE)?;
 
     // Check if task exists first
     let task = scheduler.get_task(&id).await.map_err(|e| {

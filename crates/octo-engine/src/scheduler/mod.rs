@@ -367,12 +367,9 @@ impl Scheduler {
         };
 
         // Create and configure agent loop
-        let mut agent_loop = AgentLoop::new(
-            self.provider.clone(),
-            tools_snapshot,
-            self.memory.clone(),
-        )
-        .with_model(config.model.clone());
+        let mut agent_loop =
+            AgentLoop::new(self.provider.clone(), tools_snapshot, self.memory.clone())
+                .with_model(config.model.clone());
 
         // Run agent with timeout
         let result = tokio::time::timeout(

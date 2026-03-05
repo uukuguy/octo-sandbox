@@ -24,8 +24,8 @@ impl SkillMetadata {
 
     /// Parse skill metadata from SKILL.md frontmatter only (without reading body).
     pub fn from_frontmatter(path: &std::path::Path) -> anyhow::Result<Self> {
-        let content = std::fs::read_to_string(path)
-            .with_context(|| format!("reading {}", path.display()))?;
+        let content =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
 
         let (frontmatter, _) = crate::skills::loader::SkillLoader::split_frontmatter(&content)
             .with_context(|| format!("splitting frontmatter in {}", path.display()))?;

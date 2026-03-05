@@ -196,9 +196,7 @@ impl AgentLoop {
             let first_is_context = messages
                 .first()
                 .and_then(|m| m.content.first())
-                .map(|b| {
-                    matches!(b, ContentBlock::Text { text } if text.starts_with("<context>"))
-                })
+                .map(|b| matches!(b, ContentBlock::Text { text } if text.starts_with("<context>")))
                 .unwrap_or(false);
             if first_is_context {
                 messages[0] = zone_b;

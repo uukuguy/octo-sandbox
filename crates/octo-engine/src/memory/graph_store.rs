@@ -16,10 +16,7 @@ impl GraphStore {
     pub fn new(conn: Connection) -> Self {
         let conn = Arc::new(Mutex::new(conn));
         let fts = FtsStore::new(conn.clone());
-        Self {
-            conn,
-            fts,
-        }
+        Self { conn, fts }
     }
 
     /// Initialize tables
@@ -124,7 +121,7 @@ impl GraphStore {
     pub fn load_entities(&self) -> Result<Vec<Entity>> {
         let conn = self.conn.lock().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT id, name, entity_type, properties, created_at, updated_at FROM kg_entities"
+            "SELECT id, name, entity_type, properties, created_at, updated_at FROM kg_entities",
         )?;
 
         let entities: Vec<(String, String, String, String, i64, i64)> = stmt
@@ -226,16 +223,10 @@ impl GraphStore {
     /// Get stats
     pub fn stats(&self) -> Result<GraphStats> {
         let conn = self.conn.lock().unwrap();
-        let entity_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM kg_entities",
-            [],
-            |row| row.get(0),
-        )?;
-        let relation_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM kg_relations",
-            [],
-            |row| row.get(0),
-        )?;
+        let entity_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM kg_entities", [], |row| row.get(0))?;
+        let relation_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM kg_relations", [], |row| row.get(0))?;
         let type_count: i64 = conn.query_row(
             "SELECT COUNT(DISTINCT entity_type) FROM kg_entities",
             [],

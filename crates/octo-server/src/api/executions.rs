@@ -41,7 +41,9 @@ pub async fn list_session_executions(
 
     // Verify the session belongs to the user (authorization check)
     let sessions = state.agent_supervisor.session_store();
-    let session = sessions.get_session_for_user(&session_id_obj, &user_id).await;
+    let session = sessions
+        .get_session_for_user(&session_id_obj, &user_id)
+        .await;
     if session.is_none() {
         debug!(session_id = %session_id, user_id = %user_id_str, "Session not found or access denied");
         return Json(vec![]);

@@ -26,8 +26,7 @@ impl ContextInjector {
 
         let mut output = format!("<context>\n<datetime>{datetime}</datetime>\n");
 
-        let mut sorted: Vec<&MemoryBlock> =
-            blocks.iter().filter(|b| !b.value.is_empty()).collect();
+        let mut sorted: Vec<&MemoryBlock> = blocks.iter().filter(|b| !b.value.is_empty()).collect();
         sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
 
         let mut used = output.len();

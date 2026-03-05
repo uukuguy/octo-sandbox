@@ -5,8 +5,8 @@ use serde::{Deserialize, Serialize};
 pub mod python;
 pub mod traits;
 
-pub use traits::{RuntimeType, SkillRuntime};
 pub use python::PythonRuntime;
+pub use traits::{RuntimeType, SkillRuntime};
 
 /// Information about a tool available to the skill.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

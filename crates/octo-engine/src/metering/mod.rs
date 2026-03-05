@@ -78,7 +78,8 @@ impl Metering {
     /// Record a successful request with input/output tokens and duration.
     pub fn record_request(&self, input: usize, output: usize, duration_ms: u64) {
         self.input_tokens.fetch_add(input as u64, Ordering::Relaxed);
-        self.output_tokens.fetch_add(output as u64, Ordering::Relaxed);
+        self.output_tokens
+            .fetch_add(output as u64, Ordering::Relaxed);
         self.requests.fetch_add(1, Ordering::Relaxed);
         self.duration_ms.fetch_add(duration_ms, Ordering::Relaxed);
     }

@@ -1,13 +1,7 @@
 // crates/octo-engine/src/auth/middleware.rs
 
 use crate::auth::{roles::Role, AuthConfig, AuthMode, Permission};
-use axum::{
-    body::Body,
-    extract::Request,
-    http::StatusCode,
-    middleware::Next,
-    response::Response,
-};
+use axum::{body::Body, extract::Request, http::StatusCode, middleware::Next, response::Response};
 
 /// 用户上下文
 #[derive(Debug, Clone)]
@@ -87,7 +81,8 @@ pub async fn auth_middleware_with_role(
                     let role = config.get_role(k);
 
                     let mut req = req;
-                    req.extensions_mut().insert(UserContext::new(user_id, permissions, role));
+                    req.extensions_mut()
+                        .insert(UserContext::new(user_id, permissions, role));
                     Ok(next.run(req).await)
                 }
                 _ => Err(StatusCode::UNAUTHORIZED),

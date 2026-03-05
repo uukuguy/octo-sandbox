@@ -2,10 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use octo_engine::{
-    auth::AuthConfig,
-    mcp::McpStorage,
-    metrics::MetricsRegistry,
-    scheduler::Scheduler,
+    auth::AuthConfig, mcp::McpStorage, metrics::MetricsRegistry, scheduler::Scheduler,
     AgentExecutorHandle, AgentRuntime,
 };
 use tokio::sync::RwLock;

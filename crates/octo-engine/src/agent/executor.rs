@@ -1,6 +1,6 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::sync::{broadcast, mpsc};
@@ -45,7 +45,10 @@ impl AgentExecutorHandle {
     }
 
     /// 发送消息到 AgentExecutor
-    pub async fn send(&self, msg: AgentMessage) -> Result<(), mpsc::error::SendError<AgentMessage>> {
+    pub async fn send(
+        &self,
+        msg: AgentMessage,
+    ) -> Result<(), mpsc::error::SendError<AgentMessage>> {
         self.tx.send(msg).await
     }
 }
@@ -148,11 +151,8 @@ impl AgentExecutor {
                     };
 
                     // 构建 AgentLoop（每 round 新建，但 history 由 AgentExecutor 持有）
-                    let mut agent_loop = AgentLoop::new(
-                        self.provider.clone(),
-                        tools_snapshot,
-                        self.memory.clone(),
-                    );
+                    let mut agent_loop =
+                        AgentLoop::new(self.provider.clone(), tools_snapshot, self.memory.clone());
                     if let Some(ref ms) = self.memory_store {
                         agent_loop = agent_loop.with_memory_store(ms.clone());
                     }
@@ -200,7 +200,9 @@ impl AgentExecutor {
 
                     // 持久化 history 到 SessionStore
                     if let Some(ref store) = self.session_store {
-                        store.set_messages(&self.session_id, self.history.clone()).await;
+                        store
+                            .set_messages(&self.session_id, self.history.clone())
+                            .await;
                     }
                 }
                 AgentMessage::Cancel => {

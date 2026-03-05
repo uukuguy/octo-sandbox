@@ -178,11 +178,7 @@ impl SkillLoader {
         // Validate allowed-tools if present
         if let Some(ref tools) = skill.allowed_tools {
             if let Err(e) = validate_allowed_tools(tools) {
-                bail!(
-                    "Invalid allowed-tools in {}: {}",
-                    path.display(),
-                    e
-                );
+                bail!("Invalid allowed-tools in {}: {}", path.display(), e);
             }
         }
 
@@ -336,7 +332,9 @@ impl SkillLoader {
         let ext = script_path
             .extension()
             .and_then(|e| e.to_str())
-            .ok_or_else(|| anyhow::anyhow!("Script has no file extension: {}", script_path.display()))?;
+            .ok_or_else(|| {
+                anyhow::anyhow!("Script has no file extension: {}", script_path.display())
+            })?;
 
         // Check if we have a runtime for this extension
         if runtime_bridge.get_runtime_for_extension(ext).is_none() {
@@ -679,7 +677,10 @@ This should fail validation.
 
         // Should fail due to invalid tool names
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid allowed-tools"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid allowed-tools"));
     }
 
     #[test]
@@ -804,7 +805,10 @@ This should fail validation.
         // load_skill should fail due to invalid tool names
         let result = loader.load_skill("invalid-tools-uppercase");
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Invalid allowed-tools"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid allowed-tools"));
     }
 
     #[test]
@@ -1017,7 +1021,10 @@ description: A test skill
             .await;
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("Scripts directory not found"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("Scripts directory not found"));
     }
 
     #[tokio::test]
@@ -1049,7 +1056,12 @@ description: A test skill
 
         // Try to execute a non-existent script
         let result = loader
-            .execute_script(&bridge, "test-skill", "non_existent.py", serde_json::json!({}))
+            .execute_script(
+                &bridge,
+                "test-skill",
+                "non_existent.py",
+                serde_json::json!({}),
+            )
             .await;
 
         assert!(result.is_err());
@@ -1091,6 +1103,9 @@ description: A test skill
             .await;
 
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("No runtime available"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("No runtime available"));
     }
 }

@@ -57,7 +57,8 @@ impl Provider for MeteringProvider {
         match &result {
             Ok(response) => {
                 let output_tokens = response.usage.output_tokens as usize;
-                self.metering.record_request(input_tokens, output_tokens, duration);
+                self.metering
+                    .record_request(input_tokens, output_tokens, duration);
             }
             Err(_) => {
                 self.metering.record_error();
@@ -141,7 +142,9 @@ mod tests {
         async fn complete(&self, _request: CompletionRequest) -> Result<CompletionResponse> {
             Ok(CompletionResponse {
                 id: "test".into(),
-                content: vec![ContentBlock::Text { text: "Hello".into() }],
+                content: vec![ContentBlock::Text {
+                    text: "Hello".into(),
+                }],
                 stop_reason: None,
                 usage: TokenUsage {
                     input_tokens: 100,
@@ -168,7 +171,9 @@ mod tests {
             system: Some("You are a helpful assistant.".into()),
             messages: vec![ChatMessage {
                 role: MessageRole::User,
-                content: vec![ContentBlock::Text { text: "Hello".into() }],
+                content: vec![ContentBlock::Text {
+                    text: "Hello".into(),
+                }],
             }],
             max_tokens: 100,
             temperature: None,

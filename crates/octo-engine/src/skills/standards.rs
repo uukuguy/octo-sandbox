@@ -38,7 +38,11 @@ pub fn validate_skill_structure(dir: &Path) -> Result<()> {
     for std_dir in STANDARD_DIRS {
         let dir_path = dir.join(std_dir);
         if dir_path.exists() && !dir_path.is_dir() {
-            bail!("{} exists but is not a directory in {}", std_dir, dir.display());
+            bail!(
+                "{} exists but is not a directory in {}",
+                std_dir,
+                dir.display()
+            );
         }
     }
 
@@ -189,7 +193,10 @@ This is a test skill.
 
         let result = validate_skill_structure(&skill_dir);
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("SKILL.md not found"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("SKILL.md not found"));
     }
 
     #[test]

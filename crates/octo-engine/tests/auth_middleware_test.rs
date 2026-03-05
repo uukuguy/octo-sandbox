@@ -1,8 +1,8 @@
 // crates/octo-engine/tests/auth_middleware_test.rs
 
 use axum::{body::Body, extract::Request};
-use octo_engine::auth::*;
 use octo_engine::auth::roles::Role;
+use octo_engine::auth::*;
 
 // Test get_user_context function directly
 #[test]
@@ -159,7 +159,11 @@ fn test_auth_config_with_role() {
     assert_eq!(user_id, Some("admin-001".to_string()));
 
     // Key without role
-    config.add_api_key("user-key", Some("user-001".to_string()), vec![Permission::Read]);
+    config.add_api_key(
+        "user-key",
+        Some("user-001".to_string()),
+        vec![Permission::Read],
+    );
     let role = config.get_role("user-key");
     assert_eq!(role, None);
 }

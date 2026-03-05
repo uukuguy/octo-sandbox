@@ -58,7 +58,11 @@ async fn create_agent(
         .tenant_context()
         .map(|ctx| ctx.tenant_id.clone());
     let id = s.agent_supervisor.catalog().register(manifest, tenant_id);
-    let entry = s.agent_supervisor.catalog().get(&id).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    let entry = s
+        .agent_supervisor
+        .catalog()
+        .get(&id)
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((StatusCode::CREATED, Json(entry)))
 }
 
@@ -140,11 +144,12 @@ async fn resume_agent(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
-async fn delete_agent(
-    State(s): State<Arc<AppState>>,
-    Path(id): Path<String>,
-) -> StatusCode {
-    if s.agent_supervisor.catalog().unregister(&AgentId(id)).is_some() {
+async fn delete_agent(State(s): State<Arc<AppState>>, Path(id): Path<String>) -> StatusCode {
+    if s.agent_supervisor
+        .catalog()
+        .unregister(&AgentId(id))
+        .is_some()
+    {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::NOT_FOUND

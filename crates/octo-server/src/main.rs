@@ -78,15 +78,13 @@ async fn main() -> Result<()> {
         tracing_subscriber::fmt()
             .json()
             .with_env_filter(
-                EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| EnvFilter::new(&log_filter)),
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&log_filter)),
             )
             .init();
     } else {
         tracing_subscriber::fmt()
             .with_env_filter(
-                EnvFilter::try_from_default_env()
-                    .unwrap_or_else(|_| EnvFilter::new(&log_filter)),
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&log_filter)),
             )
             .init();
     }
@@ -124,7 +122,9 @@ async fn main() -> Result<()> {
     // Initialize provider chain if configured (before creating AgentRuntime)
     // Note: instances need to be added separately after AgentRuntime creation
     if let Some(ref pc_config) = cfg.provider_chain {
-        let chain = Arc::new(octo_engine::providers::ProviderChain::new(pc_config.failover_policy));
+        let chain = Arc::new(octo_engine::providers::ProviderChain::new(
+            pc_config.failover_policy,
+        ));
         let chain_clone = Arc::clone(&chain);
 
         // Add instances to the chain
@@ -174,7 +174,7 @@ async fn main() -> Result<()> {
     );
 
     let agent_runtime = Arc::new(
-        AgentRuntime::new(agent_catalog.clone(), runtime_config, Some(tenant_context)).await?
+        AgentRuntime::new(agent_catalog.clone(), runtime_config, Some(tenant_context)).await?,
     );
 
     // Get session store from AgentRuntime for creating primary session

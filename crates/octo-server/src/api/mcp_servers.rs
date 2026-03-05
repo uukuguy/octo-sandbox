@@ -78,11 +78,9 @@ pub async fn list_servers(
                     // Find runtime state for this server
                     let runtime_status = runtime_states
                         .iter()
-                        .find(|state| {
-                            match state {
-                                octo_engine::mcp::manager::ServerRuntimeState::Running { .. } => true,
-                                _ => false,
-                            }
+                        .find(|state| match state {
+                            octo_engine::mcp::manager::ServerRuntimeState::Running { .. } => true,
+                            _ => false,
                         })
                         .map(|_| "running")
                         .unwrap_or("stopped");
