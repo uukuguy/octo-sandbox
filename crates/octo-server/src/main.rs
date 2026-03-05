@@ -207,6 +207,8 @@ async fn main() -> Result<()> {
 
     // Create scheduler with required dependencies from agent_runtime
     let scheduler = if cfg.scheduler.enabled {
+        tracing::info!("Scheduler enabled: interval={}s, max_concurrent={}",
+            cfg.scheduler.check_interval_secs, cfg.scheduler.max_concurrent);
         let storage = SqliteSchedulerStorage::new(conn.clone());
         let s = Scheduler::new(
             cfg.scheduler.clone(),

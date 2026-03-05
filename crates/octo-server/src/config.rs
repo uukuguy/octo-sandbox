@@ -2,22 +2,28 @@ use octo_engine::auth::AuthConfigYaml;
 use octo_engine::providers::{ProviderChainConfig, ProviderConfig};
 use octo_engine::scheduler::SchedulerConfig;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Main configuration for octo-server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Server configuration
+    #[serde(default)]
     pub server: ServerConfig,
     /// LLM provider configuration
+    #[serde(default)]
     pub provider: ProviderConfig,
     /// Database configuration
+    #[serde(default)]
     pub database: DatabaseConfig,
     /// Logging configuration
+    #[serde(default)]
     pub logging: LoggingConfig,
     /// MCP configuration
+    #[serde(default)]
     pub mcp: McpConfig,
     /// Skills configuration
+    #[serde(default)]
     pub skills: SkillsConfig,
     /// Auth configuration (optional)
     #[serde(default)]
@@ -136,21 +142,25 @@ impl Config {
         cli_host: Option<&str>,
     ) -> Self {
         // Step 1: Load from config.yaml (lowest priority)
-        let mut config = if let Some(path) = config_path {
-            if path.exists() {
-                if let Ok(content) = std::fs::read_to_string(path) {
-                    if let Ok(cfg) = serde_yaml::from_str::<Config>(&content) {
-                        Some(cfg)
-                    } else {
+        // If no explicit path given, look for config.yaml in current directory
+        let yaml_path = config_path
+            .map(|p| p.as_path())
+            .unwrap_or_else(|| Path::new("config.yaml"));
+
+        let mut config = if yaml_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(yaml_path) {
+                match serde_yaml::from_str::<Config>(&content) {
+                    Ok(cfg) => Some(cfg),
+                    Err(e) => {
+                        tracing::warn!("Failed to parse config.yaml: {}, using defaults", e);
                         None
                     }
-                } else {
-                    None
                 }
             } else {
                 None
             }
         } else {
+            tracing::debug!("Config file {:?} not found, using defaults", yaml_path);
             None
         }
         .unwrap_or_default();
