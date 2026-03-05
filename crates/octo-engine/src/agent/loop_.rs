@@ -12,7 +12,10 @@ use octo_types::{
 };
 
 use crate::context::{
-    ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher,
+    ContextBudgetManager,
+    ContextPruner,
+    DegradationLevel,
+    MemoryFlusher,
     NewSystemPromptBuilder as SystemPromptBuilder, // Zone A builder
 };
 use crate::memory::store_traits::MemoryStore;

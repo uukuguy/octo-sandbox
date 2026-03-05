@@ -285,8 +285,8 @@ mod tests {
 
     #[test]
     fn test_bootstrap_files() {
-        let builder = SystemPromptBuilder::new()
-            .with_bootstrap_file("SOUL.md", "Test SOUL content");
+        let builder =
+            SystemPromptBuilder::new().with_bootstrap_file("SOUL.md", "Test SOUL content");
         let result = builder.build();
 
         assert!(result.contains("## SOUL.md\nTest SOUL content"));
