@@ -17,6 +17,7 @@ use serde::Serialize;
 
 pub mod agent_pool;
 pub mod api;
+pub mod audit;
 pub mod auth;
 pub mod db;
 pub mod middleware;
