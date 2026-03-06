@@ -650,4 +650,243 @@ pub struct McpManager {
 
 ---
 
-*本文档基于 2026-03-06 代码快照分析生成，分析范围：`crates/octo-engine/src/` 全部核心模块。*
+*原始分析基于 2026-03-06 代码快照生成，分析范围：`crates/octo-engine/src/` 全部核心模块。*
+
+---
+
+## 8. 新增限界上下文（基于 RuFlo/RuView 分析）
+
+> 以下限界上下文基于 ADR-006~012（多智能体编排架构决策）提议新增，
+> 对应 octo-engine 的编排能力扩展和 octo-platform 的多 Agent 协调需求。
+> 参考来源：RuFlo v3.5 框架设计 + RuView 项目实践。
+
+### 8.1 编排上下文（Orchestration Context）— 新增
+
+**职责**：管理多 Agent 的任务路由、能力匹配、生命周期钩子和任务编排。
+
+**归属**：`octo-engine`（核心能力层），workbench 可选启用，platform 默认启用。
+
+**关键类型**：
+
+| 类型 | 计划文件 | 角色 |
+|------|---------|------|
+| `HookRegistry` | `hooks/registry.rs` | 聚合根（生命周期钩子注册中心） |
+| `HookPoint` | `hooks/mod.rs` | 枚举值对象（钩子触发点） |
+| `HookHandler` trait | `hooks/handler.rs` | 领域接口（钩子处理器抽象） |
+| `HookContext` | `hooks/context.rs` | 值对象（钩子执行上下文） |
+| `HookAction` | `hooks/mod.rs` | 枚举值对象（Continue/Abort/Modify） |
+| `AgentRouter` | `agent/router.rs` | 领域服务（Agent 路由器） |
+| `AgentCapability` | `agent/capability.rs` | 值对象（Agent 能力声明） |
+| `RouteResult` | `agent/router.rs` | 值对象（路由结果+置信度） |
+| `AgentManifestLoader` | `orchestration/manifest.rs` | 领域服务（声明式 Agent 定义加载） |
+| `TaskOrchestrator` | `orchestration/orchestrator.rs` | 领域服务（任务分解与分配） |
+
+**领域规则（不变量）**：
+- 每个 `HookPoint` 可注册多个 `HookHandler`，按优先级排序执行
+- 任何 `HookHandler` 返回 `HookAction::Abort` 将中止后续处理链
+- `AgentRouter` 的路由结果必须包含 `confidence` 评分，调用方可据此决定是否采纳
+- `AgentCapability` 声明的能力必须与 `AgentCatalog` 中注册的 Agent 一致
+
+**状态机（Hook 执行链）**：
+```
+Idle → Matching → Executing → [Continue | Abort | Modify] → Completed
+```
+
+**上下文关系**：
+- 与 Agent 执行上下文：**伙伴关系（Partnership）** — Router 选择 Agent，Hook 拦截执行过程
+- 与可观测性上下文：**发布语言** — Hook 执行事件发布到 EventBus
+- 与安全策略上下文：**消费者** — PreToolUse Hook 可调用安全验证
+
+---
+
+### 8.2 语义记忆上下文（Semantic Memory Context）— 新增
+
+**职责**：管理向量索引、语义搜索、混合查询路由，扩展现有记忆管理上下文。
+
+**归属**：`octo-engine`（核心能力层），作为现有 Memory Context 的扩展子上下文。
+
+**关键类型**：
+
+| 类型 | 计划文件 | 角色 |
+|------|---------|------|
+| `HnswIndex` | `memory/vector_index.rs` | 聚合根（HNSW 向量索引） |
+| `HnswConfig` | `memory/vector_index.rs` | 值对象（索引参数配置） |
+| `SearchResult` | `memory/vector_index.rs` | 值对象（搜索结果+相似度分数） |
+| `EmbeddingService` trait | `memory/embedding.rs` | 领域接口（向量生成抽象） |
+| `ProviderEmbedding` | `memory/embedding.rs` | 实现（通过 LLM Provider API 生成向量） |
+| `HybridQueryEngine` | `memory/hybrid_query.rs` | 领域服务（混合查询路由） |
+| `MemoryQuery` | `memory/hybrid_query.rs` | 值对象（查询描述 DSL） |
+| `QueryType` | `memory/hybrid_query.rs` | 枚举值对象（Semantic/Structured/Hybrid） |
+
+**领域规则（不变量）**：
+- HNSW 索引维度（dimensions）在创建后不可变更
+- 语义搜索结果按相似度降序排列，需指定 threshold 过滤低质量匹配
+- Hybrid 查询同时执行向量搜索和结构搜索，结果去重后合并
+- `EmbeddingService` 的实现可切换（Provider API / ONNX 本地），对调用方透明
+
+**与现有 Memory Context 的关系**：
+```
+记忆管理上下文（现有）
+├── WorkingMemory (L0)          — 不变
+├── SessionMemory (L1)          — 不变
+├── SqliteMemoryStore (L2)      — 不变
+├── KnowledgeGraph (L3)         — 不变
+└── 语义记忆子上下文（新增）
+    ├── HnswIndex               — 向量索引
+    ├── EmbeddingService        — 向量生成
+    └── HybridQueryEngine       — 混合查询路由
+```
+
+---
+
+### 8.3 事件溯源上下文（Event Sourcing Context）— 新增
+
+**职责**：持久化系统事件流，支持状态回放、审计追踪和读模型投影。
+
+**归属**：`octo-engine`（核心能力层），扩展现有可观测性上下文。
+
+**关键类型**：
+
+| 类型 | 计划文件 | 角色 |
+|------|---------|------|
+| `EventStore` | `event/store.rs` | 聚合根（事件持久化存储） |
+| `StoredEvent` | `event/store.rs` | 实体（已持久化的事件） |
+| `EventId` | `event/store.rs` | 值对象（事件唯一标识） |
+| `Projection` trait | `event/projection.rs` | 领域接口（读模型投影抽象） |
+| `AgentStateProjection` | `event/projection.rs` | 实现（Agent 状态读模型） |
+| `ToolUsageProjection` | `event/projection.rs` | 实现（工具使用统计读模型） |
+| `StateReconstructor` | `event/reconstructor.rs` | 领域服务（从事件流重建状态） |
+
+**领域规则（不变量）**：
+- EventStore 中的事件一旦写入不可修改（append-only）
+- 每个事件有全局单调递增 ID，保证因果顺序
+- Projection 必须能从空状态重放所有事件后达到当前状态
+- StateReconstructor 可指定时间点，重建该时刻的状态快照
+
+**与现有 EventBus 的关系**：
+```
+EventBus（现有，实时通知）
+    ↓ publish
+EventStore（新增，持久化）
+    ↓ replay
+Projection（新增，读模型）
+```
+
+---
+
+### 8.4 模式学习上下文（Pattern Learning Context）— 新增（platform 专有）
+
+**职责**：管理 Agent 执行模式的存储、检索、置信度衰减和奖励更新。
+
+**归属**：`octo-platform-server`（平台层），不放入 engine。
+
+**关键类型**：
+
+| 类型 | 计划文件 | 角色 |
+|------|---------|------|
+| `PatternStore` | `orchestration/pattern_store.rs` | 聚合根（模式存储） |
+| `Pattern` | `orchestration/pattern.rs` | 实体（学习到的执行模式） |
+| `PatternType` | `orchestration/pattern.rs` | 枚举值对象（task-routing/error-recovery/optimization） |
+| `Trajectory` | `orchestration/trajectory.rs` | 实体（单次执行轨迹） |
+| `TrajectoryStep` | `orchestration/trajectory.rs` | 值对象（轨迹中的单步） |
+| `ConfidenceDecay` | `orchestration/decay.rs` | 值对象（置信度衰减计算器） |
+
+**领域规则（不变量）**：
+- 模式置信度范围 [0.0, 1.0]，初始值由首次奖励信号决定
+- 衰减公式：`confidence *= (1 - decay_rate) ^ days_since_last_match`
+- 半衰期默认 30 天，可按 PatternType 配置
+- success_count / failure_count 只增不减（审计需要）
+- 置信度低于 0.1 的模式自动标记为 `deprecated`
+
+**参考**：RuView `.swarm/schema.sql` patterns 表设计
+
+---
+
+### 8.5 多 Agent 协调上下文（Multi-Agent Coordination Context）— 新增（platform 专有）
+
+**职责**：管理 Agent 拓扑、消息路由、共识协议和 Agent 池。
+
+**归属**：`octo-platform-server`（平台层），不放入 engine。
+
+**关键类型**：
+
+| 类型 | 计划文件 | 角色 |
+|------|---------|------|
+| `TopologyManager` | `orchestration/topology.rs` | 聚合根（拓扑管理） |
+| `Topology` | `orchestration/topology.rs` | 枚举值对象（Hierarchical/Mesh/Adaptive） |
+| `Coordinator` | `orchestration/coordinator.rs` | 领域服务（协调器） |
+| `ConsensusEngine` | `orchestration/consensus.rs` | 领域服务（共识协议） |
+| `AgentPool` | `agent_pool.rs` | 实体（Agent 池，现有扩展） |
+
+**上下文关系**：
+- 与编排上下文（8.1）：**Customer-Supplier** — 协调上下文消费 Router 和 Hook 能力
+- 与模式学习上下文（8.4）：**Partnership** — 协调结果反馈到模式学习
+- 与认证授权上下文：**ACL** — 租户级 Agent 池隔离
+
+---
+
+## 9. 更新后的上下文映射图（Context Map v2）
+
+```
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        octo-engine（核心引擎层）                          │
+│                                                                          │
+│  ┌─────────────────┐   Partnership    ┌─────────────────┐               │
+│  │   Agent 执行    │◀──────────────▶│   工具执行       │               │
+│  │  AgentRuntime   │                  │  ToolRegistry    │               │
+│  │  AgentExecutor  │                  │  Tool trait      │               │
+│  │  AgentLoop      │                  │  ToolContext     │               │
+│  └────────┬────────┘                  └────────┬────────┘               │
+│           │ Partnership                        │                         │
+│           ▼                                    │                         │
+│  ┌─────────────────┐                           │                         │
+│  │ ★编排上下文★   │◀── Hook 拦截 ─────────────┘                         │
+│  │  HookRegistry   │                                                     │
+│  │  AgentRouter    │   Publish Language    ┌─────────────────┐          │
+│  │  TaskOrchestrator│─────────────────────▶│   可观测性      │          │
+│  └────────┬────────┘                       │  EventBus       │          │
+│           │                                │ ★EventStore★   │          │
+│           │ Consumer                       │ ★Projection★   │          │
+│           ▼                                └─────────────────┘          │
+│  ┌─────────────────┐                                                     │
+│  │   安全策略      │   ACL (PathValidator)                              │
+│  │  SecurityPolicy │──────────────────▶ 工具执行                        │
+│  │ ★AIDefence★    │                                                     │
+│  └─────────────────┘                                                     │
+│                                                                          │
+│  ┌─────────────────┐   Shared Kernel  ┌─────────────────┐              │
+│  │   记忆管理      │◀────────────────▶│   会话管理       │              │
+│  │  WorkingMemory  │                  │  SessionStore    │              │
+│  │  MemoryStore    │                  └─────────────────┘              │
+│  │  KnowledgeGraph │                                                     │
+│  │ ★HnswIndex★    │  ← 语义记忆子上下文                                │
+│  │ ★HybridQuery★  │                                                     │
+│  └─────────────────┘                                                     │
+│                                                                          │
+│  ┌─────────────────────────────────────────────────────────────────┐    │
+│  │                   共享内核 (octo-types)                          │    │
+│  └─────────────────────────────────────────────────────────────────┘    │
+└──────────────────────────────────────────────────────────────────────────┘
+
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    octo-platform-server（平台层，多 Agent 专有）           │
+│                                                                          │
+│  ┌─────────────────┐   Partnership    ┌─────────────────┐              │
+│  │ ★模式学习★     │◀──────────────▶│ ★多Agent协调★  │              │
+│  │  PatternStore   │                  │  TopologyManager │              │
+│  │  Trajectory     │                  │  Coordinator     │              │
+│  │  ConfidenceDecay│                  │  ConsensusEngine │              │
+│  └────────┬────────┘                  │  AgentPool       │              │
+│           │                           └────────┬────────┘              │
+│           │ Consumer                           │ Customer-Supplier      │
+│           ▼                                    ▼                         │
+│       engine.HookRegistry              engine.AgentRouter               │
+│       engine.EventStore                engine.HnswIndex                 │
+└──────────────────────────────────────────────────────────────────────────┘
+
+★标记★ = 本次新增
+```
+
+---
+
+*更新日期：2026-03-06。新增内容基于 RuFlo v3.5 + RuView 多智能体编排分析（ADR-006~012）。*
