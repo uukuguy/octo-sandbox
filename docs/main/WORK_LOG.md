@@ -40,6 +40,47 @@
 
 ---
 
+## 2026-03-05 — P2 Multi-tenant 实施 (Task 5: Tenant MCP Config API)
+
+### 会话概要
+
+完成 P2 Multi-tenant Implementation Plan 的 Task 5 - Tenant MCP Config API 实现。
+
+### 技术变更
+
+**新增文件**
+- `crates/octo-platform-server/src/api/mcp.rs` — MCP 配置 API 端点
+  - `GET /api/mcp` — 列出租户所有 MCP 服务器
+  - `POST /api/mcp` — 添加新的 MCP 服务器配置
+  - `GET /api/mcp/:id` — 获取指定 MCP 服务器
+  - `DELETE /api/mcp/:id` — 删除 MCP 服务器
+
+**修改文件**
+- `crates/octo-platform-server/src/api/mod.rs` — 添加 mcp 模块导出
+- `crates/octo-platform-server/src/lib.rs` — 添加 TenantManager 到 AppState
+- `crates/octo-platform-server/src/main.rs` — 注册 MCP 路由
+- `crates/octo-platform-server/src/tenant/manager.rs` — 添加 Debug trait 实现
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/mcp` | GET | 列出租户所有 MCP 服务器 |
+| `/api/mcp` | POST | 添加 MCP 服务器配置 |
+| `/api/mcp/:id` | GET | 获取指定 MCP 服务器 |
+| `/api/mcp/:id` | DELETE | 删除 MCP 服务器 |
+
+### 验证结果
+
+| 检查项 | 状态 |
+|--------|------|
+| `cargo check -p octo-platform-server` | ✅ 通过 |
+
+### Git 提交
+
+`2dabe3e` - feat(platform): add tenant MCP configuration API
+>>>>>>> octo-platform
+
+---
+
 ## 2026-03-04 — v1.0 发布冲刺设计 + AgentRuntime 深度架构分析
 
 ### 会话概要

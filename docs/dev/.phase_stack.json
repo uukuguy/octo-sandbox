@@ -1,4 +1,22 @@
 {
-  "active_phases": [],
-  "suspended_phases": []
+  "active_phases": [
+    {
+      "name": "octo-platform Phase 1",
+      "started_at": "2026-03-04T11:48:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "progress": "0%"
+    }
+  ],
+  "suspended_phases": [
+    {
+      "name": "Phase 2.11: AgentRegistry",
+      "started_at": "2026-03-03T04:27:00+08:00",
+      "suspended_at": "2026-03-04T11:48:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint-phase2-11.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE-phase2-11.md",
+      "progress": "0%",
+      "reason": "切换到 octo-platform 分支开发"
+    }
+  ]
 }

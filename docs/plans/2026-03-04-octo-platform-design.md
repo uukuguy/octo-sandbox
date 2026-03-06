@@ -485,3 +485,15 @@ octo-workbench v1.0 → P1（~4周）→ P2（~4周）→ P3（~6周）→ P4（
 | 认证 | 自建 + 插拔式 SSO | 开发快，企业部署灵活 |
 | 隔离粒度 | 租户级 + 用户级两层 | 覆盖三种部署模式 |
 | 编排模式 | Supervisor/Peer/Pipeline 三种 | 按场景选择，用户自由配置拓扑 |
+
+---
+
+## Deferred（暂缓项）
+
+> 本阶段已知但暂未实现的功能点。每次开始新 Task 前先检查此列表。
+
+| ID | 内容 | 前置条件 | 状态 |
+|----|------|---------|------|
+| D1 | agent_pool.rs:467 TODO - Session Store 持久化实现 | P1-4 Workspace 持久化完成后，扩展到 Session Store | ✅ 已补 |
+| D2 | runtime.rs:86 - AgentExecutor observability 转发 | AgentExecutor observability 集成设计完成后 | ⏳ |
+| D3 | middleware.rs:50 - 认证中间件 NOT_IMPLEMENTED 分支 | OAuth2/OIDC 实现完成后 | ✅ 已补 |

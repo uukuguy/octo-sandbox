@@ -1,11 +1,22 @@
 // crates/octo-engine/src/auth/config.rs
 
 use chrono::{DateTime, Utc};
+use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 
 use super::roles::Role;
+
+/// JWT claims structure
+#[derive(Debug, Serialize, Deserialize)]
+pub struct JwtClaims {
+    pub sub: String,   // User ID
+    pub email: String,  // User email
+    pub role: String,   // User role
+    pub exp: i64,       // Expiration timestamp
+    pub iat: i64,      // Issued at timestamp
+}
 
 /// 认证模式
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -91,7 +102,8 @@ impl ApiKey {
 pub struct AuthConfig {
     pub mode: AuthMode,
     pub api_keys: HashMap<String, ApiKey>, // key_hash -> ApiKey
-    pub require_user_id: bool,             // 是否要求用户隔离
+    pub require_user_id: bool,            // 是否要求用户隔离
+    pub jwt_secret: Option<String>,        // JWT secret for Full mode
 }
 
 impl AuthConfig {
@@ -175,6 +187,20 @@ impl AuthConfig {
         let key_hash = format!("{:x}", hasher.finalize());
 
         self.api_keys.get(&key_hash).and_then(|k| k.role)
+    }
+
+    /// 验证 JWT token（用于 Full 模式）
+    pub fn validate_jwt(&self, token: &str) -> Option<JwtClaims> {
+        let secret = self.jwt_secret.as_ref()?;
+
+        match decode::<JwtClaims>(
+            token,
+            &DecodingKey::from_secret(secret.as_bytes()),
+            &Validation::new(Algorithm::HS256),
+        ) {
+            Ok(token_data) => Some(token_data.claims),
+            Err(_) => None,
+        }
     }
 }
 

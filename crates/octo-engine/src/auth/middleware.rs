@@ -89,9 +89,35 @@ pub async fn auth_middleware_with_role(
             }
         }
         AuthMode::Full => {
-            // 完整认证仅在 octo-platform (多租户) 实现
-            // octo-workbench (单用户) 使用 ApiKey 或 None 模式
-            Err(StatusCode::NOT_IMPLEMENTED)
+            // 完整认证：JWT Bearer token
+            let auth_header = req.headers().get("authorization");
+            let token = auth_header
+                .and_then(|v| v.to_str().ok())
+                .and_then(|v| v.strip_prefix("Bearer "));
+
+            match token {
+                Some(t) => {
+                    if let Some(claims) = config.validate_jwt(t) {
+                        // Convert role string to permissions
+                        let permissions = match claims.role.as_str() {
+                            "admin" => vec![Permission::Admin],
+                            "member" => vec![Permission::Read, Permission::Write],
+                            "viewer" => vec![Permission::Read],
+                            _ => vec![],
+                        };
+
+                        let mut req = req;
+                        req.extensions_mut().insert(UserContext {
+                            user_id: Some(claims.sub),
+                            permissions,
+                        });
+                        Ok(next.run(req).await)
+                    } else {
+                        Err(StatusCode::UNAUTHORIZED)
+                    }
+                }
+                _ => Err(StatusCode::UNAUTHORIZED),
+            }
         }
     }
 }
