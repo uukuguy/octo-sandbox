@@ -50,7 +50,8 @@ COPY web/ .
 RUN pnpm run build
 
 # Production stage
-FROM debian:bookworm-slim
+# Use ubuntu noble which has glibc 2.39
+FROM ubuntu:noble
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -64,7 +65,7 @@ WORKDIR /app
 COPY --from=builder /app/target/release/octo-server .
 
 # Copy frontend from builder
-COPY --from=frontend-builder /web/dist ./web/dist
+COPY --from=frontend-builder /web/dist /usr/share/nginx/html
 
 # Copy config
 COPY config.yaml .

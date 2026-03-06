@@ -429,17 +429,17 @@ impl AgentRuntime {
     }
 
     /// 列出运行中的 MCP servers
-    pub fn list_mcp_servers(&self) -> Vec<crate::mcp::manager::ServerRuntimeState> {
-        let guard = self.mcp_manager.blocking_lock();
+    pub async fn list_mcp_servers(&self) -> Vec<crate::mcp::manager::ServerRuntimeState> {
+        let guard = self.mcp_manager.lock().await;
         let states = guard.all_runtime_states();
         states.into_iter().map(|(_, state)| state).collect()
     }
 
     /// 获取所有 MCP servers 的运行时状态（包含名称）
-    pub fn get_all_mcp_server_states(
+    pub async fn get_all_mcp_server_states(
         &self,
     ) -> std::collections::HashMap<String, crate::mcp::manager::ServerRuntimeState> {
-        let guard = self.mcp_manager.blocking_lock();
+        let guard = self.mcp_manager.lock().await;
         guard.all_runtime_states()
     }
 
@@ -467,11 +467,11 @@ impl AgentRuntime {
     }
 
     /// 获取指定 MCP server 的运行时状态
-    pub fn get_mcp_runtime_state(
+    pub async fn get_mcp_runtime_state(
         &self,
         server_id: &str,
     ) -> crate::mcp::manager::ServerRuntimeState {
-        let guard = self.mcp_manager.blocking_lock();
+        let guard = self.mcp_manager.lock().await;
         guard.get_runtime_state(server_id)
     }
 

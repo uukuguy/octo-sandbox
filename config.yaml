@@ -34,3 +34,9 @@
 # skills:
 #   dirs: []            # List of skills directories
 
+# Scheduler configuration
+scheduler:
+  enabled: true
+  check_interval_secs: 60
+  max_concurrent: 5
+

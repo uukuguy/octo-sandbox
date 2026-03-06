@@ -30,7 +30,7 @@ async fn health(State(state): State<Arc<AppState>>) -> Json<HealthResponse> {
     let uptime = state.start_time.elapsed().as_secs();
 
     // Get MCP server states
-    let mcp_states = state.agent_supervisor.get_all_mcp_server_states();
+    let mcp_states = state.agent_supervisor.get_all_mcp_server_states().await;
     let mcp_servers: Vec<McpServerStatus> = mcp_states
         .into_iter()
         .map(|(name, state)| McpServerStatus {
