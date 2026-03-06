@@ -98,6 +98,8 @@ impl McpManager {
     }
 
     /// Add and connect a new MCP server.
+    /// NOTE: this method holds &mut self for the duration of connect() + list_tools().
+    /// Prefer add_server_nonblocking() from AgentRuntime which connects outside the lock.
     pub async fn add_server(&mut self, config: McpServerConfig) -> Result<Vec<McpToolInfo>> {
         let name = config.name.clone();
         let mut client = StdioMcpClient::new(config);
@@ -114,6 +116,20 @@ impl McpManager {
         self.clients.insert(name.clone(), client);
         self.tool_infos.insert(name, tools.clone());
         Ok(tools)
+    }
+
+    /// Insert an already-connected client without holding the lock during IO.
+    /// Used by AgentRuntime::add_mcp_server to avoid lock contention.
+    pub fn insert_connected_client(
+        &mut self,
+        name: String,
+        client: Arc<RwLock<Box<dyn McpClient>>>,
+        tools: Vec<McpToolInfo>,
+    ) {
+        self.clients.insert(name.clone(), client);
+        self.tool_infos.insert(name.clone(), tools);
+        self.runtime_states
+            .insert(name, ServerRuntimeState::Running { pid: 0 });
     }
 
     /// Add and connect a new MCP server, supporting both Stdio and SSE transports.

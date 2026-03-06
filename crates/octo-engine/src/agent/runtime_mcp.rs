@@ -3,41 +3,87 @@
 use std::sync::Arc;
 
 use octo_types::ToolSource;
+use tokio::sync::RwLock;
 
-use crate::mcp::traits::McpToolInfo;
+use crate::mcp::stdio::StdioMcpClient;
+use crate::mcp::traits::{McpClient, McpToolInfo};
 
 use super::runtime::AgentRuntime;
 use super::AgentError;
 
 impl AgentRuntime {
     /// 添加 MCP Server → 自动注册 tools
+    ///
+    /// Connect and list_tools happen OUTSIDE the mcp_manager lock so that
+    /// slow subprocess startup (e.g. npx downloading packages) does not
+    /// block other handlers that need the lock for reads.
     pub async fn add_mcp_server(
         &self,
         config: crate::mcp::traits::McpServerConfig,
     ) -> Result<Vec<McpToolInfo>, AgentError> {
         let mcp = &self.mcp_manager;
 
-        let tools = {
+        // Mark as starting (brief lock, no IO)
+        {
             let mut guard = mcp.lock().await;
-            guard
-                .add_server(config.clone())
-                .await
-                .map_err(|e| AgentError::McpError(e.to_string()))?
+            guard.set_runtime_state(
+                &config.name,
+                crate::mcp::manager::ServerRuntimeState::Starting,
+            );
+        }
+
+        // Connect and discover tools OUTSIDE the lock (may take seconds)
+        let mut client = StdioMcpClient::new(config.clone());
+        let connect_result = client.connect().await;
+        if let Err(e) = connect_result {
+            let mut guard = mcp.lock().await;
+            guard.set_runtime_state(
+                &config.name,
+                crate::mcp::manager::ServerRuntimeState::Error {
+                    message: e.to_string(),
+                },
+            );
+            return Err(AgentError::McpError(e.to_string()));
+        }
+
+        let tools = match client.list_tools().await {
+            Ok(t) => t,
+            Err(e) => {
+                let mut guard = mcp.lock().await;
+                guard.set_runtime_state(
+                    &config.name,
+                    crate::mcp::manager::ServerRuntimeState::Error {
+                        message: e.to_string(),
+                    },
+                );
+                return Err(AgentError::McpError(e.to_string()));
+            }
         };
+
+        tracing::info!(
+            server = %config.name,
+            tool_count = tools.len(),
+            "MCP server connected with tools"
+        );
+
+        let client: Arc<RwLock<Box<dyn McpClient>>> = Arc::new(RwLock::new(Box::new(client)));
+
+        // Insert into manager and register tools (brief lock, no IO)
+        {
+            let mut guard = mcp.lock().await;
+            guard.insert_connected_client(config.name.clone(), client.clone(), tools.clone());
+        }
 
         // 注册到 ToolRegistry
         {
-            let mcp_guard = mcp.lock().await;
             let mut tools_guard = self.tools.lock().unwrap_or_else(|e| e.into_inner());
             for tool_info in &tools {
-                if let Some(client) = mcp_guard.clients().get(&config.name) {
-                    let bridge = crate::mcp::bridge::McpToolBridge::new(
-                        client.clone(),
-                        config.name.clone(),
-                        tool_info.clone(),
-                    );
-                    tools_guard.register(bridge);
-                }
+                let bridge = crate::mcp::bridge::McpToolBridge::new(
+                    client.clone(),
+                    config.name.clone(),
+                    tool_info.clone(),
+                );
+                tools_guard.register(bridge);
             }
         }
 
