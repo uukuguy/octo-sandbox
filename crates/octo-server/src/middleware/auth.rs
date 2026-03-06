@@ -14,6 +14,13 @@ pub async fn auth_middleware_with_role(
     next: Next,
     config: &AuthConfig,
 ) -> Result<Response, StatusCode> {
+    // Health check is always public regardless of auth mode
+    if req.uri().path() == "/api/health" {
+        let mut req = req;
+        req.extensions_mut().insert(UserContext::anonymous());
+        return Ok(next.run(req).await);
+    }
+
     match config.mode {
         AuthMode::None => {
             let mut req = req;
