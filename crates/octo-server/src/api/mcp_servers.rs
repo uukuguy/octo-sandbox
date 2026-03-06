@@ -396,20 +396,26 @@ pub async fn start_server(
         env: serde_json::from_str(&server_record.env).unwrap_or_default(),
     };
 
-    // Add and connect the server via AgentRuntime
-    match state.agent_supervisor.add_mcp_server(config).await {
-        Ok(tools) => {
-            tracing::info!(server = %id, tool_count = tools.len(), "MCP server started");
-            Json(serde_json::json!({
-                "started": id,
-                "tool_count": tools.len()
-            }))
+    // Spawn background task: subprocess connect can block for several seconds
+    // (e.g. npx downloading packages on first run). Return immediately so the
+    // HTTP handler does not starve other requests on the Tokio runtime.
+    let supervisor = state.agent_supervisor.clone();
+    let id_clone = id.clone();
+    tokio::spawn(async move {
+        match supervisor.add_mcp_server(config).await {
+            Ok(tools) => {
+                tracing::info!(server = %id_clone, tool_count = tools.len(), "MCP server started");
+            }
+            Err(e) => {
+                tracing::error!(server = %id_clone, error = %e, "Failed to start MCP server");
+            }
         }
-        Err(e) => {
-            tracing::error!(server = %id, error = %e, "Failed to start MCP server");
-            Json(serde_json::json!({"error": format!("Failed to start server: {}", e)}))
-        }
-    }
+    });
+
+    Json(serde_json::json!({
+        "starting": id,
+        "status": "starting"
+    }))
 }
 
 // Stop server
