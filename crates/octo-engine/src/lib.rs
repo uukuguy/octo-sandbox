@@ -46,7 +46,11 @@ pub use logging::{
     init_logging, init_logging_with_filter, init_pretty_logging, init_pretty_logging_with_filter,
 };
 // audit_log macro is exported at crate root via #[macro_export] in logging module
-pub use mcp::{McpClient, McpManager, McpServerConfig, McpToolBridge, McpToolInfo, StdioMcpClient};
+pub use mcp::{
+    McpClient, McpManager, McpPromptArgument, McpPromptInfo, McpPromptMessage, McpPromptResult,
+    McpResourceContent, McpResourceInfo, McpServerConfig, McpServerConfigV2, McpToolBridge,
+    McpToolInfo, McpTransport, SseMcpClient, StdioMcpClient,
+};
 pub use memory::{
     Entity, FtsStore, GraphStats, GraphStore, HybridQueryEngine, HybridSearchResult,
     InMemoryWorkingMemory, KnowledgeGraph, MemoryStore, MemorySystem, QueryType, Relation,

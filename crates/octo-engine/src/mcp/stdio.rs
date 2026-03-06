@@ -52,7 +52,6 @@ impl McpClient for StdioMcpClient {
                 for arg in &args {
                     c.arg(arg);
                 }
-                c.env_clear();
                 for (k, v) in &env {
                     c.env(k, v);
                 }

@@ -20,8 +20,11 @@ impl std::str::FromStr for McpTransport {
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s.to_lowercase().as_str() {
-            "sse" => Ok(McpTransport::Sse),
-            "stdio" | _ => Ok(McpTransport::Stdio),
+            "stdio" => Ok(McpTransport::Stdio),
+            "sse" | "http" | "streamable-http" => Ok(McpTransport::Sse),
+            other => Err(format!(
+                "Unknown MCP transport: '{other}'. Expected 'stdio' or 'sse'"
+            )),
         }
     }
 }

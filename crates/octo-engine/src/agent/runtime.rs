@@ -14,6 +14,7 @@ use crate::agent::{
 };
 use crate::db::Database;
 use crate::event::EventBus;
+use crate::hooks::HookRegistry;
 use crate::mcp::manager::McpManager;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::{InMemoryWorkingMemory, SqliteMemoryStore, SqliteWorkingMemory, WorkingMemory};
@@ -94,6 +95,8 @@ pub struct AgentRuntime {
     pub(crate) metering: Arc<Metering>,
     // Security policy for path validation (injected into ToolContext)
     pub(crate) security_policy: Arc<SecurityPolicy>,
+    // Hook system
+    pub(crate) hook_registry: Arc<HookRegistry>,
     // Tenant isolation (Task 3)
     pub(crate) tenant_context: Option<TenantContext>,
 }
@@ -243,6 +246,7 @@ impl AgentRuntime {
             working_dir,
             metering,
             security_policy,
+            hook_registry: Arc::new(HookRegistry::new()),
             tenant_context,
         })
     }
@@ -323,6 +327,11 @@ impl AgentRuntime {
     /// Get security policy
     pub fn security_policy(&self) -> &Arc<SecurityPolicy> {
         &self.security_policy
+    }
+
+    /// Get hook registry
+    pub fn hook_registry(&self) -> &Arc<HookRegistry> {
+        &self.hook_registry
     }
 
     /// Get tenant context (if any)

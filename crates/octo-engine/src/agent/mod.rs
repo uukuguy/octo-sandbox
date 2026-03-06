@@ -30,4 +30,4 @@ pub use queue::{MessageQueue, QueueKind, QueueMode};
 pub use router::{AgentProfile, AgentRouter, RouteAlternative, RouteResult};
 pub use runtime::{AgentRuntime, AgentRuntimeConfig};
 pub use store::AgentStore;
-pub use tenant::{Action, Role, TenantContext};
+pub use tenant::TenantContext;
