@@ -75,6 +75,27 @@ impl ToolRegistry {
     pub fn iter(&self) -> impl Iterator<Item = (&String, Arc<dyn Tool>)> {
         self.tools.iter().map(|(k, v)| (k, v.clone()))
     }
+
+    /// Create a snapshot (clone) of the current registry.
+    /// This replaces the manual clone pattern used in multiple locations.
+    pub fn snapshot(&self) -> ToolRegistry {
+        let mut registry = ToolRegistry::new();
+        for (name, tool) in self.tools.iter() {
+            registry.tools.insert(name.clone(), tool.clone());
+        }
+        registry
+    }
+
+    /// Create a filtered snapshot containing only the named tools.
+    pub fn snapshot_filtered(&self, filter: &[String]) -> ToolRegistry {
+        let mut registry = ToolRegistry::new();
+        for name in filter {
+            if let Some(tool) = self.tools.get(name) {
+                registry.tools.insert(name.clone(), tool.clone());
+            }
+        }
+        registry
+    }
 }
 
 impl Default for ToolRegistry {

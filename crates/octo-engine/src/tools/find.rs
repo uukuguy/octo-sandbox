@@ -65,6 +65,13 @@ impl Tool for FindTool {
             })
             .unwrap_or_else(|| ctx.working_dir.clone());
 
+        // Security: validate search path against policy
+        if let Some(ref validator) = ctx.path_validator {
+            if let Err(e) = validator.check_path(&search_path) {
+                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+            }
+        }
+
         let type_filter = params["type"].as_str();
 
         debug!(?name, ?search_path, ?type_filter, "running find");

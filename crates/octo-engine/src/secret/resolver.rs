@@ -89,9 +89,7 @@ impl CredentialResolver {
         let vars = Self::parse_dotenv(&content);
 
         // Look up the key
-        vars.get(key)
-            .cloned()
-            .ok_or(std::env::VarError::NotPresent)
+        vars.get(key).cloned().ok_or(std::env::VarError::NotPresent)
     }
 
     /// Parse .env file content into key-value pairs
@@ -107,7 +105,9 @@ impl CredentialResolver {
             }
 
             // Remove export prefix if present
-            let line = line.trim_start_matches("export ").trim_start_matches("export\t");
+            let line = line
+                .trim_start_matches("export ")
+                .trim_start_matches("export\t");
 
             // Find the first = sign
             if let Some(eq_pos) = line.find('=') {

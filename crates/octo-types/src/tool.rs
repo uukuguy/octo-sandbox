@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use crate::id::SandboxId;
 
@@ -41,8 +42,14 @@ impl ToolResult {
     }
 }
 
+/// Trait for validating file paths against security policies.
+pub trait PathValidator: Send + Sync + std::fmt::Debug {
+    fn check_path(&self, path: &Path) -> Result<(), String>;
+}
+
 #[derive(Debug, Clone)]
 pub struct ToolContext {
     pub sandbox_id: SandboxId,
     pub working_dir: PathBuf,
+    pub path_validator: Option<Arc<dyn PathValidator>>,
 }

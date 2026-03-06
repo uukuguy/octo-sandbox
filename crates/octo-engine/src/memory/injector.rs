@@ -1,18 +1,19 @@
-use octo_types::{MemoryBlock, MemoryBlockKind};
+use octo_types::{MemoryBlock, MemoryBlockKind, DEFAULT_CONTEXT_BUDGET_CHARS};
 
-/// Default character budget for working memory compilation (12,000 chars ≈ 3,000 tokens).
-const DEFAULT_WORKING_MEMORY_BUDGET_CHARS: usize = 12_000;
+/// Default budget for context compilation, aligned with TokenBudget::default().context.
+/// This is the character budget (12,000 chars ≈ 3,000 tokens).
+const DEFAULT_BUDGET: usize = DEFAULT_CONTEXT_BUDGET_CHARS;
 
 pub struct ContextInjector;
 
 impl ContextInjector {
-    /// Build Zone B dynamic context message content with default budget (12,000 chars).
+    /// Build Zone B dynamic context message content with default budget.
     ///
     /// Outputs a `<context>` XML block containing the current datetime and
     /// non-empty memory blocks sorted by priority (highest first).
     /// Deprecated block kinds (SandboxContext, AgentPersona) are skipped.
     pub fn compile(blocks: &[MemoryBlock]) -> String {
-        Self::compile_with_budget(blocks, DEFAULT_WORKING_MEMORY_BUDGET_CHARS)
+        Self::compile_with_budget(blocks, DEFAULT_BUDGET)
     }
 
     /// Build Zone B dynamic context message content with an explicit character budget.
@@ -26,8 +27,7 @@ impl ContextInjector {
 
         let mut output = format!("<context>\n<datetime>{datetime}</datetime>\n");
 
-        let mut sorted: Vec<&MemoryBlock> =
-            blocks.iter().filter(|b| !b.value.is_empty()).collect();
+        let mut sorted: Vec<&MemoryBlock> = blocks.iter().filter(|b| !b.value.is_empty()).collect();
         sorted.sort_by(|a, b| b.priority.cmp(&a.priority));
 
         let mut used = output.len();

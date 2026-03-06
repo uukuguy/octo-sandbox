@@ -62,6 +62,61 @@ impl Tool for WebFetchTool {
 
         let max_length = params["max_length"].as_u64().map(|v| v as usize);
 
+        // SSRF protection: validate URL scheme and destination
+        let parsed_url = reqwest::Url::parse(url)
+            .map_err(|e| anyhow::anyhow!("Invalid URL: {}", e))?;
+
+        // Block non-HTTP schemes
+        match parsed_url.scheme() {
+            "http" | "https" => {}
+            scheme => {
+                return Ok(ToolResult::error(format!(
+                    "Blocked URL scheme '{}'. Only http and https are allowed.",
+                    scheme
+                )));
+            }
+        }
+
+        // Block private/loopback/link-local IPs and cloud metadata endpoints
+        if let Some(host) = parsed_url.host_str() {
+            let is_loopback = host == "localhost"
+                || host == "127.0.0.1"
+                || host == "::1"
+                || host == "0.0.0.0";
+
+            let is_private_10 = host.starts_with("10.");
+            let is_private_192 = host.starts_with("192.168.");
+            let is_link_local = host.starts_with("169.254.");
+
+            // Check 172.16.0.0/12 range
+            let is_private_172 = if let Some(rest) = host.strip_prefix("172.") {
+                rest.split('.')
+                    .next()
+                    .and_then(|s| s.parse::<u8>().ok())
+                    .map(|n| (16..=31).contains(&n))
+                    .unwrap_or(false)
+            } else {
+                false
+            };
+
+            // Cloud metadata endpoints
+            let is_metadata =
+                host == "metadata.google.internal" || host == "169.254.169.254";
+
+            if is_loopback
+                || is_private_10
+                || is_private_192
+                || is_link_local
+                || is_private_172
+                || is_metadata
+            {
+                return Ok(ToolResult::error(format!(
+                    "Blocked request to private/internal address: {}",
+                    host
+                )));
+            }
+        }
+
         debug!(url, max_length, "fetching web content");
 
         let response = self

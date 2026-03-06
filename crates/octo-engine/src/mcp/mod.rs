@@ -1,4 +1,5 @@
 pub mod bridge;
+pub mod convert;
 pub mod manager;
 pub mod sse;
 pub mod stdio;
@@ -10,4 +11,8 @@ pub use manager::McpManager;
 pub use sse::SseMcpClient;
 pub use stdio::StdioMcpClient;
 pub use storage::McpStorage;
-pub use traits::{McpClient, McpServerConfig, McpToolInfo};
+pub use traits::{
+    McpClient, McpPromptArgument, McpPromptInfo, McpPromptMessage, McpPromptResult,
+    McpResourceContent, McpResourceInfo, McpServerConfig, McpServerConfigV2, McpToolInfo,
+    McpTransport,
+};

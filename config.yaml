@@ -1,0 +1,48 @@
+# =============================================================================
+# Octo Server Configuration
+# =============================================================================
+# Copy this file to config.yaml and uncomment/modify parameters as needed.
+# Priority: config.yaml < CLI args < .env
+# =============================================================================
+
+# Server configuration
+# server:
+#   host: 127.0.0.1    # Server bind address
+#   port: 3001          # Server port
+
+# LLM Provider configuration
+# provider:
+#   name: anthropic     # Provider: anthropic or openai
+#   api_key: ""         # API key (required)
+#   base_url: None      # Optional proxy URL
+#   model: None         # Optional model override
+
+# Database configuration
+# database:
+#   path: ./data/octo.db  # SQLite database path
+
+# Logging configuration
+# logging:
+#   level: octo_server=debug,octo_engine=debug,tower_http=debug
+#   format: text        # Log format: "text" (default) or "json" (for ELK)
+
+# MCP configuration
+# mcp:
+#   servers_dir: None   # Optional MCP servers directory
+
+# Skills configuration
+# skills:
+#   dirs: []            # List of skills directories
+
+# Scheduler configuration
+scheduler:
+  enabled: true
+  check_interval_secs: 60
+  max_concurrent: 5
+
+# Auth configuration
+# API key is loaded from OCTO_API_KEY environment variable (.env)
+# Auth mode is loaded from OCTO_AUTH_MODE environment variable (.env)
+# auth:
+#   mode: api_key
+

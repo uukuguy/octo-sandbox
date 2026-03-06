@@ -1,0 +1,44 @@
+# Git
+.git
+.gitignore
+
+# Build artifacts
+target/
+*.o
+*.a
+*.so
+*.dylib
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node
+node_modules/
+web/node_modules/
+# pnpm-lock.yaml excluded intentionally - see Dockerfile for build strategy
+# web/pnpm-lock.yaml
+
+# Test coverage
+*.profraw
+coverage/
+
+# Docs
+docs/
+*.md
+
+# Config with secrets
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+*.log

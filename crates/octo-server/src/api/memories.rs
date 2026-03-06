@@ -86,7 +86,12 @@ pub async fn get_working_memory(
     let user_id_str = get_user_id_from_context(Some(&ctx));
     let user_id = UserId::from_string(&user_id_str);
     let sandbox_id = SandboxId::from_string(params.sandbox_id.as_deref().unwrap_or(&user_id_str));
-    match state.agent_supervisor.memory().get_blocks(&user_id, &sandbox_id).await {
+    match state
+        .agent_supervisor
+        .memory()
+        .get_blocks(&user_id, &sandbox_id)
+        .await
+    {
         Ok(blocks) => Json(serde_json::json!({ "blocks": blocks })),
         Err(_) => Json(serde_json::json!({ "blocks": [] })),
     }

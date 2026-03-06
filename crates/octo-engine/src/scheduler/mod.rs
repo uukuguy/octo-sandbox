@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use cron::Schedule;
 use std::path::PathBuf;
 
-use octo_types::{ChatMessage, ContentBlock, MessageRole, ToolContext, UserId};
+use octo_types::{ChatMessage, ContentBlock, MessageRole, PathValidator, ToolContext, UserId};
 use serde::{Deserialize, Serialize};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -206,6 +206,7 @@ pub struct Scheduler {
     tools: Arc<StdMutex<ToolRegistry>>,
     memory: Arc<dyn WorkingMemory>,
     session_store: Arc<dyn SessionStore>,
+    path_validator: Option<Arc<dyn PathValidator>>,
 }
 
 impl Scheduler {
@@ -216,6 +217,7 @@ impl Scheduler {
         tools: Arc<StdMutex<ToolRegistry>>,
         memory: Arc<dyn WorkingMemory>,
         session_store: Arc<dyn SessionStore>,
+        path_validator: Option<Arc<dyn PathValidator>>,
     ) -> Self {
         let max_concurrent = config.max_concurrent;
         Self {
@@ -228,6 +230,7 @@ impl Scheduler {
             tools,
             memory,
             session_store,
+            path_validator,
         }
     }
 
@@ -274,8 +277,8 @@ impl Scheduler {
         }
     }
 
-    /// Execute a single task
-    async fn execute_task(&self, task: &ScheduledTask) -> Result<(), SchedulerError> {
+    /// Execute a single task and return the execution result
+    async fn execute_task(&self, task: &ScheduledTask) -> Result<TaskExecution, SchedulerError> {
         // Check concurrency limit
         let _permit = self
             .semaphore
@@ -325,7 +328,7 @@ impl Scheduler {
 
         tracing::info!("Task {} executed, next run: {:?}", task.id, next_run);
 
-        Ok(())
+        Ok(execution)
     }
 
     /// Run an agent task
@@ -347,10 +350,11 @@ impl Scheduler {
         let user_message = ChatMessage::user(config.input.clone());
         let mut messages = vec![user_message];
 
-        // Create tool context
+        // Create tool context with path validation
         let tool_ctx = ToolContext {
             sandbox_id: sandbox_id.clone(),
             working_dir: PathBuf::from("/tmp"),
+            path_validator: self.path_validator.clone(),
         };
 
         // Create event channel (discard events)
@@ -358,7 +362,7 @@ impl Scheduler {
 
         // Build a snapshot of the tool registry for this task execution
         let tools_snapshot = {
-            let guard = self.tools.lock().unwrap();
+            let guard = self.tools.lock().unwrap_or_else(|e| e.into_inner());
             let mut snapshot = ToolRegistry::new();
             for (name, tool) in guard.iter() {
                 snapshot.register_arc(name.clone(), tool);
@@ -367,12 +371,9 @@ impl Scheduler {
         };
 
         // Create and configure agent loop
-        let mut agent_loop = AgentLoop::new(
-            self.provider.clone(),
-            tools_snapshot,
-            self.memory.clone(),
-        )
-        .with_model(config.model.clone());
+        let mut agent_loop =
+            AgentLoop::new(self.provider.clone(), tools_snapshot, self.memory.clone())
+                .with_model(config.model.clone());
 
         // Run agent with timeout
         let result = tokio::time::timeout(
@@ -540,23 +541,8 @@ impl Scheduler {
             }
         }
 
-        let now = Utc::now();
-        let execution = TaskExecution {
-            id: Uuid::new_v4().to_string(),
-            task_id: task_id.to_string(),
-            started_at: now,
-            finished_at: Some(now),
-            status: ExecutionStatus::Success,
-            result: Some("Manually triggered".to_string()),
-            error: None,
-        };
-
-        self.storage.save_execution(&execution).await?;
-
-        // Update last_run
-        self.storage
-            .update_timing(task_id, Some(now), task.next_run)
-            .await?;
+        // Execute the task for real
+        let execution = self.execute_task(&task).await?;
 
         Ok(execution)
     }

@@ -1,58 +1,51 @@
 // crates/octo-engine/src/auth/middleware.rs
 
-use crate::auth::{AuthConfig, AuthMode, Permission};
-use axum::{body::Body, extract::Request, http::StatusCode, middleware::Next, response::Response};
+use crate::auth::{roles::Role, Permission};
 
 /// 用户上下文
 #[derive(Debug, Clone)]
 pub struct UserContext {
     pub user_id: Option<String>,
     pub permissions: Vec<Permission>,
+    pub role: Option<Role>,
 }
 
-/// 认证中间件
-pub async fn auth_middleware(
-    req: Request<Body>,
-    next: Next,
-    config: &AuthConfig,
-) -> Result<Response, StatusCode> {
-    match config.mode {
-        AuthMode::None => {
-            // 无认证模式，直接放行，注入匿名用户
-            let mut req = req;
-            req.extensions_mut().insert(UserContext {
-                user_id: None,
-                permissions: vec![],
-            });
-            Ok(next.run(req).await)
+impl UserContext {
+    /// 创建一个新的用户上下文
+    pub fn new(user_id: Option<String>, permissions: Vec<Permission>, role: Option<Role>) -> Self {
+        Self {
+            user_id,
+            permissions,
+            role,
         }
-        AuthMode::ApiKey => {
-            // 验证 API Key
-            let key = req.headers().get("X-API-Key").and_then(|v| v.to_str().ok());
+    }
 
-            match key {
-                Some(k) if config.validate_key(k) => {
-                    let user_id = config.get_user_id(k);
-                    let permissions = config.get_permissions(k);
+    /// 创建一个匿名用户上下文
+    pub fn anonymous() -> Self {
+        Self {
+            user_id: None,
+            permissions: vec![],
+            role: None,
+        }
+    }
 
-                    let mut req = req;
-                    req.extensions_mut().insert(UserContext {
-                        user_id,
-                        permissions,
-                    });
-                    Ok(next.run(req).await)
-                }
-                _ => Err(StatusCode::UNAUTHORIZED),
-            }
-        }
-        AuthMode::Full => {
-            // 完整认证（octo-platform 实现）
-            Err(StatusCode::NOT_IMPLEMENTED)
-        }
+    /// 检查是否具有特定权限
+    pub fn has_permission(&self, permission: &Permission) -> bool {
+        self.permissions.iter().any(|p| p == permission)
+    }
+
+    /// 检查是否具有特定角色（如果角色已设置）
+    pub fn has_role(&self, required_role: Role) -> bool {
+        self.role
+            .map(|r| r.has_at_least(&required_role))
+            .unwrap_or(false)
     }
 }
 
-/// 从请求中提取用户上下文
-pub fn get_user_context<B>(req: &Request<B>) -> Option<UserContext> {
-    req.extensions().get::<UserContext>().cloned()
-}
+/// RBAC: 需要的动作
+#[derive(Clone, Debug)]
+pub struct RequiredAction(pub crate::auth::roles::Action);
+
+/// RBAC: 需要的角色
+#[derive(Clone, Debug)]
+pub struct RequiredRole(pub Role);

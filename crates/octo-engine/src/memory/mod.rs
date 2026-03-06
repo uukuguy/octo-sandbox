@@ -3,12 +3,14 @@ pub mod extractor;
 pub mod fts;
 pub mod graph;
 pub mod graph_store;
+pub mod hybrid_query;
 pub mod injector;
 pub mod semantic;
 pub mod sqlite_store;
 pub mod sqlite_working;
 pub mod store_traits;
 pub mod traits;
+pub mod vector_index;
 pub mod working;
 
 use std::path::Path;
@@ -30,6 +32,8 @@ pub use sqlite_store::SqliteMemoryStore;
 pub use sqlite_working::SqliteWorkingMemory;
 pub use store_traits::MemoryStore;
 pub use traits::WorkingMemory;
+pub use vector_index::{VectorEntry, VectorIndex, VectorIndexConfig, VectorSearchResult};
+pub use hybrid_query::{HybridQueryEngine, HybridSearchResult, QueryType};
 pub use working::InMemoryWorkingMemory;
 
 /// Unified memory system including working, session, persistent, and knowledge graph

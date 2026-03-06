@@ -12,14 +12,20 @@ use octo_types::{
 };
 
 use crate::context::{
-    ContextBudgetManager, ContextPruner, DegradationLevel, MemoryFlusher, SystemPromptBuilder,
+    ContextBudgetManager,
+    ContextPruner,
+    DegradationLevel,
+    MemoryFlusher,
+    NewSystemPromptBuilder as SystemPromptBuilder, // Zone A builder
 };
+use crate::hooks::{HookContext, HookPoint, HookRegistry};
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::{LlmErrorKind, Provider, RetryPolicy};
 use crate::tools::ToolRegistry;
 
 use super::config::AgentConfig;
+use super::entry::AgentManifest;
 use super::parallel::execute_parallel;
 use super::CancellationToken;
 
@@ -79,9 +85,13 @@ pub struct AgentLoop {
     recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
     loop_guard: super::loop_guard::LoopGuard,
     event_bus: Option<Arc<crate::event::EventBus>>,
+    hook_registry: Option<Arc<HookRegistry>>,
     config: AgentConfig,
-    /// Zone A: override the entire system prompt (e.g. from AgentManifest).
-    /// When None, SystemPromptBuilder builds the default system prompt.
+    /// Zone A: Agent manifest containing role/goal/backstory/system_prompt
+    manifest: Option<AgentManifest>,
+    /// Zone A: override the entire system prompt (deprecated, use manifest instead).
+    /// Kept for backward compatibility.
+    #[deprecated(since = "0.1.0", note = "Use with_manifest() instead")]
     system_prompt_override: Option<String>,
 }
 
@@ -104,7 +114,10 @@ impl AgentLoop {
             recorder: None,
             loop_guard: super::loop_guard::LoopGuard::new(),
             event_bus: None,
+            hook_registry: None,
             config: AgentConfig::default(),
+            manifest: None,
+            #[allow(deprecated)]
             system_prompt_override: None,
         }
     }
@@ -124,13 +137,29 @@ impl AgentLoop {
         self
     }
 
+    pub fn with_hook_registry(mut self, registry: Arc<HookRegistry>) -> Self {
+        self.hook_registry = Some(registry);
+        self
+    }
+
     pub fn with_config(mut self, config: AgentConfig) -> Self {
         self.config = config;
         self
     }
 
+    /// Zone A: set the agent manifest (role/goal/backstory/system_prompt).
+    ///
+    /// The manifest is used by SystemPromptBuilder to construct Zone A:
+    /// - system_prompt: Full override (highest priority)
+    /// - role/goal/backstory: CrewAI pattern (second priority)
+    pub fn with_manifest(mut self, manifest: AgentManifest) -> Self {
+        self.manifest = Some(manifest);
+        self
+    }
+
     /// Zone A: override the system prompt with a custom string (e.g. from AgentManifest).
     /// When set, the default SystemPromptBuilder is bypassed entirely.
+    #[allow(deprecated)]
     pub fn with_system_prompt(mut self, prompt: String) -> Self {
         self.system_prompt_override = Some(prompt);
         self
@@ -167,12 +196,21 @@ impl AgentLoop {
         );
 
         // Zone A: static system prompt (agent identity + capabilities)
-        // Uses system_prompt_override when set (e.g. from AgentManifest),
-        // otherwise falls back to SystemPromptBuilder defaults.
-        let system_prompt = self
-            .system_prompt_override
-            .clone()
-            .unwrap_or_else(|| SystemPromptBuilder::new().build_system_prompt());
+        //
+        // Priority:
+        // 1. system_prompt_override (deprecated, for backward compatibility)
+        // 2. manifest with role/goal/backstory/system_prompt
+        // 3. default SystemPromptBuilder
+        #[allow(deprecated)]
+        let system_prompt = if let Some(ref r#override) = self.system_prompt_override {
+            r#override.clone()
+        } else if let Some(ref manifest) = self.manifest {
+            SystemPromptBuilder::new()
+                .with_manifest(manifest.clone())
+                .build()
+        } else {
+            SystemPromptBuilder::new().build()
+        };
 
         debug!("System prompt length: {} chars", system_prompt.len());
 
@@ -196,9 +234,7 @@ impl AgentLoop {
             let first_is_context = messages
                 .first()
                 .and_then(|m| m.content.first())
-                .map(|b| {
-                    matches!(b, ContentBlock::Text { text } if text.starts_with("<context>"))
-                })
+                .map(|b| matches!(b, ContentBlock::Text { text } if text.starts_with("<context>")))
                 .unwrap_or(false);
             if first_is_context {
                 messages[0] = zone_b;
@@ -220,6 +256,15 @@ impl AgentLoop {
 
         for round in 0..max_rounds {
             debug!(round, "Agent round starting");
+
+            // 发布 LoopTurnStarted 事件（用于指标统计）
+            if let Some(ref bus) = self.event_bus {
+                bus.publish(crate::event::OctoEvent::LoopTurnStarted {
+                    session_id: session_id.as_str().to_string(),
+                    turn: round,
+                })
+                .await;
+            }
 
             // Check for cancellation
             if let Some(flag) = &cancel_flag {
@@ -545,6 +590,14 @@ impl AgentLoop {
                 // Sequential execution (original behavior)
                 let mut outputs = Vec::new();
                 for (tu, input) in &parsed_tools {
+                    // PreToolUse hook
+                    if let Some(ref hooks) = self.hook_registry {
+                        let ctx = HookContext::new()
+                            .with_session(session_id.as_str())
+                            .with_tool(&tu.name, input.clone());
+                        hooks.execute(HookPoint::PreToolUse, &ctx).await;
+                    }
+
                     let exec_start = std::time::Instant::now();
 
                     let result = if let Some(tool) = self.tools.get(&tu.name) {
@@ -557,6 +610,17 @@ impl AgentLoop {
                     };
 
                     let exec_duration = exec_start.elapsed().as_millis() as u64;
+
+                    // PostToolUse hook
+                    if let Some(ref hooks) = self.hook_registry {
+                        let mut ctx = HookContext::new()
+                            .with_session(session_id.as_str())
+                            .with_tool(&tu.name, input.clone())
+                            .with_result(!result.is_error, exec_duration);
+                        ctx.tool_result =
+                            Some(serde_json::Value::String(result.output.clone()));
+                        hooks.execute(HookPoint::PostToolUse, &ctx).await;
+                    }
 
                     if let Some(ref bus) = self.event_bus {
                         bus.publish(crate::event::OctoEvent::ToolCallCompleted {

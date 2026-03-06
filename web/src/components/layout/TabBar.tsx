@@ -1,10 +1,12 @@
 import { useAtom } from "jotai";
 import { cn } from "@/lib/utils";
 import { activeTabAtom, type TabId } from "@/atoms/ui";
-import { Server } from "lucide-react";
+import { Server, ListTodo, Calendar } from "lucide-react";
 
 const tabs: { id: TabId; label: string; icon?: React.ComponentType<{ className?: string }> }[] = [
   { id: "chat", label: "Chat" },
+  { id: "tasks", label: "Tasks", icon: ListTodo },
+  { id: "schedule", label: "Schedule", icon: Calendar },
   { id: "tools", label: "Tools" },
   { id: "memory", label: "Memory" },
   { id: "debug", label: "Debug" },

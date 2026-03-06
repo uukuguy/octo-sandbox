@@ -1,4 +1,5 @@
 pub mod cancellation;
+pub mod capability;
 pub mod catalog;
 pub mod config;
 pub mod context;
@@ -9,10 +10,16 @@ pub mod loop_;
 pub mod loop_guard;
 pub mod parallel;
 pub mod queue;
+pub mod router;
 pub mod runtime;
+mod runtime_lifecycle;
+mod runtime_mcp;
+mod runtime_scheduler;
 pub mod store;
+pub mod tenant; // 新增
 
 pub use cancellation::{CancellationToken, ChildCancellationToken};
+pub use capability::AgentCapability;
 pub use catalog::AgentCatalog;
 pub use config::AgentConfig;
 pub use entry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentStatus};
@@ -20,5 +27,7 @@ pub use executor::{AgentExecutor, AgentExecutorHandle, AgentMessage};
 pub use extension::{AgentExtension, ExtensionEvent, ExtensionRegistry};
 pub use loop_::{AgentEvent, AgentLoop};
 pub use queue::{MessageQueue, QueueKind, QueueMode};
+pub use router::{AgentProfile, AgentRouter, RouteAlternative, RouteResult};
 pub use runtime::{AgentRuntime, AgentRuntimeConfig};
 pub use store::AgentStore;
+pub use tenant::TenantContext;

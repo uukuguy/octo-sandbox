@@ -62,6 +62,13 @@ impl Tool for FileReadTool {
             ctx.working_dir.join(path_str)
         };
 
+        // Security: validate path against policy
+        if let Some(ref validator) = ctx.path_validator {
+            if let Err(e) = validator.check_path(&path) {
+                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+            }
+        }
+
         debug!(?path, offset, limit, "reading file");
 
         // Check file exists

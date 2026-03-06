@@ -67,7 +67,7 @@ pub async fn list_servers(
         return Json(vec![]);
     };
 
-    let runtime_states = state.agent_supervisor.list_mcp_servers();
+    let runtime_states = state.agent_supervisor.list_mcp_servers().await;
 
     // Use list_servers_for_user to filter by user_id
     match storage.list_servers_for_user(&user_id) {
@@ -78,11 +78,9 @@ pub async fn list_servers(
                     // Find runtime state for this server
                     let runtime_status = runtime_states
                         .iter()
-                        .find(|state| {
-                            match state {
-                                octo_engine::mcp::manager::ServerRuntimeState::Running { .. } => true,
-                                _ => false,
-                            }
+                        .find(|state| match state {
+                            octo_engine::mcp::manager::ServerRuntimeState::Running { .. } => true,
+                            _ => false,
                         })
                         .map(|_| "running")
                         .unwrap_or("stopped");
@@ -194,6 +192,38 @@ pub async fn create_server(
     let env_str = serde_json::to_string(&env_map).unwrap_or_default();
     let enabled = req.enabled.unwrap_or(true);
 
+    // Validate command against allowlist
+    const ALLOWED_MCP_COMMANDS: &[&str] = &[
+        "npx", "node", "python3", "python", "cargo", "deno", "bun", "uvx",
+    ];
+    if !command.is_empty() {
+        let cmd_base = command
+            .split_whitespace()
+            .next()
+            .unwrap_or("")
+            .rsplit('/')
+            .next()
+            .unwrap_or("");
+        if !ALLOWED_MCP_COMMANDS.contains(&cmd_base) {
+            tracing::warn!(command = %command, "MCP server command rejected: not in allowlist");
+            return Json(McpServerResponse {
+                id: id.clone(),
+                name: req.name,
+                source,
+                command,
+                args: args_vec,
+                env: env_map,
+                transport,
+                url: req.url,
+                enabled: false,
+                runtime_status: "error".to_string(),
+                tool_count: 0,
+                created_at: now.clone(),
+                updated_at: now,
+            });
+        }
+    }
+
     let record = octo_engine::mcp::storage::McpServerRecord {
         id: id.clone(),
         name: req.name.clone(),
@@ -282,7 +312,7 @@ pub async fn update_server(
     match storage.update_server(&record) {
         Ok(_) => {
             // Get runtime status from manager
-            let runtime = state.agent_supervisor.get_mcp_runtime_state(&id);
+            let runtime = state.agent_supervisor.get_mcp_runtime_state(&id).await;
             let runtime_status = match runtime {
                 ServerRuntimeState::Stopped => "stopped",
                 ServerRuntimeState::Starting => "starting",
@@ -366,20 +396,26 @@ pub async fn start_server(
         env: serde_json::from_str(&server_record.env).unwrap_or_default(),
     };
 
-    // Add and connect the server via AgentRuntime
-    match state.agent_supervisor.add_mcp_server(config).await {
-        Ok(tools) => {
-            tracing::info!(server = %id, tool_count = tools.len(), "MCP server started");
-            Json(serde_json::json!({
-                "started": id,
-                "tool_count": tools.len()
-            }))
+    // Spawn background task: subprocess connect can block for several seconds
+    // (e.g. npx downloading packages on first run). Return immediately so the
+    // HTTP handler does not starve other requests on the Tokio runtime.
+    let supervisor = state.agent_supervisor.clone();
+    let id_clone = id.clone();
+    tokio::spawn(async move {
+        match supervisor.add_mcp_server(config).await {
+            Ok(tools) => {
+                tracing::info!(server = %id_clone, tool_count = tools.len(), "MCP server started");
+            }
+            Err(e) => {
+                tracing::error!(server = %id_clone, error = %e, "Failed to start MCP server");
+            }
         }
-        Err(e) => {
-            tracing::error!(server = %id, error = %e, "Failed to start MCP server");
-            Json(serde_json::json!({"error": format!("Failed to start server: {}", e)}))
-        }
-    }
+    });
+
+    Json(serde_json::json!({
+        "starting": id,
+        "status": "starting"
+    }))
 }
 
 // Stop server
@@ -427,7 +463,7 @@ pub async fn get_server_status(
         }
     }
 
-    let runtime_state = state.agent_supervisor.get_mcp_runtime_state(&id);
+    let runtime_state = state.agent_supervisor.get_mcp_runtime_state(&id).await;
     let tool_count = state.agent_supervisor.get_mcp_tool_count(&id).await;
 
     let (status, pid, error) = match runtime_state {

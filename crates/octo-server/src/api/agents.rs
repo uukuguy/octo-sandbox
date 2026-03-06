@@ -30,6 +30,7 @@ fn agent_err_to_status(e: AgentError) -> StatusCode {
         AgentError::McpNotInitialized => StatusCode::SERVICE_UNAVAILABLE,
         AgentError::McpError(_) => StatusCode::INTERNAL_SERVER_ERROR,
         AgentError::McpServerNotFound(_) => StatusCode::NOT_FOUND,
+        AgentError::PermissionDenied(_) => StatusCode::FORBIDDEN,
     }
 }
 
@@ -51,8 +52,17 @@ async fn create_agent(
     State(s): State<Arc<AppState>>,
     Json(manifest): Json<AgentManifest>,
 ) -> Result<(StatusCode, Json<AgentEntry>), StatusCode> {
-    let id = s.agent_supervisor.catalog().register(manifest);
-    let entry = s.agent_supervisor.catalog().get(&id).ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
+    // Get tenant_id from runtime's tenant context (single-user workbench)
+    let tenant_id = s
+        .agent_supervisor
+        .tenant_context()
+        .map(|ctx| ctx.tenant_id.clone());
+    let id = s.agent_supervisor.catalog().register(manifest, tenant_id);
+    let entry = s
+        .agent_supervisor
+        .catalog()
+        .get(&id)
+        .ok_or(StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok((StatusCode::CREATED, Json(entry)))
 }
 
@@ -134,11 +144,12 @@ async fn resume_agent(
         .ok_or(StatusCode::NOT_FOUND)
 }
 
-async fn delete_agent(
-    State(s): State<Arc<AppState>>,
-    Path(id): Path<String>,
-) -> StatusCode {
-    if s.agent_supervisor.catalog().unregister(&AgentId(id)).is_some() {
+async fn delete_agent(State(s): State<Arc<AppState>>, Path(id): Path<String>) -> StatusCode {
+    if s.agent_supervisor
+        .catalog()
+        .unregister(&AgentId(id))
+        .is_some()
+    {
         StatusCode::NO_CONTENT
     } else {
         StatusCode::NOT_FOUND

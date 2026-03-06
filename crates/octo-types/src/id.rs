@@ -36,5 +36,10 @@ macro_rules! newtype_id {
 }
 
 newtype_id!(UserId);
+newtype_id!(TenantId);
 newtype_id!(SessionId);
 newtype_id!(SandboxId);
+
+/// Default tenant ID for single-user / backward compatibility.
+/// All existing agents without explicit tenant_id will belong to this default tenant.
+pub const DEFAULT_TENANT_ID: &str = "default";

@@ -56,6 +56,13 @@ impl Tool for FileWriteTool {
             ctx.working_dir.join(path_str)
         };
 
+        // Security: validate path against policy
+        if let Some(ref validator) = ctx.path_validator {
+            if let Err(e) = validator.check_path(&path) {
+                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+            }
+        }
+
         debug!(?path, content_len = content.len(), "writing file");
 
         // Create parent directories

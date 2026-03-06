@@ -10,12 +10,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Result;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::EnvFilter;
 
 use octo_engine::{
     scheduler::{Scheduler, SqliteSchedulerStorage},
-    AgentCatalog, AgentRuntime, AgentRuntimeConfig, AgentStore, Database,
+    AgentCatalog, AgentRuntime, AgentRuntimeConfig, AgentStore, Database, TenantContext,
 };
+use octo_types::{TenantId, UserId};
 use state::AppState;
 
 fn print_default_config() {
@@ -71,14 +72,30 @@ async fn main() -> Result<()> {
 
     // Apply logging config (clone to avoid moving)
     let log_filter = std::env::var("RUST_LOG").unwrap_or_else(|_| cfg.logging.level.clone());
-    fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&log_filter)),
-        )
-        .init();
+    let log_format = std::env::var("OCTO_LOG_FORMAT").unwrap_or_default();
+
+    if log_format == "json" {
+        tracing_subscriber::fmt()
+            .json()
+            .with_env_filter(
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&log_filter)),
+            )
+            .init();
+    } else {
+        tracing_subscriber::fmt()
+            .with_env_filter(
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&log_filter)),
+            )
+            .init();
+    }
 
     let addr = format!("{}:{}", cfg.server.host, cfg.server.port);
     tracing::info!("Using provider: {}", cfg.provider.name);
+    tracing::info!(
+        auth_mode = ?cfg.auth.mode,
+        api_key_count = cfg.auth.api_keys.as_ref().map(|k| k.len()).unwrap_or(0),
+        "Auth configuration loaded"
+    );
 
     // Database: SQLite with WAL mode (use config, with env override already applied)
     let db_path = cfg.database.path.clone();
@@ -110,7 +127,9 @@ async fn main() -> Result<()> {
     // Initialize provider chain if configured (before creating AgentRuntime)
     // Note: instances need to be added separately after AgentRuntime creation
     if let Some(ref pc_config) = cfg.provider_chain {
-        let chain = Arc::new(octo_engine::providers::ProviderChain::new(pc_config.failover_policy));
+        let chain = Arc::new(octo_engine::providers::ProviderChain::new(
+            pc_config.failover_policy,
+        ));
         let chain_clone = Arc::clone(&chain);
 
         // Add instances to the chain
@@ -153,8 +172,14 @@ async fn main() -> Result<()> {
         );
     }
 
+    // Create tenant context for single-user scenario (octo-workbench)
+    let tenant_context = TenantContext::for_single_user(
+        TenantId::from_string("default"),
+        UserId::from_string("local-user"),
+    );
+
     let agent_runtime = Arc::new(
-        AgentRuntime::new(agent_catalog.clone(), runtime_config).await?
+        AgentRuntime::new(agent_catalog.clone(), runtime_config, Some(tenant_context)).await?,
     );
 
     // Get session store from AgentRuntime for creating primary session
@@ -187,6 +212,8 @@ async fn main() -> Result<()> {
 
     // Create scheduler with required dependencies from agent_runtime
     let scheduler = if cfg.scheduler.enabled {
+        tracing::info!("Scheduler enabled: interval={}s, max_concurrent={}",
+            cfg.scheduler.check_interval_secs, cfg.scheduler.max_concurrent);
         let storage = SqliteSchedulerStorage::new(conn.clone());
         let s = Scheduler::new(
             cfg.scheduler.clone(),
@@ -195,6 +222,7 @@ async fn main() -> Result<()> {
             agent_runtime.tools().clone(),
             agent_runtime.memory().clone(),
             agent_runtime.session_store().clone(),
+            Some(agent_runtime.security_policy().clone() as std::sync::Arc<dyn octo_types::PathValidator>),
         );
         Some(Arc::new(s))
     } else {
@@ -217,19 +245,26 @@ async fn main() -> Result<()> {
         });
     }
 
-    let app = router::build_router(state);
+    let app = router::build_router(state.clone());
 
     let listener = tokio::net::TcpListener::bind(&addr).await?;
     tracing::info!("octo-server listening on {addr}");
 
     axum::serve(listener, app)
-        .with_graceful_shutdown(shutdown_signal())
+        .with_graceful_shutdown(shutdown_signal(state.clone()))
         .await?;
+
+    // Graceful shutdown: clean up MCP servers
+    tracing::info!("Shutting down MCP servers...");
+    let mcp_manager = state.agent_supervisor.mcp_manager();
+    let mut guard = mcp_manager.lock().await;
+    let _ = guard.shutdown_all().await;
+    tracing::info!("MCP servers shut down");
 
     Ok(())
 }
 
-async fn shutdown_signal() {
+async fn shutdown_signal(_state: Arc<AppState>) {
     tokio::signal::ctrl_c()
         .await
         .expect("failed to install CTRL+C signal handler");

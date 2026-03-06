@@ -1,13 +1,21 @@
+use std::collections::HashMap;
+
 use anyhow::{Context, Result};
 use async_trait::async_trait;
-use tracing::{debug, info};
+use tracing::{debug, info, warn};
 
-use rmcp::model::{CallToolRequestParams, RawContent};
+use rmcp::model::{
+    CallToolRequestParams, GetPromptRequestParams, RawContent, ReadResourceRequestParams,
+};
 use rmcp::service::RunningService;
 use rmcp::transport::{ConfigureCommandExt, TokioChildProcess};
 use rmcp::{RoleClient, ServiceExt};
 
-use super::traits::{McpClient, McpServerConfig, McpToolInfo};
+use super::convert;
+use super::traits::{
+    validate_resource_uri, McpClient, McpPromptInfo, McpPromptResult, McpResourceContent,
+    McpResourceInfo, McpServerConfig, McpToolInfo,
+};
 
 pub struct StdioMcpClient {
     config: McpServerConfig,
@@ -98,11 +106,7 @@ impl McpClient for StdioMcpClient {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("MCP client not connected"))?;
 
-        let arguments = if args.is_object() {
-            Some(args.as_object().unwrap().clone())
-        } else {
-            None
-        };
+        let arguments = args.as_object().map(|o| o.clone());
 
         let result = service
             .call_tool(CallToolRequestParams {
@@ -143,5 +147,93 @@ impl McpClient for StdioMcpClient {
                 .map_err(|e| anyhow::anyhow!("Failed to cancel MCP service: {e}"))?;
         }
         Ok(())
+    }
+
+    async fn list_resources(&self) -> Result<Vec<McpResourceInfo>> {
+        let service = self
+            .service
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("MCP client not connected"))?;
+
+        let resources = match service.list_all_resources().await {
+            Ok(r) => r,
+            Err(e) => {
+                warn!(name = %self.config.name, error = %e, "Server does not support resources or list failed");
+                return Ok(vec![]);
+            }
+        };
+
+        let result = convert::map_resources(resources);
+        debug!(count = result.len(), "Listed MCP resources");
+        Ok(result)
+    }
+
+    async fn read_resource(&self, uri: &str) -> Result<McpResourceContent> {
+        validate_resource_uri(uri)?;
+        let service = self
+            .service
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("MCP client not connected"))?;
+
+        let result = service
+            .read_resource(ReadResourceRequestParams {
+                meta: None,
+                uri: uri.to_string(),
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to read MCP resource '{uri}': {e}"))?;
+
+        Ok(convert::map_resource_content(result.contents, uri))
+    }
+
+    async fn list_prompts(&self) -> Result<Vec<McpPromptInfo>> {
+        let service = self
+            .service
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("MCP client not connected"))?;
+
+        let prompts = match service.list_all_prompts().await {
+            Ok(p) => p,
+            Err(e) => {
+                warn!(name = %self.config.name, error = %e, "Server does not support prompts or list failed");
+                return Ok(vec![]);
+            }
+        };
+
+        let result = convert::map_prompts(prompts);
+        debug!(count = result.len(), "Listed MCP prompts");
+        Ok(result)
+    }
+
+    async fn get_prompt(
+        &self,
+        name: &str,
+        args: HashMap<String, String>,
+    ) -> Result<McpPromptResult> {
+        let service = self
+            .service
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("MCP client not connected"))?;
+
+        let arguments: Option<serde_json::Map<String, serde_json::Value>> = if args.is_empty() {
+            None
+        } else {
+            Some(
+                args.into_iter()
+                    .map(|(k, v)| (k, serde_json::Value::String(v)))
+                    .collect(),
+            )
+        };
+
+        let result = service
+            .get_prompt(GetPromptRequestParams {
+                meta: None,
+                name: name.to_string(),
+                arguments,
+            })
+            .await
+            .map_err(|e| anyhow::anyhow!("Failed to get MCP prompt '{name}': {e}"))?;
+
+        Ok(convert::map_prompt_result(result))
     }
 }

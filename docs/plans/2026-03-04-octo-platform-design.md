@@ -3,6 +3,42 @@
 > 日期：2026-03-04
 > 状态：设计完成（已确认：产品定位、架构总览、目录结构、前端策略、编排层、数据模型、实施路线图）
 > 基础：octo-workbench v1.0 冲刺完成后开始实施
+> 更新：2026-03-05 添加 Phase 2.11a/b 拆分说明
+
+---
+
+## 0.1 Phase 2.11 拆分说明
+
+由于 octo-engine 需要同时支撑 octo-workbench (单用户) 和 octo-platform (多租户)，将原 Phase 2.11 拆分为：
+
+### Phase 2.11a: octo-engine 多租户适配 (当前分支)
+
+**目标**：octo-engine 原生支持多租户，为 octo-platform 做好准备
+
+**详细计划**：`2026-03-05-phase2-11a-octoe-engine-multi-tenant-implementation.md`
+
+| Task | 内容 |
+|------|------|
+| Task 1 | AgentCatalog 添加 TenantId 索引 |
+| Task 2 | 新增 TenantContext 类型 |
+| Task 3 | AgentRuntime 支持 TenantContext |
+| Task 4 | Zone A/B 完整实现 |
+| Task 5 | Budget 统一 |
+| Task 6 | AppState 集成 + REST API |
+| Task 7 | 构建验证 |
+
+### Phase 2.11b: octo-platform-server (新分支)
+
+**目标**：实现租户管理层
+
+| Task | 内容 |
+|------|------|
+| Task 1 | TenantRuntime 实现 |
+| Task 2 | UserRuntime 实现 |
+| Task 3 | JWT/OAuth2 认证集成 |
+| Task 4 | 资源配额管理 |
+
+**依赖**：Phase 2.11a 完成后的 octo-engine
 
 ---
 
@@ -449,3 +485,15 @@ octo-workbench v1.0 → P1（~4周）→ P2（~4周）→ P3（~6周）→ P4（
 | 认证 | 自建 + 插拔式 SSO | 开发快，企业部署灵活 |
 | 隔离粒度 | 租户级 + 用户级两层 | 覆盖三种部署模式 |
 | 编排模式 | Supervisor/Peer/Pipeline 三种 | 按场景选择，用户自由配置拓扑 |
+
+---
+
+## Deferred（暂缓项）
+
+> 本阶段已知但暂未实现的功能点。每次开始新 Task 前先检查此列表。
+
+| ID | 内容 | 前置条件 | 状态 |
+|----|------|---------|------|
+| D1 | agent_pool.rs:467 TODO - Session Store 持久化实现 | P1-4 Workspace 持久化完成后，扩展到 Session Store | ✅ 已补 |
+| D2 | runtime.rs:86 - AgentExecutor observability 转发 | AgentExecutor observability 集成设计完成后 | ⏳ |
+| D3 | middleware.rs:50 - 认证中间件 NOT_IMPLEMENTED 分支 | OAuth2/OIDC 实现完成后 | ✅ 已补 |

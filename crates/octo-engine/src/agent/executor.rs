@@ -1,12 +1,12 @@
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
 
 use anyhow::Result;
 use tokio::sync::{broadcast, mpsc};
 use tracing::{info, warn};
 
-use octo_types::{ChatMessage, SandboxId, SessionId, ToolContext, UserId};
+use octo_types::{ChatMessage, PathValidator, SandboxId, SessionId, ToolContext, UserId};
 
 use crate::agent::{AgentConfig, AgentEvent, AgentLoop};
 use crate::memory::store_traits::MemoryStore;
@@ -45,7 +45,10 @@ impl AgentExecutorHandle {
     }
 
     /// 发送消息到 AgentExecutor
-    pub async fn send(&self, msg: AgentMessage) -> Result<(), mpsc::error::SendError<AgentMessage>> {
+    pub async fn send(
+        &self,
+        msg: AgentMessage,
+    ) -> Result<(), mpsc::error::SendError<AgentMessage>> {
         self.tx.send(msg).await
     }
 }
@@ -64,7 +67,7 @@ pub struct AgentExecutor {
     // Harness 核心（所有字段跨 round 持久化）
     history: Vec<ChatMessage>,
     provider: Arc<dyn Provider>,
-    tools: Arc<ToolRegistry>,
+    tools: Arc<std::sync::Mutex<ToolRegistry>>,
     memory: Arc<dyn WorkingMemory>,
     memory_store: Option<Arc<dyn MemoryStore>>,
     model: Option<String>,
@@ -81,6 +84,10 @@ pub struct AgentExecutor {
     working_dir: PathBuf,
     // 事件总线
     event_bus: Option<Arc<crate::event::EventBus>>,
+    // 路径安全验证器
+    path_validator: Option<Arc<dyn PathValidator>>,
+    // Hook 系统
+    hook_registry: Option<Arc<crate::hooks::HookRegistry>>,
 }
 
 impl AgentExecutor {
@@ -93,7 +100,7 @@ impl AgentExecutor {
         rx: mpsc::Receiver<AgentMessage>,
         broadcast_tx: broadcast::Sender<AgentEvent>,
         provider: Arc<dyn Provider>,
-        tools: Arc<ToolRegistry>,
+        tools: Arc<std::sync::Mutex<ToolRegistry>>,
         memory: Arc<dyn WorkingMemory>,
         memory_store: Option<Arc<dyn MemoryStore>>,
         model: Option<String>,
@@ -102,6 +109,8 @@ impl AgentExecutor {
         config: AgentConfig,
         working_dir: PathBuf,
         event_bus: Option<Arc<crate::event::EventBus>>,
+        path_validator: Option<Arc<dyn PathValidator>>,
+        hook_registry: Option<Arc<crate::hooks::HookRegistry>>,
     ) -> Self {
         Self {
             session_id,
@@ -121,6 +130,8 @@ impl AgentExecutor {
             cancel_flag: Arc::new(AtomicBool::new(false)),
             working_dir,
             event_bus,
+            path_validator,
+            hook_registry,
         }
     }
 
@@ -137,12 +148,19 @@ impl AgentExecutor {
                     // 追加用户消息到持久化历史
                     self.history.push(ChatMessage::user(content));
 
+                    // 从共享 ToolRegistry 生成快照（每 round 新建，实现 MCP 热插拔）
+                    let tools_snapshot = {
+                        let guard = self.tools.lock().unwrap_or_else(|e| e.into_inner());
+                        let mut registry = ToolRegistry::new();
+                        for (name, tool) in guard.iter() {
+                            registry.register_arc(name.clone(), tool);
+                        }
+                        Arc::new(registry)
+                    };
+
                     // 构建 AgentLoop（每 round 新建，但 history 由 AgentExecutor 持有）
-                    let mut agent_loop = AgentLoop::new(
-                        self.provider.clone(),
-                        self.tools.clone(),
-                        self.memory.clone(),
-                    );
+                    let mut agent_loop =
+                        AgentLoop::new(self.provider.clone(), tools_snapshot, self.memory.clone());
                     if let Some(ref ms) = self.memory_store {
                         agent_loop = agent_loop.with_memory_store(ms.clone());
                     }
@@ -164,9 +182,15 @@ impl AgentExecutor {
                         agent_loop = agent_loop.with_event_bus(bus.clone());
                     }
 
+                    // 注入 Hook Registry
+                    if let Some(ref hooks) = self.hook_registry {
+                        agent_loop = agent_loop.with_hook_registry(hooks.clone());
+                    }
+
                     let tool_ctx = ToolContext {
                         sandbox_id: self.sandbox_id.clone(),
                         working_dir: self.working_dir.clone(),
+                        path_validator: self.path_validator.clone(),
                     };
                     let _ = tokio::fs::create_dir_all(&tool_ctx.working_dir).await;
 
@@ -190,7 +214,9 @@ impl AgentExecutor {
 
                     // 持久化 history 到 SessionStore
                     if let Some(ref store) = self.session_store {
-                        store.set_messages(&self.session_id, self.history.clone()).await;
+                        store
+                            .set_messages(&self.session_id, self.history.clone())
+                            .await;
                     }
                 }
                 AgentMessage::Cancel => {

@@ -5,7 +5,7 @@ use octo_engine::auth::*;
 #[test]
 fn test_auth_mode_default() {
     let config = AuthConfig::default();
-    assert_eq!(config.mode, AuthMode::None);
+    assert_eq!(config.mode, AuthMode::ApiKey);
     assert!(config.api_keys.is_empty());
 }
 

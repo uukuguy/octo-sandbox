@@ -35,9 +35,7 @@ pub async fn get_session(
     let session_id = SessionId::from_string(&id);
 
     // Use get_session_for_user to ensure user can only access their own sessions
-    let session_data = sessions
-        .get_session_for_user(&session_id, &user_id)
-        .await;
+    let session_data = sessions.get_session_for_user(&session_id, &user_id).await;
     if session_data.is_none() {
         return Json(serde_json::json!({
             "error": "Session not found or access denied"

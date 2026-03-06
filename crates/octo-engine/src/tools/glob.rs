@@ -60,6 +60,13 @@ impl Tool for GlobTool {
             })
             .unwrap_or_else(|| ctx.working_dir.clone());
 
+        // Security: validate base directory against policy
+        if let Some(ref validator) = ctx.path_validator {
+            if let Err(e) = validator.check_path(&base_dir) {
+                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+            }
+        }
+
         let full_pattern = base_dir.join(pattern);
         let pattern_str = full_pattern.to_string_lossy().to_string();
 

@@ -82,29 +82,37 @@ impl MemoryBlock {
 }
 
 // ============================================================
-// Token Budget
+// Token Budget (Zone A/B/C)
 // ============================================================
 
+/// Token budget for context zone allocation.
+/// - Zone A: system_prompt (system instructions)
+/// - Zone B: context (dynamic context from memory/injector)
+/// - Zone C: conversation (history messages)
 #[derive(Debug, Clone)]
 pub struct TokenBudget {
     pub total: u32,
-    pub system_prompt: u32,
-    pub memory: u32,
-    pub messages: u32,
-    pub completion: u32,
+    pub system_prompt: u32, // Zone A
+    pub context: u32,       // Zone B: aligned with ContextInjector
+    pub conversation: u32,  // Zone C
+    pub completion: u32,    // Reserve for model output
 }
 
 impl Default for TokenBudget {
     fn default() -> Self {
         Self {
             total: 200_000,
-            system_prompt: 16_000,
-            memory: 2_000,
-            messages: 180_000,
+            system_prompt: 16_000, // Zone A: 16K
+            context: 12_000,       // Zone B: 12K (aligned with ContextInjector)
+            conversation: 32_000,  // Zone C: 32K
             completion: 4_096,
         }
     }
 }
+
+/// Default context budget in characters (Zone B).
+/// Must be kept in sync with TokenBudget::default().context * 4 (chars ≈ 4x tokens).
+pub const DEFAULT_CONTEXT_BUDGET_CHARS: usize = 12_000;
 
 // ============================================================
 // Persistent Memory (Layer 2)

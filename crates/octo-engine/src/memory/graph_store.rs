@@ -16,15 +16,12 @@ impl GraphStore {
     pub fn new(conn: Connection) -> Self {
         let conn = Arc::new(Mutex::new(conn));
         let fts = FtsStore::new(conn.clone());
-        Self {
-            conn,
-            fts,
-        }
+        Self { conn, fts }
     }
 
     /// Initialize tables
     pub fn init(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute_batch("PRAGMA foreign_keys = ON")?;
         conn.execute_batch(
             r#"
@@ -70,7 +67,7 @@ impl GraphStore {
     pub fn save_entity(&self, entity: &Entity) -> Result<()> {
         // Save entity to main database
         {
-            let conn = self.conn.lock().unwrap();
+            let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
             conn.execute(
                 r#"
                 INSERT OR REPLACE INTO kg_entities
@@ -101,7 +98,7 @@ impl GraphStore {
 
     /// Save relation
     pub fn save_relation(&self, relation: &Relation) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             r#"
             INSERT OR REPLACE INTO kg_relations
@@ -122,9 +119,9 @@ impl GraphStore {
 
     /// Load all entities
     pub fn load_entities(&self) -> Result<Vec<Entity>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
-            "SELECT id, name, entity_type, properties, created_at, updated_at FROM kg_entities"
+            "SELECT id, name, entity_type, properties, created_at, updated_at FROM kg_entities",
         )?;
 
         let entities: Vec<(String, String, String, String, i64, i64)> = stmt
@@ -159,7 +156,7 @@ impl GraphStore {
 
     /// Load all relations
     pub fn load_relations(&self) -> Result<Vec<Relation>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             "SELECT id, source_id, target_id, relation_type, properties, created_at FROM kg_relations"
         )?;
@@ -212,7 +209,7 @@ impl GraphStore {
     /// Delete entity (cascades relations)
     pub fn delete_entity(&self, id: &str) -> Result<()> {
         self.fts.remove_entity(id)?;
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let tx = conn.unchecked_transaction()?;
         tx.execute(
             "DELETE FROM kg_relations WHERE source_id = ?1 OR target_id = ?1",
@@ -225,17 +222,11 @@ impl GraphStore {
 
     /// Get stats
     pub fn stats(&self) -> Result<GraphStats> {
-        let conn = self.conn.lock().unwrap();
-        let entity_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM kg_entities",
-            [],
-            |row| row.get(0),
-        )?;
-        let relation_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM kg_relations",
-            [],
-            |row| row.get(0),
-        )?;
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let entity_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM kg_entities", [], |row| row.get(0))?;
+        let relation_count: i64 =
+            conn.query_row("SELECT COUNT(*) FROM kg_relations", [], |row| row.get(0))?;
         let type_count: i64 = conn.query_row(
             "SELECT COUNT(DISTINCT entity_type) FROM kg_entities",
             [],

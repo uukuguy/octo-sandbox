@@ -40,7 +40,7 @@ impl Default for ExecPolicy {
             safe_bins: vec![
                 "ls", "cat", "head", "tail", "grep", "find", "echo", "pwd", "wc", "sort", "uniq",
                 "cut", "awk", "sed", "tr", "diff", "git", "cargo", "npm", "python3", "python",
-                "node", "sh", "bash", "touch", "mkdir", "cp", "mv", "rm", "curl", "wget",
+                "node", "touch", "mkdir",
             ]
             .into_iter()
             .map(String::from)
@@ -57,6 +57,20 @@ impl ExecPolicy {
             ExecSecurityMode::Deny => false,
             ExecSecurityMode::Full => true,
             ExecSecurityMode::Allowlist => {
+                // Block shell metacharacters that could bypass the allowlist
+                if command.contains(';')
+                    || command.contains('|')
+                    || command.contains("&&")
+                    || command.contains("||")
+                    || command.contains("$(")
+                    || command.contains('`')
+                    || command.contains('>')
+                    || command.contains('<')
+                    || command.contains('\n')
+                    || command.contains('\0')
+                {
+                    return false;
+                }
                 // 提取命令名（取第一个词，去掉路径前缀）
                 let cmd = command.split_whitespace().next().unwrap_or("");
                 let cmd_name = cmd.rsplit('/').next().unwrap_or(cmd);
@@ -93,7 +107,7 @@ impl BashTool {
         #[cfg(feature = "sandbox-wasm")]
         let router = Some(SandboxRouter::new());
         Self {
-            exec_policy: None,
+            exec_policy: Some(ExecPolicy::default()),
             #[cfg(feature = "sandbox-wasm")]
             router,
         }
@@ -261,7 +275,7 @@ impl Tool for BashTool {
                 }
                 Err(_) => {
                     // 沙箱不可用或失败，继续使用直接执行
-                    tracing::debug!("Falling back to direct command execution");
+                    tracing::warn!("Sandbox not available, falling back to direct command execution");
                 }
             }
         }

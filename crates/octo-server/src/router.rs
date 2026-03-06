@@ -1,7 +1,9 @@
 use std::sync::Arc;
 
-use axum::{body::Body, extract::Request, routing::get, Router};
-use octo_engine::auth::{auth_middleware, AuthConfig};
+use axum::{body::Body, extract::Request, extract::State, routing::get, Json, Router};
+use octo_engine::auth::AuthConfig;
+use crate::middleware::auth_middleware_with_role;
+use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
 
@@ -10,8 +12,41 @@ use crate::middleware::{audit_middleware, AuditMiddlewareState, RateLimiter};
 use crate::state::AppState;
 use crate::ws::ws_handler;
 
-async fn health() -> &'static str {
-    "ok"
+#[derive(Serialize)]
+struct HealthResponse {
+    status: &'static str,
+    uptime_secs: u64,
+    provider: String,
+    mcp_servers: Vec<McpServerStatus>,
+    version: &'static str,
+}
+
+#[derive(Serialize)]
+struct McpServerStatus {
+    name: String,
+    status: String,
+}
+
+async fn health(State(state): State<Arc<AppState>>) -> Json<HealthResponse> {
+    let uptime = state.start_time.elapsed().as_secs();
+
+    // Get MCP server states
+    let mcp_states = state.agent_supervisor.get_all_mcp_server_states().await;
+    let mcp_servers: Vec<McpServerStatus> = mcp_states
+        .into_iter()
+        .map(|(name, state)| McpServerStatus {
+            name,
+            status: format!("{:?}", state),
+        })
+        .collect();
+
+    Json(HealthResponse {
+        status: "ok",
+        uptime_secs: uptime,
+        provider: state.config.provider.name.clone(),
+        mcp_servers,
+        version: env!("CARGO_PKG_VERSION"),
+    })
 }
 
 /// Rate limiting middleware
@@ -59,7 +94,7 @@ async fn auth_middleware_wrapper(
     next: axum::middleware::Next,
 ) -> axum::response::Response {
     let config: &AuthConfig = &state.auth_config;
-    match auth_middleware(req, next, config).await {
+    match auth_middleware_with_role(req, next, config).await {
         Ok(response) => response,
         Err(status) => {
             tracing::debug!("Auth middleware rejected request: {}", status);
@@ -72,10 +107,24 @@ async fn auth_middleware_wrapper(
 }
 
 pub fn build_router(state: Arc<AppState>) -> Router {
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods(Any)
-        .allow_headers(Any);
+    let cors = if state.config.server.cors_origins.is_empty() {
+        CorsLayer::new()
+            .allow_origin(Any)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    } else {
+        let origins: Vec<axum::http::HeaderValue> = state
+            .config
+            .server
+            .cors_origins
+            .iter()
+            .filter_map(|o| o.parse().ok())
+            .collect();
+        CorsLayer::new()
+            .allow_origin(origins)
+            .allow_methods(Any)
+            .allow_headers(Any)
+    };
 
     // Rate limiter: 100 requests per minute per IP
     let rate_limiter = RateLimiter::new(100, 60);
@@ -100,19 +149,23 @@ pub fn build_router(state: Arc<AppState>) -> Router {
         .with_state(audit_state.clone())
         .layer(cors)
         .layer(TraceLayer::new_for_http())
-        // Rate limiting middleware
+        // Middleware layers use LIFO ordering: last added = first to run.
+        // Desired execution order: rate_limit → auth → audit
+        // So we add them in reverse: audit first, rate_limit last.
+        //
+        // Audit middleware - logs all requests (runs AFTER auth, so UserContext is available)
         .layer(axum::middleware::from_fn_with_state(
-            rate_limiter,
-            rate_limit_middleware,
+            audit_state,
+            audit_middleware,
         ))
         // Auth middleware - validates API keys and injects UserContext
         .layer(axum::middleware::from_fn_with_state(
             auth_state,
             auth_middleware_wrapper,
         ))
-        // Audit middleware - logs all requests to audit log
+        // Rate limiting middleware (runs FIRST - before auth and audit)
         .layer(axum::middleware::from_fn_with_state(
-            audit_state,
-            audit_middleware,
+            rate_limiter,
+            rate_limit_middleware,
         ))
 }

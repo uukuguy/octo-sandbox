@@ -1,5 +1,6 @@
 //! AgentEntry and AgentManifest - core registry types
 
+use octo_types::{TenantId, DEFAULT_TENANT_ID};
 use serde::{Deserialize, Serialize};
 
 use crate::agent::AgentConfig;
@@ -87,15 +88,18 @@ impl std::fmt::Display for AgentStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentEntry {
     pub id: AgentId,
+    pub tenant_id: TenantId,
     pub manifest: AgentManifest,
     pub state: AgentStatus,
     pub created_at: i64,
 }
 
 impl AgentEntry {
-    pub fn new(manifest: AgentManifest) -> Self {
+    pub fn new(manifest: AgentManifest, tenant_id: Option<TenantId>) -> Self {
+        let tenant_id = tenant_id.unwrap_or_else(|| TenantId::from_string(DEFAULT_TENANT_ID));
         Self {
             id: AgentId::new(),
+            tenant_id,
             manifest,
             state: AgentStatus::Created,
             created_at: std::time::SystemTime::now()
@@ -109,7 +113,10 @@ impl AgentEntry {
 #[derive(Debug)]
 pub enum AgentError {
     NotFound(AgentId),
-    InvalidTransition { from: AgentStatus, action: &'static str },
+    InvalidTransition {
+        from: AgentStatus,
+        action: &'static str,
+    },
     ScheduledTask(String),
     Internal(String),
 
@@ -117,6 +124,9 @@ pub enum AgentError {
     McpNotInitialized,
     McpError(String),
     McpServerNotFound(String),
+
+    // Permission-related errors (Task 3)
+    PermissionDenied(String),
 }
 
 impl std::fmt::Display for AgentError {
@@ -133,6 +143,9 @@ impl std::fmt::Display for AgentError {
             Self::McpNotInitialized => write!(f, "MCP manager not initialized"),
             Self::McpError(msg) => write!(f, "MCP error: {msg}"),
             Self::McpServerNotFound(name) => write!(f, "MCP server not found: {name}"),
+
+            // Permission-related errors
+            Self::PermissionDenied(msg) => write!(f, "permission denied: {msg}"),
         }
     }
 }

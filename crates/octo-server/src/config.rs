@@ -2,22 +2,28 @@ use octo_engine::auth::AuthConfigYaml;
 use octo_engine::providers::{ProviderChainConfig, ProviderConfig};
 use octo_engine::scheduler::SchedulerConfig;
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Main configuration for octo-server
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     /// Server configuration
+    #[serde(default)]
     pub server: ServerConfig,
     /// LLM provider configuration
+    #[serde(default)]
     pub provider: ProviderConfig,
     /// Database configuration
+    #[serde(default)]
     pub database: DatabaseConfig,
     /// Logging configuration
+    #[serde(default)]
     pub logging: LoggingConfig,
     /// MCP configuration
+    #[serde(default)]
     pub mcp: McpConfig,
     /// Skills configuration
+    #[serde(default)]
     pub skills: SkillsConfig,
     /// Auth configuration (optional)
     #[serde(default)]
@@ -42,6 +48,9 @@ pub struct ServerConfig {
     pub host: String,
     /// Server port (default: 3001)
     pub port: u16,
+    /// Allowed CORS origins (empty = allow all)
+    #[serde(default)]
+    pub cors_origins: Vec<String>,
 }
 
 impl Default for ServerConfig {
@@ -49,6 +58,7 @@ impl Default for ServerConfig {
         Self {
             host: "127.0.0.1".to_string(),
             port: 3001,
+            cors_origins: vec![],
         }
     }
 }
@@ -136,21 +146,25 @@ impl Config {
         cli_host: Option<&str>,
     ) -> Self {
         // Step 1: Load from config.yaml (lowest priority)
-        let mut config = if let Some(path) = config_path {
-            if path.exists() {
-                if let Ok(content) = std::fs::read_to_string(path) {
-                    if let Ok(cfg) = serde_yaml::from_str::<Config>(&content) {
-                        Some(cfg)
-                    } else {
+        // If no explicit path given, look for config.yaml in current directory
+        let yaml_path = config_path
+            .map(|p| p.as_path())
+            .unwrap_or_else(|| Path::new("config.yaml"));
+
+        let mut config = if yaml_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(yaml_path) {
+                match serde_yaml::from_str::<Config>(&content) {
+                    Ok(cfg) => Some(cfg),
+                    Err(e) => {
+                        tracing::warn!("Failed to parse config.yaml: {}, using defaults", e);
                         None
                     }
-                } else {
-                    None
                 }
             } else {
                 None
             }
         } else {
+            tracing::debug!("Config file {:?} not found, using defaults", yaml_path);
             None
         }
         .unwrap_or_default();
@@ -172,6 +186,15 @@ impl Config {
             if let Ok(p) = port.parse() {
                 config.server.port = p;
             }
+        }
+
+        // CORS origins
+        if let Ok(origins) = std::env::var("OCTO_CORS_ORIGINS") {
+            config.server.cors_origins = origins
+                .split(',')
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .collect();
         }
 
         // Provider - read first to determine other fields
@@ -228,6 +251,34 @@ impl Config {
         // Event bus
         if let Ok(enabled) = std::env::var("OCTO_ENABLE_EVENT_BUS") {
             config.enable_event_bus = enabled.parse().unwrap_or(false);
+        }
+
+        // Auth: OCTO_AUTH_MODE and OCTO_API_KEY override config.yaml
+        if let Ok(mode) = std::env::var("OCTO_AUTH_MODE") {
+            let m = match mode.to_lowercase().as_str() {
+                "none" => Some(octo_engine::auth::AuthMode::None),
+                "api_key" | "apikey" => Some(octo_engine::auth::AuthMode::ApiKey),
+                "full" => Some(octo_engine::auth::AuthMode::Full),
+                _ => None,
+            };
+            if let Some(m) = m {
+                config.auth.mode = Some(m);
+            }
+        }
+        if let Ok(key) = std::env::var("OCTO_API_KEY") {
+            if !key.is_empty() {
+                use octo_engine::auth::ApiKeyConfig;
+                let keys = config.auth.api_keys.get_or_insert_with(Vec::new);
+                keys.push(ApiKeyConfig {
+                    key,
+                    user_id: Some(
+                        std::env::var("OCTO_API_KEY_USER").unwrap_or_else(|_| "default".into()),
+                    ),
+                    permissions: vec!["read".into(), "write".into(), "admin".into()],
+                    role: None,
+                    expires_at: None,
+                });
+            }
         }
 
         config
@@ -322,6 +373,25 @@ impl Config {
             "# enable_event_bus: {}    # Enable event bus (default: false)\n",
             defaults.enable_event_bus
         ));
+
+        // Auth
+        output.push_str("\n# Auth configuration\n");
+        output.push_str("# Configure via environment variables (recommended) or inline below.\n");
+        output.push_str("#\n");
+        output.push_str("# Option 1: Disable auth (local dev only)\n");
+        output.push_str("#   OCTO_AUTH_MODE=none\n");
+        output.push_str("#\n");
+        output.push_str("# Option 2: API key auth\n");
+        output.push_str("#   OCTO_AUTH_MODE=api_key\n");
+        output.push_str("#   OCTO_API_KEY=your-secret-key     # key clients use in Authorization: Bearer header\n");
+        output.push_str("#   OCTO_API_KEY_USER=dev            # optional user id (default: \"default\")\n");
+        output.push_str("#\n");
+        output.push_str("# auth:\n");
+        output.push_str("#   mode: api_key   # none | api_key\n");
+        output.push_str("#   api_keys:\n");
+        output.push_str("#     - key: \"your-secret-key\"\n");
+        output.push_str("#       user_id: \"dev\"\n");
+        output.push_str("#       permissions: [\"read\", \"write\", \"admin\"]\n");
 
         output
     }

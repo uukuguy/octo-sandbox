@@ -5,6 +5,75 @@
 
 ---
 
+## [Active Work]
+
+- 11:05 | Checkpoint saved: Phase A+B+C complete (19/24), ready for Phase D
+
+---
+
+## v1.0 Release Sprint - Phase C 前端控制台 [COMPLETED 2026-03-04]
+
+- 18:30 | 补充方案设计完成
+  - Phase 2: Architecture - Skills + Runtime
+    - Agent Skills 标准实现 (Progressive Disclosure)
+    - SkillRuntime (Python/WASM/Node.js)
+  - Phase 3: Auth - API Key + RBAC
+  - Phase 4: Observability - 结构化日志 + Metering
+  - 文档: docs/plans/2026-03-04-v1.0-enhancement-plan.md
+  - 预计工作量: ~1230 LOC
+
+---
+
+## v1.0 Release Sprint - Phase C 前端控制台 [COMPLETED 2026-03-04]
+
+- 16:30 | Phase C (6 tasks) 完成: C1-C6 完成/已存在
+  - C1: TabBar 扩展（Tasks, Schedule 标签）
+  - C2: Tasks 页面（任务提交、列表、详情、删除）
+  - C3: Schedule 页面（Cron 任务 CRUD、手动触发、执行历史）
+  - C4: Tools 页面（已存在 MCP+Tools tab，Built-in Tools/Skills 需 API）
+  - C5: Memory 页面（已存在 Working/Session/Persistent 内存）
+  - C6: Debug 页面（已存在 Token Budget + Tool Stats）
+  - Deferred 剩余: D1 (observability), D3 (auth)
+
+---
+
+## v1.0 Release Sprint - Phase A 稳定地基 [COMPLETED 2026-03-04]
+
+- 11:30 | Phase A (6 tasks) 完成: A1-A6 全部完成
+  - A1: stop_primary 改为 drop tx（不再发送 Cancel 消息）
+  - A2: ToolRegistry 改为 Arc<StdMutex<>> 共享引用（支持 MCP 热插拔）
+  - A3: scheduler run_now 改为真实执行（调用 execute_task）
+  - A4: WorkingMemory 每 session 独立实例（防止数据污染）
+  - A5: graceful shutdown 添加 MCP shutdown_all
+  - A6: 确认 RetryPolicy 已实现（max_retries=3, base_delay=1s）
+  - Deferred 项 D1/D2/D3 已通过 A2 解决
+  - cargo check 零错误，149 测试通过
+
+---
+
+## v1.0 Release Sprint - Phase B 后端能力 [COMPLETED 2026-03-04]
+
+- 15:15 | Phase B (6 tasks) 完成: B1-B6 全部完成
+  - B1: 并行工具执行 (already done)
+  - B2: Background Tasks REST API (POST/GET/DELETE /api/tasks)
+  - B3: 增强 /health 端点 (status, uptime, provider, mcp_servers, version)
+  - B4: LoopTurnStarted 事件 (turns.total 指标修复)
+  - B5: JSON 日志格式 (OCTO_LOG_FORMAT=json)
+  - B6: 移除 Option<McpManager> (简化 API)
+  - cargo check 零错误，200 测试通过
+
+---
+
+## v1.0 Release Sprint - Deferred Code 修复 [COMPLETED 2026-03-04]
+
+- 15:45 | 代码级 Deferred 修复: D2, D4, D5 已解决
+  - D2: 删除 legacy new_legacy 构造函数 (runtime.rs)
+  - D4: ws.rs 3处 .unwrap() 改为 if let Ok 处理
+  - D5: tools.rs Mutex lock 改为错误处理
+  - Deferred 剩余: D1 (observability), D3 (auth middleware)
+
+---
+
 ## Phase 2.11 - AgentRegistry + 上下文工程重构 [COMPLETED 2026-03-03]
 
 - 05:00 | Phase 2.11 完成: AgentRegistry + AgentRunner + Zone A/B 上下文重构 + SQLite 持久化 + REST API
@@ -44,6 +113,14 @@
 
 ## [Active Work]
 
+- 21:30 | octo-platform P1-6 设计 + 实施计划完成
+  - 设计: docs/plans/2026-03-04-p1-6-web-platform-design.md
+  - 实施: docs/plans/2026-03-04-p1-6-web-platform-implementation.md (11 tasks)
+  - React 19 + Vite + TailwindCSS 4 + Jotai
+  - 登录页 + Dashboard + Chat + Sessions 完整用户工作空间
+- 12:30 | v1.0 Release Sprint Phase B checkpoint: A1-A6 complete, B1 verified implemented, B2 attempted (Axum issue - use scheduler API)
+- 10:30 | README 重写完成：英文(README.md) + 中文(README.zh.md)，企业级定位，沙箱安全可控，无对标竞品，已提交 5682a72
+- 10:00 | 项目名 octo-sandbox 确认保留；GitHub About/Topics 方案确定；v1.0 sprint 待执行 (Phase A-D, 17 tasks)
 - 04:30 | Phase 2.11 设计完成（完整 brainstorming）：AgentManifest 三段身份 + AgentRunner + Zone A/B 分离 + SQLite 持久化，计划文档更新（1223行，7 Tasks），待实施
 - 00:10 | Phase 2.9 MCP SSE Transport 完成 (已验证之前会话的实现)
 - 22:00 | Phase 2.10 Knowledge Graph 完成

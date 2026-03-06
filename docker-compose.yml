@@ -1,0 +1,44 @@
+services:
+  octo-server:
+    container_name: octo-workbench-server
+    image: octo-workbench:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OCTO_HOST=0.0.0.0
+      - OCTO_PORT=3001
+      - RUST_LOG=info
+    volumes:
+      - ./data:/app/data
+      - ./config.yaml:/app/config.yaml:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - octo-network
+
+  nginx:
+    image: nginx:alpine
+    container_name: octo-workbench-web
+    ports:
+      - "5180:80"
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - octo-server
+    restart: unless-stopped
+    networks:
+      - octo-network
+
+networks:
+  octo-network:
+    driver: bridge

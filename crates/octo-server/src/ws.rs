@@ -84,9 +84,20 @@ enum ServerMessage {
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
-    _req: Request,
+    req: Request,
 ) -> impl IntoResponse {
+    // Auth check: if auth is enabled, verify user context exists
+    if state.auth_config.mode != octo_engine::auth::AuthMode::None {
+        if req.extensions().get::<octo_engine::auth::UserContext>().is_none() {
+            return axum::response::Response::builder()
+                .status(axum::http::StatusCode::UNAUTHORIZED)
+                .body(axum::body::Body::from("WebSocket authentication required"))
+                .unwrap()
+                .into_response();
+        }
+    }
     ws.on_upgrade(move |socket| handle_socket(socket, state))
+        .into_response()
 }
 
 async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
@@ -115,9 +126,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                     session_id: String::new(),
                     message: format!("Invalid message: {e}"),
                 };
-                let _ = sender
-                    .send(Message::Text(serde_json::to_string(&err).unwrap().into()))
-                    .await;
+                if let Ok(text) = serde_json::to_string(&err) {
+                    let _ = sender.send(Message::Text(text.into())).await;
+                }
                 continue;
             }
         };
@@ -129,10 +140,12 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                 let sid_str = handle.session_id.as_str().to_string();
 
                 // 告知客户端 session_id（前端 UI 显示用）
-                let created_msg = ServerMessage::SessionCreated { session_id: sid_str.clone() };
-                let _ = sender
-                    .send(Message::Text(serde_json::to_string(&created_msg).unwrap().into()))
-                    .await;
+                let created_msg = ServerMessage::SessionCreated {
+                    session_id: sid_str.clone(),
+                };
+                if let Ok(text) = serde_json::to_string(&created_msg) {
+                    let _ = sender.send(Message::Text(text.into())).await;
+                }
 
                 // 先订阅，再发消息（避免丢失事件）
                 let mut rx = handle.subscribe();
@@ -214,11 +227,9 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                     let done_msg = ServerMessage::Done {
                                         session_id: sid_str.clone(),
                                     };
-                                    let _ = sender
-                                        .send(Message::Text(
-                                            serde_json::to_string(&done_msg).unwrap().into(),
-                                        ))
-                                        .await;
+                                    if let Ok(text) = serde_json::to_string(&done_msg) {
+                                        let _ = sender.send(Message::Text(text.into())).await;
+                                    }
                                     break;
                                 }
                             };
@@ -235,7 +246,6 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                         }
                     }
                 }
-
             }
             ClientMessage::Cancel => {
                 let _ = state.agent_handle.send(AgentMessage::Cancel).await;

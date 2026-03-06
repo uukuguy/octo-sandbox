@@ -1,11 +1,13 @@
 use std::collections::VecDeque;
 use std::sync::Arc;
 use tokio::sync::{broadcast, RwLock};
+use tracing::warn;
 
+use super::store::EventStore;
 use crate::metrics::MetricsRegistry;
 
 /// octo-engine 内部事件（参考 ARCHITECTURE_DESIGN.md §Phase 2.4）
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub enum OctoEvent {
     /// Agent Loop 开始新一轮
     LoopTurnStarted { session_id: String, turn: u32 },
@@ -42,6 +44,9 @@ pub struct EventBus {
     history: Arc<RwLock<VecDeque<OctoEvent>>>,
     history_capacity: usize,
     metrics: Arc<MetricsRegistry>,
+    /// Optional persistent event store. When set, every published event
+    /// is also appended to the store for replay and projection support.
+    event_store: Option<Arc<EventStore>>,
 }
 
 impl EventBus {
@@ -56,13 +61,41 @@ impl EventBus {
             history: Arc::new(RwLock::new(VecDeque::with_capacity(history_capacity))),
             history_capacity,
             metrics,
+            event_store: None,
         }
+    }
+
+    /// Attach a persistent EventStore (opt-in).
+    ///
+    /// When set, every `publish()` call also appends the event to the store.
+    /// This is backward compatible -- callers that never set a store are
+    /// unaffected.
+    pub fn with_event_store(mut self, store: Arc<EventStore>) -> Self {
+        self.event_store = Some(store);
+        self
+    }
+
+    /// Set the event store after construction.
+    pub fn set_event_store(&mut self, store: Arc<EventStore>) {
+        self.event_store = Some(store);
     }
 
     /// 发布事件（fire-and-forget，不阻塞发送方）
     pub async fn publish(&self, event: OctoEvent) {
         // 记录指标
         self.record_metrics(&event);
+
+        // Persist to event store if configured
+        if let Some(store) = &self.event_store {
+            let (event_type, session_id) = event_metadata(&event);
+            let payload = serde_json::to_value(&event).unwrap_or(serde_json::Value::Null);
+            if let Err(e) = store
+                .append(&event_type, payload, session_id.as_deref(), None)
+                .await
+            {
+                warn!(error = %e, "Failed to persist event to EventStore");
+            }
+        }
 
         // 存入历史环形缓冲区
         {
@@ -149,5 +182,29 @@ impl EventBus {
 impl Default for EventBus {
     fn default() -> Self {
         Self::new(1000, 1000, Arc::new(MetricsRegistry::new()))
+    }
+}
+
+/// Extract event type name and session_id from an OctoEvent.
+fn event_metadata(event: &OctoEvent) -> (String, Option<String>) {
+    match event {
+        OctoEvent::LoopTurnStarted { session_id, .. } => {
+            ("LoopTurnStarted".to_string(), Some(session_id.clone()))
+        }
+        OctoEvent::ToolCallStarted { session_id, .. } => {
+            ("ToolCallStarted".to_string(), Some(session_id.clone()))
+        }
+        OctoEvent::ToolCallCompleted { session_id, .. } => {
+            ("ToolCallCompleted".to_string(), Some(session_id.clone()))
+        }
+        OctoEvent::ContextDegraded { session_id, .. } => {
+            ("ContextDegraded".to_string(), Some(session_id.clone()))
+        }
+        OctoEvent::LoopGuardTriggered { session_id, .. } => {
+            ("LoopGuardTriggered".to_string(), Some(session_id.clone()))
+        }
+        OctoEvent::TokenBudgetUpdated { session_id, .. } => {
+            ("TokenBudgetUpdated".to_string(), Some(session_id.clone()))
+        }
     }
 }

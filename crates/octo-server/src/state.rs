@@ -2,10 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use octo_engine::{
-    auth::AuthConfig,
-    mcp::McpStorage,
-    metrics::MetricsRegistry,
-    scheduler::Scheduler,
+    auth::AuthConfig, mcp::McpStorage, metrics::MetricsRegistry, scheduler::Scheduler,
     AgentExecutorHandle, AgentRuntime,
 };
 use tokio::sync::RwLock;
@@ -26,6 +23,8 @@ pub struct AppState {
     pub agent_supervisor: Arc<AgentRuntime>,
     /// 主 AgentExecutor 的通信句柄（channels 唯一的 Agent 接入点）
     pub agent_handle: AgentExecutorHandle,
+    /// Server start time for uptime calculation
+    pub start_time: std::time::Instant,
 }
 
 impl AppState {
@@ -50,6 +49,7 @@ impl AppState {
             metrics_registry,
             agent_supervisor,
             agent_handle,
+            start_time: std::time::Instant::now(),
         }
     }
 

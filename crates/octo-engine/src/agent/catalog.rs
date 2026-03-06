@@ -3,6 +3,7 @@
 use std::sync::Arc;
 
 use dashmap::DashMap;
+use octo_types::{TenantId, DEFAULT_TENANT_ID};
 
 use crate::agent::entry::{AgentEntry, AgentId, AgentManifest, AgentStatus};
 use crate::agent::store::AgentStore;
@@ -11,6 +12,7 @@ pub struct AgentCatalog {
     by_id: DashMap<AgentId, AgentEntry>,
     by_name: DashMap<String, AgentId>,
     by_tag: DashMap<String, Vec<AgentId>>,
+    by_tenant_id: DashMap<TenantId, Vec<AgentId>>,
     store: Option<Arc<AgentStore>>,
 }
 
@@ -20,6 +22,7 @@ impl AgentCatalog {
             by_id: DashMap::new(),
             by_name: DashMap::new(),
             by_tag: DashMap::new(),
+            by_tenant_id: DashMap::new(),
             store: None,
         }
     }
@@ -37,11 +40,16 @@ impl AgentCatalog {
                 let id = entry.id.clone();
                 let name = entry.manifest.name.clone();
                 let tags = entry.manifest.tags.clone();
+                let tenant_id = entry.tenant_id.clone();
                 self.by_id.insert(id.clone(), entry);
                 self.by_name.insert(name, id.clone());
                 for tag in &tags {
                     self.by_tag.entry(tag.clone()).or_default().push(id.clone());
                 }
+                self.by_tenant_id
+                    .entry(tenant_id)
+                    .or_default()
+                    .push(id.clone());
             }
             Ok(count)
         } else {
@@ -49,8 +57,9 @@ impl AgentCatalog {
         }
     }
 
-    pub fn register(&self, manifest: AgentManifest) -> AgentId {
-        let entry = AgentEntry::new(manifest);
+    pub fn register(&self, manifest: AgentManifest, tenant_id: Option<TenantId>) -> AgentId {
+        let tenant_id = tenant_id.unwrap_or_else(|| TenantId::from_string(DEFAULT_TENANT_ID));
+        let entry = AgentEntry::new(manifest, Some(tenant_id.clone()));
         let id = entry.id.clone();
         let name = entry.manifest.name.clone();
         let tags = entry.manifest.tags.clone();
@@ -59,6 +68,10 @@ impl AgentCatalog {
         for tag in &tags {
             self.by_tag.entry(tag.clone()).or_default().push(id.clone());
         }
+        self.by_tenant_id
+            .entry(tenant_id)
+            .or_default()
+            .push(id.clone());
         if let Some(store) = &self.store {
             if let Err(e) = store.save(&entry) {
                 tracing::warn!("AgentStore.save failed for {id}: {e}");
@@ -82,6 +95,14 @@ impl AgentCatalog {
             .unwrap_or_default()
     }
 
+    /// Get all agents belonging to a specific tenant.
+    pub fn get_by_tenant(&self, tenant_id: &TenantId) -> Vec<AgentEntry> {
+        self.by_tenant_id
+            .get(tenant_id)
+            .map(|ids| ids.value().iter().filter_map(|id| self.get(id)).collect())
+            .unwrap_or_default()
+    }
+
     pub fn list_all(&self) -> Vec<AgentEntry> {
         self.by_id.iter().map(|r| r.value().clone()).collect()
     }
@@ -91,11 +112,15 @@ impl AgentCatalog {
             let slot = self.by_id.get(id)?;
             slot.value().clone()
         };
+        let tenant_id = entry.tenant_id.clone();
         self.by_name.remove(&entry.manifest.name);
         for tag in &entry.manifest.tags {
             if let Some(mut ids) = self.by_tag.get_mut(tag) {
                 ids.retain(|i| i != id);
             }
+        }
+        if let Some(mut ids) = self.by_tenant_id.get_mut(&tenant_id) {
+            ids.retain(|i| i != id);
         }
         let removed = self.by_id.remove(id).map(|(_, e)| e);
         if removed.is_some() {

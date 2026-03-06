@@ -92,7 +92,6 @@ impl Default for SecurityPolicy {
                 // System directories (blocked even when workspace_only=false)
                 "/etc".into(),
                 "/root".into(),
-                "/home".into(),
                 "/usr".into(),
                 "/bin".into(),
                 "/sbin".into(),
@@ -184,7 +183,17 @@ impl SecurityPolicy {
                 .workspace_dir
                 .canonicalize()
                 .unwrap_or_else(|_| self.workspace_dir.clone());
-            let expanded_canonical = expanded.canonicalize().unwrap_or_else(|_| expanded.clone());
+            // For new files that don't exist yet, canonicalize the parent directory
+            let expanded_canonical = expanded.canonicalize().unwrap_or_else(|_| {
+                if let Some(parent) = expanded.parent() {
+                    parent
+                        .canonicalize()
+                        .map(|p| p.join(expanded.file_name().unwrap_or_default()))
+                        .unwrap_or_else(|_| expanded.clone())
+                } else {
+                    expanded.clone()
+                }
+            });
 
             if !expanded_canonical.starts_with(&workspace) {
                 return Err(format!(
@@ -195,11 +204,23 @@ impl SecurityPolicy {
             }
         }
 
-        // Check forbidden paths
-        let expanded_str = expanded.to_string_lossy();
+        // Check forbidden paths using Path::starts_with() instead of String::contains()
+        let home_dir = std::env::var("HOME").unwrap_or_default();
         for forbidden in &self.forbidden_paths {
-            if expanded_str.contains(forbidden) {
-                return Err(format!("Path '{}' is in the forbidden list", expanded_str));
+            let forbidden_path = if forbidden.starts_with("~") {
+                PathBuf::from(&home_dir).join(
+                    forbidden
+                        .strip_prefix("~/")
+                        .unwrap_or(forbidden.strip_prefix("~").unwrap_or(forbidden)),
+                )
+            } else {
+                PathBuf::from(forbidden)
+            };
+            if expanded.starts_with(&forbidden_path) {
+                return Err(format!(
+                    "Path '{}' is in the forbidden list",
+                    expanded.display()
+                ));
             }
         }
 
@@ -291,6 +312,12 @@ impl SecurityPolicy {
 
         // Return risk level
         Ok(self.assess_command_risk(command))
+    }
+}
+
+impl octo_types::PathValidator for SecurityPolicy {
+    fn check_path(&self, path: &Path) -> Result<(), String> {
+        SecurityPolicy::check_path(self, path)
     }
 }
 
