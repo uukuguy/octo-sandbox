@@ -11,8 +11,9 @@ use rmcp::service::RunningService;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::{RoleClient, ServiceExt};
 
+use super::convert;
 use super::traits::{
-    McpClient, McpPromptArgument, McpPromptInfo, McpPromptMessage, McpPromptResult,
+    validate_resource_uri, validate_server_url, McpClient, McpPromptInfo, McpPromptResult,
     McpResourceContent, McpResourceInfo, McpToolInfo,
 };
 
@@ -47,6 +48,7 @@ impl McpClient for SseMcpClient {
             "Connecting to remote MCP server via SSE"
         );
 
+        validate_server_url(&self.url)?;
         let transport = StreamableHttpClientTransport::from_uri(self.url.clone());
 
         let service = ()
@@ -148,21 +150,13 @@ impl McpClient for SseMcpClient {
             }
         };
 
-        let result: Vec<McpResourceInfo> = resources
-            .into_iter()
-            .map(|r| McpResourceInfo {
-                uri: r.uri.clone(),
-                name: r.name.clone(),
-                description: r.description.clone(),
-                mime_type: r.mime_type.clone(),
-            })
-            .collect();
-
+        let result = convert::map_resources(resources);
         debug!(count = result.len(), "Listed SSE MCP resources");
         Ok(result)
     }
 
     async fn read_resource(&self, uri: &str) -> Result<McpResourceContent> {
+        validate_resource_uri(uri)?;
         let service = self
             .service
             .as_ref()
@@ -176,37 +170,7 @@ impl McpClient for SseMcpClient {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to read SSE MCP resource '{uri}': {e}"))?;
 
-        let content = result.contents.into_iter().next();
-        match content {
-            Some(rmcp::model::ResourceContents::TextResourceContents {
-                uri,
-                mime_type,
-                text,
-                ..
-            }) => Ok(McpResourceContent {
-                uri,
-                mime_type,
-                text: Some(text),
-                blob: None,
-            }),
-            Some(rmcp::model::ResourceContents::BlobResourceContents {
-                uri,
-                mime_type,
-                blob,
-                ..
-            }) => Ok(McpResourceContent {
-                uri,
-                mime_type,
-                text: None,
-                blob: Some(blob),
-            }),
-            None => Ok(McpResourceContent {
-                uri: uri.to_string(),
-                mime_type: None,
-                text: None,
-                blob: None,
-            }),
-        }
+        Ok(convert::map_resource_content(result.contents, uri))
     }
 
     async fn list_prompts(&self) -> Result<Vec<McpPromptInfo>> {
@@ -223,24 +187,7 @@ impl McpClient for SseMcpClient {
             }
         };
 
-        let result: Vec<McpPromptInfo> = prompts
-            .into_iter()
-            .map(|p| McpPromptInfo {
-                name: p.name.clone(),
-                description: p.description.clone(),
-                arguments: p
-                    .arguments
-                    .unwrap_or_default()
-                    .into_iter()
-                    .map(|a| McpPromptArgument {
-                        name: a.name,
-                        description: a.description,
-                        required: a.required.unwrap_or(false),
-                    })
-                    .collect(),
-            })
-            .collect();
-
+        let result = convert::map_prompts(prompts);
         debug!(count = result.len(), "Listed SSE MCP prompts");
         Ok(result)
     }
@@ -274,23 +221,6 @@ impl McpClient for SseMcpClient {
             .await
             .map_err(|e| anyhow::anyhow!("Failed to get SSE MCP prompt '{name}': {e}"))?;
 
-        Ok(McpPromptResult {
-            description: result.description,
-            messages: result
-                .messages
-                .into_iter()
-                .map(|m| {
-                    let role = match m.role {
-                        rmcp::model::PromptMessageRole::User => "user".to_string(),
-                        rmcp::model::PromptMessageRole::Assistant => "assistant".to_string(),
-                    };
-                    let content = match m.content {
-                        rmcp::model::PromptMessageContent::Text { text } => text,
-                        other => serde_json::to_string(&other).unwrap_or_default(),
-                    };
-                    McpPromptMessage { role, content }
-                })
-                .collect(),
-        })
+        Ok(convert::map_prompt_result(result))
     }
 }

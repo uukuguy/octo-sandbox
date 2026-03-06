@@ -86,6 +86,8 @@ pub struct AgentExecutor {
     event_bus: Option<Arc<crate::event::EventBus>>,
     // 路径安全验证器
     path_validator: Option<Arc<dyn PathValidator>>,
+    // Hook 系统
+    hook_registry: Option<Arc<crate::hooks::HookRegistry>>,
 }
 
 impl AgentExecutor {
@@ -108,6 +110,7 @@ impl AgentExecutor {
         working_dir: PathBuf,
         event_bus: Option<Arc<crate::event::EventBus>>,
         path_validator: Option<Arc<dyn PathValidator>>,
+        hook_registry: Option<Arc<crate::hooks::HookRegistry>>,
     ) -> Self {
         Self {
             session_id,
@@ -128,6 +131,7 @@ impl AgentExecutor {
             working_dir,
             event_bus,
             path_validator,
+            hook_registry,
         }
     }
 
@@ -176,6 +180,11 @@ impl AgentExecutor {
                     // 注入事件总线
                     if let Some(ref bus) = self.event_bus {
                         agent_loop = agent_loop.with_event_bus(bus.clone());
+                    }
+
+                    // 注入 Hook Registry
+                    if let Some(ref hooks) = self.hook_registry {
+                        agent_loop = agent_loop.with_hook_registry(hooks.clone());
                     }
 
                     let tool_ctx = ToolContext {

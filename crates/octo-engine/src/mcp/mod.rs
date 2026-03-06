@@ -1,4 +1,5 @@
 pub mod bridge;
+pub mod convert;
 pub mod manager;
 pub mod sse;
 pub mod stdio;

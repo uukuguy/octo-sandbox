@@ -18,6 +18,7 @@ use crate::context::{
     MemoryFlusher,
     NewSystemPromptBuilder as SystemPromptBuilder, // Zone A builder
 };
+use crate::hooks::{HookContext, HookPoint, HookRegistry};
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::{LlmErrorKind, Provider, RetryPolicy};
@@ -84,6 +85,7 @@ pub struct AgentLoop {
     recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
     loop_guard: super::loop_guard::LoopGuard,
     event_bus: Option<Arc<crate::event::EventBus>>,
+    hook_registry: Option<Arc<HookRegistry>>,
     config: AgentConfig,
     /// Zone A: Agent manifest containing role/goal/backstory/system_prompt
     manifest: Option<AgentManifest>,
@@ -112,6 +114,7 @@ impl AgentLoop {
             recorder: None,
             loop_guard: super::loop_guard::LoopGuard::new(),
             event_bus: None,
+            hook_registry: None,
             config: AgentConfig::default(),
             manifest: None,
             system_prompt_override: None,
@@ -130,6 +133,11 @@ impl AgentLoop {
 
     pub fn with_event_bus(mut self, bus: Arc<crate::event::EventBus>) -> Self {
         self.event_bus = Some(bus);
+        self
+    }
+
+    pub fn with_hook_registry(mut self, registry: Arc<HookRegistry>) -> Self {
+        self.hook_registry = Some(registry);
         self
     }
 
@@ -581,6 +589,14 @@ impl AgentLoop {
                 // Sequential execution (original behavior)
                 let mut outputs = Vec::new();
                 for (tu, input) in &parsed_tools {
+                    // PreToolUse hook
+                    if let Some(ref hooks) = self.hook_registry {
+                        let ctx = HookContext::new()
+                            .with_session(session_id.as_str())
+                            .with_tool(&tu.name, input.clone());
+                        hooks.execute(HookPoint::PreToolUse, &ctx).await;
+                    }
+
                     let exec_start = std::time::Instant::now();
 
                     let result = if let Some(tool) = self.tools.get(&tu.name) {
@@ -593,6 +609,17 @@ impl AgentLoop {
                     };
 
                     let exec_duration = exec_start.elapsed().as_millis() as u64;
+
+                    // PostToolUse hook
+                    if let Some(ref hooks) = self.hook_registry {
+                        let mut ctx = HookContext::new()
+                            .with_session(session_id.as_str())
+                            .with_tool(&tu.name, input.clone())
+                            .with_result(!result.is_error, exec_duration);
+                        ctx.tool_result =
+                            Some(serde_json::Value::String(result.output.clone()));
+                        hooks.execute(HookPoint::PostToolUse, &ctx).await;
+                    }
 
                     if let Some(ref bus) = self.event_bus {
                         bus.publish(crate::event::OctoEvent::ToolCallCompleted {

@@ -35,7 +35,7 @@ impl EventStore {
                     session_id TEXT,
                     agent_id TEXT,
                     timestamp INTEGER NOT NULL,
-                    sequence INTEGER NOT NULL
+                    sequence INTEGER NOT NULL UNIQUE
                 );
                 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
                 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);

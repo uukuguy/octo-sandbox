@@ -420,6 +420,7 @@ impl AgentRuntime {
             self.working_dir.clone(),
             self.event_bus.clone(),
             Some(self.security_policy.clone() as Arc<dyn octo_types::PathValidator>),
+            Some(self.hook_registry.clone()),
         );
 
         // Spawn 持久化主循环
