@@ -38,6 +38,182 @@ const TASK_PATTERNS = {
   'performance|benchmark|perf|性能|基准|优化': 'researcher',
 };
 
+// --- Phase 1.5: Learned pattern lookup ---
+
+const path = require('path');
+const fs = require('fs');
+
+const SWARM_DIR = path.resolve(__dirname, '../../.swarm');
+const MEMORY_DB_PATH = path.join(SWARM_DIR, 'memory.db');
+const PATTERNS_JSON_PATH = path.join(SWARM_DIR, 'patterns.json');
+const DECAY_RATE = 0.95; // confidence decays ~5% per day since last access
+
+/**
+ * Query learned routing patterns from memory.db (SQLite) or patterns.json fallback.
+ * Returns { agent, confidence, reason } or null if no match found.
+ */
+function queryLearnedPatterns(taskLower) {
+  try {
+    // Try SQLite via better-sqlite3 first
+    const patterns = _queryFromSqlite(taskLower);
+    if (patterns) return patterns;
+  } catch (_) {
+    // better-sqlite3 not available or DB error — silent fallback
+  }
+
+  try {
+    // Fallback: read patterns.json
+    return _queryFromJsonFile(taskLower);
+  } catch (_) {
+    // No patterns file — skip silently
+  }
+
+  return null;
+}
+
+function _queryFromSqlite(taskLower) {
+  let Database;
+  try {
+    Database = require('better-sqlite3');
+  } catch (_) {
+    return null; // better-sqlite3 not installed
+  }
+
+  if (!fs.existsSync(MEMORY_DB_PATH)) return null;
+
+  const db = Database(MEMORY_DB_PATH, { readonly: true });
+  try {
+    const rows = db.prepare(
+      `SELECT key, content, last_accessed_at, access_count
+       FROM memory_entries
+       WHERE namespace = 'routing' AND status = 'active'
+       ORDER BY access_count DESC`
+    ).all();
+
+    return _findBestPattern(rows, taskLower, (row) => {
+      const parsed = JSON.parse(row.content);
+      return {
+        taskPattern: parsed.task || row.key,
+        agent: parsed.agent,
+        baseConfidence: parsed.confidence || 0.7,
+        lastAccessMs: row.last_accessed_at || Date.now(),
+      };
+    });
+  } finally {
+    db.close();
+  }
+}
+
+function _queryFromJsonFile(taskLower) {
+  if (!fs.existsSync(PATTERNS_JSON_PATH)) return null;
+
+  const data = JSON.parse(fs.readFileSync(PATTERNS_JSON_PATH, 'utf-8'));
+  const entries = Array.isArray(data) ? data : (data.patterns || []);
+  if (entries.length === 0) return null;
+
+  return _findBestPattern(entries, taskLower, (entry) => ({
+    taskPattern: entry.task || entry.key || '',
+    agent: entry.agent,
+    baseConfidence: entry.confidence || 0.7,
+    lastAccessMs: entry.last_accessed_at || entry.lastAccessedAt || Date.now(),
+  }));
+}
+
+function _findBestPattern(rows, taskLower, extractFn) {
+  const now = Date.now();
+  let best = null;
+
+  for (const row of rows) {
+    try {
+      const { taskPattern, agent, baseConfidence, lastAccessMs } = extractFn(row);
+      if (!agent || !taskPattern) continue;
+
+      // Check if the task matches this learned pattern (substring match)
+      const patternLower = taskPattern.toLowerCase();
+      if (!taskLower.includes(patternLower) && !patternLower.includes(taskLower)) continue;
+
+      // Apply confidence decay based on days since last access
+      const daysSince = Math.max(0, (now - lastAccessMs) / (1000 * 60 * 60 * 24));
+      const decayed = baseConfidence * Math.pow(DECAY_RATE, daysSince);
+
+      if (decayed > 0.4 && (!best || decayed > best.confidence)) {
+        best = { agent, confidence: Math.round(decayed * 1000) / 1000, reason: `Learned pattern: "${taskPattern}"` };
+      }
+    } catch (_) {
+      // Skip malformed entries
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Record a routing outcome for future learning.
+ * Stores to SQLite if better-sqlite3 is available, otherwise appends to patterns.json.
+ */
+function recordRouting(task, agent, success) {
+  const entry = {
+    task,
+    agent,
+    confidence: success ? 0.75 : 0.3,
+    success,
+    recorded_at: Date.now(),
+    last_accessed_at: Date.now(),
+  };
+
+  // Try SQLite first
+  try {
+    const Database = require('better-sqlite3');
+    if (fs.existsSync(MEMORY_DB_PATH)) {
+      const db = Database(MEMORY_DB_PATH);
+      try {
+        const key = `route-${task.substring(0, 80).replace(/[^a-zA-Z0-9\u4e00-\u9fff-]/g, '_')}`;
+        const id = `routing-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        db.prepare(
+          `INSERT INTO memory_entries (id, key, namespace, content, type, access_count, last_accessed_at)
+           VALUES (?, ?, 'routing', ?, 'pattern', 1, ?)
+           ON CONFLICT(namespace, key) DO UPDATE SET
+             content = excluded.content,
+             access_count = access_count + 1,
+             last_accessed_at = excluded.last_accessed_at,
+             updated_at = excluded.last_accessed_at`
+        ).run(id, key, JSON.stringify(entry), Date.now());
+        return;
+      } finally {
+        db.close();
+      }
+    }
+  } catch (_) {
+    // Fall through to JSON
+  }
+
+  // Fallback: append to patterns.json
+  try {
+    if (!fs.existsSync(SWARM_DIR)) fs.mkdirSync(SWARM_DIR, { recursive: true });
+    let patterns = [];
+    if (fs.existsSync(PATTERNS_JSON_PATH)) {
+      const data = JSON.parse(fs.readFileSync(PATTERNS_JSON_PATH, 'utf-8'));
+      patterns = Array.isArray(data) ? data : (data.patterns || []);
+    }
+
+    // Update existing or append new
+    const existing = patterns.findIndex((p) => p.task === task && p.agent === agent);
+    if (existing >= 0) {
+      patterns[existing].confidence = entry.confidence;
+      patterns[existing].last_accessed_at = Date.now();
+      patterns[existing].access_count = (patterns[existing].access_count || 0) + 1;
+    } else {
+      patterns.push({ ...entry, access_count: 1 });
+    }
+
+    fs.writeFileSync(PATTERNS_JSON_PATH, JSON.stringify(patterns, null, 2), 'utf-8');
+  } catch (_) {
+    // Silent failure — routing recording is best-effort
+  }
+}
+
+// --- End Phase 1.5 helpers ---
+
 // Semantic keyword scoring — gives partial matches higher confidence
 const SEMANTIC_KEYWORDS = {
   'coder':       ['代码', '实现', '功能', '模块', '编码', '开发', 'code', 'impl', 'feature', 'module'],
@@ -63,6 +239,12 @@ function routeTask(task) {
         reason: `Matched pattern: ${pattern.substring(0, 50)}...`,
       };
     }
+  }
+
+  // Phase 1.5: Learned pattern lookup (confidence with decay)
+  const learned = queryLearnedPatterns(taskLower);
+  if (learned) {
+    return learned;
   }
 
   // Phase 2: Semantic keyword scoring (medium confidence)
@@ -102,15 +284,17 @@ function routeTask(task) {
   };
 }
 
-// CLI
-const task = process.argv.slice(2).join(' ');
+// CLI — only runs when invoked directly, not when require()'d
+if (require.main === module) {
+  const task = process.argv.slice(2).join(' ');
 
-if (task) {
-  const result = routeTask(task);
-  console.log(JSON.stringify(result, null, 2));
-} else {
-  console.log('Usage: router.js <task description>');
-  console.log('\nAvailable agents:', Object.keys(AGENT_CAPABILITIES).join(', '));
+  if (task) {
+    const result = routeTask(task);
+    console.log(JSON.stringify(result, null, 2));
+  } else {
+    console.log('Usage: router.js <task description>');
+    console.log('\nAvailable agents:', Object.keys(AGENT_CAPABILITIES).join(', '));
+  }
 }
 
-module.exports = { routeTask, AGENT_CAPABILITIES, TASK_PATTERNS };
+module.exports = { routeTask, recordRouting, AGENT_CAPABILITIES, TASK_PATTERNS };

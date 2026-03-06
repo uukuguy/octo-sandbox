@@ -40,6 +40,7 @@ function getAdrConfig() {
     naming: (cf.adr && cf.adr.naming) || 'ADR_{TOPIC}.md',
     template: (cf.adr && cf.adr.template) || 'madr',
     sectionPattern: (cf.adr && cf.adr.sectionPattern) || '^## ADR-\\d+',
+    autoGenerate: cf.adr && cf.adr.autoGenerate !== undefined ? cf.adr.autoGenerate : true,
   };
 }
 
@@ -48,6 +49,8 @@ function getDddConfig() {
   const cf = (settings && settings.claudeFlow) || {};
   return {
     directory: ((cf.ddd && cf.ddd.directory) || '/docs/ddd').replace(/^\//, ''),
+    trackDomains: cf.ddd && cf.ddd.trackDomains !== undefined ? cf.ddd.trackDomains : true,
+    validateBoundedContexts: cf.ddd && cf.ddd.validateBoundedContexts !== undefined ? cf.ddd.validateBoundedContexts : true,
   };
 }
 
@@ -97,6 +100,12 @@ const CATEGORY_TOPICS = {
  */
 function generateAdr(changes) {
   const config = getAdrConfig();
+
+  // Respect autoGenerate flag from settings.json
+  if (!config.autoGenerate) {
+    return { created: [], appended: [], skipped: [], disabled: true };
+  }
+
   const adrDir = path.join(CWD, config.directory);
   ensureDir(adrDir);
 
@@ -249,6 +258,12 @@ const PATH_TO_CONTEXT = [
  */
 function updateDddTracking(changes) {
   const config = getDddConfig();
+
+  // Respect trackDomains flag from settings.json
+  if (!config.trackDomains) {
+    return { updated: false, contextsAffected: [], logFile: '', skipped: 'trackDomains is disabled' };
+  }
+
   const dddDir = path.join(CWD, config.directory);
   ensureDir(dddDir);
 
