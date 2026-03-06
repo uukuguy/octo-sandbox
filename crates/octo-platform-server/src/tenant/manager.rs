@@ -94,7 +94,7 @@ impl TenantManager {
     }
 
     pub fn get_quota(&self, tenant_id: &str) -> Result<ResourceQuota, anyhow::Error> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let mut stmt = conn.prepare(
             "SELECT max_agents, max_sessions_per_user, max_api_calls_per_day, max_memory_mb, max_mcp_servers FROM tenant_quotas WHERE tenant_id = ?",
         )?;

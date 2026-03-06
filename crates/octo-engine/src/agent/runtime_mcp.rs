@@ -166,15 +166,29 @@ impl AgentRuntime {
     }
 
     /// 调用 MCP tool
+    ///
+    /// The `Arc<RwLock<Box<dyn McpClient>>>` is cloned under a brief mutex lock,
+    /// then the actual tool call (network I/O) happens OUTSIDE the lock so that
+    /// concurrent calls are not serialized through the McpManager mutex.
     pub async fn call_mcp_tool(
         &self,
         server_id: &str,
         tool_name: &str,
         arguments: serde_json::Value,
     ) -> Result<serde_json::Value, String> {
-        let guard = self.mcp_manager.lock().await;
-        guard
-            .call_tool(server_id, tool_name, arguments)
+        // Brief lock: only to clone the client Arc, no I/O
+        let client = {
+            let guard = self.mcp_manager.lock().await;
+            guard
+                .clients()
+                .get(server_id)
+                .cloned()
+                .ok_or_else(|| format!("MCP server not found: {server_id}"))?
+        };
+        // Network I/O outside the mutex
+        let client_guard = client.read().await;
+        client_guard
+            .call_tool(tool_name, arguments)
             .await
             .map_err(|e| e.to_string())
     }

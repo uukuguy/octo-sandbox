@@ -151,10 +151,20 @@ impl AuthConfig {
         self
     }
 
-    /// Log a warning if auth mode is None (insecure)
+    /// Log a warning if auth mode is None (insecure), or panic if a non-None
+    /// auth mode is configured but `OCTO_HMAC_SECRET` was not set (falling
+    /// back to the hardcoded default allows API key hash forgery).
     pub fn warn_if_insecure(&self) {
         if self.mode == AuthMode::None {
             tracing::warn!("Authentication is DISABLED (mode=none). All API endpoints are publicly accessible. Set auth.mode to 'api_key' for production use.");
+        } else if self.hmac_secret == DEFAULT_HMAC_SECRET {
+            panic!(
+                "OCTO_HMAC_SECRET is not set but authentication is enabled (mode={:?}). \
+                 The hardcoded default HMAC secret must NOT be used in production because \
+                 it allows API key hash forgery. Set OCTO_HMAC_SECRET to a strong random \
+                 secret before starting the server.",
+                self.mode
+            );
         }
     }
 

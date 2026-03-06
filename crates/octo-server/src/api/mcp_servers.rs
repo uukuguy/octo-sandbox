@@ -67,7 +67,7 @@ pub async fn list_servers(
         return Json(vec![]);
     };
 
-    let runtime_states = state.agent_supervisor.list_mcp_servers().await;
+    let runtime_states = state.agent_supervisor.get_all_mcp_server_states().await;
 
     // Use list_servers_for_user to filter by user_id
     match storage.list_servers_for_user(&user_id) {
@@ -75,15 +75,13 @@ pub async fn list_servers(
             let responses: Vec<McpServerResponse> = records
                 .into_iter()
                 .map(|r| {
-                    // Find runtime state for this server
-                    let runtime_status = runtime_states
-                        .iter()
-                        .find(|state| match state {
-                            octo_engine::mcp::manager::ServerRuntimeState::Running { .. } => true,
-                            _ => false,
-                        })
-                        .map(|_| "running")
-                        .unwrap_or("stopped");
+                    // Find runtime state for THIS server by name
+                    let runtime_status = match runtime_states.get(&r.name) {
+                        Some(ServerRuntimeState::Running { .. }) => "running",
+                        Some(ServerRuntimeState::Starting) => "starting",
+                        Some(ServerRuntimeState::Error { .. }) => "error",
+                        _ => "stopped",
+                    };
 
                     // Tool count is managed by AgentRuntime - return 0 for now
                     // The actual tool count is tracked internally by AgentRuntime
@@ -97,7 +95,7 @@ pub async fn list_servers(
                         name: r.name,
                         source: r.source,
                         command: r.command,
-                        args: r.args.split_whitespace().map(String::from).collect(),
+                        args: serde_json::from_str(&r.args).unwrap_or_default(),
                         env: serde_json::from_str(&r.env).unwrap_or_default(),
                         transport,
                         url: r.url,
@@ -187,7 +185,8 @@ pub async fn create_server(
     let source = req.source.unwrap_or_else(|| "manual".to_string());
     let command = req.command.unwrap_or_default();
     let args_vec = req.args.unwrap_or_default();
-    let args_str = args_vec.join(" ");
+    // Store args as JSON array so start_server can deserialize with serde_json::from_str
+    let args_str = serde_json::to_string(&args_vec).unwrap_or_default();
     let env_map = req.env.unwrap_or_default();
     let env_str = serde_json::to_string(&env_map).unwrap_or_default();
     let enabled = req.enabled.unwrap_or(true);
@@ -275,23 +274,17 @@ pub async fn update_server(
     };
 
     // Get existing server to preserve created_at and verify ownership
-    let existing = storage.get_server_for_user(&id, &user_id).ok().flatten();
-    if existing.is_none() {
+    let Some(existing) = storage.get_server_for_user(&id, &user_id).ok().flatten() else {
         return Json(None);
-    }
-    let existing = existing.unwrap();
+    };
     let created_at = existing.created_at;
 
     let now = chrono::Utc::now().to_rfc3339();
-    let env_str = req
-        .env
-        .as_ref()
-        .map(|e| {
-            e.iter()
-                .map(|(k, v)| format!("{}={}", k, v))
-                .collect::<Vec<_>>()
-                .join(",")
-        })
+    // Serialize env as JSON (same format as create_server) so start_server can deserialize it
+    let env_str = serde_json::to_string(&req.env.as_ref().unwrap_or(&std::collections::HashMap::new()))
+        .unwrap_or_default();
+    // Serialize args as JSON array (same format as create_server)
+    let args_str = serde_json::to_string(&req.args.as_deref().unwrap_or(&[]))
         .unwrap_or_default();
 
     let record = McpServerRecord {
@@ -299,7 +292,7 @@ pub async fn update_server(
         name: req.name,
         source: req.source.unwrap_or_else(|| "custom".to_string()),
         command: req.command.unwrap_or_default(),
-        args: req.args.map(|a| a.join(" ")).unwrap_or_default(),
+        args: args_str,
         env: env_str,
         enabled: req.enabled.unwrap_or(true),
         transport: req.transport.clone(),
@@ -326,7 +319,7 @@ pub async fn update_server(
                 name: record.name,
                 source: record.source,
                 command: record.command,
-                args: record.args.split_whitespace().map(String::from).collect(),
+                args: serde_json::from_str(&record.args).unwrap_or_default(),
                 env: req.env.unwrap_or_default(),
                 enabled: record.enabled,
                 transport: record.transport.unwrap_or_else(|| "stdio".to_string()),

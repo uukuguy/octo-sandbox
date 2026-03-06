@@ -31,3 +31,8 @@ data/
 .playwright-cli/
 .playwright-mcp/
 tests/
+
+# Platform runtime data (never commit databases or user data)
+data-platform/*.db
+data-platform/*.db-shm
+data-platform/*.db-wal

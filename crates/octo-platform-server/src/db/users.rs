@@ -144,7 +144,7 @@ impl UserDatabase {
 
     /// Initialize database schema
     fn init_schema(&self) -> Result<()> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         conn.execute(
             "CREATE TABLE IF NOT EXISTS users (
                 tenant_id TEXT NOT NULL DEFAULT 'default',
@@ -174,7 +174,7 @@ impl UserDatabase {
 
     /// Register a new user
     pub fn register(&self, req: &RegisterRequest, tenant_id: Option<&str>) -> Result<UserResponse> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let tenant = tenant_id.unwrap_or("default").to_string();
 
@@ -231,7 +231,7 @@ impl UserDatabase {
 
     /// Authenticate user
     pub fn authenticate(&self, req: &LoginRequest) -> Result<UserResponse> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let tenant_id = req.tenant_id.as_deref().unwrap_or("default");
 
@@ -267,7 +267,7 @@ impl UserDatabase {
 
     /// Get user by ID
     pub fn get_user(&self, tenant_id: &str, user_id: &str) -> Result<Option<UserResponse>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
         let result = conn.query_row(
             "SELECT tenant_id, id, email, password_hash, display_name, role, created_at
              FROM users WHERE id = ?1 AND tenant_id = ?2",
@@ -296,7 +296,7 @@ impl UserDatabase {
 
     /// List users with pagination (admin only)
     pub fn list_users(&self, tenant_id: &str, page: i64, per_page: i64) -> Result<PaginatedUsersResponse> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         // Get total count for this tenant
         let total: i64 = conn.query_row(
@@ -343,7 +343,7 @@ impl UserDatabase {
 
     /// Update a user
     pub fn update_user(&self, tenant_id: &str, user_id: &str, req: &UpdateUserRequest) -> Result<Option<UserResponse>> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         // Check if user exists in this tenant
         let exists: bool = conn.query_row(
@@ -410,7 +410,7 @@ impl UserDatabase {
 
     /// Delete a user
     pub fn delete_user(&self, tenant_id: &str, user_id: &str) -> Result<bool> {
-        let conn = self.conn.lock().unwrap();
+        let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         let deleted = conn.execute(
             "DELETE FROM users WHERE id = ?1 AND tenant_id = ?2",
