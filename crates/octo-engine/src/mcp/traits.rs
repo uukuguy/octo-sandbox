@@ -34,6 +34,56 @@ pub struct McpToolInfo {
     pub input_schema: serde_json::Value,
 }
 
+/// MCP Resource information.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpResourceInfo {
+    pub uri: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub mime_type: Option<String>,
+}
+
+/// Content of a read resource.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpResourceContent {
+    pub uri: String,
+    pub mime_type: Option<String>,
+    pub text: Option<String>,
+    /// Base64-encoded binary content.
+    pub blob: Option<String>,
+}
+
+/// MCP Prompt template information.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpPromptInfo {
+    pub name: String,
+    pub description: Option<String>,
+    pub arguments: Vec<McpPromptArgument>,
+}
+
+/// A single argument accepted by an MCP prompt.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpPromptArgument {
+    pub name: String,
+    pub description: Option<String>,
+    pub required: bool,
+}
+
+/// Result of getting a prompt with arguments filled in.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpPromptResult {
+    pub description: Option<String>,
+    pub messages: Vec<McpPromptMessage>,
+}
+
+/// A single message in a prompt result.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct McpPromptMessage {
+    /// "user" or "assistant"
+    pub role: String,
+    pub content: String,
+}
+
 /// Configuration for an MCP server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpServerConfig {
@@ -93,4 +143,41 @@ pub trait McpClient: Send + Sync {
 
     /// Graceful shutdown.
     async fn shutdown(&mut self) -> Result<()>;
+
+    // --- Resources ---
+
+    /// List available resources from the MCP server.
+    /// Default returns empty vec for servers that do not support resources.
+    async fn list_resources(&self) -> Result<Vec<McpResourceInfo>> {
+        Ok(vec![])
+    }
+
+    /// Read a specific resource by URI.
+    /// Default returns an error for servers that do not support resources.
+    async fn read_resource(&self, uri: &str) -> Result<McpResourceContent> {
+        Err(anyhow::anyhow!(
+            "read_resource not supported by this MCP client (uri: {uri})"
+        ))
+    }
+
+    // --- Prompts ---
+
+    /// List available prompt templates from the MCP server.
+    /// Default returns empty vec for servers that do not support prompts.
+    async fn list_prompts(&self) -> Result<Vec<McpPromptInfo>> {
+        Ok(vec![])
+    }
+
+    /// Get a specific prompt with arguments filled in.
+    /// Default returns an error for servers that do not support prompts.
+    async fn get_prompt(
+        &self,
+        name: &str,
+        args: HashMap<String, String>,
+    ) -> Result<McpPromptResult> {
+        let _ = args;
+        Err(anyhow::anyhow!(
+            "get_prompt not supported by this MCP client (prompt: {name})"
+        ))
+    }
 }

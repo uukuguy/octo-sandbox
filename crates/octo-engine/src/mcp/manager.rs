@@ -11,7 +11,10 @@ use crate::tools::ToolRegistry;
 use super::bridge::McpToolBridge;
 use super::sse::SseMcpClient;
 use super::stdio::StdioMcpClient;
-use super::traits::{McpClient, McpServerConfig, McpServerConfigV2, McpToolInfo, McpTransport};
+use super::traits::{
+    McpClient, McpPromptInfo, McpPromptResult, McpResourceContent, McpResourceInfo,
+    McpServerConfig, McpServerConfigV2, McpToolInfo, McpTransport,
+};
 
 /// MCP config file format (.octo/mcp.json).
 #[derive(Debug, serde::Deserialize)]
@@ -223,6 +226,59 @@ impl McpManager {
             .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
         let client = client.read().await;
         client.call_tool(tool_name, args).await
+    }
+
+    // --- Resources ---
+
+    /// List available resources from a specific MCP server.
+    pub async fn list_resources(&self, server_name: &str) -> Result<Vec<McpResourceInfo>> {
+        let client = self
+            .clients
+            .get(server_name)
+            .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
+        let client = client.read().await;
+        client.list_resources().await
+    }
+
+    /// Read a specific resource by URI from a specific MCP server.
+    pub async fn read_resource(
+        &self,
+        server_name: &str,
+        uri: &str,
+    ) -> Result<McpResourceContent> {
+        let client = self
+            .clients
+            .get(server_name)
+            .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
+        let client = client.read().await;
+        client.read_resource(uri).await
+    }
+
+    // --- Prompts ---
+
+    /// List available prompt templates from a specific MCP server.
+    pub async fn list_prompts(&self, server_name: &str) -> Result<Vec<McpPromptInfo>> {
+        let client = self
+            .clients
+            .get(server_name)
+            .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
+        let client = client.read().await;
+        client.list_prompts().await
+    }
+
+    /// Get a specific prompt with arguments from a specific MCP server.
+    pub async fn get_prompt(
+        &self,
+        server_name: &str,
+        name: &str,
+        args: HashMap<String, String>,
+    ) -> Result<McpPromptResult> {
+        let client = self
+            .clients
+            .get(server_name)
+            .ok_or_else(|| anyhow::anyhow!("Server not found: {}", server_name))?;
+        let client = client.read().await;
+        client.get_prompt(name, args).await
     }
 }
 
