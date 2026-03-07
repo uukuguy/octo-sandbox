@@ -17,6 +17,10 @@ pub enum AgentCapability {
     DevOps,
     FrontendDev,
     BackendDev,
+    /// Data analysis, analytics, metrics, statistics, reporting
+    DataAnalysis,
+    /// General-purpose agent with no specific specialization
+    General,
     /// Custom capability with a name
     Custom(String),
 }
@@ -37,6 +41,8 @@ impl AgentCapability {
             "devops" | "deployment" => Self::DevOps,
             "frontend" | "ui" => Self::FrontendDev,
             "backend" | "api" => Self::BackendDev,
+            "data-analysis" | "analytics" | "data" => Self::DataAnalysis,
+            "general" | "any" | "all" => Self::General,
             other => Self::Custom(other.to_string()),
         }
     }
@@ -79,6 +85,12 @@ impl AgentCapability {
             ],
             Self::BackendDev => &[
                 "api", "endpoint", "server", "database",
+            ],
+            Self::DataAnalysis => &[
+                "data", "analysis", "analytics", "metrics", "statistics", "report",
+            ],
+            Self::General => &[
+                "help", "assist", "general", "anything",
             ],
             Self::Custom(_) => &[],
         }
