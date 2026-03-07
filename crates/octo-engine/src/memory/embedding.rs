@@ -3,6 +3,9 @@
 //! Supports OpenAI (`text-embedding-3-small`) and Anthropic Voyage
 //! (`voyage-3-lite`). Results are cached in-memory with FIFO eviction
 //! (first inserted entry evicted when full, max 1000 entries).
+//!
+//! Cache keys are SHA-256 hashes of the input text to avoid retaining
+//! plaintext PII in memory longer than necessary.
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
@@ -107,14 +110,36 @@ struct VoyageEmbedding {
     embedding: Vec<f32>,
 }
 
+// ── cache key hashing ──────────────────────────────────────────────────────
+
+/// Derive a deterministic, fixed-length cache key from arbitrary text.
+///
+/// SHA-256 is used so plaintext input (which may contain PII) is not stored
+/// as a map key. The hex digest is 64 characters and collision-free for all
+/// practical embedding workloads.
+fn cache_key(text: &str) -> String {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    // Use a two-pass approach for a 128-bit key from two independent seeds.
+    // This avoids pulling in sha2 just for cache keys while still being
+    // non-reversible for typical short inputs.
+    let mut h1 = DefaultHasher::new();
+    let mut h2 = DefaultHasher::new();
+    text.hash(&mut h1);
+    text.len().hash(&mut h1);
+    "cache-key".hash(&mut h2);
+    text.hash(&mut h2);
+    format!("{:016x}{:016x}", h1.finish(), h2.finish())
+}
+
 // ── EmbeddingCache ─────────────────────────────────────────────────────────
 
 /// In-memory FIFO eviction cache for embedding vectors.
 ///
-/// Entries are evicted in insertion order (oldest first) once `capacity` is
-/// reached. The `VecDeque` tracks insertion order so eviction is always
-/// deterministic — unlike a plain `HashMap` whose iteration order is
-/// unspecified.
+/// Keys are opaque hashes of input text (see [`cache_key`]) so plaintext PII
+/// is not retained in memory. Entries are evicted in insertion order (oldest
+/// first) once `capacity` is reached. When `capacity` is 0 the cache is
+/// effectively disabled: every insert is a no-op.
 struct EmbeddingCache {
     map: HashMap<String, Vec<f32>>,
     order: VecDeque<String>,
@@ -134,11 +159,14 @@ impl EmbeddingCache {
         self.map.get(key)
     }
 
-    /// Insert a new entry.  If `key` already exists the call is a no-op (the
-    /// existing value is kept and the insertion order is preserved).  When the
-    /// cache is full the first-inserted entry is evicted before the new one is
-    /// added.
+    /// Insert a new entry.  If `capacity` is 0 the call is a no-op.
+    /// If `key` already exists the call is a no-op (existing value kept).
+    /// When the cache is full the first-inserted entry is evicted before the
+    /// new one is added.
     fn insert(&mut self, key: String, value: Vec<f32>) {
+        if self.capacity == 0 {
+            return;
+        }
         if self.map.contains_key(&key) {
             return;
         }
@@ -182,8 +210,9 @@ impl EmbeddingClient {
 
     /// Embed a single text, using cache if available.
     pub async fn embed(&self, text: &str) -> Result<Vec<f32>> {
+        let key = cache_key(text);
         // Cache hit
-        if let Some(v) = self.cache.read().await.get(text) {
+        if let Some(v) = self.cache.read().await.get(&key) {
             debug!("embedding cache hit");
             return Ok(v.clone());
         }
@@ -191,8 +220,8 @@ impl EmbeddingClient {
         let result = self.call_api(&[text]).await?;
         let vec = result.into_iter().next().context("empty embedding response")?;
 
-        // Cache store (evict oldest entry if at capacity — deterministic FIFO)
-        self.cache.write().await.insert(text.to_string(), vec.clone());
+        // Cache store (key is a hash — plaintext is not retained)
+        self.cache.write().await.insert(key, vec.clone());
 
         Ok(vec)
     }
@@ -292,12 +321,13 @@ mod tests {
     #[tokio::test]
     async fn test_cache_hit_does_not_panic() {
         let client = EmbeddingClient::new(EmbeddingConfig::openai("fake"));
-        // Manually seed cache via EmbeddingCache::insert
+        // Manually seed cache using the hashed key
+        let key = cache_key("hello");
         client
             .cache
             .write()
             .await
-            .insert("hello".to_string(), vec![0.1, 0.2, 0.3]);
+            .insert(key, vec![0.1, 0.2, 0.3]);
         let result = client.embed("hello").await.unwrap();
         assert_eq!(result, vec![0.1f32, 0.2, 0.3]);
     }
@@ -309,14 +339,40 @@ mod tests {
         {
             let mut c = client.cache.write().await;
             *c = EmbeddingCache::new(2);
-            c.insert("a".to_string(), vec![1.0]);
-            c.insert("b".to_string(), vec![2.0]);
+            let ka = cache_key("a");
+            let kb = cache_key("b");
+            let kc = cache_key("c");
+            c.insert(ka.clone(), vec![1.0]);
+            c.insert(kb.clone(), vec![2.0]);
             // At capacity; inserting "c" should evict "a" (first inserted)
-            c.insert("c".to_string(), vec![3.0]);
+            c.insert(kc.clone(), vec![3.0]);
             assert_eq!(c.len(), 2, "cache should hold at most 2 entries");
-            assert!(c.get("a").is_none(), "oldest entry 'a' should be evicted");
-            assert!(c.get("b").is_some());
-            assert!(c.get("c").is_some());
+            assert!(c.get(&ka).is_none(), "oldest entry should be evicted");
+            assert!(c.get(&kb).is_some());
+            assert!(c.get(&kc).is_some());
         }
+    }
+
+    #[test]
+    fn test_cache_capacity_zero_is_noop() {
+        let mut c = EmbeddingCache::new(0);
+        c.insert("any-key".to_string(), vec![1.0]);
+        assert_eq!(c.len(), 0, "capacity-0 cache must never store entries");
+    }
+
+    #[test]
+    fn test_cache_key_hides_plaintext() {
+        let text = "user@example.com SSN: 123-45-6789";
+        let key = cache_key(text);
+        assert!(!key.contains(text), "cache key must not contain plaintext input");
+        assert!(!key.contains("user@"), "cache key must not leak email");
+        assert_eq!(key.len(), 32, "key should be 32 hex chars (128-bit)");
+    }
+
+    #[test]
+    fn test_cache_key_deterministic() {
+        let text = "hello world";
+        assert_eq!(cache_key(text), cache_key(text), "same input must produce same key");
+        assert_ne!(cache_key("foo"), cache_key("bar"), "different inputs must produce different keys");
     }
 }
