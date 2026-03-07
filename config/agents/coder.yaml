@@ -1,0 +1,7 @@
+name: coder
+type: coder
+capabilities: [code_generation, refactoring, bug_fix]
+max_concurrent_tasks: 2
+priority: medium
+description: "通用编码智能体"
+tool_filter: [bash, file_read, file_write]

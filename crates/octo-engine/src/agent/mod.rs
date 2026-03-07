@@ -15,8 +15,10 @@ pub mod runtime;
 mod runtime_lifecycle;
 mod runtime_mcp;
 mod runtime_scheduler;
+pub mod manifest_loader;
 pub mod store;
 pub mod tenant; // 新增
+pub mod yaml_def;
 
 pub use cancellation::{CancellationToken, ChildCancellationToken};
 pub use capability::AgentCapability;
@@ -28,6 +30,8 @@ pub use extension::{AgentExtension, ExtensionEvent, ExtensionRegistry};
 pub use loop_::{AgentEvent, AgentLoop};
 pub use queue::{MessageQueue, QueueKind, QueueMode};
 pub use router::{AgentProfile, AgentRouter, RouteAlternative, RouteResult};
+pub use manifest_loader::AgentManifestLoader;
 pub use runtime::{AgentRuntime, AgentRuntimeConfig};
 pub use store::AgentStore;
 pub use tenant::TenantContext;
+pub use yaml_def::AgentYamlDef;

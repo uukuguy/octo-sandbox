@@ -1,0 +1,6 @@
+name: code-reviewer
+type: reviewer
+capabilities: [code_review, security_audit]
+max_concurrent_tasks: 3
+priority: high
+description: "专业代码审查智能体"

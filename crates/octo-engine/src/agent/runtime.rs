@@ -45,6 +45,8 @@ pub struct AgentRuntimeConfig {
     pub working_dir: Option<PathBuf>,
     /// Enable event bus for observability
     pub enable_event_bus: bool,
+    /// Optional directory to scan for declarative YAML agent definitions
+    pub agents_dir: Option<std::path::PathBuf>,
 }
 
 impl AgentRuntimeConfig {
@@ -64,6 +66,7 @@ impl AgentRuntimeConfig {
             provider_chain,
             working_dir,
             enable_event_bus,
+            agents_dir: None,
         }
     }
 }
@@ -230,7 +233,7 @@ impl AgentRuntime {
             SecurityPolicy::new().with_workspace(working_dir.clone()),
         );
 
-        Ok(Self {
+        let runtime = Self {
             primary_handle: Mutex::new(None),
             agent_handles: DashMap::new(),
             catalog,
@@ -251,7 +254,18 @@ impl AgentRuntime {
             hook_registry: Arc::new(HookRegistry::new()),
             tenant_context,
             router: tokio::sync::RwLock::new(crate::agent::router::AgentRouter::new()),
-        })
+        };
+
+        // 16. Load declarative YAML agent definitions (if configured)
+        if let Some(ref dir) = config.agents_dir {
+            let loader = crate::agent::AgentManifestLoader::new(dir);
+            match loader.load_all(&runtime.catalog) {
+                Ok(n) => tracing::info!(count = n, "Loaded YAML agent manifests"),
+                Err(e) => tracing::warn!(error = %e, "Failed to load agent YAML manifests"),
+            }
+        }
+
+        Ok(runtime)
     }
 
     pub fn with_skill_registry(mut self, skills: Arc<SkillRegistry>) -> Self {
