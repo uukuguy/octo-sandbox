@@ -292,6 +292,16 @@ impl AiDefence {
         Ok(())
     }
 
+    /// Check only for prompt injection (no PII scan).
+    /// Use this for tool results where PII in returned data is expected but
+    /// injection attempts from external services must be blocked.
+    pub fn check_injection(&self, text: &str) -> Result<(), DefenceViolation> {
+        if self.injection_enabled {
+            self.injection.check(text)?;
+        }
+        Ok(())
+    }
+
     pub fn check_output(&self, text: &str) -> Result<(), DefenceViolation> {
         if self.output_validation_enabled {
             self.output.check(text)?;

@@ -94,6 +94,7 @@ impl AgentYamlDef {
         for cap in &self.capabilities {
             tags.push(format!("cap:{cap}"));
         }
+        tags.sort();
         tags.dedup();
 
         Ok(AgentManifest {
