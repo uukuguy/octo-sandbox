@@ -33,6 +33,8 @@ pub use sqlite_working::SqliteWorkingMemory;
 pub use store_traits::MemoryStore;
 pub use traits::WorkingMemory;
 pub use vector_index::{VectorEntry, VectorIndex, VectorIndexConfig, VectorSearchResult};
+#[cfg(feature = "hnsw")]
+pub use vector_index::{HnswConfig, HnswIndex};
 pub use hybrid_query::{HybridQueryEngine, HybridSearchResult, QueryType};
 pub use working::InMemoryWorkingMemory;
 
