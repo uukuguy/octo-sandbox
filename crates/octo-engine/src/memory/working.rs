@@ -82,3 +82,94 @@ impl WorkingMemory for InMemoryWorkingMemory {
         Ok(ContextInjector::compile(&blocks))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use octo_types::{MemoryBlockKind, SandboxId, UserId};
+
+    fn dummy_ids() -> (UserId, SandboxId) {
+        (UserId::default(), SandboxId::default())
+    }
+
+    #[tokio::test]
+    async fn test_get_default_blocks() {
+        let wm = InMemoryWorkingMemory::new();
+        let (user_id, sandbox_id) = dummy_ids();
+        let blocks = wm.get_blocks(&user_id, &sandbox_id).await.unwrap();
+
+        assert_eq!(blocks.len(), 2);
+        let ids: Vec<&str> = blocks.iter().map(|b| b.id.as_str()).collect();
+        assert!(ids.contains(&"user_profile"));
+        assert!(ids.contains(&"task_context"));
+    }
+
+    #[tokio::test]
+    async fn test_update_block() {
+        let wm = InMemoryWorkingMemory::new();
+        let (user_id, sandbox_id) = dummy_ids();
+
+        wm.update_block("user_profile", "I am a Rust developer").await.unwrap();
+
+        let blocks = wm.get_blocks(&user_id, &sandbox_id).await.unwrap();
+        let profile = blocks.iter().find(|b| b.id == "user_profile").unwrap();
+        assert_eq!(profile.value, "I am a Rust developer");
+    }
+
+    #[tokio::test]
+    async fn test_add_block() {
+        let wm = InMemoryWorkingMemory::new();
+        let (user_id, sandbox_id) = dummy_ids();
+
+        let custom_block = MemoryBlock::new(MemoryBlockKind::Custom, "Custom Block", "custom value");
+        wm.add_block(custom_block).await.unwrap();
+
+        let blocks = wm.get_blocks(&user_id, &sandbox_id).await.unwrap();
+        assert_eq!(blocks.len(), 3);
+    }
+
+    #[tokio::test]
+    async fn test_remove_block() {
+        let wm = InMemoryWorkingMemory::new();
+        let (user_id, sandbox_id) = dummy_ids();
+
+        let removed = wm.remove_block("user_profile").await.unwrap();
+        assert!(removed);
+
+        let blocks = wm.get_blocks(&user_id, &sandbox_id).await.unwrap();
+        assert_eq!(blocks.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_expire_blocks() {
+        let wm = InMemoryWorkingMemory::new();
+        let (user_id, sandbox_id) = dummy_ids();
+
+        // Add a block with max_age_turns = 1
+        let mut block = MemoryBlock::new(MemoryBlockKind::Custom, "Temp", "temp value");
+        block.max_age_turns = Some(1);
+        block.last_updated_turn = 0;
+        wm.add_block(block).await.unwrap();
+
+        // At turn 2, block should expire
+        let expired = wm.expire_blocks(2).await.unwrap();
+        assert_eq!(expired, 1);
+
+        let blocks = wm.get_blocks(&user_id, &sandbox_id).await.unwrap();
+        assert_eq!(blocks.len(), 2); // only default blocks remain
+    }
+
+    #[tokio::test]
+    async fn test_compile_context() {
+        let wm = InMemoryWorkingMemory::new();
+        let (user_id, sandbox_id) = dummy_ids();
+
+        wm.update_block("user_profile", "Rust developer").await.unwrap();
+
+        let compiled = wm.compile(&user_id, &sandbox_id).await.unwrap();
+
+        assert!(compiled.starts_with("<context>"));
+        assert!(compiled.contains("Rust developer"));
+        assert!(compiled.ends_with("</context>"));
+    }
+}

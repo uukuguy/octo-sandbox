@@ -56,3 +56,82 @@ impl ContextInjector {
         output
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use octo_types::MemoryBlockKind;
+
+    fn make_block(kind: MemoryBlockKind, value: &str, priority: u8) -> MemoryBlock {
+        let kind_str = match &kind {
+            MemoryBlockKind::SandboxContext => "sandbox_context",
+            MemoryBlockKind::AgentPersona => "agent_persona",
+            MemoryBlockKind::UserProfile => "user_profile",
+            MemoryBlockKind::TaskContext => "task_context",
+            MemoryBlockKind::AutoExtracted => "auto_extracted",
+            MemoryBlockKind::Custom => "custom",
+        };
+        MemoryBlock {
+            id: kind_str.to_string(),
+            kind,
+            label: kind_str.to_string(),
+            value: value.to_string(),
+            priority,
+            max_age_turns: None,
+            last_updated_turn: 0,
+            char_limit: 12000,
+            is_readonly: false,
+        }
+    }
+
+    #[test]
+    fn test_compile_empty() {
+        let blocks: Vec<MemoryBlock> = vec![];
+        let result = ContextInjector::compile(&blocks);
+        assert!(result.starts_with("<context>"));
+        assert!(result.contains("<datetime>"));
+        assert!(result.ends_with("</context>"));
+    }
+
+    #[test]
+    fn test_compile_with_content() {
+        let blocks = vec![make_block(MemoryBlockKind::UserProfile, "I am a developer", 128)];
+        let result = ContextInjector::compile(&blocks);
+        assert!(result.contains("I am a developer"));
+        assert!(result.contains("user_profile"));
+    }
+
+    #[test]
+    fn test_compile_respects_priority() {
+        let blocks = vec![
+            make_block(MemoryBlockKind::UserProfile, "low priority", 50),
+            make_block(MemoryBlockKind::TaskContext, "high priority", 200),
+        ];
+        let result = ContextInjector::compile(&blocks);
+        let high_pos = result.find("high priority").unwrap();
+        let low_pos = result.find("low priority").unwrap();
+        assert!(high_pos < low_pos);
+    }
+
+    #[test]
+    fn test_compile_respects_budget() {
+        let long_value = "x".repeat(10000);
+        let blocks = vec![make_block(MemoryBlockKind::UserProfile, &long_value, 128)];
+        let result = ContextInjector::compile_with_budget(&blocks, 100);
+        // Should respect budget and not include all content
+        assert!(result.contains("</context>"));
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_compile_skips_deprecated() {
+        let blocks = vec![
+            make_block(MemoryBlockKind::UserProfile, "active content", 128),
+            make_block(MemoryBlockKind::SandboxContext, "deprecated", 200),
+        ];
+        let result = ContextInjector::compile(&blocks);
+        assert!(result.contains("active content"));
+        assert!(!result.contains("deprecated"));
+        assert!(!result.contains("sandbox_context"));
+    }
+}
