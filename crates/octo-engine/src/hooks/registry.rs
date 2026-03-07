@@ -114,7 +114,7 @@ impl HookRegistry {
     /// Check if any handlers are registered for a hook point
     pub async fn has_handlers(&self, point: HookPoint) -> bool {
         let handlers = self.handlers.read().await;
-        handlers.get(&point).map_or(false, |h| !h.is_empty())
+        handlers.get(&point).is_some_and(|h| !h.is_empty())
     }
 
     /// Get count of registered handlers for a hook point

@@ -1,9 +1,10 @@
 //! EmbeddingClient — converts text to embedding vectors via external APIs.
 //!
 //! Supports OpenAI (`text-embedding-3-small`) and Anthropic Voyage
-//! (`voyage-3-lite`). Results are cached in-memory (LRU-style, max 1000).
+//! (`voyage-3-lite`). Results are cached in-memory with FIFO eviction
+//! (first inserted entry evicted when full, max 1000 entries).
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -106,15 +107,64 @@ struct VoyageEmbedding {
     embedding: Vec<f32>,
 }
 
+// ── EmbeddingCache ─────────────────────────────────────────────────────────
+
+/// In-memory FIFO eviction cache for embedding vectors.
+///
+/// Entries are evicted in insertion order (oldest first) once `capacity` is
+/// reached. The `VecDeque` tracks insertion order so eviction is always
+/// deterministic — unlike a plain `HashMap` whose iteration order is
+/// unspecified.
+struct EmbeddingCache {
+    map: HashMap<String, Vec<f32>>,
+    order: VecDeque<String>,
+    capacity: usize,
+}
+
+impl EmbeddingCache {
+    fn new(capacity: usize) -> Self {
+        Self {
+            map: HashMap::new(),
+            order: VecDeque::new(),
+            capacity,
+        }
+    }
+
+    fn get(&self, key: &str) -> Option<&Vec<f32>> {
+        self.map.get(key)
+    }
+
+    /// Insert a new entry.  If `key` already exists the call is a no-op (the
+    /// existing value is kept and the insertion order is preserved).  When the
+    /// cache is full the first-inserted entry is evicted before the new one is
+    /// added.
+    fn insert(&mut self, key: String, value: Vec<f32>) {
+        if self.map.contains_key(&key) {
+            return;
+        }
+        if self.map.len() >= self.capacity {
+            if let Some(oldest) = self.order.pop_front() {
+                self.map.remove(&oldest);
+            }
+        }
+        self.order.push_back(key.clone());
+        self.map.insert(key, value);
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.map.len()
+    }
+}
+
 // ── EmbeddingClient ────────────────────────────────────────────────────────
 
-/// HTTP client for embedding APIs with in-memory LRU-style caching.
+/// HTTP client for embedding APIs with in-memory FIFO eviction caching.
 pub struct EmbeddingClient {
     config: EmbeddingConfig,
     http: reqwest::Client,
-    /// text → embedding cache (max `cache_max` entries)
-    cache: Arc<RwLock<HashMap<String, Vec<f32>>>>,
-    cache_max: usize,
+    /// text → embedding cache (FIFO eviction, max 1000 entries)
+    cache: Arc<RwLock<EmbeddingCache>>,
 }
 
 impl EmbeddingClient {
@@ -126,8 +176,7 @@ impl EmbeddingClient {
         Self {
             config,
             http,
-            cache: Arc::new(RwLock::new(HashMap::new())),
-            cache_max: 1_000,
+            cache: Arc::new(RwLock::new(EmbeddingCache::new(1_000))),
         }
     }
 
@@ -142,14 +191,8 @@ impl EmbeddingClient {
         let result = self.call_api(&[text]).await?;
         let vec = result.into_iter().next().context("empty embedding response")?;
 
-        // Cache store (evict oldest if at capacity — simple FIFO)
-        let mut cache = self.cache.write().await;
-        if cache.len() >= self.cache_max {
-            if let Some(key) = cache.keys().next().cloned() {
-                cache.remove(&key);
-            }
-        }
-        cache.insert(text.to_string(), vec.clone());
+        // Cache store (evict oldest entry if at capacity — deterministic FIFO)
+        self.cache.write().await.insert(text.to_string(), vec.clone());
 
         Ok(vec)
     }
@@ -249,7 +292,7 @@ mod tests {
     #[tokio::test]
     async fn test_cache_hit_does_not_panic() {
         let client = EmbeddingClient::new(EmbeddingConfig::openai("fake"));
-        // Manually seed cache
+        // Manually seed cache via EmbeddingCache::insert
         client
             .cache
             .write()
@@ -257,5 +300,23 @@ mod tests {
             .insert("hello".to_string(), vec![0.1, 0.2, 0.3]);
         let result = client.embed("hello").await.unwrap();
         assert_eq!(result, vec![0.1f32, 0.2, 0.3]);
+    }
+
+    #[tokio::test]
+    async fn test_cache_fifo_eviction() {
+        let client = EmbeddingClient::new(EmbeddingConfig::openai("fake"));
+        // Shrink capacity to 2 for testing
+        {
+            let mut c = client.cache.write().await;
+            *c = EmbeddingCache::new(2);
+            c.insert("a".to_string(), vec![1.0]);
+            c.insert("b".to_string(), vec![2.0]);
+            // At capacity; inserting "c" should evict "a" (first inserted)
+            c.insert("c".to_string(), vec![3.0]);
+            assert_eq!(c.len(), 2, "cache should hold at most 2 entries");
+            assert!(c.get("a").is_none(), "oldest entry 'a' should be evicted");
+            assert!(c.get("b").is_some());
+            assert!(c.get("c").is_some());
+        }
     }
 }
