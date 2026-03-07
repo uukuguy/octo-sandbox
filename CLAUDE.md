@@ -436,6 +436,47 @@ npm run lint
 - ALWAYS batch ALL file reads/writes/edits in ONE message
 - ALWAYS batch ALL Bash commands in ONE message
 
+## ⚠️ 研发闭环铁律：必须用 RuFlo 编排智能体
+
+> **CRITICAL — 每次会话必须遵守，无例外。**
+
+完整的研发闭环（代码审查 → Bug 修复 → ADR 更新 → DDD 追踪 → 工作日志）**只有通过 RuFlo 编排智能体才能自动完成**。
+直接手动执行或只用 Claude Code Task tool 会跳过 post-edit / post-task hooks，导致架构文档脱节。
+
+### 研发闭环的正确流程
+
+```
+用户请求
+  └─► RuFlo swarm init（hierarchical topology）
+        ├─► 编码智能体（coder）执行变更
+        │     └─► post-edit hook → intelligence.detectArchChange()
+        │                        → recordArchChange()
+        ├─► 审查智能体（reviewer / security-auditor / architect-review）
+        │     └─► 审查结果 → GitHub PR comment
+        └─► post-task hook → adrGenerator.generateAdr()
+                           → adrGenerator.updateDddTracking()
+                           → ruflo hooks worker dispatch --trigger document
+                           → WORK_LOG 更新
+```
+
+### 必须用 RuFlo 的场景
+
+| 场景 | 错误做法 | 正确做法 |
+|------|----------|----------|
+| 代码审查 | 直接 Task tool 启动 reviewer | `ruflo swarm init` + reviewer 智能体 |
+| Bug 修复 | Claude 直接 Edit 文件 | RuFlo coder 智能体执行，hooks 自动更新 ADR |
+| 安全审计 | 手动分析 + 汇报 | RuFlo security-auditor 智能体 + post-task 自动写文档 |
+| 架构变更 | 改完代码不更新文档 | RuFlo hooks 自动检测 ARCH_PATTERNS 并生成 ADR |
+| 多智能体并行 | 单纯用 Task tool | RuFlo hive-mind + Task tool 协同，保证共享内存和 consensus |
+
+### 初始化命令（每次复杂任务开始时执行）
+
+```bash
+npx @claude-flow/cli@latest swarm init --topology hierarchical --max-agents 8 --strategy specialized
+```
+
+---
+
 ## Swarm Orchestration
 
 - MUST initialize the swarm using CLI tools when starting complex tasks
