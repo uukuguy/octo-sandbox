@@ -53,6 +53,16 @@ impl StateReconstructor {
     ) -> anyhow::Result<S> {
         let all_events =
             self.store.read_by_aggregate(aggregate_id, 0, self.max_events).await?;
+        // Warn callers when the store returned exactly max_events records: the
+        // aggregate may have more events in the store, so the reconstructed
+        // state could be partial.
+        if all_events.len() == self.max_events {
+            tracing::warn!(
+                aggregate_id = %aggregate_id,
+                max_events = self.max_events,
+                "StateReconstructor: event limit reached, reconstructed state may be partial"
+            );
+        }
         let events = Self::apply_filter(all_events, &point);
         let mut state = S::default();
         for event in &events {

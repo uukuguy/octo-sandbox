@@ -85,11 +85,17 @@ struct ProjectionCheckpoint {
 ///
 /// Tracks a per-projection checkpoint so catch-up replays only process new
 /// events. Supports full rebuild by resetting checkpoints to zero.
+///
+/// `catch_up_lock` serializes concurrent `catch_up()` calls so that two callers
+/// cannot simultaneously read the same checkpoint and double-apply the same
+/// batch of events to stateful projections such as [`EventCountProjection`].
 pub struct ProjectionEngine {
     store: Arc<EventStore>,
     projections: RwLock<Vec<Arc<dyn Projection>>>,
     checkpoints: RwLock<HashMap<String, ProjectionCheckpoint>>,
     replay_batch: usize,
+    /// Mutex that serializes concurrent catch_up() invocations.
+    catch_up_lock: Arc<tokio::sync::Mutex<()>>,
 }
 
 impl ProjectionEngine {
@@ -100,6 +106,7 @@ impl ProjectionEngine {
             projections: RwLock::new(Vec::new()),
             checkpoints: RwLock::new(HashMap::new()),
             replay_batch: 500,
+            catch_up_lock: Arc::new(tokio::sync::Mutex::new(())),
         }
     }
 
@@ -118,7 +125,11 @@ impl ProjectionEngine {
     }
 
     /// Process all events since each projection's last checkpoint.
+    ///
+    /// Acquires `catch_up_lock` before reading the checkpoint so that
+    /// concurrent callers are serialized and cannot double-apply events.
     pub async fn catch_up(&self) -> anyhow::Result<()> {
+        let _guard = self.catch_up_lock.lock().await;
         let projections = self.projections.read().await;
         if projections.is_empty() {
             return Ok(());
