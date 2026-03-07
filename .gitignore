@@ -36,3 +36,9 @@ tests/
 data-platform/*.db
 data-platform/*.db-shm
 data-platform/*.db-wal
+
+# RuFlo / Claude Flow runtime state (never commit)
+.claude-flow/
+.claude/memory.db
+.claude/skills/
+.swarm/
