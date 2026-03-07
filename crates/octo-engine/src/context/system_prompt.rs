@@ -244,6 +244,8 @@ mod tests {
             model: None,
             tool_filter: vec![],
             config: crate::agent::config::AgentConfig::default(),
+            max_concurrent_tasks: 0,
+            priority: None,
         };
 
         let builder = SystemPromptBuilder::new().with_manifest(manifest);
@@ -264,6 +266,8 @@ mod tests {
             model: None,
             tool_filter: vec![],
             config: crate::agent::config::AgentConfig::default(),
+            max_concurrent_tasks: 0,
+            priority: None,
         };
 
         let builder = SystemPromptBuilder::new().with_manifest(manifest);

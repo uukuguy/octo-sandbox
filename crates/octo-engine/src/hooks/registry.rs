@@ -114,3 +114,99 @@ impl std::fmt::Debug for HookRegistry {
         write!(f, "HookRegistry {{ ... }}")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use async_trait::async_trait;
+
+    struct BlockingHandler;
+    #[async_trait]
+    impl HookHandler for BlockingHandler {
+        fn name(&self) -> &str {
+            "blocker"
+        }
+        async fn execute(&self, _ctx: &HookContext) -> anyhow::Result<HookAction> {
+            Ok(HookAction::Block("test-block".to_string()))
+        }
+    }
+
+    struct RedirectingHandler;
+    #[async_trait]
+    impl HookHandler for RedirectingHandler {
+        fn name(&self) -> &str {
+            "redirector"
+        }
+        async fn execute(&self, _ctx: &HookContext) -> anyhow::Result<HookAction> {
+            Ok(HookAction::Redirect("agent-b".to_string()))
+        }
+    }
+
+    struct ContinueHandler;
+    #[async_trait]
+    impl HookHandler for ContinueHandler {
+        fn name(&self) -> &str {
+            "continuer"
+        }
+        async fn execute(&self, _ctx: &HookContext) -> anyhow::Result<HookAction> {
+            Ok(HookAction::Continue)
+        }
+    }
+
+    #[tokio::test]
+    async fn test_block_action_stops_chain() {
+        let registry = HookRegistry::new();
+        registry
+            .register(HookPoint::PreToolUse, Arc::new(BlockingHandler))
+            .await;
+        let ctx = HookContext::new().with_session("s1");
+        let action = registry.execute(HookPoint::PreToolUse, &ctx).await;
+        assert!(
+            matches!(action, HookAction::Block(ref r) if r == "test-block"),
+            "expected Block(test-block), got {:?}",
+            action
+        );
+    }
+
+    #[tokio::test]
+    async fn test_redirect_action() {
+        let registry = HookRegistry::new();
+        registry
+            .register(HookPoint::AgentRoute, Arc::new(RedirectingHandler))
+            .await;
+        let ctx = HookContext::new();
+        let action = registry.execute(HookPoint::AgentRoute, &ctx).await;
+        assert!(
+            matches!(action, HookAction::Redirect(ref t) if t == "agent-b"),
+            "expected Redirect(agent-b), got {:?}",
+            action
+        );
+    }
+
+    #[tokio::test]
+    async fn test_no_handlers_returns_continue() {
+        let registry = HookRegistry::new();
+        let ctx = HookContext::new();
+        let action = registry.execute(HookPoint::SessionStart, &ctx).await;
+        assert!(
+            matches!(action, HookAction::Continue),
+            "expected Continue, got {:?}",
+            action
+        );
+    }
+
+    #[tokio::test]
+    async fn test_continue_handler_returns_continue() {
+        let registry = HookRegistry::new();
+        registry
+            .register(HookPoint::PostTask, Arc::new(ContinueHandler))
+            .await;
+        let ctx = HookContext::new().with_session("s2");
+        let action = registry.execute(HookPoint::PostTask, &ctx).await;
+        assert!(
+            matches!(action, HookAction::Continue),
+            "expected Continue, got {:?}",
+            action
+        );
+    }
+}
