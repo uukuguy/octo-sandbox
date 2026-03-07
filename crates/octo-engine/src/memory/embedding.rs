@@ -25,10 +25,15 @@ pub enum EmbeddingProvider {
 }
 
 /// Configuration for EmbeddingClient.
+///
+/// `api_key` is intentionally private — access it only through
+/// [`EmbeddingConfig::openai`] / [`EmbeddingConfig::anthropic`] constructors.
+/// The `Debug` implementation redacts the key to avoid accidental log leakage.
 #[derive(Clone)]
 pub struct EmbeddingConfig {
     pub provider: EmbeddingProvider,
-    pub api_key: String,
+    // Private: prevents direct read access; Debug impl redacts the value.
+    api_key: String,
     /// Model name: "text-embedding-3-small" (OpenAI) or "voyage-3-lite" (Voyage).
     pub model: String,
     /// Output dimension: 1536 (OpenAI) or 1024 (Voyage).
@@ -39,10 +44,15 @@ pub struct EmbeddingConfig {
 
 impl std::fmt::Debug for EmbeddingConfig {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let key_preview = if self.api_key.len() > 4 {
-            format!("{}***", &self.api_key[..4])
-        } else {
-            "***".to_string()
+        // Use char indices to avoid panicking on non-ASCII keys.
+        let key_preview = {
+            let mut chars = self.api_key.char_indices();
+            let end = chars.nth(4).map(|(i, _)| i).unwrap_or(self.api_key.len());
+            if end > 0 {
+                format!("{}***", &self.api_key[..end])
+            } else {
+                "***".to_string()
+            }
         };
         f.debug_struct("EmbeddingConfig")
             .field("provider", &self.provider)
@@ -258,8 +268,8 @@ impl EmbeddingClient {
 
         if !resp.status().is_success() {
             let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            tracing::debug!("OpenAI embedding raw error body: {}", body);
+            // Do not log the raw body — it may echo back request context
+            // (including API key fragments in some provider error formats).
             anyhow::bail!("OpenAI embedding request failed (status {})", status);
         }
 
@@ -285,8 +295,8 @@ impl EmbeddingClient {
 
         if !resp.status().is_success() {
             let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            tracing::debug!("Voyage embedding raw error body: {}", body);
+            // Do not log the raw body — it may echo back request context
+            // (including API key fragments in some provider error formats).
             anyhow::bail!("Voyage embedding request failed (status {})", status);
         }
 
