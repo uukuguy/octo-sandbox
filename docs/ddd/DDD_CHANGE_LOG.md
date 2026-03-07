@@ -86,3 +86,30 @@
 > - 平台用户上下文：`UserDatabase` 聚合根的并发处理策略更新
 
 ---
+
+### 2026-03-07 14:30 — 限界上下文变更（ADR 文档补充）
+
+**受影响的限界上下文**：全部 6 个核心限界上下文
+
+**新增 ADR 文档**：
+- `docs/adr/ADR_AGENT_ARCHITECTURE.md` — Agent 模块化架构、AgentRouter、ManifestLoader
+- `docs/adr/ADR_MCP_INTEGRATION.md` — MCP Manager、Client 多协议、Tool Bridge
+- `docs/adr/ADR_MEMORY_SYSTEM.md` — 四层记忆架构、HNSW 向量、混合查询
+- `docs/adr/ADR_HOOKS_SYSTEM.md` — 11 个钩子点、HookHandler、HookContext
+- `docs/adr/ADR_EVENT_SOURCING.md` — EventBus、EventStore、Projection、StateReconstructor
+- `docs/adr/ARCH_SCAN_2026.md` — 架构全景扫描报告
+
+**DDD 领域模型更新**：
+
+| 限界上下文 | 聚合根 | 新增类型 |
+|-----------|--------|---------|
+| Agent 执行上下文 | AgentRuntime | AgentRouter, ManifestLoader |
+| MCP 集成上下文 | McpManager | McpClient (Stdio/SSE), McpToolBridge |
+| 记忆上下文 | MemorySystem | VectorBackend, HybridQueryEngine, ContextInjector |
+| 钩子上下文 | HookRegistry | HookHandler, HookPoint |
+| 事件溯源上下文 | EventBus | EventStore, ProjectionEngine, StateReconstructor |
+| 安全策略上下文 | SecurityPolicy | (已有) |
+
+> 本次更新补充了完整的 ADR 文档体系，覆盖全部核心架构模块。
+
+---
