@@ -57,6 +57,24 @@ impl HookRegistry {
                     );
                     return HookAction::Abort(reason);
                 }
+                Ok(HookAction::Block(reason)) => {
+                    warn!(
+                        hook_point = ?point,
+                        handler = handler.name(),
+                        reason = %reason,
+                        "Hook blocked operation (soft-deny)"
+                    );
+                    return HookAction::Block(reason);
+                }
+                Ok(HookAction::Redirect(target)) => {
+                    debug!(
+                        hook_point = ?point,
+                        handler = handler.name(),
+                        target = %target,
+                        "Hook redirected"
+                    );
+                    return HookAction::Redirect(target);
+                }
                 Err(e) => {
                     // Hook errors are non-fatal -- log and continue
                     warn!(

@@ -26,8 +26,8 @@ pub enum HookPoint {
     SessionStart,
     /// Session ends
     SessionEnd,
-    /// Context is about to be compacted/pruned
-    PreCompact,
+    /// Context degradation detected (replaces PreCompact)
+    ContextDegraded,
     /// Loop turn starts
     LoopTurnStart,
     /// Loop turn ends

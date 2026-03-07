@@ -6,6 +6,7 @@ use tracing::{debug, instrument};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StoredEvent {
     pub id: i64,
+    pub aggregate_id: Option<String>,
     pub event_type: String,
     pub payload: serde_json::Value,
     pub session_id: Option<String>,
@@ -30,6 +31,7 @@ impl EventStore {
             c.execute_batch(
                 "CREATE TABLE IF NOT EXISTS events (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    aggregate_id TEXT,
                     event_type TEXT NOT NULL,
                     payload TEXT NOT NULL,
                     session_id TEXT,
@@ -39,7 +41,8 @@ impl EventStore {
                 );
                 CREATE INDEX IF NOT EXISTS idx_events_session ON events(session_id);
                 CREATE INDEX IF NOT EXISTS idx_events_type ON events(event_type);
-                CREATE INDEX IF NOT EXISTS idx_events_sequence ON events(sequence);",
+                CREATE INDEX IF NOT EXISTS idx_events_sequence ON events(sequence);
+                CREATE INDEX IF NOT EXISTS idx_events_aggregate ON events(aggregate_id);",
             )?;
             Ok(())
         })
@@ -55,11 +58,13 @@ impl EventStore {
         &self,
         event_type: &str,
         payload: serde_json::Value,
+        aggregate_id: Option<&str>,
         session_id: Option<&str>,
         agent_id: Option<&str>,
     ) -> anyhow::Result<i64> {
         let event_type = event_type.to_string();
         let payload_str = serde_json::to_string(&payload)?;
+        let aggregate_id = aggregate_id.map(|s| s.to_string());
         let session_id = session_id.map(|s| s.to_string());
         let agent_id = agent_id.map(|s| s.to_string());
         let timestamp = chrono::Utc::now().timestamp_millis();
@@ -79,9 +84,9 @@ impl EventStore {
                     )?;
 
                 tx.execute(
-                    "INSERT INTO events (event_type, payload, session_id, agent_id, timestamp, sequence)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    rusqlite::params![event_type, payload_str, session_id, agent_id, timestamp, next_seq],
+                    "INSERT INTO events (aggregate_id, event_type, payload, session_id, agent_id, timestamp, sequence)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    rusqlite::params![aggregate_id, event_type, payload_str, session_id, agent_id, timestamp, next_seq],
                 )?;
 
                 tx.commit()?;
@@ -103,7 +108,7 @@ impl EventStore {
         self.conn
             .call(move |c| {
                 let mut stmt = c.prepare(
-                    "SELECT id, event_type, payload, session_id, agent_id, timestamp, sequence
+                    "SELECT id, aggregate_id, event_type, payload, session_id, agent_id, timestamp, sequence
                      FROM events
                      WHERE sequence > ?1
                      ORDER BY sequence ASC
@@ -129,7 +134,7 @@ impl EventStore {
         self.conn
             .call(move |c| {
                 let mut stmt = c.prepare(
-                    "SELECT id, event_type, payload, session_id, agent_id, timestamp, sequence
+                    "SELECT id, aggregate_id, event_type, payload, session_id, agent_id, timestamp, sequence
                      FROM events
                      WHERE session_id = ?1
                      ORDER BY sequence ASC
@@ -155,7 +160,7 @@ impl EventStore {
         self.conn
             .call(move |c| {
                 let mut stmt = c.prepare(
-                    "SELECT id, event_type, payload, session_id, agent_id, timestamp, sequence
+                    "SELECT id, aggregate_id, event_type, payload, session_id, agent_id, timestamp, sequence
                      FROM events
                      WHERE event_type = ?1
                      ORDER BY sequence ASC
@@ -196,21 +201,52 @@ impl EventStore {
             .await
             .map_err(Into::into)
     }
+
+    /// Read events for a specific aggregate, ordered by sequence.
+    ///
+    /// Used by `StateReconstructor` to replay aggregate-scoped event streams.
+    pub async fn read_by_aggregate(
+        &self,
+        aggregate_id: &str,
+        after_sequence: i64,
+        limit: usize,
+    ) -> anyhow::Result<Vec<StoredEvent>> {
+        let aggregate_id = aggregate_id.to_string();
+        let limit = limit as i64;
+        self.conn
+            .call(move |c| {
+                let mut stmt = c.prepare(
+                    "SELECT id, aggregate_id, event_type, payload, session_id, agent_id, timestamp, sequence
+                     FROM events
+                     WHERE aggregate_id = ?1 AND sequence > ?2
+                     ORDER BY sequence ASC
+                     LIMIT ?3",
+                )?;
+                let rows = stmt
+                    .query_map(rusqlite::params![aggregate_id, after_sequence, limit], map_row)?
+                    .collect::<Result<Vec<_>, _>>()?;
+                Ok(rows)
+            })
+            .await
+            .map_err(Into::into)
+    }
 }
 
 /// Map a SQLite row to a StoredEvent.
+/// Column order: 0=id, 1=aggregate_id, 2=event_type, 3=payload, 4=session_id, 5=agent_id, 6=timestamp, 7=sequence
 fn map_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<StoredEvent> {
-    let payload_str: String = row.get(2)?;
+    let payload_str: String = row.get(3)?;
     let payload: serde_json::Value =
         serde_json::from_str(&payload_str).unwrap_or(serde_json::Value::Null);
     Ok(StoredEvent {
         id: row.get(0)?,
-        event_type: row.get(1)?,
+        aggregate_id: row.get(1)?,
+        event_type: row.get(2)?,
         payload,
-        session_id: row.get(3)?,
-        agent_id: row.get(4)?,
-        timestamp: row.get(5)?,
-        sequence: row.get(6)?,
+        session_id: row.get(4)?,
+        agent_id: row.get(5)?,
+        timestamp: row.get(6)?,
+        sequence: row.get(7)?,
     })
 }
 
@@ -231,6 +267,7 @@ mod tests {
             .append(
                 "ToolCallStarted",
                 serde_json::json!({"tool": "bash"}),
+                None,
                 Some("session-1"),
                 Some("agent-1"),
             )
@@ -242,6 +279,7 @@ mod tests {
             .append(
                 "ToolCallCompleted",
                 serde_json::json!({"tool": "bash", "duration_ms": 42}),
+                None,
                 Some("session-1"),
                 None,
             )

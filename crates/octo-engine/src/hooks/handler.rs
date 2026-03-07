@@ -11,6 +11,10 @@ pub enum HookAction {
     Modify(HookContext),
     /// Abort the operation with a reason
     Abort(String),
+    /// Soft-deny: block with a reason, caller decides how to handle
+    Block(String),
+    /// Redirect to another agent or tool
+    Redirect(String),
 }
 
 /// Trait for hook handlers

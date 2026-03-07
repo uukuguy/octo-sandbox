@@ -24,6 +24,10 @@ pub struct HookContext {
     pub success: Option<bool>,
     /// Arbitrary metadata
     pub metadata: HashMap<String, Value>,
+    /// Degradation level (for ContextDegraded hook)
+    pub degradation_level: Option<String>,
+    /// Redirect target agent or tool (for Redirect action)
+    pub redirect_target: Option<String>,
 }
 
 impl HookContext {
@@ -60,6 +64,11 @@ impl HookContext {
     pub fn with_result(mut self, success: bool, duration_ms: u64) -> Self {
         self.success = Some(success);
         self.duration_ms = Some(duration_ms);
+        self
+    }
+
+    pub fn with_degradation(mut self, level: impl Into<String>) -> Self {
+        self.degradation_level = Some(level.into());
         self
     }
 
