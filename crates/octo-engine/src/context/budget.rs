@@ -19,6 +19,7 @@ pub enum DegradationLevel {
     FinalError,
 }
 
+#[derive(Clone)]
 pub struct ContextBudgetManager {
     /// Model context window in tokens
     context_window: u32,

@@ -1,5 +1,66 @@
 use octo_types::StopReason;
 
+/// Events sent from AgentLoop to consumers (WebSocket handler, CLI, etc.)
+#[derive(Debug, Clone)]
+pub enum AgentEvent {
+    TextDelta {
+        text: String,
+    },
+    TextComplete {
+        text: String,
+    },
+    ThinkingDelta {
+        text: String,
+    },
+    ThinkingComplete {
+        text: String,
+    },
+    ToolStart {
+        tool_id: String,
+        tool_name: String,
+        input: serde_json::Value,
+    },
+    ToolResult {
+        tool_id: String,
+        output: String,
+        success: bool,
+    },
+    ToolExecution {
+        execution: octo_types::ToolExecution,
+    },
+    TokenBudgetUpdate {
+        budget: octo_types::TokenBudgetSnapshot,
+    },
+    Typing {
+        /// true = started, false = stopped
+        state: bool,
+    },
+    Error {
+        message: String,
+    },
+    Done,
+    ContextDegraded {
+        level: String,
+        usage_pct: f32,
+    },
+    MemoryFlushed {
+        facts_count: usize,
+    },
+    ApprovalRequired {
+        tool_name: String,
+    },
+    SecurityBlocked {
+        reason: String,
+    },
+    IterationStart {
+        round: u32,
+    },
+    IterationEnd {
+        round: u32,
+    },
+    Completed(AgentLoopResult),
+}
+
 /// Structured return result for AgentLoop (Opus §3.2)
 #[derive(Debug, Clone, Default)]
 pub struct AgentLoopResult {

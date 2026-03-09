@@ -37,6 +37,37 @@ fn test_completed_event() {
 }
 
 #[test]
+fn test_all_agent_event_variants_constructible() {
+    let events: Vec<AgentEvent> = vec![
+        AgentEvent::TextDelta { text: "hi".into() },
+        AgentEvent::TextComplete { text: "hello".into() },
+        AgentEvent::ThinkingDelta { text: "hmm".into() },
+        AgentEvent::ThinkingComplete { text: "done".into() },
+        AgentEvent::ToolStart {
+            tool_id: "t1".into(),
+            tool_name: "bash".into(),
+            input: serde_json::json!({}),
+        },
+        AgentEvent::ToolResult {
+            tool_id: "t1".into(),
+            output: "ok".into(),
+            success: true,
+        },
+        AgentEvent::Typing { state: true },
+        AgentEvent::Error { message: "err".into() },
+        AgentEvent::Done,
+        AgentEvent::ContextDegraded { level: "warn".into(), usage_pct: 80.0 },
+        AgentEvent::MemoryFlushed { facts_count: 5 },
+        AgentEvent::ApprovalRequired { tool_name: "rm".into() },
+        AgentEvent::SecurityBlocked { reason: "blocked".into() },
+        AgentEvent::IterationStart { round: 0 },
+        AgentEvent::IterationEnd { round: 0 },
+        AgentEvent::Completed(AgentLoopResult::default()),
+    ];
+    assert!(events.len() >= 16);
+}
+
+#[test]
 fn test_normalized_stop_reason_variants() {
     assert_eq!(NormalizedStopReason::default(), NormalizedStopReason::EndTurn);
     let reasons = vec![

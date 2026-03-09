@@ -129,6 +129,7 @@ pub struct LoopGuardStats {
 }
 
 /// Tracks tool calls within a single agent loop to detect loops.
+#[derive(Clone)]
 pub struct LoopGuard {
     config: LoopGuardConfig,
     /// Count of identical (tool_name + params) calls, keyed by SHA-256 hex hash.

@@ -26,77 +26,12 @@ use crate::tools::ToolRegistry;
 
 use super::config::AgentConfig;
 use super::entry::AgentManifest;
-use super::events::AgentLoopResult;
+use super::events::{AgentEvent, AgentLoopResult};
 use super::parallel::execute_parallel;
 use super::CancellationToken;
 
 const MAX_ROUNDS: u32 = 30;
 const TOOL_RESULT_SOFT_LIMIT: usize = 30_000;
-
-/// Events sent from AgentLoop to consumers (WebSocket handler)
-#[derive(Debug, Clone)]
-pub enum AgentEvent {
-    TextDelta {
-        text: String,
-    },
-    TextComplete {
-        text: String,
-    },
-    ThinkingDelta {
-        text: String,
-    },
-    ThinkingComplete {
-        text: String,
-    },
-    ToolStart {
-        tool_id: String,
-        tool_name: String,
-        input: serde_json::Value,
-    },
-    ToolResult {
-        tool_id: String,
-        output: String,
-        success: bool,
-    },
-    ToolExecution {
-        execution: octo_types::ToolExecution,
-    },
-    TokenBudgetUpdate {
-        budget: octo_types::TokenBudgetSnapshot,
-    },
-    Typing {
-        /// true = started, false = stopped
-        state: bool,
-    },
-    Error {
-        message: String,
-    },
-    Done,
-    // New: Context events
-    ContextDegraded {
-        level: String,
-        usage_pct: f32,
-    },
-    MemoryFlushed {
-        facts_count: usize,
-    },
-    // New: Security events
-    ApprovalRequired {
-        tool_name: String,
-    },
-    SecurityBlocked {
-        reason: String,
-    },
-    // New: Meta info
-    IterationStart {
-        round: u32,
-    },
-    IterationEnd {
-        round: u32,
-    },
-    // New: Structured done with result
-    Completed(AgentLoopResult),
-}
 
 pub struct AgentLoop {
     provider: Arc<dyn Provider>,

@@ -6,18 +6,26 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::sync::watch;
 
-/// Cancellation token for cooperative cancellation
-pub struct CancellationToken {
-    cancelled: Arc<AtomicBool>,
+struct CancellationTokenInner {
+    cancelled: AtomicBool,
     notifier: Option<watch::Sender<()>>,
+}
+
+/// Cancellation token for cooperative cancellation.
+/// Clone is cheap (Arc).
+#[derive(Clone)]
+pub struct CancellationToken {
+    inner: Arc<CancellationTokenInner>,
 }
 
 impl CancellationToken {
     /// Create a new cancellation token
     pub fn new() -> Self {
         Self {
-            cancelled: Arc::new(AtomicBool::new(false)),
-            notifier: None,
+            inner: Arc::new(CancellationTokenInner {
+                cancelled: AtomicBool::new(false),
+                notifier: None,
+            }),
         }
     }
 
@@ -25,21 +33,23 @@ impl CancellationToken {
     pub fn with_notifier() -> (Self, watch::Receiver<()>) {
         let (tx, rx) = watch::channel(());
         let token = Self {
-            cancelled: Arc::new(AtomicBool::new(false)),
-            notifier: Some(tx),
+            inner: Arc::new(CancellationTokenInner {
+                cancelled: AtomicBool::new(false),
+                notifier: Some(tx),
+            }),
         };
         (token, rx)
     }
 
     /// Check if cancelled
     pub fn is_cancelled(&self) -> bool {
-        self.cancelled.load(Ordering::Acquire)
+        self.inner.cancelled.load(Ordering::Acquire)
     }
 
     /// Request cancellation
     pub fn cancel(&self) {
-        self.cancelled.store(true, Ordering::Release);
-        if let Some(ref tx) = self.notifier {
+        self.inner.cancelled.store(true, Ordering::Release);
+        if let Some(ref tx) = self.inner.notifier {
             let _ = tx.send(());
         }
     }
@@ -47,7 +57,7 @@ impl CancellationToken {
     /// Create a child token that inherits parent cancellation
     pub fn child(&self) -> ChildCancellationToken {
         ChildCancellationToken {
-            parent: self.cancelled.clone(),
+            parent: self.inner.clone(),
         }
     }
 }
@@ -60,13 +70,13 @@ impl Default for CancellationToken {
 
 /// Child cancellation token that inherits parent cancellation
 pub struct ChildCancellationToken {
-    parent: Arc<AtomicBool>,
+    parent: Arc<CancellationTokenInner>,
 }
 
 impl ChildCancellationToken {
     /// Check if cancelled (including parent cancellation)
     pub fn is_cancelled(&self) -> bool {
-        self.parent.load(Ordering::Acquire)
+        self.parent.cancelled.load(Ordering::Acquire)
     }
 }
 
@@ -115,5 +125,15 @@ mod tests {
         parent.cancel();
 
         assert!(child.is_cancelled());
+    }
+
+    #[test]
+    fn test_cancellation_token_clone() {
+        let token = CancellationToken::new();
+        let clone = token.clone();
+
+        token.cancel();
+
+        assert!(clone.is_cancelled());
     }
 }

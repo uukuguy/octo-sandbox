@@ -17,6 +17,7 @@ const OVERFLOW_COMPACTION_KEEP: usize = 4;
 
 /// Prunes conversation history based on degradation level.
 /// Does NOT modify the most recent `protect_recent_rounds` rounds.
+#[derive(Clone)]
 pub struct ContextPruner {
     /// Number of recent agent rounds to protect from pruning.
     protect_recent_rounds: usize,
