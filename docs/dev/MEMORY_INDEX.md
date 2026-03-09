@@ -7,12 +7,18 @@
 
 ## [Active Work]
 
-- 18:15 | Harness Implementation 全部完成 (P0-P3, 28 tasks, 4 commits)
+- 21:15 | P3-3/P3-4/P3-5 完成 — Harness 计划 28/28 全部完成, 872 tests
+  - P3-3: harness_integration.rs 7 个集成测试 (MockProvider + MockTool 完整流程)
+  - P3-4: loop_.rs 891→273 行 (-69%), AgentLoop::run() 改为 thin wrapper
+  - P3-5: 设计文档添加实现状态表 (20 项) + commit 引用
+  - Commit: 4f8f344
+  - 剩余 Deferred: D2 (ApprovalManager), D3 (SmartRouting), D5-final, D6 (Event replay)
+- 18:15 | Harness Implementation P0-P3 核心完成 (25/28 tasks, 4 commits)
   - run_agent_loop() 纯函数替代 AgentLoop::run()，harness.rs ~946 行
   - AgentLoopConfig DI 容器 ~25 字段，集成 18+ 模块
   - AgentEvent 16 variants 全部 Serialize，workspace clippy -D warnings 清零
-  - 864 tests passing, 0 failures
-  - Commits: fe60703→5ac4c3e→73c6534→eb40fd3
+  - 865 tests passing, 0 failures
+  - Commits: fe60703→5ac4c3e→73c6534→eb40fd3→bbf0af9
 - 13:10 | 研究阶段完成，重构计划确定：Harness P0 → Skills P0 → P1 补全，在 main 上线性开发 + tag 安全网
   - dev 分支确认冗余（与 main 0 行差异），建议删除
   - 已提交全部研究文档 (9c383dc)

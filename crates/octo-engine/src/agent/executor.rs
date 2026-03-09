@@ -1,18 +1,21 @@
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
-use anyhow::Result;
+use futures_util::StreamExt;
 use tokio::sync::{broadcast, mpsc};
-use tracing::{info, warn};
+use tracing::info;
 
 use octo_types::{ChatMessage, PathValidator, SandboxId, SessionId, ToolContext, UserId};
 
-use crate::agent::{AgentConfig, AgentEvent, AgentLoop};
+use crate::agent::{AgentConfig, AgentEvent, AgentLoopConfig};
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
 use crate::tools::ToolRegistry;
+
+use super::entry::AgentManifest;
+use super::harness::run_agent_loop;
+use super::CancellationToken;
 
 /// Channel → AgentExecutor 的消息
 #[derive(Debug, Clone)]
@@ -80,7 +83,7 @@ pub struct AgentExecutor {
     config: AgentConfig,
 
     // 生命周期
-    cancel_flag: Arc<AtomicBool>,
+    cancel_token: CancellationToken,
 
     // 工作目录
     working_dir: PathBuf,
@@ -129,7 +132,7 @@ impl AgentExecutor {
             session_store,
             system_prompt,
             config,
-            cancel_flag: Arc::new(AtomicBool::new(false)),
+            cancel_token: CancellationToken::new(),
             working_dir,
             event_bus,
             path_validator,
@@ -148,8 +151,8 @@ impl AgentExecutor {
                     // P1-6: Acquire TurnGate to prevent concurrent turns
                     let _turn_guard = self.turn_gate.acquire().await;
 
-                    // 重置取消标志
-                    self.cancel_flag.store(false, Ordering::Relaxed);
+                    // Reset cancellation token for the new turn
+                    self.cancel_token = CancellationToken::new();
 
                     // 追加用户消息到持久化历史
                     self.history.push(ChatMessage::user(content));
@@ -164,34 +167,25 @@ impl AgentExecutor {
                         Arc::new(registry)
                     };
 
-                    // 构建 AgentLoop（每 round 新建，但 history 由 AgentExecutor 持有）
-                    let mut agent_loop =
-                        AgentLoop::new(self.provider.clone(), tools_snapshot, self.memory.clone());
-                    if let Some(ref ms) = self.memory_store {
-                        agent_loop = agent_loop.with_memory_store(ms.clone());
-                    }
-                    // AgentLoop::run() 中有 assert!(!self.model.is_empty())，必须设置 model
                     let model = self
                         .model
                         .clone()
                         .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
-                    agent_loop = agent_loop.with_model(model);
 
-                    // 注入 manifest 配置
-                    if let Some(ref prompt) = self.system_prompt {
-                        agent_loop = agent_loop.with_system_prompt(prompt.clone());
-                    }
-                    agent_loop = agent_loop.with_config(self.config.clone());
-
-                    // 注入事件总线
-                    if let Some(ref bus) = self.event_bus {
-                        agent_loop = agent_loop.with_event_bus(bus.clone());
-                    }
-
-                    // 注入 Hook Registry
-                    if let Some(ref hooks) = self.hook_registry {
-                        agent_loop = agent_loop.with_hook_registry(hooks.clone());
-                    }
+                    // Resolve manifest from system_prompt if set
+                    let manifest = self.system_prompt.as_ref().map(|prompt| AgentManifest {
+                        name: String::new(),
+                        tags: Vec::new(),
+                        role: None,
+                        goal: None,
+                        backstory: None,
+                        system_prompt: Some(prompt.clone()),
+                        model: None,
+                        tool_filter: Vec::new(),
+                        config: AgentConfig::default(),
+                        max_concurrent_tasks: 0,
+                        priority: None,
+                    });
 
                     let tool_ctx = ToolContext {
                         sandbox_id: self.sandbox_id.clone(),
@@ -200,23 +194,47 @@ impl AgentExecutor {
                     };
                     let _ = tokio::fs::create_dir_all(&tool_ctx.working_dir).await;
 
-                    #[allow(deprecated)]
-                    if let Err(e) = agent_loop
-                        .run(
-                            &self.session_id,
-                            &self.user_id,
-                            &self.sandbox_id,
-                            &mut self.history,
-                            self.broadcast_tx.clone(),
-                            tool_ctx,
-                            Some(self.cancel_flag.clone()),
-                        )
-                        .await
-                    {
-                        warn!("AgentExecutor round error: {e}");
-                        let _ = self.broadcast_tx.send(AgentEvent::Error {
-                            message: e.to_string(),
-                        });
+                    // Build AgentLoopConfig directly (D5 Stage 3)
+                    let loop_config = AgentLoopConfig {
+                        max_iterations: if self.config.max_rounds == 0 {
+                            u32::MAX
+                        } else {
+                            self.config.max_rounds
+                        },
+                        model,
+                        provider: Some(self.provider.clone()),
+                        tools: Some(tools_snapshot),
+                        memory: Some(self.memory.clone()),
+                        memory_store: self.memory_store.clone(),
+                        event_bus: self.event_bus.clone(),
+                        hook_registry: self.hook_registry.clone(),
+                        manifest,
+                        session_id: self.session_id.clone(),
+                        user_id: self.user_id.clone(),
+                        sandbox_id: self.sandbox_id.clone(),
+                        tool_ctx: Some(tool_ctx),
+                        cancel_token: self.cancel_token.clone(),
+                        agent_config: self.config.clone(),
+                        ..AgentLoopConfig::default()
+                    };
+
+                    // Call the harness directly and consume the event stream
+                    let mut stream = run_agent_loop(loop_config, self.history.clone());
+
+                    while let Some(event) = stream.next().await {
+                        // Capture final_messages from the Completed event
+                        if let AgentEvent::Completed(ref result) = event {
+                            if !result.final_messages.is_empty() {
+                                self.history = result.final_messages.clone();
+                            }
+                        }
+
+                        let is_done = matches!(event, AgentEvent::Done);
+                        let _ = self.broadcast_tx.send(event);
+
+                        if is_done {
+                            break;
+                        }
                     }
 
                     // 持久化 history 到 SessionStore
@@ -227,7 +245,7 @@ impl AgentExecutor {
                     }
                 }
                 AgentMessage::Cancel => {
-                    self.cancel_flag.store(true, Ordering::Relaxed);
+                    self.cancel_token.cancel();
                     info!(session_id = %self.session_id.as_str(), "AgentExecutor: cancel requested");
                 }
             }
