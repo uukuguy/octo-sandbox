@@ -19,7 +19,6 @@ use super::CancellationToken;
 
 /// Agent Loop configuration — serves as the complete dependency injection container
 /// for `run_agent_loop()`. Inspired by IronClaw AgentDeps + ZeroClaw run_agent_loop().
-#[derive(Clone)]
 pub struct AgentLoopConfig {
     // === Control parameters ===
     /// Maximum number of LLM iterations per turn.
@@ -66,6 +65,8 @@ pub struct AgentLoopConfig {
     pub defence: Option<Arc<AiDefence>>,
     /// Agent manifest (role/goal/backstory/system_prompt).
     pub manifest: Option<AgentManifest>,
+    /// Tool call interceptor for skill-based tool filtering.
+    pub interceptor: Option<crate::tools::interceptor::ToolCallInterceptor>,
 
     // === Session context ===
     /// Session ID for this agent turn.
@@ -106,6 +107,7 @@ impl Default for AgentLoopConfig {
             hook_registry: None,
             defence: None,
             manifest: None,
+            interceptor: None,
             session_id: SessionId::default(),
             user_id: UserId::default(),
             sandbox_id: SandboxId::default(),
@@ -238,6 +240,11 @@ impl AgentLoopConfigBuilder {
 
     pub fn manifest(mut self, v: AgentManifest) -> Self {
         self.config.manifest = Some(v);
+        self
+    }
+
+    pub fn interceptor(mut self, v: crate::tools::interceptor::ToolCallInterceptor) -> Self {
+        self.config.interceptor = Some(v);
         self
     }
 

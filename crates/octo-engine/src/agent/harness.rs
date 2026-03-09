@@ -20,6 +20,8 @@ use crate::context::{
 use crate::hooks::{HookAction, HookContext, HookPoint};
 use crate::providers::{LlmErrorKind, RetryPolicy};
 
+use super::continuation::{ContinuationConfig, ContinuationTracker};
+use super::deferred_action::DeferredActionDetector;
 use super::events::{AgentEvent, AgentLoopResult, NormalizedStopReason};
 use super::loop_config::AgentLoopConfig;
 use super::loop_guard::LoopGuardVerdict;
@@ -147,6 +149,15 @@ async fn run_agent_loop_inner(
     }
 
     let mut total_tool_calls: u32 = 0;
+
+    // P1-1: ContinuationTracker for max_tokens auto-continuation
+    let mut continuation_tracker = ContinuationTracker::new(ContinuationConfig {
+        max_continuations: config.max_tokens_continuation,
+        ..Default::default()
+    });
+
+    // P1-4: DeferredActionDetector for detecting deferred actions in text
+    let deferred_detector = DeferredActionDetector::new();
     let tool_ctx = match config.tool_ctx.clone() {
         Some(ctx) => ctx,
         None => {
@@ -303,6 +314,10 @@ async fn run_agent_loop_inner(
         }
 
         // --- Build CompletionRequest ---
+        // P1-2: Apply observation masking to messages sent to LLM
+        let masker = crate::context::ObservationMasker::with_defaults();
+        let masked_messages = masker.mask(&messages);
+
         let force_text = loop_steps::should_force_text_only(
             round,
             config.max_iterations,
@@ -311,7 +326,7 @@ async fn run_agent_loop_inner(
         let request = CompletionRequest {
             model: config.model.clone(),
             system: Some(system_prompt.clone()),
-            messages: messages.clone(),
+            messages: masked_messages,
             max_tokens: config.max_tokens,
             temperature: None,
             tools: if force_text {
@@ -431,8 +446,31 @@ async fn run_agent_loop_inner(
                 .await;
         }
 
-        // --- If no tool uses: final response ---
+        // --- If no tool uses: check for continuation or finalize ---
         if stop_reason != StopReason::ToolUse || tool_uses.is_empty() {
+            // P1-1: Auto-continuation on max_tokens
+            if stop_reason == StopReason::MaxTokens
+                && continuation_tracker.should_continue("max_tokens")
+            {
+                let prompt = continuation_tracker.record_continuation(full_text.len());
+                debug!(
+                    count = continuation_tracker.continuation_count(),
+                    "Continuation: injecting prompt"
+                );
+                // Append assistant text so far + continuation prompt
+                messages.push(ChatMessage::assistant(&full_text));
+                messages.push(ChatMessage {
+                    role: MessageRole::User,
+                    content: vec![ContentBlock::Text {
+                        text: prompt,
+                    }],
+                });
+                let _ = tx
+                    .send(AgentEvent::IterationEnd { round })
+                    .await;
+                continue; // Re-enter loop for next LLM call
+            }
+
             // AIDefence output validation
             if !full_text.is_empty() {
                 if let Some(ref defence) = config.defence {
@@ -446,6 +484,26 @@ async fn run_agent_loop_inner(
                         let _ = tx.send(AgentEvent::Done).await;
                         return;
                     }
+                }
+            }
+
+            // P1-4: Detect deferred actions in final text
+            if !full_text.is_empty() {
+                let deferred_matches = deferred_detector.detect(&full_text);
+                for m in &deferred_matches {
+                    debug!(
+                        category = ?m.category,
+                        "Deferred action detected: {}",
+                        m.text
+                    );
+                    let _ = tx
+                        .send(AgentEvent::Error {
+                            message: format!(
+                                "Deferred action detected ({:?}): {}",
+                                m.category, m.text
+                            ),
+                        })
+                        .await;
                 }
             }
 
@@ -512,6 +570,24 @@ async fn run_agent_loop_inner(
             role: MessageRole::Assistant,
             content: assistant_content,
         });
+
+        // --- P1-3: ToolCallInterceptor check ---
+        if let Some(ref interceptor) = config.interceptor {
+            for (tu, _input) in &parsed_tools {
+                if let Err(trust_err) = interceptor.check_permission(&tu.name) {
+                    warn!(tool = %tu.name, "Tool blocked by skill constraint: {trust_err}");
+                    // Replace with error result instead of blocking entirely
+                    let _ = tx
+                        .send(AgentEvent::Error {
+                            message: format!(
+                                "Tool '{}' blocked by skill constraint: {trust_err}",
+                                tu.name
+                            ),
+                        })
+                        .await;
+                }
+            }
+        }
 
         // --- Loop Guard check (P0-6) ---
         let mut guard_blocked = false;

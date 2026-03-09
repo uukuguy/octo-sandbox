@@ -59,6 +59,8 @@ pub struct AgentExecutor {
     session_id: SessionId,
     user_id: UserId,
     sandbox_id: SandboxId,
+    // P1-6: TurnGate prevents concurrent turns on same session
+    turn_gate: super::turn_gate::TurnGate,
 
     // 通道
     rx: mpsc::Receiver<AgentMessage>,
@@ -132,6 +134,7 @@ impl AgentExecutor {
             event_bus,
             path_validator,
             hook_registry,
+            turn_gate: super::turn_gate::TurnGate::new(),
         }
     }
 
@@ -142,6 +145,9 @@ impl AgentExecutor {
         while let Some(msg) = self.rx.recv().await {
             match msg {
                 AgentMessage::UserMessage { content, .. } => {
+                    // P1-6: Acquire TurnGate to prevent concurrent turns
+                    let _turn_guard = self.turn_gate.acquire().await;
+
                     // 重置取消标志
                     self.cancel_flag.store(false, Ordering::Relaxed);
 
