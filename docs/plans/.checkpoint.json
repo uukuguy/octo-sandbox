@@ -1,75 +1,60 @@
 {
-  "plan_file": "docs/plans/2026-03-09-harness-implementation.md",
-  "phase": "harness-implementation",
-  "created_at": "2026-03-09T17:02:00+08:00",
-  "updated_at": "2026-03-09T21:15:00+08:00",
-  "completed_tasks": [
-    "P0-1", "P0-2", "P0-3", "P0-4", "P0-5", "P0-6", "P0-7", "P0-8",
-    "P1-1", "P1-2", "P1-3", "P1-4", "P1-5", "P1-6", "P1-7", "P1-8",
-    "P2-1", "P2-2", "P2-3", "P2-4", "P2-5", "P2-6",
-    "P3-1", "P3-2", "P3-3", "P3-4", "P3-5", "P3-6",
-    "D1", "D4", "D5-stage2"
-  ],
+  "plan_file": "docs/plans/2026-03-09-harness-skills-completion.md",
+  "phase": "harness-skills-completion",
+  "created_at": "2026-03-09T20:30:00+08:00",
+  "updated_at": "2026-03-09T20:30:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 28,
+  "total_tasks": 34,
   "task_groups": {
-    "P0": {
-      "name": "核心接口切换",
-      "tasks": ["P0-1", "P0-2", "P0-3", "P0-4", "P0-5", "P0-6", "P0-7", "P0-8"],
-      "status": "complete",
-      "description": "AgentEvent 统一、AgentLoopConfig 扩展、run_agent_loop() 纯函数、Stream 返回",
-      "commit": "fe60703"
+    "Phase1": {
+      "name": "类型统一与命名清理",
+      "tasks": ["T1-1", "T1-2", "T1-3", "T1-4", "T1-5", "T1-6", "T1-7", "T1-8", "T1-9", "T1-10"],
+      "status": "pending",
+      "description": "ToolResult→ToolOutput 迁移、OctoEvent→TelemetryEvent 重命名"
     },
-    "P1": {
-      "name": "模块集成",
-      "tasks": ["P1-1", "P1-2", "P1-3", "P1-4", "P1-5", "P1-6", "P1-7", "P1-8"],
-      "status": "complete",
-      "description": "Continuation/ObservationMasker/Interceptor/DeferredAction/TurnGate/NormalizedStopReason/事件集成",
-      "commit": "5ac4c3e"
+    "Phase2": {
+      "name": "Skills ↔ AgentLoop 集成",
+      "tasks": ["T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-6", "T2-7", "T2-8", "T2-9", "T2-10"],
+      "status": "pending",
+      "description": "SkillManager→ToolRegistry 注册、SystemPrompt 集成、ContextPruner always 豁免"
     },
-    "P2": {
-      "name": "消费者适配",
-      "tasks": ["P2-1", "P2-2", "P2-3", "P2-4", "P2-5", "P2-6"],
-      "status": "complete",
-      "description": "AgentExecutor/WS handler/Scheduler/Runtime 适配新接口、向后兼容层",
-      "commit": "73c6534"
+    "Phase3": {
+      "name": "安全与审批",
+      "tasks": ["T3-1", "T3-2", "T3-3", "T3-4", "T3-5", "T3-6", "T3-7", "T3-8"],
+      "status": "pending",
+      "description": "ApprovalManager 端到端集成、SafetyLayer 子类、harness 安全管线"
     },
-    "P3": {
-      "name": "端到端验证与清理",
-      "tasks": ["P3-1", "P3-2", "P3-3", "P3-4", "P3-5", "P3-6"],
-      "status": "complete",
-      "description": "全量测试回归、序列化测试、集成测试、废弃代码清理、文档更新",
-      "commit": "4f8f344"
+    "Phase4": {
+      "name": "Pipeline 完善与 API",
+      "tasks": ["T4-1", "T4-2", "T4-3", "T4-4", "T4-5", "T4-6"],
+      "status": "pending",
+      "description": "Provider 缓存/记录、Tiktoken 默认启用、Skills REST API、文档同步"
     }
   },
-  "execution_order": ["P0", "P1", "P2", "P3"],
-  "execution_mode": "subagent-driven-development",
-  "phase_name": "harness-implementation",
+  "execution_order": ["Phase1", "Phase2", "Phase3", "Phase4"],
+  "execution_mode": null,
+  "phase_name": "harness-skills-completion",
   "tests_baseline": 872,
   "design_docs": {
     "harness_design": "docs/design/AGENT_HARNESS_BEST_IMPLEMENTATION_DESIGN.md",
-    "cli_design": "docs/design/AGENT_CLI_DESIGN.md"
+    "skills_design": "docs/design/AGENT_SKILLS_BEST_IMPLEMENTATION_DESIGN.md"
   },
-  "deferred_items": {
-    "D1": "✅ 已补 — AgentLoopResult.final_messages",
-    "D2": "⏳ 需要前端 WS 双向通信",
-    "D3": "⏳ 需要 query complexity 分类器",
-    "D4": "✅ 已补 — spawn_subagent + query_subagent 工具",
-    "D5": "🟡 Stage 2 — Scheduler 已迁移，AgentExecutor 待后续",
-    "D6": "⏳ 设计中"
+  "design_adjustments": {
+    "A1": "ToolResult→ToolOutput: 直接改 Tool trait 签名",
+    "A2": "OctoEvent→TelemetryEvent: 重命名",
+    "A3": "事件双轨制: AgentEvent 实时流 + TelemetryEvent 持久化",
+    "A4": "SkillTool 注册制: SkillManager→ToolRegistry",
+    "A5": "context-fork 复用 SubAgent",
+    "A6": "Provider embed() 不进装饰器链",
+    "A7": "SmartRouting 降级 P5",
+    "A8": "ToolProgress 降级 P5"
   },
-  "summary": {
-    "total_commits": 5,
-    "tests_added": 15,
-    "tests_total": 872,
-    "files_created": [
-      "crates/octo-engine/src/agent/harness.rs",
-      "crates/octo-engine/tests/harness_basic.rs",
-      "crates/octo-engine/tests/agent_events_serde.rs",
-      "crates/octo-engine/tests/harness_integration.rs",
-      "crates/octo-engine/src/tools/subagent.rs"
-    ],
-    "key_achievement": "run_agent_loop() pure function replacing monolithic AgentLoop::run() — all 28 tasks complete, loop_.rs reduced 69%"
+  "previous_plan": {
+    "file": "docs/plans/2026-03-09-harness-implementation.md",
+    "status": "COMPLETE",
+    "tasks_completed": 28,
+    "final_commit": "9ada808"
   },
-  "plan_status": "COMPLETE"
+  "plan_status": "READY"
 }
