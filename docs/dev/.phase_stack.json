@@ -1,14 +1,23 @@
 {
   "active_phases": [
     {
-      "name": "octo-platform Phase 1",
-      "started_at": "2026-03-04T11:48:00+08:00",
+      "name": "pre-harness-refactor",
+      "started_at": "2026-03-09T13:12:00+08:00",
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "progress": "0%"
     }
   ],
   "suspended_phases": [
+    {
+      "name": "octo-platform Phase 1",
+      "started_at": "2026-03-04T11:48:00+08:00",
+      "suspended_at": "2026-03-09T13:12:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint-octo-platform-p1.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE-octo-platform-p1.md",
+      "progress": "100%",
+      "reason": "P1+P2 已完成，切换到 pre-harness-refactor"
+    },
     {
       "name": "Phase 2.11: AgentRegistry",
       "started_at": "2026-03-03T04:27:00+08:00",

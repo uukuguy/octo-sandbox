@@ -7,6 +7,9 @@
 
 ## [Active Work]
 
+- 13:10 | 研究阶段完成，重构计划确定：Harness P0 → Skills P0 → P1 补全，在 main 上线性开发 + tag 安全网
+  - dev 分支确认冗余（与 main 0 行差异），建议删除
+  - 已提交全部研究文档 (9c383dc)
 - 12:40 | Agent Skills 最佳实现方案研究完成 (RuFlo 3 智能体并行)
   - 分析 7 个 Rust 项目 Skills 支持: IronClaw(9.5) > OpenFang(9) > Moltis(8.5) > ZeroClaw(8)
   - octo-sandbox 评分 5.5/10，关键问题: SkillTool 与 SkillRuntimeBridge 断联

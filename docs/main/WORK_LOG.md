@@ -1,5 +1,59 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-03-09 — Pre-Harness Refactor 计划重新组织（P0/P1/P2/P3）
+
+### 会话概要
+
+将原 R1-R8（14 任务）实施计划重新组织为 P0/P1/P2/P3（42 任务），全面覆盖 4 份设计文档的所有设计项。
+
+### 重组原因
+
+原 R1-R8 计划仅覆盖约 40% 设计内容，遗漏了：
+- **Harness 缺失**: AgentEvent 事件流、Tool trait 增强（risk_level/approval）、ToolOutput 结构化、截断策略、max-tokens 续传、force_text_at、SafetyPipeline、SubAgent、Observation Masking、NormalizedStopReason、Provider Pipeline
+- **Skills 缺失**: SkillManager 统一入口、SkillSelector 4 阶段管道、ToolConstraintEnforcer、NodeJS/Shell Runtime、Skills↔Context 集成、依赖图、SlashRouter、SkillCatalog、context-fork、model override
+
+### 新计划结构
+
+| 阶段 | 任务数 | 估计 LOC | 核心内容 |
+|------|--------|----------|----------|
+| P0 | 10 | ~1200 | AgentLoopConfig, Step Functions, AgentEvent, SkillDefinition, SkillTool, TrustManager, ToolCallInterceptor, TurnGate, 错误不持久化, ProviderErrorKind |
+| P1 | 12 | ~1000 | Tool trait 增强, ToolOutput, 截断策略, HookFailureMode, max-tokens 续传, force_text_at, SkillManager, SafetyPipeline, ContextManager, ApprovalManager, cast_params, error hints |
+| P2 | 10 | ~800 | Provider Pipeline, NormalizedStopReason, SkillSelector, NodeJS/Shell Runtime, TokenCounter, Skills↔Context, ToolConstraintEnforcer, 依赖图, Slash Router, AgentResult |
+| P3 | 10 | ~600 | SubAgent, Observation Masking, context-fork, model override, WASM runtime, REST API, SkillCatalog, MCP annotations, semantic index, skill hooks |
+
+**总计**: ~3600 LOC 新增 + ~1200 LOC 测试，42 个任务 + 15 个 Deferred 项
+
+### 覆盖验证
+
+计划包含 4 个设计文档覆盖追踪表，确保每个设计项都映射到对应任务或 Deferred 项。
+
+### 研究过程（同日早期会话）
+
+1. **Opus 深度分析** — 分析 8 个 Rust agent 项目 + 2 个 baseline，产出 3 份设计文档
+2. **Sonnet 4.6 独立分析** — 发现 TurnGate、nanobot 错误不持久化、SkillSelector 4 阶段等关键模式
+3. **交叉对比** — 合成收敛点和独特发现
+
+### 产出文件
+
+| 文件 | 说明 |
+|------|------|
+| `docs/plans/2026-03-09-pre-harness-refactor.md` | 实施计划（P0-P3，42 任务，已重写） |
+| `docs/plans/.checkpoint.json` | Checkpoint（已更新为 42 任务） |
+| `docs/dev/NEXT_SESSION_GUIDE.md` | 下一会话指南（已更新） |
+| `docs/dev/.phase_stack.json` | 阶段栈 |
+| `docs/design/AGENT_HARNESS_BEST_IMPLEMENTATION_DESIGN.md` | Harness 设计（Opus） |
+| `docs/design/AGENT_SKILLS_BEST_IMPLEMENTATION_DESIGN.md` | Skills 设计（Opus） |
+| `docs/design/AGENT_HARNESS_INDUSTRY_RESEARCH_2025_2026.md` | 行业研究（Opus） |
+| `docs/found-by-sonnet4.6/AGENT_HARNESS_DESIGN.md` | Harness 发现（Sonnet 4.6） |
+| `docs/found-by-sonnet4.6/AGENT_SKILLS_DESIGN.md` | Skills 发现（Sonnet 4.6） |
+
+### 下一步
+
+- 选择执行方式（Subagent-Driven 或 Executing-Plans）开始 P0
+- P0 推荐顺序: P0.1→P0.2→P0.3（Loop 链）| P0.4→P0.5→P0.6→P0.7（Skills 链）| P0.8（独立）| P0.9→P0.10（Provider 链）
+
+---
+
 ## 2026-03-05 — Phase 2.11a 多租户支持 - Task 1 完成
 
 ### 会话概要
