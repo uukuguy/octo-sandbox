@@ -1,5 +1,71 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-03-09 — Harness 实现计划创建
+
+### 会话概要
+
+pre-harness-refactor 阶段已全部完成（42/42 任务 + 5 Deferred，857 tests passing），正式启动 **Harness 实现** 阶段。完成了代码分析、差距评估，并创建了 28 任务的详细实施计划。
+
+### 当前状态分析
+
+**已完成的基础模块（pre-harness-refactor 产出）**:
+- `agent/loop_config.rs` — AgentLoopConfig（仅控制参数，未包含依赖注入）
+- `agent/events.rs` — AgentLoopResult + NormalizedStopReason
+- `agent/loop_steps.rs` — check_loop_guard_verdict / inject_zone_b / maybe_trim_tool_result
+- `agent/turn_gate.rs` — TurnGate 并发控制
+- `agent/subagent.rs` — SubAgentManager
+- `agent/continuation.rs` — ContinuationTracker（max-tokens 续写）
+- `agent/deferred_action.rs` — DeferredActionDetector
+- `tools/interceptor.rs` — ToolCallInterceptor
+- `context/observation_masker.rs` — ObservationMasker
+- `context/fork.rs` — ContextFork
+- `context/token_counter.rs` — CjkAwareCounter + TiktokenCounter
+- `skills/selector.rs` — SkillSelector 4 阶段
+- `skills/catalog.rs` — SkillCatalog 远程 Registry
+- `mcp/traits.rs` — MCP Tool Annotations
+- `providers/pipeline.rs` — ProviderPipelineBuilder
+- `security/safety_pipeline.rs` — SafetyPipeline
+
+**核心差距**:
+- `loop_.rs` 仍然是 949 行 monolithic `run()` 方法，未使用上述模块
+- `AgentEvent` 定义在 `loop_.rs` 中，与 `events.rs` 分离
+- `run()` 返回 `Result<()>` 而非 `BoxStream<AgentEvent>`
+- AgentExecutor 直接构建 AgentLoop，未使用 AgentLoopConfig 注入
+
+### 实施计划
+
+| 阶段 | 任务数 | 核心目标 | 风险 |
+|------|--------|---------|------|
+| P0 | 8 | AgentEvent 统一、run_agent_loop() 纯函数、BoxStream 返回 | 高 |
+| P1 | 8 | Continuation/ObservationMasker/Interceptor/DeferredAction/TurnGate | 中 |
+| P2 | 6 | AgentExecutor/WS handler/Scheduler/Runtime 适配新接口 | 中 |
+| P3 | 6 | 全量测试回归、集成测试、废弃清理 | 低 |
+| 合计 | 28 | ~1700 LOC | |
+
+### 核心设计决策
+
+1. **新建 `harness.rs`** — 纯函数式 `run_agent_loop()` 实现，与 `loop_.rs` 并存过渡
+2. **`BoxStream<AgentEvent>` 返回** — mpsc channel + tokio::spawn 驱动
+3. **AgentLoopConfig 扩展为完整依赖注入容器** — 替代 AgentLoop struct 的 17+ 字段
+4. **保留 AgentLoop 作为 thin wrapper** — 向后兼容
+5. **7 个 step functions** — build_context / manage_context / call_provider / consume_stream / execute_tools / check_loop_guard / handle_continuation
+
+### 产出文件
+
+| 文件 | 说明 |
+|------|------|
+| `docs/plans/2026-03-09-harness-implementation.md` | Harness 实施计划（28 任务 + 6 Deferred） |
+| `docs/plans/.checkpoint.json` | Checkpoint（新阶段） |
+| `docs/dev/NEXT_SESSION_GUIDE.md` | 下一会话指南（已更新） |
+| `docs/dev/.phase_stack.json` | 阶段栈（Harness 实现 active） |
+
+### 下一步
+
+- 运行 `/superpowers:executing-plans` 开始 P0-1（统一 AgentEvent 到 events.rs）
+- P0 严格顺序执行，每步后 `cargo check --workspace`
+
+---
+
 ## 2026-03-09 — Pre-Harness Refactor 计划重新组织（P0/P1/P2/P3）
 
 ### 会话概要

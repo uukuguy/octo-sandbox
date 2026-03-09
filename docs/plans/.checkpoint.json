@@ -1,123 +1,44 @@
 {
-  "plan_file": "docs/plans/2026-03-09-pre-harness-refactor.md",
-  "phase": "P3-complete",
-  "created_at": "2026-03-09T13:30:00+08:00",
-  "updated_at": "2026-03-09T16:30:00+08:00",
-  "completed_tasks": [
-    "P0.1", "P0.2", "P0.3", "P0.4", "P0.5",
-    "P0.6", "P0.7", "P0.8", "P0.9", "P0.10",
-    "P1.1", "P1.2", "P1.3", "P1.4", "P1.5",
-    "P1.6", "P1.7", "P1.8", "P1.9", "P1.10",
-    "P1.11", "P1.12",
-    "P2.1", "P2.2", "P2.3", "P2.4", "P2.5",
-    "P2.6", "P2.7", "P2.8", "P2.9", "P2.10",
-    "P3.1", "P3.2", "P3.3", "P3.4", "P3.5",
-    "P3.6", "P3.7", "P3.8", "P3.9", "P3.10"
-  ],
+  "plan_file": "docs/plans/2026-03-09-harness-implementation.md",
+  "phase": "harness-implementation",
+  "created_at": "2026-03-09T17:02:00+08:00",
+  "updated_at": "2026-03-09T17:02:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 42,
+  "total_tasks": 28,
   "task_groups": {
     "P0": {
-      "name": "核心重构 — 基础架构",
-      "tasks": ["P0.1", "P0.2", "P0.3", "P0.4", "P0.5", "P0.6", "P0.7", "P0.8", "P0.9", "P0.10"],
-      "status": "completed",
-      "description": "AgentLoopConfig, Step Functions, AgentEvent, SkillDefinition, SkillTool, TrustManager, ToolCallInterceptor, TurnGate, 错误不持久化, ProviderErrorKind",
-      "commit": "d6dde1a"
+      "name": "核心接口切换",
+      "tasks": ["P0-1", "P0-2", "P0-3", "P0-4", "P0-5", "P0-6", "P0-7", "P0-8"],
+      "status": "pending",
+      "description": "AgentEvent 统一、AgentLoopConfig 扩展、run_agent_loop() 纯函数、Stream 返回"
     },
     "P1": {
-      "name": "安全与可靠性",
-      "tasks": ["P1.1", "P1.2", "P1.3", "P1.4", "P1.5", "P1.6", "P1.7", "P1.8", "P1.9", "P1.10", "P1.11", "P1.12"],
-      "status": "completed",
-      "description": "Tool trait 增强, ToolOutput, 截断策略, HookFailureMode, max-tokens 续传, force_text_at, SkillManager, SafetyPipeline, ContextManager, ApprovalManager, cast_params, error hints",
-      "commit": "e26a390"
+      "name": "模块集成",
+      "tasks": ["P1-1", "P1-2", "P1-3", "P1-4", "P1-5", "P1-6", "P1-7", "P1-8"],
+      "status": "pending",
+      "description": "Continuation/ObservationMasker/Interceptor/DeferredAction/TurnGate/NormalizedStopReason/事件集成"
     },
     "P2": {
-      "name": "Provider 基础设施与 Skill 高级功能",
-      "tasks": ["P2.1", "P2.2", "P2.3", "P2.4", "P2.5", "P2.6", "P2.7", "P2.8", "P2.9", "P2.10"],
-      "status": "completed",
-      "description": "ProviderPipelineBuilder (Retry+CircuitBreaker+CostGuard), NormalizedStopReason 统一, SkillSelector 4阶段管线, NodeJS Runtime, Shell Runtime, TokenCounter, Skills↔Context, ToolConstraintEnforcer, 依赖图, Slash Router",
-      "commit": "1ab6cd1"
+      "name": "消费者适配",
+      "tasks": ["P2-1", "P2-2", "P2-3", "P2-4", "P2-5", "P2-6"],
+      "status": "pending",
+      "description": "AgentExecutor/WS handler/Scheduler/Runtime 适配新接口、向后兼容层"
     },
     "P3": {
-      "name": "高级功能",
-      "tasks": ["P3.1", "P3.2", "P3.3", "P3.4", "P3.5", "P3.6", "P3.7", "P3.8", "P3.9", "P3.10"],
-      "status": "completed",
-      "description": "SubAgent 支持, Observation Masking, context-fork, model override, WASM Runtime, Skill REST API, SkillCatalog 远程 Registry, MCP Tool Annotations, Skill 语义索引, Skill 生命周期 Hooks",
-      "commit": "b50ef2a"
+      "name": "端到端验证与清理",
+      "tasks": ["P3-1", "P3-2", "P3-3", "P3-4", "P3-5", "P3-6"],
+      "status": "pending",
+      "description": "全量测试回归、序列化测试、集成测试、废弃代码清理、文档更新"
     }
   },
   "execution_order": ["P0", "P1", "P2", "P3"],
   "execution_mode": "subagent-driven-development",
-  "phase_name": "pre-harness-refactor",
-  "notes": "全部 42/42 任务完成 + 5 项 Deferred 补齐（D4/D5/D7/D8/D15）。857 个测试全部通过（+25 新测试）。剩余 10 项 Deferred 中 6 项条件已满足但优先级低（D1/D2/D3/D6/D12/D14），4 项条件未满足（D9/D10/D11/D13）。",
-  "deferred_completed": {
-    "completed_at": "2026-03-09T16:40:00+08:00",
-    "items": ["D4", "D5", "D7", "D8", "D15"],
-    "new_tests": 25,
-    "tests_after": 857,
-    "new_source_files": 4,
-    "new_test_files": 5,
-    "details": {
-      "D4": "stream() failover — ChainProvider retry loop for stream(), 5 tests",
-      "D5": "AutoCompactSummary — heuristic context compaction with first-line extraction, 6 tests",
-      "D7": "DeferredActionDetector — LLM deferred action pattern matching, 8 tests",
-      "D8": "ToolProgress — real-time progress reporting type in octo-types, 6 tests",
-      "D15": "TiktokenCounter — precise token counting via tiktoken-rs (feature-gated), module + tests"
-    }
-  },
-  "deferred_scan": {
-    "scanned_at": "2026-03-09T16:40:00+08:00",
-    "total_items": 15,
-    "completed": ["D4", "D5", "D7", "D8", "D15"],
-    "ready_but_deferred": ["D1", "D2", "D3", "D6", "D12", "D14"],
-    "pending": ["D9", "D10", "D11", "D13"],
-    "code_level": {
-      "todos": 7,
-      "stubs": 1,
-      "unwraps": 1,
-      "unimplemented": 0,
-      "notes": "All TODOs in octo-cli (non-critical). 1 STUB in platform-server ws.rs. 1 .unwrap() in server ws.rs:95."
-    }
-  },
+  "phase_name": "harness-implementation",
+  "tests_baseline": 857,
   "design_docs": {
-    "opus_harness": "docs/design/AGENT_HARNESS_BEST_IMPLEMENTATION_DESIGN.md",
-    "opus_skills": "docs/design/AGENT_SKILLS_BEST_IMPLEMENTATION_DESIGN.md",
-    "opus_research": "docs/design/AGENT_HARNESS_INDUSTRY_RESEARCH_2025_2026.md",
-    "sonnet_harness": "docs/found-by-sonnet4.6/AGENT_HARNESS_DESIGN.md",
-    "sonnet_skills": "docs/found-by-sonnet4.6/AGENT_SKILLS_DESIGN.md"
+    "harness_design": "docs/design/AGENT_HARNESS_BEST_IMPLEMENTATION_DESIGN.md",
+    "cli_design": "docs/design/AGENT_CLI_DESIGN.md"
   },
-  "p0_stats": {
-    "tests_before": 339,
-    "tests_after": 476,
-    "new_tests": 137,
-    "new_source_files": 6,
-    "new_test_files": 9,
-    "modified_files": 10,
-    "lines_added": 1539
-  },
-  "p1_stats": {
-    "tests_before": 476,
-    "tests_after": 610,
-    "new_tests": 134,
-    "new_source_files": 10,
-    "new_test_files": 8,
-    "modified_files": 16,
-    "lines_added": 2723
-  },
-  "p2_stats": {
-    "tests_before": 610,
-    "tests_after": 719,
-    "new_tests": 109,
-    "new_source_files": 8,
-    "new_test_files": 10,
-    "modified_files": 7
-  },
-  "p3_stats": {
-    "tests_before": 719,
-    "tests_after": 832,
-    "new_tests": 113,
-    "new_source_files": 8,
-    "new_test_files": 9,
-    "modified_files": 10
-  }
+  "deferred_items": ["D1", "D2", "D3", "D4", "D5", "D6"]
 }
