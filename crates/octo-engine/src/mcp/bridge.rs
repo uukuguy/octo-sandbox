@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use octo_types::{ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
 
 use super::traits::{McpClient, McpToolInfo};
 use crate::tools::Tool;
@@ -46,6 +46,15 @@ impl Tool for McpToolBridge {
 
     fn source(&self) -> ToolSource {
         ToolSource::Mcp(self.server_name.clone())
+    }
+
+    fn risk_level(&self) -> RiskLevel {
+        match &self.tool_info.annotations {
+            Some(ann) if ann.destructive => RiskLevel::Destructive,
+            Some(ann) if ann.open_world => RiskLevel::HighRisk,
+            Some(ann) if ann.read_only => RiskLevel::ReadOnly,
+            _ => RiskLevel::LowRisk,
+        }
     }
 
     async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolResult> {

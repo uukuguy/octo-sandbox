@@ -34,4 +34,12 @@ pub enum HookPoint {
     LoopTurnEnd,
     /// Agent is being routed
     AgentRoute,
+    /// Skills activated for a query
+    SkillsActivated,
+    /// A skill was deactivated
+    SkillDeactivated,
+    /// A skill script started execution
+    SkillScriptStarted,
+    /// A tool constraint was violated
+    ToolConstraintViolated,
 }

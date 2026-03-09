@@ -351,6 +351,11 @@ impl AgentRuntime {
         &self.hook_registry
     }
 
+    /// Get skill registry (if any)
+    pub fn skill_registry(&self) -> Option<&Arc<SkillRegistry>> {
+        self.skill_registry.as_ref()
+    }
+
     /// Get tenant context (if any)
     pub fn tenant_context(&self) -> Option<&TenantContext> {
         self.tenant_context.as_ref()

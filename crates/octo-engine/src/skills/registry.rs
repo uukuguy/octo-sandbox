@@ -107,6 +107,18 @@ impl SkillRegistry {
         self.len() == 0
     }
 
+    /// List all loaded skills.
+    pub fn list_all(&self) -> Vec<SkillDefinition> {
+        let skills = self.skills.read().unwrap_or_else(|e| e.into_inner());
+        skills.values().cloned().collect()
+    }
+
+    /// Remove a skill by name. Returns the removed skill if it existed.
+    pub fn remove(&self, name: &str) -> Option<SkillDefinition> {
+        let mut skills = self.skills.write().unwrap_or_else(|e| e.into_inner());
+        skills.remove(name)
+    }
+
     /// Get inner Arc for sharing across threads.
     pub fn inner(&self) -> Arc<RwLock<HashMap<String, SkillDefinition>>> {
         self.skills.clone()

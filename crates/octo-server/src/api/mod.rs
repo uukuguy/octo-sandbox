@@ -11,6 +11,7 @@ pub mod metrics;
 pub mod providers;
 pub mod scheduler;
 pub mod sessions;
+pub mod skills;
 pub mod tasks;
 pub mod tools;
 pub mod user_context;
@@ -81,4 +82,6 @@ pub fn routes() -> Router<Arc<AppState>> {
         .merge(providers::router())
         // Agent registry and lifecycle
         .nest("/v1", agents::router())
+        // Skill catalog
+        .nest("/v1", skills::router())
 }

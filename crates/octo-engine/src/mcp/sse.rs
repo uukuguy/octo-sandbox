@@ -84,6 +84,7 @@ impl McpClient for SseMcpClient {
                 name: t.name.to_string(),
                 description: t.description.map(|d| d.to_string()),
                 input_schema: serde_json::Value::Object(t.input_schema.as_ref().clone()),
+                annotations: None,
             })
             .collect())
     }

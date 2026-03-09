@@ -6,11 +6,15 @@ pub mod nodejs;
 pub mod python;
 pub mod shell;
 pub mod traits;
+#[cfg(feature = "sandbox-wasm")]
+pub mod wasm;
 
 pub use nodejs::NodeJsRuntime;
 pub use python::PythonRuntime;
 pub use shell::ShellRuntime;
 pub use traits::{RuntimeType, SkillRuntime};
+#[cfg(feature = "sandbox-wasm")]
+pub use wasm::WasmSkillRuntime;
 
 /// Information about a tool available to the skill.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

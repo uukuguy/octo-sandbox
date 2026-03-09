@@ -13,6 +13,6 @@ pub use stdio::StdioMcpClient;
 pub use storage::McpStorage;
 pub use traits::{
     McpClient, McpPromptArgument, McpPromptInfo, McpPromptMessage, McpPromptResult,
-    McpResourceContent, McpResourceInfo, McpServerConfig, McpServerConfigV2, McpToolInfo,
-    McpTransport,
+    McpResourceContent, McpResourceInfo, McpServerConfig, McpServerConfigV2, McpToolAnnotations,
+    McpToolInfo, McpTransport,
 };

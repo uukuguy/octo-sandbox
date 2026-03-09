@@ -21,7 +21,8 @@ mod runtime_mcp;
 mod runtime_scheduler;
 pub mod manifest_loader;
 pub mod store;
-pub mod tenant; // 新增
+pub mod subagent;
+pub mod tenant;
 pub mod turn_gate;
 pub mod yaml_def;
 
@@ -41,6 +42,7 @@ pub use router::{AgentProfile, AgentRouter, RouteAlternative, RouteResult};
 pub use manifest_loader::AgentManifestLoader;
 pub use runtime::{AgentRuntime, AgentRuntimeConfig};
 pub use store::AgentStore;
+pub use subagent::{SubAgentHandle, SubAgentManager, SubAgentResult, SubAgentStatus, SubAgentTask};
 pub use tenant::TenantContext;
 pub use turn_gate::TurnGate;
 pub use yaml_def::AgentYamlDef;

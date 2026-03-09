@@ -42,8 +42,11 @@ pub fn validate_resource_uri(uri: &str) -> anyhow::Result<()> {
         }
         "http" | "https" => {
             // Parse the host and reject private/loopback ranges.
-            reject_private_host_in_uri(uri)
-                .map_err(|_| anyhow::anyhow!("Invalid resource URI: '{uri}' targets a private or loopback address"))
+            reject_private_host_in_uri(uri).map_err(|_| {
+                anyhow::anyhow!(
+                    "Invalid resource URI: '{uri}' targets a private or loopback address"
+                )
+            })
         }
         _ => Err(anyhow::anyhow!(
             "Invalid resource URI: unsupported scheme '{scheme}' in '{uri}'"
@@ -58,8 +61,8 @@ pub fn validate_resource_uri(uri: &str) -> anyhow::Result<()> {
 /// - `http://` is only allowed for `localhost` / `127.0.0.1` (dev mode).
 /// - Private IP ranges are rejected for both schemes.
 pub fn validate_server_url(url: &str) -> anyhow::Result<()> {
-    let parsed = Url::parse(url)
-        .map_err(|e| anyhow::anyhow!("Invalid server URL '{url}': {e}"))?;
+    let parsed =
+        Url::parse(url).map_err(|e| anyhow::anyhow!("Invalid server URL '{url}': {e}"))?;
 
     let scheme = parsed.scheme();
     let host_str = parsed.host_str().unwrap_or("");
@@ -125,8 +128,8 @@ fn is_private_ip(ip: IpAddr) -> bool {
 
 /// Helper: parse a URI and reject it when its host is in a private range.
 fn reject_private_host_in_uri(uri: &str) -> anyhow::Result<()> {
-    let parsed = Url::parse(uri)
-        .map_err(|e| anyhow::anyhow!("Failed to parse URI '{uri}': {e}"))?;
+    let parsed =
+        Url::parse(uri).map_err(|e| anyhow::anyhow!("Failed to parse URI '{uri}': {e}"))?;
     let host = parsed.host_str().unwrap_or("");
     if is_private_host(host) {
         return Err(anyhow::anyhow!("private host"));
@@ -159,12 +162,31 @@ impl std::str::FromStr for McpTransport {
     }
 }
 
+/// MCP tool annotations per MCP 2025-03 specification
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct McpToolAnnotations {
+    /// Whether the tool only reads data (no side effects)
+    #[serde(default)]
+    pub read_only: bool,
+    /// Whether the tool can cause destructive/irreversible changes
+    #[serde(default)]
+    pub destructive: bool,
+    /// Whether the tool has side effects visible outside the session
+    #[serde(default)]
+    pub open_world: bool,
+    /// Human-readable title
+    pub title: Option<String>,
+}
+
 /// Info about a tool provided by an MCP server.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpToolInfo {
     pub name: String,
     pub description: Option<String>,
     pub input_schema: serde_json::Value,
+    /// MCP tool annotations (read-only, destructive, etc.)
+    #[serde(default)]
+    pub annotations: Option<McpToolAnnotations>,
 }
 
 /// MCP Resource information.

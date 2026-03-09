@@ -28,6 +28,18 @@ pub struct HookContext {
     pub degradation_level: Option<String>,
     /// Redirect target agent or tool (for Redirect action)
     pub redirect_target: Option<String>,
+    /// Skill name (for skill hooks)
+    pub skill_name: Option<String>,
+    /// Activated skills list (for SkillsActivated)
+    pub activated_skills: Option<Vec<String>>,
+    /// Query that triggered skill activation
+    pub activation_query: Option<String>,
+    /// Script being executed (for SkillScriptStarted)
+    pub script_path: Option<String>,
+    /// Runtime type (for SkillScriptStarted)
+    pub runtime_type: Option<String>,
+    /// Constraint violation reason (for ToolConstraintViolated)
+    pub constraint_reason: Option<String>,
 }
 
 impl HookContext {
@@ -69,6 +81,35 @@ impl HookContext {
 
     pub fn with_degradation(mut self, level: impl Into<String>) -> Self {
         self.degradation_level = Some(level.into());
+        self
+    }
+
+    pub fn with_skill(mut self, name: impl Into<String>) -> Self {
+        self.skill_name = Some(name.into());
+        self
+    }
+
+    pub fn with_activated_skills(mut self, skills: Vec<String>, query: impl Into<String>) -> Self {
+        self.activated_skills = Some(skills);
+        self.activation_query = Some(query.into());
+        self
+    }
+
+    pub fn with_script(mut self, path: impl Into<String>, runtime: impl Into<String>) -> Self {
+        self.script_path = Some(path.into());
+        self.runtime_type = Some(runtime.into());
+        self
+    }
+
+    pub fn with_constraint_violation(
+        mut self,
+        tool: impl Into<String>,
+        skill: impl Into<String>,
+        reason: impl Into<String>,
+    ) -> Self {
+        self.tool_name = Some(tool.into());
+        self.skill_name = Some(skill.into());
+        self.constraint_reason = Some(reason.into());
         self
     }
 
