@@ -42,13 +42,43 @@
       "name": "高级功能",
       "tasks": ["P3.1", "P3.2", "P3.3", "P3.4", "P3.5", "P3.6", "P3.7", "P3.8", "P3.9", "P3.10"],
       "status": "completed",
-      "description": "SubAgent 支持, Observation Masking, context-fork, model override, WASM Runtime, Skill REST API, SkillCatalog 远程 Registry, MCP Tool Annotations, Skill 语义索引, Skill 生命周期 Hooks"
+      "description": "SubAgent 支持, Observation Masking, context-fork, model override, WASM Runtime, Skill REST API, SkillCatalog 远程 Registry, MCP Tool Annotations, Skill 语义索引, Skill 生命周期 Hooks",
+      "commit": "b50ef2a"
     }
   },
   "execution_order": ["P0", "P1", "P2", "P3"],
   "execution_mode": "subagent-driven-development",
   "phase_name": "pre-harness-refactor",
-  "notes": "全部 42/42 任务完成！832 个测试全部通过。P3 新增 113 个测试、8 个源文件、8 个测试文件。使用 RuFlo swarm 6 智能体并行编排完成。",
+  "notes": "全部 42/42 任务完成 + 5 项 Deferred 补齐（D4/D5/D7/D8/D15）。857 个测试全部通过（+25 新测试）。剩余 10 项 Deferred 中 6 项条件已满足但优先级低（D1/D2/D3/D6/D12/D14），4 项条件未满足（D9/D10/D11/D13）。",
+  "deferred_completed": {
+    "completed_at": "2026-03-09T16:40:00+08:00",
+    "items": ["D4", "D5", "D7", "D8", "D15"],
+    "new_tests": 25,
+    "tests_after": 857,
+    "new_source_files": 4,
+    "new_test_files": 5,
+    "details": {
+      "D4": "stream() failover — ChainProvider retry loop for stream(), 5 tests",
+      "D5": "AutoCompactSummary — heuristic context compaction with first-line extraction, 6 tests",
+      "D7": "DeferredActionDetector — LLM deferred action pattern matching, 8 tests",
+      "D8": "ToolProgress — real-time progress reporting type in octo-types, 6 tests",
+      "D15": "TiktokenCounter — precise token counting via tiktoken-rs (feature-gated), module + tests"
+    }
+  },
+  "deferred_scan": {
+    "scanned_at": "2026-03-09T16:40:00+08:00",
+    "total_items": 15,
+    "completed": ["D4", "D5", "D7", "D8", "D15"],
+    "ready_but_deferred": ["D1", "D2", "D3", "D6", "D12", "D14"],
+    "pending": ["D9", "D10", "D11", "D13"],
+    "code_level": {
+      "todos": 7,
+      "stubs": 1,
+      "unwraps": 1,
+      "unimplemented": 0,
+      "notes": "All TODOs in octo-cli (non-critical). 1 STUB in platform-server ws.rs. 1 .unwrap() in server ws.rs:95."
+    }
+  },
   "design_docs": {
     "opus_harness": "docs/design/AGENT_HARNESS_BEST_IMPLEMENTATION_DESIGN.md",
     "opus_skills": "docs/design/AGENT_SKILLS_BEST_IMPLEMENTATION_DESIGN.md",

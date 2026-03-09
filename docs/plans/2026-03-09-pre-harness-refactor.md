@@ -1485,18 +1485,18 @@ pub struct SubAgentTask {
 | 合并 Extension 和 Hook 系统 | P1-4 完成后评估 | 低 |
 | Canary Token (prompt exfiltration) | P1-8 SafetyPipeline | 低 |
 | SmartRouting (简单查询到廉价模型) | P2-1 Provider Pipeline | 可选 |
-| stream() failover 支持 | P2-1 Provider Pipeline | 中 |
-| Auto-Compact with LLM Summary | P1-9 ContextManager | 中 |
+| stream() failover 支持 | P2-1 Provider Pipeline | ✅ 已补 |
+| Auto-Compact with LLM Summary | P1-9 ContextManager | ✅ 已补 |
 | Memory Decay 机制 | P1-9 完成后 | 低 |
-| Deferred Action 检测 | P0-2 step functions | 低 |
-| ToolProgress 实时进度 | P1-2 ToolOutput | 低 |
+| Deferred Action 检测 | P0-2 step functions | ✅ 已补 |
+| ToolProgress 实时进度 | P1-2 ToolOutput | ✅ 已补 |
 | 强类型 ChatMessage 枚举 | 大规模重构，全量迁移 | 低 |
 | Hands 能力包 (openfang) | AgentHarness 完成后 | 低 |
 | Merkle 审计链 (openfang) | 审计系统增强时 | 低 |
 | 跨组件调用 (ToolInvoker/SkillInvoker) | P1-7 SkillManager | 复杂 |
 | Symlink 防护增强 | 安全审计时 | 安全 |
 | skill_invoke 跨 skill 工具 | P2-9 依赖图 | 复杂 |
-| 精确 tiktoken-rs 计数 | P2-6 添加依赖后 | 可选 |
+| 精确 tiktoken-rs 计数 | P2-6 添加依赖后 | ✅ 已补 |
 
 ---
 

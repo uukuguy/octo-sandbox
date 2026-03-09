@@ -349,24 +349,35 @@ impl crate::providers::Provider for ChainProvider {
         &self,
         request: CompletionRequest,
     ) -> Result<crate::providers::CompletionStream> {
-        // Stream 模式需要特殊处理：选择一个实例后全程使用
-        let instance = self.chain.get_available().await?;
+        let mut last_error = None;
 
-        let provider = crate::providers::create_provider(
-            &instance.provider,
-            instance.api_key.clone(),
-            instance.base_url.clone(),
-        );
+        for _ in 0..self.max_retries {
+            let instance = match self.chain.get_available().await {
+                Ok(i) => i,
+                Err(e) => {
+                    last_error = Some(e);
+                    continue;
+                }
+            };
 
-        match provider.stream(request).await {
-            Ok(stream) => Ok(stream),
-            Err(e) => {
-                self.chain
-                    .mark_unhealthy(&instance.id, &e.to_string())
-                    .await;
-                Err(e)
+            let provider = crate::providers::create_provider(
+                &instance.provider,
+                instance.api_key.clone(),
+                instance.base_url.clone(),
+            );
+
+            match provider.stream(request.clone()).await {
+                Ok(stream) => return Ok(stream),
+                Err(e) => {
+                    self.chain
+                        .mark_unhealthy(&instance.id, &e.to_string())
+                        .await;
+                    last_error = Some(e);
+                }
             }
         }
+
+        Err(last_error.unwrap_or_else(|| anyhow!("All instances failed to stream")))
     }
 }
 

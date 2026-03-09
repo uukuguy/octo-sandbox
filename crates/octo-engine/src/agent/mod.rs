@@ -1,6 +1,7 @@
 pub mod cancellation;
 pub mod capability;
 pub mod catalog;
+pub mod deferred_action;
 pub mod config;
 pub mod continuation;
 pub mod context;
@@ -30,6 +31,7 @@ pub use cancellation::{CancellationToken, ChildCancellationToken};
 pub use capability::AgentCapability;
 pub use catalog::AgentCatalog;
 pub use config::AgentConfig;
+pub use deferred_action::{DeferredActionDetector, DeferredActionMatch, DeferredCategory, DeferredPattern};
 pub use continuation::{ContinuationConfig, ContinuationTracker};
 pub use entry::{AgentEntry, AgentError, AgentId, AgentManifest, AgentStatus};
 pub use events::{AgentLoopResult, NormalizedStopReason};

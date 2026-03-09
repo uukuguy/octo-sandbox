@@ -153,6 +153,63 @@ impl From<ToolOutput> for ToolResult {
     }
 }
 
+/// Progress update emitted by a tool during execution.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolProgress {
+    /// Progress percentage (0.0 to 1.0), None if indeterminate.
+    pub fraction: Option<f64>,
+    /// Human-readable status message.
+    pub message: String,
+    /// Bytes processed so far (for data-intensive tools).
+    pub bytes_processed: Option<u64>,
+    /// Total bytes expected (for data-intensive tools).
+    pub bytes_total: Option<u64>,
+    /// Elapsed milliseconds since tool execution started.
+    pub elapsed_ms: u64,
+}
+
+impl ToolProgress {
+    /// Create an indeterminate progress (no known completion percentage).
+    pub fn indeterminate(message: impl Into<String>) -> Self {
+        Self {
+            fraction: None,
+            message: message.into(),
+            bytes_processed: None,
+            bytes_total: None,
+            elapsed_ms: 0,
+        }
+    }
+
+    /// Create a progress with a known completion fraction (0.0 to 1.0).
+    pub fn percent(fraction: f64, message: impl Into<String>) -> Self {
+        Self {
+            fraction: Some(fraction),
+            message: message.into(),
+            bytes_processed: None,
+            bytes_total: None,
+            elapsed_ms: 0,
+        }
+    }
+
+    /// Attach byte-level progress information.
+    pub fn with_bytes(mut self, processed: u64, total: u64) -> Self {
+        self.bytes_processed = Some(processed);
+        self.bytes_total = Some(total);
+        self
+    }
+
+    /// Set the elapsed time in milliseconds.
+    pub fn with_elapsed(mut self, elapsed_ms: u64) -> Self {
+        self.elapsed_ms = elapsed_ms;
+        self
+    }
+
+    /// Returns true if fraction >= 1.0.
+    pub fn is_complete(&self) -> bool {
+        matches!(self.fraction, Some(f) if f >= 1.0)
+    }
+}
+
 /// Trait for validating file paths against security policies.
 pub trait PathValidator: Send + Sync + std::fmt::Debug {
     fn check_path(&self, path: &Path) -> Result<(), String>;

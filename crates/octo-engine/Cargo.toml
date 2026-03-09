@@ -46,6 +46,7 @@ rand = "0.8"
 keyring = { version = "3", optional = true }
 regex = "1"
 hnsw_rs = { workspace = true, optional = true }
+tiktoken-rs = { version = "0.6", optional = true }
 
 [features]
 default = ["sandbox-wasm", "sandbox-docker"]
@@ -53,6 +54,7 @@ sandbox-wasm = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:base64"]
 sandbox-docker = ["dep:bollard", "dep:base64"]
 keyring = ["dep:keyring"]
 hnsw = ["dep:hnsw_rs"]
+tiktoken = ["dep:tiktoken-rs"]
 
 [dependencies.wasmtime]
 version = "25"
