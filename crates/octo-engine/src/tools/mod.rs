@@ -5,6 +5,7 @@ pub mod file_write;
 pub mod find;
 pub mod glob;
 pub mod grep;
+pub mod interceptor;
 pub mod memory_forget;
 pub mod memory_recall;
 pub mod memory_search;
@@ -18,6 +19,7 @@ pub mod web_search;
 use std::collections::HashMap;
 use std::sync::Arc;
 
+pub use interceptor::ToolCallInterceptor;
 pub use traits::Tool;
 
 use self::bash::BashTool;

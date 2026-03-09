@@ -1,5 +1,18 @@
 use std::time::Duration;
 
+/// Error routing strategy (moltis ProviderErrorKind pattern)
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ErrorStrategy {
+    /// Retry with exponential backoff (same provider)
+    Retry,
+    /// Failover to backup provider
+    Failover,
+    /// Compact context then retry
+    CompactAndRetry,
+    /// Fail immediately — do not retry or failover
+    Fail,
+}
+
 /// LLM 错误 8 分类（参考 ARCHITECTURE_DESIGN.md §E-07）
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LlmErrorKind {
@@ -31,6 +44,27 @@ impl LlmErrorKind {
             self,
             Self::RateLimit | Self::Overloaded | Self::Timeout | Self::ServiceError
         )
+    }
+
+    /// Whether this error type should trigger failover to a backup provider.
+    /// Only transient service issues trigger failover — NOT auth/billing/context errors.
+    pub fn should_failover(&self) -> bool {
+        matches!(
+            self,
+            Self::RateLimit | Self::ServiceError | Self::Overloaded | Self::Unknown
+        )
+    }
+
+    /// Determine the routing strategy for this error type.
+    /// This enables semantic error routing: each error kind maps to a specific recovery action.
+    pub fn routing_strategy(&self) -> ErrorStrategy {
+        match self {
+            Self::RateLimit | Self::Overloaded => ErrorStrategy::Retry,
+            Self::ServiceError | Self::Timeout => ErrorStrategy::Failover,
+            Self::ContextOverflow => ErrorStrategy::CompactAndRetry,
+            Self::AuthError | Self::BillingError => ErrorStrategy::Fail,
+            Self::Unknown => ErrorStrategy::Retry,
+        }
     }
 
     /// 从错误消息中分类（传入 error.to_string().to_lowercase()）
@@ -217,5 +251,57 @@ mod tests {
         assert!(!policy.should_retry_str("429 rate limit", 3));
         // non-retryable error => false
         assert!(!policy.should_retry_str("401 unauthorized", 0));
+    }
+
+    #[test]
+    fn test_rate_limit_should_failover() {
+        assert!(LlmErrorKind::RateLimit.should_failover());
+    }
+
+    #[test]
+    fn test_service_error_should_failover() {
+        assert!(LlmErrorKind::ServiceError.should_failover());
+    }
+
+    #[test]
+    fn test_auth_error_should_not_failover() {
+        assert!(!LlmErrorKind::AuthError.should_failover());
+    }
+
+    #[test]
+    fn test_billing_error_should_not_failover() {
+        assert!(!LlmErrorKind::BillingError.should_failover());
+    }
+
+    #[test]
+    fn test_context_overflow_should_not_failover() {
+        assert!(!LlmErrorKind::ContextOverflow.should_failover());
+    }
+
+    #[test]
+    fn test_routing_strategy_retry() {
+        assert_eq!(LlmErrorKind::RateLimit.routing_strategy(), ErrorStrategy::Retry);
+        assert_eq!(LlmErrorKind::Overloaded.routing_strategy(), ErrorStrategy::Retry);
+        assert_eq!(LlmErrorKind::Unknown.routing_strategy(), ErrorStrategy::Retry);
+    }
+
+    #[test]
+    fn test_routing_strategy_failover() {
+        assert_eq!(LlmErrorKind::ServiceError.routing_strategy(), ErrorStrategy::Failover);
+        assert_eq!(LlmErrorKind::Timeout.routing_strategy(), ErrorStrategy::Failover);
+    }
+
+    #[test]
+    fn test_routing_strategy_compact() {
+        assert_eq!(
+            LlmErrorKind::ContextOverflow.routing_strategy(),
+            ErrorStrategy::CompactAndRetry
+        );
+    }
+
+    #[test]
+    fn test_routing_strategy_fail() {
+        assert_eq!(LlmErrorKind::AuthError.routing_strategy(), ErrorStrategy::Fail);
+        assert_eq!(LlmErrorKind::BillingError.routing_strategy(), ErrorStrategy::Fail);
     }
 }

@@ -23,9 +23,9 @@ pub mod tools;
 
 pub use agent::{
     AgentCapability, AgentCatalog, AgentEntry, AgentError, AgentEvent, AgentExecutor,
-    AgentExecutorHandle, AgentId, AgentLoop, AgentManifest, AgentMessage, AgentProfile,
-    AgentRouter, AgentRuntime, AgentRuntimeConfig, AgentStatus, AgentStore, RouteAlternative,
-    RouteResult, TenantContext,
+    AgentExecutorHandle, AgentId, AgentLoop, AgentLoopConfig, AgentLoopResult, AgentManifest,
+    AgentMessage, AgentProfile, AgentRouter, AgentRuntime, AgentRuntimeConfig, AgentStatus,
+    AgentStore, NormalizedStopReason, RouteAlternative, RouteResult, TenantContext, TurnGate,
 };
 pub use audit::{AuditEvent, AuditRecord, AuditStorage};
 pub use auth::{

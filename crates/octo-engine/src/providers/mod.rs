@@ -11,7 +11,7 @@ pub use chain::*;
 pub use config::*;
 pub use metering_provider::MeteringProvider;
 pub use openai::create_openai_provider;
-pub use retry::{LlmErrorKind, RetryPolicy};
+pub use retry::{ErrorStrategy, LlmErrorKind, RetryPolicy};
 pub use traits::{CompletionStream, Provider};
 
 /// Create a provider by name.

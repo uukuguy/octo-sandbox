@@ -2,6 +2,53 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+/// Trust level for skill execution (IronClaw Trust Attenuation).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum TrustLevel {
+    /// Full access to all tools.
+    Trusted,
+    /// Only allowed-tools list.
+    Installed,
+    /// Read-only tools only.
+    Unknown,
+}
+
+impl Default for TrustLevel {
+    fn default() -> Self {
+        Self::Installed
+    }
+}
+
+/// Trigger conditions for automatic skill activation.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum SkillTrigger {
+    FilePattern { pattern: String },
+    Command { command: String },
+    Keyword { keyword: String },
+}
+
+/// Where the skill was loaded from.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SkillSourceType {
+    /// .octo/skills/ in project.
+    ProjectLocal,
+    /// ~/.octo/skills/ user-global.
+    UserLocal,
+    /// Bundled with a plugin.
+    PluginBundled,
+    /// Downloaded from registry.
+    Registry,
+}
+
+impl Default for SkillSourceType {
+    fn default() -> Self {
+        Self::ProjectLocal
+    }
+}
+
 /// Skill definition parsed from a SKILL.md file.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillDefinition {
@@ -27,4 +74,40 @@ pub struct SkillDefinition {
     /// Used for lazy loading - initially false, set to true when activated.
     #[serde(skip)]
     pub body_loaded: bool,
+
+    /// Model override for this skill.
+    #[serde(default)]
+    pub model: Option<String>,
+
+    /// Run in isolated context.
+    #[serde(default, rename = "context-fork")]
+    pub context_fork: bool,
+
+    /// Always include (never prune during compaction).
+    #[serde(default)]
+    pub always: bool,
+
+    /// Trust level.
+    #[serde(default, rename = "trust-level")]
+    pub trust_level: TrustLevel,
+
+    /// Auto-trigger conditions.
+    #[serde(default)]
+    pub triggers: Vec<SkillTrigger>,
+
+    /// Dependencies on other skills.
+    #[serde(default)]
+    pub dependencies: Vec<String>,
+
+    /// Classification tags.
+    #[serde(default)]
+    pub tags: Vec<String>,
+
+    /// Explicitly denied tools (overrides allowed_tools).
+    #[serde(default, rename = "denied-tools")]
+    pub denied_tools: Option<Vec<String>>,
+
+    /// Source type.
+    #[serde(default, skip)]
+    pub source_type: SkillSourceType,
 }

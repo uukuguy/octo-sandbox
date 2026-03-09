@@ -26,6 +26,7 @@ use crate::tools::ToolRegistry;
 
 use super::config::AgentConfig;
 use super::entry::AgentManifest;
+use super::events::AgentLoopResult;
 use super::parallel::execute_parallel;
 use super::CancellationToken;
 
@@ -71,6 +72,30 @@ pub enum AgentEvent {
         message: String,
     },
     Done,
+    // New: Context events
+    ContextDegraded {
+        level: String,
+        usage_pct: f32,
+    },
+    MemoryFlushed {
+        facts_count: usize,
+    },
+    // New: Security events
+    ApprovalRequired {
+        tool_name: String,
+    },
+    SecurityBlocked {
+        reason: String,
+    },
+    // New: Meta info
+    IterationStart {
+        round: u32,
+    },
+    IterationEnd {
+        round: u32,
+    },
+    // New: Structured done with result
+    Completed(AgentLoopResult),
 }
 
 pub struct AgentLoop {
@@ -874,6 +899,22 @@ impl AgentLoop {
         let _ = tx.send(AgentEvent::Done);
         Ok(())
     }
+}
+
+/// Handle a provider error WITHOUT persisting it to conversation history.
+/// Returns true if the error is retryable (caller should continue loop).
+///
+/// Nanobot principle: provider errors are infrastructure failures, not conversation events.
+/// Error responses are sent via AgentEvent::Error but never appended to the messages vector.
+///
+/// The function signature takes `&[ChatMessage]` (immutable slice) rather than
+/// `&mut Vec<ChatMessage>` — this enforces the non-persistence guarantee at the type level.
+pub fn handle_provider_error_non_persistent(
+    error_msg: &str,
+    _messages: &[ChatMessage], // read-only reference — never mutated
+) -> bool {
+    let kind = LlmErrorKind::classify_from_str(&error_msg.to_lowercase());
+    kind.is_retryable()
 }
 
 struct PendingToolUse {

@@ -223,7 +223,7 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                     session_id: sid_str.clone(),
                                     message,
                                 },
-                                AgentEvent::Done => {
+                                AgentEvent::Done | AgentEvent::Completed(_) => {
                                     let done_msg = ServerMessage::Done {
                                         session_id: sid_str.clone(),
                                     };
@@ -232,6 +232,8 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                     }
                                     break;
                                 }
+                                // New event variants not yet mapped to ServerMessage — skip
+                                _ => continue,
                             };
 
                             if let Ok(json) = serde_json::to_string(&server_msg) {
