@@ -17,6 +17,12 @@ pub struct NodeJsRuntime {
     timeout: Duration,
 }
 
+impl Default for NodeJsRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl NodeJsRuntime {
     /// Create a new Node.js runtime with auto-detected node binary.
     pub fn new() -> Self {

@@ -11,9 +11,6 @@ use uuid::Uuid;
 
 use crate::UserRuntimeConfig;
 
-/// User runtime configuration - uses the one from main.rs
-// UserRuntimeConfig is imported directly from main.rs by callers
-
 /// User runtime - one per user, manages sessions
 pub struct UserRuntime {
     pub user_id: String,
@@ -47,16 +44,12 @@ pub struct Session {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum SessionStatus {
+    #[default]
     Active,
     Paused,
     Completed,
-}
-
-impl Default for SessionStatus {
-    fn default() -> Self {
-        SessionStatus::Active
-    }
 }
 
 impl Session {

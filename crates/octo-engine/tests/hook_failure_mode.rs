@@ -73,10 +73,7 @@ impl HookHandler for TrailingSuccessHandler {
     async fn execute(&self, ctx: &HookContext) -> anyhow::Result<HookAction> {
         // Signal that this handler actually ran by modifying metadata.
         let mut new_ctx = ctx.clone();
-        new_ctx.set_metadata(
-            "trailing_ran".to_string(),
-            serde_json::Value::Bool(true),
-        );
+        new_ctx.set_metadata("trailing_ran".to_string(), serde_json::Value::Bool(true));
         Ok(HookAction::Modify(new_ctx))
     }
 }
@@ -183,8 +180,12 @@ async fn test_mixed_modes_success_then_fail_open_then_success() {
     struct EarlySuccess;
     #[async_trait]
     impl HookHandler for EarlySuccess {
-        fn name(&self) -> &str { "early-success" }
-        fn priority(&self) -> u32 { 50 }
+        fn name(&self) -> &str {
+            "early-success"
+        }
+        fn priority(&self) -> u32 {
+            50
+        }
         async fn execute(&self, _ctx: &HookContext) -> anyhow::Result<HookAction> {
             Ok(HookAction::Continue)
         }
@@ -220,8 +221,12 @@ async fn test_fail_closed_success_does_not_abort() {
     struct FailClosedSuccessHandler;
     #[async_trait]
     impl HookHandler for FailClosedSuccessHandler {
-        fn name(&self) -> &str { "fail-closed-success" }
-        fn failure_mode(&self) -> HookFailureMode { HookFailureMode::FailClosed }
+        fn name(&self) -> &str {
+            "fail-closed-success"
+        }
+        fn failure_mode(&self) -> HookFailureMode {
+            HookFailureMode::FailClosed
+        }
         async fn execute(&self, _ctx: &HookContext) -> anyhow::Result<HookAction> {
             Ok(HookAction::Continue)
         }

@@ -25,7 +25,7 @@ impl MemoryStore for SqliteMemoryStore {
         let embedding_blob: Option<Vec<u8>> = entry
             .embedding
             .as_ref()
-            .map(|e| bincode::serialize(e))
+            .map(bincode::serialize)
             .transpose()?;
 
         self.conn
@@ -70,7 +70,7 @@ impl MemoryStore for SqliteMemoryStore {
                 )?;
                 let entry = stmt
                     .query_row(rusqlite::params![id_str], |row| {
-                        Ok(row_to_entry(row)?)
+                        row_to_entry(row)
                     })
                     .ok();
                 Ok(entry)
@@ -224,7 +224,7 @@ impl MemoryStore for SqliteMemoryStore {
                     params.iter().map(|p| p.as_ref()).collect();
 
                 let mut stmt = conn.prepare(&sql)?;
-                let rows = stmt.query_map(params_ref.as_slice(), |row| row_to_entry(row))?;
+                let rows = stmt.query_map(params_ref.as_slice(), row_to_entry)?;
 
                 let mut entries = Vec::new();
                 for row in rows {
@@ -454,10 +454,8 @@ fn fts_search(
     })?;
 
     let mut results = Vec::new();
-    for row in rows {
-        if let Ok(r) = row {
-            results.push(r);
-        }
+    for r in rows.flatten() {
+        results.push(r);
     }
     Ok(results)
 }
@@ -477,16 +475,14 @@ fn vector_search(
          WHERE user_id = ?1 AND embedding IS NOT NULL",
     )?;
 
-    let rows = stmt.query_map(rusqlite::params![user_id], |row| row_to_entry(row))?;
+    let rows = stmt.query_map(rusqlite::params![user_id], row_to_entry)?;
 
     let mut scored: Vec<(MemoryEntry, f32)> = Vec::new();
-    for row in rows {
-        if let Ok(entry) = row {
-            if let Some(ref emb) = entry.embedding {
-                let sim = cosine_similarity(query_embedding, emb);
-                if sim > 0.0 {
-                    scored.push((entry, sim));
-                }
+    for entry in rows.flatten() {
+        if let Some(ref emb) = entry.embedding {
+            let sim = cosine_similarity(query_embedding, emb);
+            if sim > 0.0 {
+                scored.push((entry, sim));
             }
         }
     }
@@ -513,8 +509,8 @@ fn row_to_entry(row: &rusqlite::Row<'_>) -> rusqlite::Result<MemoryEntry> {
     let created_at: i64 = row.get(13)?;
     let updated_at: i64 = row.get(14)?;
 
-    let category = MemoryCategory::from_str(&category_str).unwrap_or(MemoryCategory::Profile);
-    let source_type = MemorySource::from_str(&source_type_str);
+    let category = MemoryCategory::parse(&category_str).unwrap_or(MemoryCategory::Profile);
+    let source_type = MemorySource::parse(&source_type_str);
     let embedding: Option<Vec<f32>> =
         embedding_blob.and_then(|blob| bincode::deserialize(&blob).ok());
     let metadata: serde_json::Value =

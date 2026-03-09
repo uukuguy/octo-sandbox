@@ -34,7 +34,10 @@ impl DeferredActionDetector {
         let patterns = vec![
             // PostponedAction
             dp("i'll handle that later", DeferredCategory::PostponedAction),
-            dp("i'll do that in the next", DeferredCategory::PostponedAction),
+            dp(
+                "i'll do that in the next",
+                DeferredCategory::PostponedAction,
+            ),
             dp("i will address that", DeferredCategory::PostponedAction),
             dp("let's skip that for now", DeferredCategory::PostponedAction),
             dp("we'll tackle that", DeferredCategory::PostponedAction),
@@ -48,10 +51,7 @@ impl DeferredActionDetector {
                 "we can handle that separately",
                 DeferredCategory::ScopeDefer,
             ),
-            dp(
-                "that's out of scope for now",
-                DeferredCategory::ScopeDefer,
-            ),
+            dp("that's out of scope for now", DeferredCategory::ScopeDefer),
             dp("let's defer that", DeferredCategory::ScopeDefer),
             dp("we'll save that for", DeferredCategory::ScopeDefer),
         ];
@@ -91,9 +91,7 @@ impl DeferredActionDetector {
     /// Convenience: returns `true` if any deferred action is found.
     pub fn has_deferred(&self, text: &str) -> bool {
         let lower = text.to_lowercase();
-        self.patterns
-            .iter()
-            .any(|dp| lower.contains(&dp.pattern))
+        self.patterns.iter().any(|dp| lower.contains(&dp.pattern))
     }
 }
 

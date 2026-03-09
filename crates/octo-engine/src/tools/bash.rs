@@ -275,7 +275,9 @@ impl Tool for BashTool {
                 }
                 Err(_) => {
                     // 沙箱不可用或失败，继续使用直接执行
-                    tracing::warn!("Sandbox not available, falling back to direct command execution");
+                    tracing::warn!(
+                        "Sandbox not available, falling back to direct command execution"
+                    );
                 }
             }
         }

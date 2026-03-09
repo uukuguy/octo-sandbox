@@ -63,8 +63,8 @@ impl Tool for WebFetchTool {
         let max_length = params["max_length"].as_u64().map(|v| v as usize);
 
         // SSRF protection: validate URL scheme and destination
-        let parsed_url = reqwest::Url::parse(url)
-            .map_err(|e| anyhow::anyhow!("Invalid URL: {}", e))?;
+        let parsed_url =
+            reqwest::Url::parse(url).map_err(|e| anyhow::anyhow!("Invalid URL: {}", e))?;
 
         // Block non-HTTP schemes
         match parsed_url.scheme() {
@@ -79,10 +79,8 @@ impl Tool for WebFetchTool {
 
         // Block private/loopback/link-local IPs and cloud metadata endpoints
         if let Some(host) = parsed_url.host_str() {
-            let is_loopback = host == "localhost"
-                || host == "127.0.0.1"
-                || host == "::1"
-                || host == "0.0.0.0";
+            let is_loopback =
+                host == "localhost" || host == "127.0.0.1" || host == "::1" || host == "0.0.0.0";
 
             let is_private_10 = host.starts_with("10.");
             let is_private_192 = host.starts_with("192.168.");
@@ -100,8 +98,7 @@ impl Tool for WebFetchTool {
             };
 
             // Cloud metadata endpoints
-            let is_metadata =
-                host == "metadata.google.internal" || host == "169.254.169.254";
+            let is_metadata = host == "metadata.google.internal" || host == "169.254.169.254";
 
             if is_loopback
                 || is_private_10

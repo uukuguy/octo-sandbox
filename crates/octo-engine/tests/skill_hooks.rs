@@ -27,7 +27,10 @@ fn test_tool_constraint_violated_hook_point_exists() {
 #[test]
 fn test_hook_points_are_distinct() {
     assert_ne!(HookPoint::SkillsActivated, HookPoint::SkillDeactivated);
-    assert_ne!(HookPoint::SkillScriptStarted, HookPoint::ToolConstraintViolated);
+    assert_ne!(
+        HookPoint::SkillScriptStarted,
+        HookPoint::ToolConstraintViolated
+    );
     assert_ne!(HookPoint::SkillsActivated, HookPoint::PreToolUse);
 }
 
@@ -40,17 +43,18 @@ fn test_context_with_skill() {
 #[test]
 fn test_context_with_activated_skills() {
     let skills = vec!["skill-a".to_string(), "skill-b".to_string()];
-    let ctx = HookContext::new()
-        .with_activated_skills(skills.clone(), "how do I search the web?");
+    let ctx = HookContext::new().with_activated_skills(skills.clone(), "how do I search the web?");
 
     assert_eq!(ctx.activated_skills, Some(skills));
-    assert_eq!(ctx.activation_query.as_deref(), Some("how do I search the web?"));
+    assert_eq!(
+        ctx.activation_query.as_deref(),
+        Some("how do I search the web?")
+    );
 }
 
 #[test]
 fn test_context_with_script() {
-    let ctx = HookContext::new()
-        .with_script("/path/to/script.py", "python");
+    let ctx = HookContext::new().with_script("/path/to/script.py", "python");
 
     assert_eq!(ctx.script_path.as_deref(), Some("/path/to/script.py"));
     assert_eq!(ctx.runtime_type.as_deref(), Some("python"));
@@ -58,12 +62,18 @@ fn test_context_with_script() {
 
 #[test]
 fn test_context_with_constraint_violation() {
-    let ctx = HookContext::new()
-        .with_constraint_violation("bash", "safe-skill", "tool not in allowed_tools list");
+    let ctx = HookContext::new().with_constraint_violation(
+        "bash",
+        "safe-skill",
+        "tool not in allowed_tools list",
+    );
 
     assert_eq!(ctx.tool_name.as_deref(), Some("bash"));
     assert_eq!(ctx.skill_name.as_deref(), Some("safe-skill"));
-    assert_eq!(ctx.constraint_reason.as_deref(), Some("tool not in allowed_tools list"));
+    assert_eq!(
+        ctx.constraint_reason.as_deref(),
+        Some("tool not in allowed_tools list")
+    );
 }
 
 #[test]

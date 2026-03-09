@@ -66,14 +66,19 @@ pub struct AgentManifest {
 impl AgentManifest {
     /// Build an AgentProfile from this manifest for use with AgentRouter.
     /// Capabilities are inferred from tags using "cap:" prefix convention.
-    pub fn to_agent_profile(&self, agent_id: impl Into<String>) -> crate::agent::router::AgentProfile {
+    pub fn to_agent_profile(
+        &self,
+        agent_id: impl Into<String>,
+    ) -> crate::agent::router::AgentProfile {
         use crate::agent::capability::AgentCapability;
         use crate::agent::router::AgentProfile;
 
         let capabilities: Vec<AgentCapability> = if self.tags.is_empty() {
             vec![AgentCapability::General]
         } else {
-            let caps: Vec<AgentCapability> = self.tags.iter()
+            let caps: Vec<AgentCapability> = self
+                .tags
+                .iter()
                 .filter(|t| t.starts_with("cap:"))
                 .map(|t| AgentCapability::from_str_loose(&t[4..]))
                 .collect();
@@ -94,18 +99,14 @@ impl AgentManifest {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum AgentStatus {
+    #[default]
     Created,
     Running,
     Paused,
     Stopped,
     Error(String),
-}
-
-impl Default for AgentStatus {
-    fn default() -> Self {
-        Self::Created
-    }
 }
 
 impl std::fmt::Display for AgentStatus {

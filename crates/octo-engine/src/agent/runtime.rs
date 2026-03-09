@@ -113,7 +113,7 @@ impl AgentRuntime {
     /// * `catalog` - Agent catalog (created externally with store)
     /// * `config` - Runtime configuration containing db_path, provider, skills, etc.
     /// * `tenant_context` - Optional tenant context for multi-tenant isolation.
-    ///                      Pass `None` for single-user mode (octo-workbench).
+    ///   Pass `None` for single-user mode (octo-workbench).
     ///
     /// # Returns
     /// A fully initialized AgentRuntime with:
@@ -229,9 +229,7 @@ impl AgentRuntime {
         let metering = Arc::new(Metering::new());
 
         // 15. SecurityPolicy initialization (path validation for ToolContext)
-        let security_policy = Arc::new(
-            SecurityPolicy::new().with_workspace(working_dir.clone()),
-        );
+        let security_policy = Arc::new(SecurityPolicy::new().with_workspace(working_dir.clone()));
 
         let runtime = Self {
             primary_handle: Mutex::new(None),
@@ -587,5 +585,4 @@ impl AgentRuntime {
             )
         }
     }
-
 }

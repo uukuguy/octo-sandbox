@@ -13,6 +13,7 @@ pub enum HookFailureMode {
 
 /// Action returned by a hook handler
 #[derive(Debug, Clone)]
+#[allow(clippy::large_enum_variant)]
 pub enum HookAction {
     /// Continue processing (no modification)
     Continue,

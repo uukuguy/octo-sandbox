@@ -10,8 +10,8 @@ use tracing_subscriber::{fmt, EnvFilter};
 mod commands;
 
 use commands::{
-    AppState, AgentCommands, ConfigCommands, MemoryCommands, SessionCommands, ToolsCommands,
-    handle_agent, handle_config, handle_memory, handle_session, handle_tools,
+    handle_agent, handle_config, handle_memory, handle_session, handle_tools, AgentCommands,
+    AppState, ConfigCommands, MemoryCommands, SessionCommands, ToolsCommands,
 };
 
 #[derive(Parser)]

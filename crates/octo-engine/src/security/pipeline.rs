@@ -76,7 +76,10 @@ impl SafetyPipeline {
 
     /// Run all layers' tool-result checks. Stops immediately on Block.
     pub async fn check_tool_result(&self, tool_name: &str, result: &str) -> SafetyDecision {
-        Self::run_checks(&self.layers, |layer| layer.check_tool_result(tool_name, result)).await
+        Self::run_checks(&self.layers, |layer| {
+            layer.check_tool_result(tool_name, result)
+        })
+        .await
     }
 
     /// Generic runner: iterate layers, call `f` on each, merge decisions.
@@ -188,7 +191,9 @@ mod tests {
     fn credential_patterns_detected() {
         assert!(CredentialScrubber::contains_credential("key=sk-ant-abc123"));
         assert!(CredentialScrubber::contains_credential("token: ghp_xxxx"));
-        assert!(CredentialScrubber::contains_credential("AKIAIOSFODNN7EXAMPLE"));
+        assert!(CredentialScrubber::contains_credential(
+            "AKIAIOSFODNN7EXAMPLE"
+        ));
         assert!(CredentialScrubber::contains_credential(
             "-----BEGIN PRIVATE KEY-----\nMIIE..."
         ));

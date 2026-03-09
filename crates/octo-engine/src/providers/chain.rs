@@ -39,16 +39,12 @@ pub enum InstanceHealth {
 /// 故障切换策略
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum FailoverPolicy {
+    #[default]
     Automatic,
     Manual,
     Hybrid,
-}
-
-impl Default for FailoverPolicy {
-    fn default() -> Self {
-        FailoverPolicy::Automatic
-    }
 }
 
 /// 健康检查配置

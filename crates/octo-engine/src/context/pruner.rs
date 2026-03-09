@@ -34,12 +34,14 @@ impl ContextPruner {
     /// Returns the number of content blocks modified.
     ///
     /// 4+1 阶段：
-    /// 1. None              → 无操作
-    /// 2. SoftTrim          → 对 2 轮前的工具结果做头/尾裁剪
-    /// 3. AutoCompaction    → 保留最近 10 条消息，其余工具结果替换为占位符
-    /// 4. OverflowCompaction → 保留最近 4 条消息（drain 旧消息）
-    /// +1. ToolResultTruncation → 截断最后一条工具结果至 8000 chars
-    /// FinalError           → 不修改（由调用方处理为错误）
+    ///
+    /// 1. None — 无操作
+    /// 2. SoftTrim — 对 2 轮前的工具结果做头/尾裁剪
+    /// 3. AutoCompaction — 保留最近 10 条消息，其余工具结果替换为占位符
+    /// 4. OverflowCompaction — 保留最近 4 条消息（drain 旧消息）
+    /// 5. ToolResultTruncation — 截断最后一条工具结果至 8000 chars
+    /// 6. FinalError — 不修改（由调用方处理为错误）
+    #[allow(clippy::ptr_arg)]
     pub fn apply(&self, messages: &mut Vec<ChatMessage>, level: DegradationLevel) -> usize {
         match level {
             DegradationLevel::None => 0,
@@ -55,6 +57,7 @@ impl ContextPruner {
     }
 
     /// 阶段 1: Soft-trim —— 对 2 轮前的工具结果做头尾裁剪（保留 head + tail）
+    #[allow(clippy::ptr_arg)]
     fn soft_trim(&self, messages: &mut Vec<ChatMessage>) -> usize {
         let boundary = self.find_protection_boundary(messages);
         let mut modified = 0;
@@ -83,6 +86,7 @@ impl ContextPruner {
     }
 
     /// 阶段 2: AutoCompaction —— 保留最近 10 条消息，其余工具结果替换为占位符
+    #[allow(clippy::ptr_arg)]
     fn auto_compaction(&self, messages: &mut Vec<ChatMessage>) -> usize {
         let keep = AUTO_COMPACTION_KEEP;
         let boundary = if messages.len() > keep {
@@ -139,6 +143,7 @@ impl ContextPruner {
     }
 
     /// 阶段 +1: ToolResultTruncation —— 截断最后一条工具结果至 8000 chars
+    #[allow(clippy::ptr_arg)]
     fn tool_result_truncation(&self, messages: &mut Vec<ChatMessage>) -> usize {
         // 从末尾向前找最后一条包含 ToolResult 的消息
         for msg in messages.iter_mut().rev() {

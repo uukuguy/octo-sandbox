@@ -7,7 +7,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures_util::stream;
 use futures_util::StreamExt;
-use octo_types::{CompletionRequest, CompletionResponse, StreamEvent, StopReason, TokenUsage};
+use octo_types::{CompletionRequest, CompletionResponse, StopReason, StreamEvent, TokenUsage};
 
 use octo_engine::providers::chain::{ChainProvider, FailoverPolicy, LlmInstance, ProviderChain};
 use octo_engine::providers::traits::{CompletionStream, Provider};
@@ -161,13 +161,15 @@ async fn test_stream_failover_tries_next_instance() {
     let chain = build_chain(3).await;
 
     let providers: Vec<Arc<MockStreamProvider>> = vec![
-        Arc::new(MockStreamProvider::always_fail("inst-0", "connection refused")),
+        Arc::new(MockStreamProvider::always_fail(
+            "inst-0",
+            "connection refused",
+        )),
         Arc::new(MockStreamProvider::always_ok("inst-1")),
         Arc::new(MockStreamProvider::always_ok("inst-2")),
     ];
 
-    let result =
-        stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
+    let result = stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
     assert!(result.is_ok(), "Should succeed via failover to inst-1");
 
     // inst-0 was called once and failed
@@ -202,8 +204,7 @@ async fn test_stream_failover_marks_unhealthy() {
         Arc::new(MockStreamProvider::always_ok("inst-1")),
     ];
 
-    let result =
-        stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
+    let result = stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
     assert!(result.is_ok());
 
     // inst-0 should be marked unhealthy
@@ -240,8 +241,7 @@ async fn test_stream_failover_all_fail() {
         Arc::new(MockStreamProvider::always_fail("inst-1", "error-1")),
     ];
 
-    let result =
-        stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
+    let result = stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
     assert!(result.is_err(), "Should fail when all instances fail");
 
     let err_msg = match result {
@@ -271,8 +271,7 @@ async fn test_stream_no_failover_on_success() {
         Arc::new(MockStreamProvider::always_ok("inst-2")),
     ];
 
-    let result =
-        stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
+    let result = stream_with_failover(&chain, &providers, 3, CompletionRequest::default()).await;
     assert!(result.is_ok(), "Should succeed on first try");
 
     // Only inst-0 (highest priority) should be called

@@ -207,7 +207,10 @@ fn test_attenuator_trust_levels() {
     let mut trusted_skill = make_skill("local");
     trusted_skill.trust_level = TrustLevel::Trusted;
     trusted_skill.source_type = SkillSourceType::ProjectLocal;
-    assert_eq!(attenuator.effective_trust(&trusted_skill), TrustLevel::Trusted);
+    assert_eq!(
+        attenuator.effective_trust(&trusted_skill),
+        TrustLevel::Trusted
+    );
 
     let mut registry_skill = make_skill("remote");
     registry_skill.trust_level = TrustLevel::Trusted;

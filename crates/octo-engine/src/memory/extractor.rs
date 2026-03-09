@@ -119,8 +119,7 @@ fn convert_facts(arr: Vec<serde_json::Value>) -> Vec<ExtractedFact> {
         .filter_map(|item| {
             let fact = item["fact"].as_str()?.to_string();
             let category_str = item["category"].as_str().unwrap_or("patterns");
-            let category =
-                MemoryCategory::from_str(category_str).unwrap_or(MemoryCategory::Patterns);
+            let category = MemoryCategory::parse(category_str).unwrap_or(MemoryCategory::Patterns);
             let importance = item["importance"]
                 .as_f64()
                 .map(|f| f as f32)

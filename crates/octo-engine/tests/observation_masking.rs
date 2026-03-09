@@ -227,7 +227,12 @@ fn test_estimate_savings() {
     ];
 
     let (original, after) = masker.estimate_savings(&msgs);
-    assert!(after < original, "masked should be smaller: {} < {}", after, original);
+    assert!(
+        after < original,
+        "masked should be smaller: {} < {}",
+        after,
+        original
+    );
 }
 
 #[test]

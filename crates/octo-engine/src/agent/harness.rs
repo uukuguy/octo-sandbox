@@ -14,8 +14,7 @@ use octo_types::{
 };
 
 use crate::context::{
-    ContextPruner, DegradationLevel, MemoryFlusher,
-    NewSystemPromptBuilder as SystemPromptBuilder,
+    ContextPruner, DegradationLevel, MemoryFlusher, NewSystemPromptBuilder as SystemPromptBuilder,
 };
 use crate::hooks::{HookAction, HookContext, HookPoint};
 use crate::providers::{LlmErrorKind, RetryPolicy};
@@ -45,6 +44,7 @@ struct StreamResult {
     tool_uses: Vec<PendingToolUse>,
     stop_reason: StopReason,
     input_tokens: u32,
+    #[allow(dead_code)]
     output_tokens: u32,
 }
 
@@ -126,18 +126,9 @@ async fn run_agent_loop_inner(
     let tool_specs = tools.specs();
 
     // --- Context management objects ---
-    let mut budget = config
-        .budget
-        .clone()
-        .unwrap_or_default();
-    let pruner = config
-        .pruner
-        .clone()
-        .unwrap_or_else(|| ContextPruner::new());
-    let mut loop_guard = config
-        .loop_guard
-        .clone()
-        .unwrap_or_else(|| super::loop_guard::LoopGuard::new());
+    let mut budget = config.budget.clone().unwrap_or_default();
+    let pruner = config.pruner.clone().unwrap_or_default();
+    let mut loop_guard = config.loop_guard.clone().unwrap_or_default();
 
     // --- Compute max rounds ---
     let max_rounds = loop_steps::effective_max_rounds(config.max_iterations);
@@ -201,9 +192,7 @@ async fn run_agent_loop_inner(
             let ctx = HookContext::new()
                 .with_session(config.session_id.as_str())
                 .with_turn(round);
-            if let HookAction::Abort(reason) =
-                hooks.execute(HookPoint::LoopTurnStart, &ctx).await
-            {
+            if let HookAction::Abort(reason) = hooks.execute(HookPoint::LoopTurnStart, &ctx).await {
                 let _ = tx
                     .send(AgentEvent::Error {
                         message: reason.clone(),
@@ -243,10 +232,10 @@ async fn run_agent_loop_inner(
                 let boundary = ContextPruner::find_compaction_boundary(&messages, 20_000);
                 if boundary > 0 {
                     let _ = MemoryFlusher::flush(
-                        &mut messages,
+                        &messages,
                         boundary,
                         &*provider,
-                        config.memory.as_ref().map(|m| &**m).unwrap_or_else(|| {
+                        config.memory.as_deref().unwrap_or_else(|| {
                             // This branch shouldn't be reached since memory flush requires memory
                             panic!("Memory required for flush")
                         }),
@@ -269,7 +258,8 @@ async fn run_agent_loop_inner(
             let _ = tx
                 .send(AgentEvent::ContextDegraded {
                     level: format!("{:?}", level),
-                    usage_pct: (budget.usage_ratio(&system_prompt, &messages, &tool_specs) * 100.0) as f32,
+                    usage_pct: (budget.usage_ratio(&system_prompt, &messages, &tool_specs) * 100.0)
+                        as f32,
                 })
                 .await;
 
@@ -396,8 +386,7 @@ async fn run_agent_loop_inner(
         };
 
         // --- Consume stream (P0-5) ---
-        let stream_result =
-            consume_stream(&mut llm_stream, &tx, &config.agent_config).await;
+        let stream_result = consume_stream(&mut llm_stream, &tx, &config.agent_config).await;
 
         let stream_result = match stream_result {
             Ok(r) => r,
@@ -461,13 +450,9 @@ async fn run_agent_loop_inner(
                 messages.push(ChatMessage::assistant(&full_text));
                 messages.push(ChatMessage {
                     role: MessageRole::User,
-                    content: vec![ContentBlock::Text {
-                        text: prompt,
-                    }],
+                    content: vec![ContentBlock::Text { text: prompt }],
                 });
-                let _ = tx
-                    .send(AgentEvent::IterationEnd { round })
-                    .await;
+                let _ = tx.send(AgentEvent::IterationEnd { round }).await;
                 continue; // Re-enter loop for next LLM call
             }
 
@@ -526,9 +511,7 @@ async fn run_agent_loop_inner(
                 let _ = tx.send(AgentEvent::Typing { state: false }).await;
             }
 
-            let _ = tx
-                .send(AgentEvent::IterationEnd { round })
-                .await;
+            let _ = tx.send(AgentEvent::IterationEnd { round }).await;
 
             fire_post_task_hooks(&config, &tx, round, turn_start.elapsed().as_millis() as u64)
                 .await;
@@ -701,8 +684,7 @@ async fn run_agent_loop_inner(
                         .with_session(config.session_id.as_str())
                         .with_tool(&tu.name, input.clone())
                         .with_result(!result.is_error, exec_duration);
-                    ctx.tool_result =
-                        Some(serde_json::Value::String(result.output.clone()));
+                    ctx.tool_result = Some(serde_json::Value::String(result.output.clone()));
                     hooks.execute(HookPoint::PostToolUse, &ctx).await;
                 }
 

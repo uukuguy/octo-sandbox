@@ -26,7 +26,7 @@ use crate::tools::ToolRegistry;
 
 use super::config::AgentConfig;
 use super::entry::AgentManifest;
-use super::events::{AgentEvent, AgentLoopResult};
+use super::events::AgentEvent;
 use super::parallel::execute_parallel;
 use super::CancellationToken;
 
@@ -142,6 +142,7 @@ impl AgentLoop {
     }
 
     #[deprecated(since = "0.2.0", note = "Use harness::run_agent_loop() directly")]
+    #[allow(clippy::too_many_arguments)]
     pub async fn run(
         &mut self,
         session_id: &SessionId,
@@ -509,7 +510,9 @@ impl AgentLoop {
                                     if let Err(violation) = defence.check_output(&full_text) {
                                         tracing::warn!(violation = %violation, "AIDefence blocked output");
                                         let _ = tx.send(AgentEvent::Error {
-                                            message: format!("Output security check failed: {violation}"),
+                                            message: format!(
+                                                "Output security check failed: {violation}"
+                                            ),
                                         });
                                         let _ = tx.send(AgentEvent::Done);
                                         return Ok(());
@@ -708,7 +711,10 @@ impl AgentLoop {
                         {
                             tracing::warn!(tool = %tu.name, reason = %reason, "PreToolUse hook blocked tool");
                             let _ = tx.send(AgentEvent::Error {
-                                message: format!("Tool '{}' blocked by security policy: {reason}", tu.name),
+                                message: format!(
+                                    "Tool '{}' blocked by security policy: {reason}",
+                                    tu.name
+                                ),
                             });
                             let _ = tx.send(AgentEvent::Done);
                             return Ok(());
@@ -734,8 +740,7 @@ impl AgentLoop {
                             .with_session(session_id.as_str())
                             .with_tool(&tu.name, input.clone())
                             .with_result(!result.is_error, exec_duration);
-                        ctx.tool_result =
-                            Some(serde_json::Value::String(result.output.clone()));
+                        ctx.tool_result = Some(serde_json::Value::String(result.output.clone()));
                         hooks.execute(HookPoint::PostToolUse, &ctx).await;
                     }
 

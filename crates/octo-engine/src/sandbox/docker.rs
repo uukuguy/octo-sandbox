@@ -436,7 +436,7 @@ async fn wait_for_exec_completion(
             .map_err(|e| SandboxError::ExecutionFailed(format!("Failed to inspect exec: {}", e)))?;
 
         // Check if running - it's Option<bool> in bollard 0.18
-        if info.running.unwrap_or(false) == false {
+        if !info.running.unwrap_or(false) {
             return Ok(info.exit_code.unwrap_or(1) as u32);
         }
     }

@@ -1,7 +1,10 @@
+use serde::Serialize;
+
 use octo_types::StopReason;
 
 /// Events sent from AgentLoop to consumers (WebSocket handler, CLI, etc.)
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "type")]
 pub enum AgentEvent {
     TextDelta {
         text: String,
@@ -62,7 +65,7 @@ pub enum AgentEvent {
 }
 
 /// Structured return result for AgentLoop (Opus §3.2)
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, Serialize)]
 pub struct AgentLoopResult {
     pub rounds: u32,
     pub tool_calls: u32,
@@ -71,7 +74,7 @@ pub struct AgentLoopResult {
 
 /// Normalized stop reason (ZeroClaw pattern) — covers all agent-level stop reasons.
 /// This is distinct from octo_types::StopReason which is provider-level.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Serialize)]
 pub enum NormalizedStopReason {
     #[default]
     EndTurn,

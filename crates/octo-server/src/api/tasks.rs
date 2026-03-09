@@ -102,7 +102,7 @@ async fn submit_task(
     let scheduled = match scheduler
         .create_task(
             Some("api-task".to_string()),
-            format!("ad-hoc-{}", Uuid::new_v4().to_string()[..8].to_string()),
+            format!("ad-hoc-{}", &Uuid::new_v4().to_string()[..8]),
             "0 0 1 1 2099".to_string(), // Far future - won't auto-run
             config,
             true,

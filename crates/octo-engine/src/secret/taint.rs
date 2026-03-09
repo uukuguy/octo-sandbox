@@ -111,8 +111,8 @@ impl TaintedValue {
 
         if blocked {
             Err(TaintViolation {
-                sink: sink.clone(),
-                label: self.label.clone(),
+                sink: *sink,
+                label: self.label,
                 description: format!(
                     "Tainted value with label {:?} cannot flow to sink {:?}",
                     self.label, sink

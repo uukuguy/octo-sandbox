@@ -89,7 +89,10 @@ fn dev_mode_shortcut() {
     let mgr = ApprovalManager::dev_mode();
     assert_eq!(*mgr.policy(), ApprovalPolicy::AlwaysApprove);
     assert_eq!(mgr.check("bash", false), ApprovalDecision::Approved);
-    assert_eq!(mgr.check("dangerous_tool", false), ApprovalDecision::Approved);
+    assert_eq!(
+        mgr.check("dangerous_tool", false),
+        ApprovalDecision::Approved
+    );
 }
 
 #[test]

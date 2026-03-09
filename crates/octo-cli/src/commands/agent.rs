@@ -1,6 +1,6 @@
 //! Agent commands implementation
 
-use crate::commands::{AppState, AgentCommands};
+use crate::commands::{AgentCommands, AppState};
 use anyhow::Result;
 
 /// Handle agent commands
@@ -30,7 +30,9 @@ async fn list_agents(state: &AppState) -> Result<()> {
 /// Run an agent for interactive conversation
 async fn run_agent(agent_id: Option<String>, state: &AppState) -> Result<()> {
     let agent_id = agent_id.unwrap_or_else(|| {
-        state.agent_catalog.list_all()
+        state
+            .agent_catalog
+            .list_all()
             .into_iter()
             .next()
             .map(|e| e.id.to_string())

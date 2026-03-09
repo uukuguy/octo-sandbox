@@ -267,11 +267,17 @@ mod tests {
 
     #[test]
     fn test_redirect_target_rejects_special_chars() {
-        assert!(!validate_redirect_target("agent/../etc/passwd"), "path traversal rejected");
+        assert!(
+            !validate_redirect_target("agent/../etc/passwd"),
+            "path traversal rejected"
+        );
         assert!(!validate_redirect_target("agent b"), "space rejected");
         assert!(!validate_redirect_target("agent@host"), "@ rejected");
         assert!(!validate_redirect_target("http://evil.com"), "URL rejected");
-        assert!(!validate_redirect_target("agent\x00name"), "null byte rejected");
+        assert!(
+            !validate_redirect_target("agent\x00name"),
+            "null byte rejected"
+        );
     }
 
     #[test]
@@ -287,13 +293,17 @@ mod tests {
         struct BadRedirectHandler;
         #[async_trait]
         impl HookHandler for BadRedirectHandler {
-            fn name(&self) -> &str { "bad-redirect" }
+            fn name(&self) -> &str {
+                "bad-redirect"
+            }
             async fn execute(&self, _ctx: &HookContext) -> anyhow::Result<HookAction> {
                 Ok(HookAction::Redirect("../../etc/passwd".to_string()))
             }
         }
         let registry = HookRegistry::new();
-        registry.register(HookPoint::AgentRoute, Arc::new(BadRedirectHandler)).await;
+        registry
+            .register(HookPoint::AgentRoute, Arc::new(BadRedirectHandler))
+            .await;
         let ctx = HookContext::new();
         let action = registry.execute(HookPoint::AgentRoute, &ctx).await;
         assert!(

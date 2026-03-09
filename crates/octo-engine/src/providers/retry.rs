@@ -280,15 +280,30 @@ mod tests {
 
     #[test]
     fn test_routing_strategy_retry() {
-        assert_eq!(LlmErrorKind::RateLimit.routing_strategy(), ErrorStrategy::Retry);
-        assert_eq!(LlmErrorKind::Overloaded.routing_strategy(), ErrorStrategy::Retry);
-        assert_eq!(LlmErrorKind::Unknown.routing_strategy(), ErrorStrategy::Retry);
+        assert_eq!(
+            LlmErrorKind::RateLimit.routing_strategy(),
+            ErrorStrategy::Retry
+        );
+        assert_eq!(
+            LlmErrorKind::Overloaded.routing_strategy(),
+            ErrorStrategy::Retry
+        );
+        assert_eq!(
+            LlmErrorKind::Unknown.routing_strategy(),
+            ErrorStrategy::Retry
+        );
     }
 
     #[test]
     fn test_routing_strategy_failover() {
-        assert_eq!(LlmErrorKind::ServiceError.routing_strategy(), ErrorStrategy::Failover);
-        assert_eq!(LlmErrorKind::Timeout.routing_strategy(), ErrorStrategy::Failover);
+        assert_eq!(
+            LlmErrorKind::ServiceError.routing_strategy(),
+            ErrorStrategy::Failover
+        );
+        assert_eq!(
+            LlmErrorKind::Timeout.routing_strategy(),
+            ErrorStrategy::Failover
+        );
     }
 
     #[test]
@@ -301,7 +316,13 @@ mod tests {
 
     #[test]
     fn test_routing_strategy_fail() {
-        assert_eq!(LlmErrorKind::AuthError.routing_strategy(), ErrorStrategy::Fail);
-        assert_eq!(LlmErrorKind::BillingError.routing_strategy(), ErrorStrategy::Fail);
+        assert_eq!(
+            LlmErrorKind::AuthError.routing_strategy(),
+            ErrorStrategy::Fail
+        );
+        assert_eq!(
+            LlmErrorKind::BillingError.routing_strategy(),
+            ErrorStrategy::Fail
+        );
     }
 }

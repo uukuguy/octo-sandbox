@@ -5,7 +5,11 @@ fn populated_index() -> SkillSemanticIndex {
     index.add_skill(
         "web-search",
         "Search the web for information and return results",
-        &["search".to_string(), "web".to_string(), "internet".to_string()],
+        &[
+            "search".to_string(),
+            "web".to_string(),
+            "internet".to_string(),
+        ],
     );
     index.add_skill(
         "file-manager",
@@ -15,7 +19,11 @@ fn populated_index() -> SkillSemanticIndex {
     index.add_skill(
         "code-runner",
         "Execute code snippets safely in a sandbox environment",
-        &["code".to_string(), "execution".to_string(), "sandbox".to_string()],
+        &[
+            "code".to_string(),
+            "execution".to_string(),
+            "sandbox".to_string(),
+        ],
     );
     index.add_skill(
         "db-query",

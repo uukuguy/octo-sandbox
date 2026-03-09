@@ -3,7 +3,6 @@
 /// Produces a concise heuristic summary placeholder for long tool results,
 /// preserving the first line as a title hint. Designed so a real LLM
 /// summarizer can be plugged in later by replacing `compact_message`.
-
 /// Configuration for the auto-compact summary strategy.
 #[derive(Debug, Clone)]
 pub struct AutoCompactConfig {
@@ -42,11 +41,7 @@ impl AutoCompactSummary {
             return content.to_string();
         }
 
-        let first_line = content
-            .lines()
-            .next()
-            .unwrap_or("")
-            .trim();
+        let first_line = content.lines().next().unwrap_or("").trim();
 
         let title = if first_line.len() > 60 {
             // Truncate at a char boundary <= 60 chars

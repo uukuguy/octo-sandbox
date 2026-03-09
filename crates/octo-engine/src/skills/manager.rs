@@ -30,11 +30,7 @@ pub struct SkillManager {
 }
 
 impl SkillManager {
-    pub fn new(
-        loader: SkillLoader,
-        registry: SkillRegistry,
-        trust_manager: TrustManager,
-    ) -> Self {
+    pub fn new(loader: SkillLoader, registry: SkillRegistry, trust_manager: TrustManager) -> Self {
         Self {
             loader,
             registry,

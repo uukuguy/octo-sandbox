@@ -162,7 +162,9 @@ impl ProjectionEngine {
                         proj.apply(event).await?;
                         self.checkpoints.write().await.insert(
                             proj.name().to_string(),
-                            ProjectionCheckpoint { last_sequence: event.sequence },
+                            ProjectionCheckpoint {
+                                last_sequence: event.sequence,
+                            },
                         );
                     }
                 }
@@ -188,7 +190,11 @@ impl ProjectionEngine {
 
     /// Return the last processed sequence number for a named projection.
     pub async fn checkpoint(&self, name: &str) -> i64 {
-        self.checkpoints.read().await.get(name).map_or(0, |c| c.last_sequence)
+        self.checkpoints
+            .read()
+            .await
+            .get(name)
+            .map_or(0, |c| c.last_sequence)
     }
 }
 

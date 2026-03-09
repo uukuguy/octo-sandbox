@@ -1,7 +1,14 @@
 use octo_types::skill::{SkillDefinition, SkillSourceType, TrustLevel};
 
 /// Read-only tool whitelist for Unknown trust level.
-const READONLY_TOOLS: &[&str] = &["read", "file_read", "glob", "grep", "list_directory", "find"];
+const READONLY_TOOLS: &[&str] = &[
+    "read",
+    "file_read",
+    "glob",
+    "grep",
+    "list_directory",
+    "find",
+];
 
 /// TrustManager implements IronClaw-style Trust Attenuation.
 ///
@@ -117,21 +124,10 @@ impl Default for TrustManager {
 /// Errors from trust checking.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TrustError {
-    DeniedTool {
-        tool: String,
-        skill: String,
-    },
-    NotInAllowedList {
-        tool: String,
-        skill: String,
-    },
-    NoAllowedToolsDefined {
-        skill: String,
-    },
-    UnknownTrustReadOnly {
-        tool: String,
-        skill: String,
-    },
+    DeniedTool { tool: String, skill: String },
+    NotInAllowedList { tool: String, skill: String },
+    NoAllowedToolsDefined { skill: String },
+    UnknownTrustReadOnly { tool: String, skill: String },
 }
 
 impl std::fmt::Display for TrustError {

@@ -11,6 +11,12 @@ const MAX_RESULTS: usize = 200;
 
 pub struct FindTool;
 
+impl Default for FindTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FindTool {
     pub fn new() -> Self {
         Self

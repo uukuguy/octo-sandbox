@@ -34,7 +34,9 @@ impl AgentRuntime {
         let tool_ctx = ToolContext {
             sandbox_id: sandbox_id.clone(),
             working_dir: self.working_dir.clone(),
-            path_validator: Some(self.security_policy.clone() as std::sync::Arc<dyn octo_types::PathValidator>),
+            path_validator: Some(
+                self.security_policy.clone() as std::sync::Arc<dyn octo_types::PathValidator>
+            ),
         };
 
         // Create event channel (discard events)
@@ -52,6 +54,7 @@ impl AgentRuntime {
         // Run agent with timeout
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(config.timeout_secs),
+            #[allow(deprecated)]
             agent_loop.run(
                 &session_id,
                 &user_id,

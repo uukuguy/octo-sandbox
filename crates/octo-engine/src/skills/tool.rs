@@ -99,7 +99,7 @@ impl Tool for SkillTool {
                         "No scripts found in scripts/ directory.",
                     ))
                 } else {
-                    Ok(ToolResult::success(&format!(
+                    Ok(ToolResult::success(format!(
                         "Available scripts:\n{}",
                         scripts.join("\n")
                     )))
@@ -116,21 +116,19 @@ impl Tool for SkillTool {
                     .context("run_script requires 'args' parameter with script name")?;
                 let script_path = self.skill.base_dir.join("scripts").join(script_name);
                 if !script_path.exists() {
-                    return Ok(ToolResult::error(&format!(
+                    return Ok(ToolResult::error(format!(
                         "Script not found: {}",
                         script_name
                     )));
                 }
-                let skill_ctx = SkillContext::new(
-                    self.skill.name.clone(),
-                    self.skill.base_dir.clone(),
-                );
+                let skill_ctx =
+                    SkillContext::new(self.skill.name.clone(), self.skill.base_dir.clone());
                 let result = bridge
                     .execute_script_file(&script_path, json!({}), &skill_ctx)
                     .await?;
-                Ok(ToolResult::success(&result.to_string()))
+                Ok(ToolResult::success(result.to_string()))
             }
-            other => Ok(ToolResult::error(&format!(
+            other => Ok(ToolResult::error(format!(
                 "Unknown action: '{}'. Valid actions: activate, run_script, list_scripts",
                 other
             ))),

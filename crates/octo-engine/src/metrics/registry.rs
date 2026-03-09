@@ -20,18 +20,12 @@ impl MetricsRegistry {
 
     /// Get or create a counter metric
     pub fn counter(&self, name: &str) -> Counter {
-        self.counters
-            .entry(name.to_string())
-            .or_insert_with(Counter::new)
-            .clone()
+        self.counters.entry(name.to_string()).or_default().clone()
     }
 
     /// Get or create a gauge metric
     pub fn gauge(&self, name: &str) -> Gauge {
-        self.gauges
-            .entry(name.to_string())
-            .or_insert_with(Gauge::new)
-            .clone()
+        self.gauges.entry(name.to_string()).or_default().clone()
     }
 
     /// Get or create a histogram metric

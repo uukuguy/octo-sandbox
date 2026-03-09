@@ -100,10 +100,7 @@ enum ServerMessage {
     },
 
     #[serde(rename = "security_blocked")]
-    SecurityBlocked {
-        session_id: String,
-        reason: String,
-    },
+    SecurityBlocked { session_id: String, reason: String },
 }
 
 pub async fn ws_handler(
@@ -112,14 +109,17 @@ pub async fn ws_handler(
     req: Request,
 ) -> impl IntoResponse {
     // Auth check: if auth is enabled, verify user context exists
-    if state.auth_config.mode != octo_engine::auth::AuthMode::None {
-        if req.extensions().get::<octo_engine::auth::UserContext>().is_none() {
-            return axum::response::Response::builder()
-                .status(axum::http::StatusCode::UNAUTHORIZED)
-                .body(axum::body::Body::from("WebSocket authentication required"))
-                .unwrap()
-                .into_response();
-        }
+    if state.auth_config.mode != octo_engine::auth::AuthMode::None
+        && req
+            .extensions()
+            .get::<octo_engine::auth::UserContext>()
+            .is_none()
+    {
+        return axum::response::Response::builder()
+            .status(axum::http::StatusCode::UNAUTHORIZED)
+            .body(axum::body::Body::from("WebSocket authentication required"))
+            .unwrap()
+            .into_response();
     }
     ws.on_upgrade(move |socket| handle_socket(socket, state))
         .into_response()

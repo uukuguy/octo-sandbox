@@ -168,7 +168,7 @@ impl MemoryCategory {
         }
     }
 
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s {
             "profile" => Some(Self::Profile),
             "preferences" => Some(Self::Preferences),
@@ -197,7 +197,7 @@ impl MemorySource {
         }
     }
 
-    pub fn from_str(s: &str) -> Self {
+    pub fn parse(s: &str) -> Self {
         match s {
             "extracted" => Self::Extracted,
             "manual" => Self::Manual,

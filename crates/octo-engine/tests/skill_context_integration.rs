@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
-use octo_engine::skills::manager::SkillManager;
+use octo_engine::context::manager::{ContextManager, EstimateCounter};
 use octo_engine::skills::loader::SkillLoader;
+use octo_engine::skills::manager::SkillManager;
 use octo_engine::skills::registry::SkillRegistry;
 use octo_engine::skills::trust::TrustManager;
-use octo_engine::context::manager::{ContextManager, EstimateCounter};
 
 // -- SkillManager prompt section tests --
 

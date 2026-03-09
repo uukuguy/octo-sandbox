@@ -13,16 +13,12 @@ pub struct Tenant {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum TenantPlan {
+    #[default]
     Free,
     Pro,
     Enterprise,
-}
-
-impl Default for TenantPlan {
-    fn default() -> Self {
-        TenantPlan::Free
-    }
 }
 
 /// Resource quota

@@ -64,7 +64,7 @@ impl Tool for MemoryStoreTool {
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'category' parameter"))?;
 
-        let category = MemoryCategory::from_str(category_str)
+        let category = MemoryCategory::parse(category_str)
             .ok_or_else(|| anyhow::anyhow!("invalid category: {category_str}"))?;
 
         let importance = params["importance"]

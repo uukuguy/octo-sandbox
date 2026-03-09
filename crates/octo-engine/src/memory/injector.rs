@@ -95,7 +95,11 @@ mod tests {
 
     #[test]
     fn test_compile_with_content() {
-        let blocks = vec![make_block(MemoryBlockKind::UserProfile, "I am a developer", 128)];
+        let blocks = vec![make_block(
+            MemoryBlockKind::UserProfile,
+            "I am a developer",
+            128,
+        )];
         let result = ContextInjector::compile(&blocks);
         assert!(result.contains("I am a developer"));
         assert!(result.contains("user_profile"));

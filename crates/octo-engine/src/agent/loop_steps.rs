@@ -10,9 +10,7 @@ use octo_types::{ChatMessage, ContentBlock, MessageRole};
 /// Extracted from run() lines ~704-718.
 ///
 /// Returns `Some(error_message)` if blocked, `None` if allowed.
-pub fn check_loop_guard_verdict(
-    verdict: &super::loop_guard::LoopGuardVerdict,
-) -> Option<String> {
+pub fn check_loop_guard_verdict(verdict: &super::loop_guard::LoopGuardVerdict) -> Option<String> {
     use super::loop_guard::LoopGuardVerdict;
     match verdict {
         LoopGuardVerdict::Block(msg) | LoopGuardVerdict::CircuitBreak(msg) => {

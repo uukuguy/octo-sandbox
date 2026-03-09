@@ -187,5 +187,8 @@ async fn handle_socket(
     // Return instance to pool (ignore errors - pool will handle cleanup)
     let _ = pool.release_instance(instance_id).await;
 
-    tracing::info!("WebSocket closed for session: {}, instance returned to pool", session_id);
+    tracing::info!(
+        "WebSocket closed for session: {}, instance returned to pool",
+        session_id
+    );
 }

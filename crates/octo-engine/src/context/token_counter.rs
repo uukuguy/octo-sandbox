@@ -3,8 +3,8 @@
 //! Provides both a lightweight estimate-based counter (no external deps)
 //! and a trait for plugging in more accurate counters (e.g. tiktoken-rs).
 
-use octo_types::message::ChatMessage;
 use super::manager::{EstimateCounter, TokenCounter};
+use octo_types::message::ChatMessage;
 
 /// A CJK-aware token counter that distinguishes between ASCII and
 /// multi-byte characters for more accurate estimation.

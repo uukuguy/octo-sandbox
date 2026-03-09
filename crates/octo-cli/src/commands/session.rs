@@ -26,7 +26,10 @@ async fn list_sessions(state: &AppState) -> Result<()> {
     } else {
         println!("Sessions:");
         for session in sessions {
-            println!("  - {} (created: {})", session.session_id, session.created_at);
+            println!(
+                "  - {} (created: {})",
+                session.session_id, session.created_at
+            );
         }
     }
     Ok(())

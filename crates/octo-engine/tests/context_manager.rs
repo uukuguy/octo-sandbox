@@ -63,7 +63,7 @@ fn estimate_counter_empty() {
 fn estimate_counter_messages() {
     let counter = EstimateCounter;
     let messages = vec![
-        ChatMessage::user("hello"), // 5 * 0.25 = 1.25 → ceil 2, + 4 = 6
+        ChatMessage::user("hello"),   // 5 * 0.25 = 1.25 → ceil 2, + 4 = 6
         ChatMessage::assistant("hi"), // 2 * 0.25 = 0.5 → ceil 1, + 4 = 5
     ];
     let total = counter.count_messages(&messages);

@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
+use crate::middleware::auth_middleware_with_role;
 use axum::{body::Body, extract::Request, extract::State, routing::get, Json, Router};
 use octo_engine::auth::AuthConfig;
-use crate::middleware::auth_middleware_with_role;
 use serde::Serialize;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;

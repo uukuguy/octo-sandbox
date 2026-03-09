@@ -40,8 +40,7 @@ pub struct TruncationResult {
     pub strategy_used: Option<TruncationStrategy>,
 }
 
-const OMISSION_MARKER: &str =
-    "\n\n... [truncated: middle section omitted] ...\n\n";
+const OMISSION_MARKER: &str = "\n\n... [truncated: middle section omitted] ...\n\n";
 
 /// Truncate tool output according to the given configuration and strategy.
 ///
@@ -95,11 +94,7 @@ pub fn truncate_output(
 }
 
 /// Truncate a set of lines down to `target` lines using the given strategy.
-fn truncate_lines(
-    lines: &[&str],
-    target: usize,
-    strategy: TruncationStrategy,
-) -> String {
+fn truncate_lines(lines: &[&str], target: usize, strategy: TruncationStrategy) -> String {
     if lines.len() <= target {
         return lines.join("\n");
     }
@@ -115,10 +110,7 @@ fn truncate_lines(
         }
         TruncationStrategy::TailOnly => {
             let skip = lines.len() - target;
-            let mut out = format!(
-                "... [truncated: {} lines omitted] ...\n\n",
-                skip,
-            );
+            let mut out = format!("... [truncated: {} lines omitted] ...\n\n", skip,);
             out.push_str(&lines[skip..].join("\n"));
             out
         }
@@ -132,9 +124,7 @@ fn truncate_lines(
                 "\n\n... [truncated: {} lines omitted] ...\n\n",
                 omitted,
             ));
-            out.push_str(
-                &lines[lines.len() - tail_count..].join("\n"),
-            );
+            out.push_str(&lines[lines.len() - tail_count..].join("\n"));
             out
         }
     }
@@ -142,18 +132,11 @@ fn truncate_lines(
 
 /// Truncate a string down to approximately `budget` bytes using the given
 /// strategy, splitting on char boundaries.
-fn truncate_bytes(
-    content: &str,
-    budget: usize,
-    strategy: TruncationStrategy,
-) -> String {
+fn truncate_bytes(content: &str, budget: usize, strategy: TruncationStrategy) -> String {
     let marker_len = OMISSION_MARKER.len();
     // Ensure budget can at least fit the marker.
     if budget <= marker_len {
-        return content
-            .chars()
-            .take(budget)
-            .collect::<String>();
+        return content.chars().take(budget).collect::<String>();
     }
 
     match strategy {

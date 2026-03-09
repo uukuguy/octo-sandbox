@@ -37,7 +37,7 @@ fn default_limit() -> usize {
 
 impl PaginationParams {
     pub fn clamped(&self) -> (usize, usize) {
-        (self.limit.min(200).max(1), self.offset)
+        (self.limit.clamp(1, 200), self.offset)
     }
 }
 

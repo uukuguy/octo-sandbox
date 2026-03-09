@@ -94,6 +94,7 @@ impl SkillBudget {
     /// Select skills from scored list, respecting token budget.
     /// Skills are taken in descending score order until budget runs out.
     /// Always-active skills (score >= 1000) are always included regardless of budget.
+    #[allow(clippy::ptr_arg)]
     pub fn select(&self, scored: &mut Vec<ScoredSkill>) -> Vec<ScoredSkill> {
         scored.sort_by(|a, b| b.score.cmp(&a.score));
 

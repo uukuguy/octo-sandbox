@@ -6,14 +6,20 @@ use axum::{
 };
 use std::sync::Arc;
 
-use crate::{AppState, AuthExtractor, ErrorResponse};
 use crate::tenant::ResourceQuota;
+use crate::{AppState, AuthExtractor, ErrorResponse};
 
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/api/admin/tenants", get(list_tenants).post(create_tenant))
-        .route("/api/admin/tenants/:id", get(get_tenant).patch(update_tenant).delete(delete_tenant))
-        .route("/api/admin/tenants/:id/quotas", get(get_quotas).patch(update_quotas))
+        .route(
+            "/api/admin/tenants/:id",
+            get(get_tenant).patch(update_tenant).delete(delete_tenant),
+        )
+        .route(
+            "/api/admin/tenants/:id/quotas",
+            get(get_quotas).patch(update_quotas),
+        )
 }
 
 // Admin authorization check - only admins can access these endpoints
@@ -124,8 +130,12 @@ pub async fn get_quotas(
 ) -> Result<Json<ResourceQuota>, ErrorResponse> {
     require_admin(&auth)?;
 
-    let quota = state.tenant_manager.get_quota(&tenant_id)
-        .map_err(|e| ErrorResponse { error: e.to_string() })?;
+    let quota = state
+        .tenant_manager
+        .get_quota(&tenant_id)
+        .map_err(|e| ErrorResponse {
+            error: e.to_string(),
+        })?;
 
     Ok(Json(quota))
 }

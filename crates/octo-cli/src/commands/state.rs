@@ -4,15 +4,14 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 use anyhow::Result;
-use octo_engine::{
-    AgentCatalog, AgentRuntime, AgentRuntimeConfig, AgentStore, TenantContext,
-};
+use octo_engine::{AgentCatalog, AgentRuntime, AgentRuntimeConfig, AgentStore, TenantContext};
 use octo_types::{TenantId, UserId};
 use rusqlite::Connection;
 
 /// Application state shared across commands
 pub struct AppState {
     /// Database path
+    #[allow(dead_code)]
     pub db_path: PathBuf,
     /// Agent catalog
     pub agent_catalog: Arc<AgentCatalog>,

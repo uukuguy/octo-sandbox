@@ -311,10 +311,7 @@ mod hnsw_impl {
                 .write()
                 .await
                 .insert(entry.id.clone(), internal_id);
-            self.id_map
-                .write()
-                .await
-                .insert(internal_id, entry.clone());
+            self.id_map.write().await.insert(internal_id, entry.clone());
 
             // Insert into HNSW (spawn_blocking for CPU-bound graph construction).
             let inner = self.inner.clone();
@@ -428,6 +425,11 @@ impl VectorBackend {
             #[cfg(feature = "hnsw")]
             Self::Hnsw(idx) => idx.search(query, limit, threshold).await,
         }
+    }
+
+    /// Returns true if empty.
+    pub async fn is_empty(&self) -> bool {
+        self.len().await == 0
     }
 
     /// Number of indexed vectors.

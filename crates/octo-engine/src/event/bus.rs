@@ -90,7 +90,13 @@ impl EventBus {
             let (event_type, session_id) = event_metadata(&event);
             let payload = serde_json::to_value(&event).unwrap_or(serde_json::Value::Null);
             if let Err(e) = store
-                .append(&event_type, payload, session_id.as_deref(), session_id.as_deref(), None)
+                .append(
+                    &event_type,
+                    payload,
+                    session_id.as_deref(),
+                    session_id.as_deref(),
+                    None,
+                )
                 .await
             {
                 warn!(error = %e, "Failed to persist event to EventStore");

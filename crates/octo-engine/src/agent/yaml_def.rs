@@ -77,10 +77,7 @@ impl AgentYamlDef {
         } else if let Some(template_path) = self.system_prompt_template {
             let full_path = base_dir.join(&template_path);
             let content = std::fs::read_to_string(&full_path).with_context(|| {
-                format!(
-                    "reading system_prompt_template '{}'",
-                    full_path.display()
-                )
+                format!("reading system_prompt_template '{}'", full_path.display())
             })?;
             Some(content)
         } else {
@@ -168,13 +165,14 @@ mod tests {
         let dir = TempDir::new().unwrap();
         let prompt_path = dir.path().join("prompt.txt");
         fs::write(&prompt_path, "You are an expert.").unwrap();
-        let yaml = format!(
-            "name: agent\nsystem_prompt_template: prompt.txt\n"
-        );
+        let yaml = format!("name: agent\nsystem_prompt_template: prompt.txt\n");
         let path = write_yaml(&dir, "agent.yaml", &yaml);
         let def = AgentYamlDef::from_file(&path).unwrap();
         let manifest = def.into_manifest(dir.path()).unwrap();
-        assert_eq!(manifest.system_prompt, Some("You are an expert.".to_string()));
+        assert_eq!(
+            manifest.system_prompt,
+            Some("You are an expert.".to_string())
+        );
     }
 
     #[test]

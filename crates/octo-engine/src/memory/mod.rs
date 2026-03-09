@@ -29,15 +29,17 @@ pub use embedding::{EmbeddingClient, EmbeddingConfig, EmbeddingProvider};
 pub use fts::FtsStore;
 pub use graph::{Entity, GraphStats, KnowledgeGraph, Relation};
 pub use graph_store::GraphStore;
+pub use hybrid_query::{HybridQueryEngine, HybridSearchResult, QueryType};
 pub use semantic::{EntityRelation, SemanticEntity, SemanticMemory};
 pub use sqlite_store::SqliteMemoryStore;
 pub use sqlite_working::SqliteWorkingMemory;
 pub use store_traits::MemoryStore;
 pub use traits::WorkingMemory;
-pub use vector_index::{VectorBackend, VectorEntry, VectorIndex, VectorIndexConfig, VectorSearchResult};
 #[cfg(feature = "hnsw")]
 pub use vector_index::{HnswConfig, HnswIndex};
-pub use hybrid_query::{HybridQueryEngine, HybridSearchResult, QueryType};
+pub use vector_index::{
+    VectorBackend, VectorEntry, VectorIndex, VectorIndexConfig, VectorSearchResult,
+};
 pub use working::InMemoryWorkingMemory;
 
 /// Unified memory system including working, session, persistent, and knowledge graph

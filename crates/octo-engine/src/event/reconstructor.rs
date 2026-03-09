@@ -36,7 +36,10 @@ pub struct StateReconstructor {
 impl StateReconstructor {
     /// Create a new reconstructor backed by the given store.
     pub fn new(store: Arc<EventStore>) -> Self {
-        Self { store, max_events: 10_000 }
+        Self {
+            store,
+            max_events: 10_000,
+        }
     }
 
     /// Override the maximum number of events fetched per reconstruction (default 10 000).
@@ -51,8 +54,10 @@ impl StateReconstructor {
         aggregate_id: &str,
         point: ReconstructionPoint,
     ) -> anyhow::Result<S> {
-        let all_events =
-            self.store.read_by_aggregate(aggregate_id, 0, self.max_events).await?;
+        let all_events = self
+            .store
+            .read_by_aggregate(aggregate_id, 0, self.max_events)
+            .await?;
         // Warn callers when the store returned exactly max_events records: the
         // aggregate may have more events in the store, so the reconstructed
         // state could be partial.
@@ -82,7 +87,8 @@ impl StateReconstructor {
         aggregate_id: &str,
         seq: i64,
     ) -> anyhow::Result<S> {
-        self.reconstruct(aggregate_id, ReconstructionPoint::AtSequence(seq)).await
+        self.reconstruct(aggregate_id, ReconstructionPoint::AtSequence(seq))
+            .await
     }
 
     /// Convenience: reconstruct state up to (and including) `ts_ms` (ms since epoch).
@@ -91,7 +97,8 @@ impl StateReconstructor {
         aggregate_id: &str,
         ts_ms: i64,
     ) -> anyhow::Result<S> {
-        self.reconstruct(aggregate_id, ReconstructionPoint::AtTimestamp(ts_ms)).await
+        self.reconstruct(aggregate_id, ReconstructionPoint::AtTimestamp(ts_ms))
+            .await
     }
 
     fn apply_filter(events: Vec<StoredEvent>, point: &ReconstructionPoint) -> Vec<StoredEvent> {
@@ -137,26 +144,52 @@ mod tests {
     async fn test_reconstruct_current() {
         let store = make_store().await;
         store
-            .append("ToolCallStarted", serde_json::json!({}), Some("agg-1"), None, None)
+            .append(
+                "ToolCallStarted",
+                serde_json::json!({}),
+                Some("agg-1"),
+                None,
+                None,
+            )
             .await
             .unwrap();
         store
-            .append("ToolCallStarted", serde_json::json!({}), Some("agg-1"), None, None)
+            .append(
+                "ToolCallStarted",
+                serde_json::json!({}),
+                Some("agg-1"),
+                None,
+                None,
+            )
             .await
             .unwrap();
         store
-            .append("ToolCallCompleted", serde_json::json!({}), Some("agg-1"), None, None)
+            .append(
+                "ToolCallCompleted",
+                serde_json::json!({}),
+                Some("agg-1"),
+                None,
+                None,
+            )
             .await
             .unwrap();
         // Event for a different aggregate — must NOT appear in agg-1 result.
         store
-            .append("ToolCallStarted", serde_json::json!({}), Some("agg-2"), None, None)
+            .append(
+                "ToolCallStarted",
+                serde_json::json!({}),
+                Some("agg-2"),
+                None,
+                None,
+            )
             .await
             .unwrap();
 
         let rec = StateReconstructor::new(store);
-        let state: CallCounter =
-            rec.reconstruct("agg-1", ReconstructionPoint::Current).await.unwrap();
+        let state: CallCounter = rec
+            .reconstruct("agg-1", ReconstructionPoint::Current)
+            .await
+            .unwrap();
         assert_eq!(state.started, 2);
         assert_eq!(state.completed, 1);
     }
@@ -165,15 +198,33 @@ mod tests {
     async fn test_reconstruct_at_sequence() {
         let store = make_store().await;
         store
-            .append("ToolCallStarted", serde_json::json!({}), Some("agg-1"), None, None)
+            .append(
+                "ToolCallStarted",
+                serde_json::json!({}),
+                Some("agg-1"),
+                None,
+                None,
+            )
             .await
             .unwrap();
         store
-            .append("ToolCallStarted", serde_json::json!({}), Some("agg-1"), None, None)
+            .append(
+                "ToolCallStarted",
+                serde_json::json!({}),
+                Some("agg-1"),
+                None,
+                None,
+            )
             .await
             .unwrap();
         store
-            .append("ToolCallCompleted", serde_json::json!({}), Some("agg-1"), None, None)
+            .append(
+                "ToolCallCompleted",
+                serde_json::json!({}),
+                Some("agg-1"),
+                None,
+                None,
+            )
             .await
             .unwrap();
 

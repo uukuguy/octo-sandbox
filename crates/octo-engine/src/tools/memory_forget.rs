@@ -74,7 +74,7 @@ impl Tool for MemoryForgetTool {
 
         // Bulk delete by category
         if let Some(cat_str) = category {
-            let cat = MemoryCategory::from_str(cat_str)
+            let cat = MemoryCategory::parse(cat_str)
                 .ok_or_else(|| anyhow::anyhow!("invalid category: {cat_str}"))?;
 
             let filter = MemoryFilter {

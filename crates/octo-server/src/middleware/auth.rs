@@ -1,7 +1,7 @@
 use axum::{body::Body, extract::Request, http::StatusCode, middleware::Next, response::Response};
-use octo_engine::auth::{AuthConfig, AuthMode, Permission};
 use octo_engine::auth::middleware::{RequiredAction, UserContext};
 use octo_engine::auth::roles::Role;
+use octo_engine::auth::{AuthConfig, AuthMode, Permission};
 
 /// 从请求中提取用户上下文
 #[allow(dead_code)]
@@ -56,10 +56,9 @@ pub async fn auth_middleware_with_role(
                     if let Some(claims) = config.validate_jwt(t) {
                         let (permissions, role) = match claims.role.as_str() {
                             "admin" => (vec![Permission::Admin], Some(Role::Admin)),
-                            "member" => (
-                                vec![Permission::Read, Permission::Write],
-                                Some(Role::User),
-                            ),
+                            "member" => {
+                                (vec![Permission::Read, Permission::Write], Some(Role::User))
+                            }
                             "viewer" => (vec![Permission::Read], Some(Role::Viewer)),
                             "owner" => (vec![Permission::Admin], Some(Role::Owner)),
                             _ => (vec![], None),

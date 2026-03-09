@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 /// Main configuration for octo-server
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct Config {
     /// Server configuration
     #[serde(default)]
@@ -91,46 +91,16 @@ impl Default for LoggingConfig {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct McpConfig {
     /// MCP servers directory (optional)
     pub servers_dir: Option<String>,
 }
 
-impl Default for McpConfig {
-    fn default() -> Self {
-        Self { servers_dir: None }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct SkillsConfig {
     /// Skills directories to load from
     pub dirs: Vec<String>,
-}
-
-impl Default for SkillsConfig {
-    fn default() -> Self {
-        Self { dirs: vec![] }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            server: ServerConfig::default(),
-            provider: ProviderConfig::default(),
-            database: DatabaseConfig::default(),
-            logging: LoggingConfig::default(),
-            mcp: McpConfig::default(),
-            skills: SkillsConfig::default(),
-            auth: AuthConfigYaml::default(),
-            scheduler: SchedulerConfig::default(),
-            provider_chain: None,
-            working_dir: None,
-            enable_event_bus: false,
-        }
-    }
 }
 
 impl Config {
@@ -384,7 +354,9 @@ impl Config {
         output.push_str("# Option 2: API key auth\n");
         output.push_str("#   OCTO_AUTH_MODE=api_key\n");
         output.push_str("#   OCTO_API_KEY=your-secret-key     # key clients use in Authorization: Bearer header\n");
-        output.push_str("#   OCTO_API_KEY_USER=dev            # optional user id (default: \"default\")\n");
+        output.push_str(
+            "#   OCTO_API_KEY_USER=dev            # optional user id (default: \"default\")\n",
+        );
         output.push_str("#\n");
         output.push_str("# auth:\n");
         output.push_str("#   mode: api_key   # none | api_key\n");

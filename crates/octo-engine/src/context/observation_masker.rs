@@ -140,14 +140,14 @@ impl ObservationMasker {
         let original: usize = messages
             .iter()
             .flat_map(|m| &m.content)
-            .map(|b| Self::block_char_len(b))
+            .map(Self::block_char_len)
             .sum();
 
         let masked = self.mask(messages);
         let after: usize = masked
             .iter()
             .flat_map(|m| &m.content)
-            .map(|b| Self::block_char_len(b))
+            .map(Self::block_char_len)
             .sum();
 
         (original, after)

@@ -11,8 +11,8 @@ type HmacSha256 = Hmac<Sha256>;
 
 /// Compute HMAC-SHA256 of `key` using `secret`. Returns a lowercase hex string.
 fn hash_api_key(key: &str, secret: &str) -> String {
-    let mut mac = HmacSha256::new_from_slice(secret.as_bytes())
-        .expect("HMAC accepts any key length");
+    let mut mac =
+        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts any key length");
     mac.update(key.as_bytes());
     format!("{:x}", mac.finalize().into_bytes())
 }
@@ -27,9 +27,9 @@ use super::roles::Role;
 #[derive(Debug, Serialize, Deserialize)]
 pub struct JwtClaims {
     pub sub: String,   // User ID
-    pub email: String,  // User email
-    pub role: String,   // User role
-    pub exp: i64,       // Expiration timestamp
+    pub email: String, // User email
+    pub role: String,  // User role
+    pub exp: i64,      // Expiration timestamp
     pub iat: i64,      // Issued at timestamp
 }
 
@@ -56,7 +56,7 @@ pub enum Permission {
 }
 
 impl Permission {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "read" => Some(Permission::Read),
             "write" => Some(Permission::Write),
@@ -78,7 +78,12 @@ pub struct ApiKey {
 }
 
 impl ApiKey {
-    pub fn new(key: &str, secret: &str, user_id: Option<String>, permissions: Vec<Permission>) -> Self {
+    pub fn new(
+        key: &str,
+        secret: &str,
+        user_id: Option<String>,
+        permissions: Vec<Permission>,
+    ) -> Self {
         let key_hash = hash_api_key(key, secret);
 
         Self {
@@ -115,7 +120,7 @@ impl ApiKey {
 pub struct AuthConfig {
     pub mode: AuthMode,
     pub api_keys: HashMap<String, ApiKey>, // key_hash -> ApiKey
-    pub require_user_id: bool,            // 是否要求用户隔离
+    pub require_user_id: bool,             // 是否要求用户隔离
     pub jwt_secret: Option<String>,        // JWT secret for Full mode
     /// HMAC secret used when hashing API keys. Loaded from `OCTO_HMAC_SECRET` env var.
     /// Falls back to a hardcoded default with a warning — always set this in production.
@@ -281,11 +286,11 @@ impl AuthConfigYaml {
                 let permissions: Vec<Permission> = key_config
                     .permissions
                     .iter()
-                    .filter_map(|p| Permission::from_str(p))
+                    .filter_map(|p| Permission::parse(p))
                     .collect();
 
                 // 解析角色
-                let role = key_config.role.as_ref().and_then(|r| Role::from_str(r));
+                let role = key_config.role.as_ref().and_then(|r| Role::parse(r));
 
                 config.add_api_key_with_role(
                     &key_config.key,

@@ -109,7 +109,9 @@ mod tests {
         let wm = InMemoryWorkingMemory::new();
         let (user_id, sandbox_id) = dummy_ids();
 
-        wm.update_block("user_profile", "I am a Rust developer").await.unwrap();
+        wm.update_block("user_profile", "I am a Rust developer")
+            .await
+            .unwrap();
 
         let blocks = wm.get_blocks(&user_id, &sandbox_id).await.unwrap();
         let profile = blocks.iter().find(|b| b.id == "user_profile").unwrap();
@@ -121,7 +123,8 @@ mod tests {
         let wm = InMemoryWorkingMemory::new();
         let (user_id, sandbox_id) = dummy_ids();
 
-        let custom_block = MemoryBlock::new(MemoryBlockKind::Custom, "Custom Block", "custom value");
+        let custom_block =
+            MemoryBlock::new(MemoryBlockKind::Custom, "Custom Block", "custom value");
         wm.add_block(custom_block).await.unwrap();
 
         let blocks = wm.get_blocks(&user_id, &sandbox_id).await.unwrap();
@@ -164,7 +167,9 @@ mod tests {
         let wm = InMemoryWorkingMemory::new();
         let (user_id, sandbox_id) = dummy_ids();
 
-        wm.update_block("user_profile", "Rust developer").await.unwrap();
+        wm.update_block("user_profile", "Rust developer")
+            .await
+            .unwrap();
 
         let compiled = wm.compile(&user_id, &sandbox_id).await.unwrap();
 

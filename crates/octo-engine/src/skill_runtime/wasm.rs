@@ -166,18 +166,15 @@ impl WasmSkillRuntime {
         store: &mut wasmtime::Store<()>,
         instance: &wasmtime::Instance,
     ) -> Option<&'static str> {
-        for name in ["_start", "run"] {
-            if instance
-                .get_typed_func::<(), i32>(&mut *store, name)
-                .is_ok()
-                || instance
-                    .get_typed_func::<(), ()>(&mut *store, name)
+        ["_start", "run"]
+            .into_iter()
+            .find(|&name| {
+                instance
+                    .get_typed_func::<(), i32>(&mut *store, name)
                     .is_ok()
-            {
-                return Some(name);
-            }
-        }
-        None
+                    || instance.get_typed_func::<(), ()>(&mut *store, name).is_ok()
+            })
+            .map(|v| v as _)
     }
 
     /// Execute a WASM file from disk.
@@ -306,11 +303,7 @@ mod tests {
         let context = SkillContext::new("test_wasm".to_string(), PathBuf::from("/tmp"));
 
         let result = runtime
-            .execute(
-                "not_a_wasm_file_or_wat",
-                serde_json::json!({}),
-                &context,
-            )
+            .execute("not_a_wasm_file_or_wat", serde_json::json!({}), &context)
             .await;
 
         assert!(result.is_err());
@@ -354,9 +347,7 @@ mod tests {
             )
         )"#;
 
-        let result = runtime
-            .execute(wat, serde_json::json!({}), &context)
-            .await;
+        let result = runtime.execute(wat, serde_json::json!({}), &context).await;
 
         assert!(result.is_ok(), "WAT execution failed: {:?}", result.err());
         let val = result.unwrap();
@@ -379,16 +370,11 @@ mod tests {
             )
         )"#;
 
-        let result = runtime
-            .execute(wat, serde_json::json!({}), &context)
-            .await;
+        let result = runtime.execute(wat, serde_json::json!({}), &context).await;
 
         assert!(result.is_ok());
         let val = result.unwrap();
         assert_eq!(val["status"], "loaded");
-        assert!(val["note"]
-            .as_str()
-            .unwrap()
-            .contains("No _start or run"));
+        assert!(val["note"].as_str().unwrap().contains("No _start or run"));
     }
 }

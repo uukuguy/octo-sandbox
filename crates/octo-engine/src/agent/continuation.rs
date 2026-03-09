@@ -94,7 +94,10 @@ mod tests {
         let cfg = ContinuationConfig::default();
         assert_eq!(cfg.max_continuations, 3);
         assert_eq!(cfg.max_total_output_chars, 120_000);
-        assert_eq!(cfg.continuation_prompt, "Please continue where you left off.");
+        assert_eq!(
+            cfg.continuation_prompt,
+            "Please continue where you left off."
+        );
     }
 
     #[test]

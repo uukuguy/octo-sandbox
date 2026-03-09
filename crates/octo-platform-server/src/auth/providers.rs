@@ -41,7 +41,10 @@ pub struct GoogleOAuthProvider {
 
 impl GoogleOAuthProvider {
     pub fn new(client_id: String, client_secret: String) -> Self {
-        Self { client_id, client_secret }
+        Self {
+            client_id,
+            client_secret,
+        }
     }
 }
 
@@ -91,7 +94,10 @@ impl OAuthProvider for GoogleOAuthProvider {
         // Get user info
         let user_response = client
             .get("https://www.googleapis.com/oauth2/v2/userinfo")
-            .header("Authorization", format!("Bearer {}", token_response.access_token))
+            .header(
+                "Authorization",
+                format!("Bearer {}", token_response.access_token),
+            )
             .send()
             .await
             .map_err(|e| OAuthError::UserInfoFailed(e.to_string()))?;
@@ -111,6 +117,7 @@ impl OAuthProvider for GoogleOAuthProvider {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GoogleTokenResponse {
     access_token: String,
     id_token: Option<String>,
@@ -132,7 +139,10 @@ pub struct GitHubOAuthProvider {
 
 impl GitHubOAuthProvider {
     pub fn new(client_id: String, client_secret: String) -> Self {
-        Self { client_id, client_secret }
+        Self {
+            client_id,
+            client_secret,
+        }
     }
 }
 
@@ -178,9 +188,11 @@ impl OAuthProvider for GitHubOAuthProvider {
             .await
             .map_err(|e| OAuthError::TokenExchangeFailed(e.to_string()))?;
 
-        let access_token = token_response.access_token.ok_or(OAuthError::TokenExchangeFailed(
-            "No access token in response".to_string(),
-        ))?;
+        let access_token = token_response
+            .access_token
+            .ok_or(OAuthError::TokenExchangeFailed(
+                "No access token in response".to_string(),
+            ))?;
 
         // Get user info
         let user_response = client
@@ -231,6 +243,7 @@ impl OAuthProvider for GitHubOAuthProvider {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GitHubTokenResponse {
     access_token: Option<String>,
     token_type: Option<String>,
@@ -238,6 +251,7 @@ struct GitHubTokenResponse {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GitHubUserInfo {
     id: u64,
     name: Option<String>,
@@ -246,6 +260,7 @@ struct GitHubUserInfo {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GitHubEmail {
     email: String,
     primary: bool,

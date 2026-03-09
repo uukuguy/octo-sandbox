@@ -38,14 +38,9 @@ pub enum ApprovalDecision {
     /// The tool call is approved and may proceed.
     Approved,
     /// The tool call requires user confirmation before proceeding.
-    NeedsApproval {
-        tool_name: String,
-        reason: String,
-    },
+    NeedsApproval { tool_name: String, reason: String },
     /// The tool call is denied outright.
-    Denied {
-        reason: String,
-    },
+    Denied { reason: String },
 }
 
 /// Manages tool-call approval decisions based on a configured policy.

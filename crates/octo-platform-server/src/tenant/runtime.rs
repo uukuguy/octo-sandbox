@@ -1,8 +1,8 @@
 use dashmap::DashMap;
 
-use crate::audit::AuditEvent;
 use super::models::ResourceQuota;
 use super::quota::QuotaManager;
+use crate::audit::AuditEvent;
 
 /// Tenant runtime - isolated per tenant
 pub struct TenantRuntime {

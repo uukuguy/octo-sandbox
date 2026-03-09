@@ -150,7 +150,7 @@ impl SecurityPolicy {
                 .next()
                 .unwrap_or("")
                 .split('/')
-                .last()
+                .next_back()
                 .unwrap_or("");
 
             if !self.allowed_commands.iter().any(|c| c == cmd_base) {

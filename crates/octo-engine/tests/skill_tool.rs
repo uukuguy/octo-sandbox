@@ -1,9 +1,9 @@
 use std::path::PathBuf;
 
-use octo_types::{SkillDefinition, SkillSourceType, ToolContext, TrustLevel};
-use octo_types::id::SandboxId;
 use octo_engine::skills::SkillTool;
 use octo_engine::tools::Tool;
+use octo_types::id::SandboxId;
+use octo_types::{SkillDefinition, SkillSourceType, ToolContext, TrustLevel};
 
 fn test_skill() -> SkillDefinition {
     SkillDefinition {

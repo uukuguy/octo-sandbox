@@ -200,6 +200,7 @@ impl AgentExecutor {
                     };
                     let _ = tokio::fs::create_dir_all(&tool_ctx.working_dir).await;
 
+                    #[allow(deprecated)]
                     if let Err(e) = agent_loop
                         .run(
                             &self.session_id,

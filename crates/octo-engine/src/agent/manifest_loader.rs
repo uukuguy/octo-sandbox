@@ -46,9 +46,7 @@ impl AgentManifestLoader {
             }
 
             let base_dir = path.parent().unwrap_or(std::path::Path::new("."));
-            match AgentYamlDef::from_file(&path)
-                .and_then(|def| def.into_manifest(base_dir))
-            {
+            match AgentYamlDef::from_file(&path).and_then(|def| def.into_manifest(base_dir)) {
                 Ok(manifest) => {
                     if seen_names.contains(&manifest.name) {
                         warn!(

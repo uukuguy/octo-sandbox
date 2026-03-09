@@ -35,7 +35,7 @@ pub use agent_pool::{
 pub use user_runtime::{Session, SessionStatus, UserRuntime};
 
 // Re-export tenant types
-pub use tenant::{ResourceQuota, Tenant, TenantManager, TenantRuntime, TenantPlan};
+pub use tenant::{ResourceQuota, Tenant, TenantManager, TenantPlan, TenantRuntime};
 
 /// User runtime configuration
 #[derive(Debug, Clone)]
@@ -98,8 +98,7 @@ impl AppState {
         let agent_pool = Arc::new(AgentPool::new());
 
         let tenant_manager = Arc::new(
-            TenantManager::new(config.data_dir.clone())
-                .context("initialize tenant manager")?,
+            TenantManager::new(config.data_dir.clone()).context("initialize tenant manager")?,
         );
 
         Ok(Self {

@@ -124,7 +124,7 @@ impl McpStorage {
                 updated_at: row.get(11)?,
             })
         })?;
-        Ok(rows.next().transpose()?)
+        rows.next().transpose()
     }
 
     /// Get server only if it belongs to the user
@@ -152,7 +152,7 @@ impl McpStorage {
                 updated_at: row.get(11)?,
             })
         })?;
-        Ok(rows.next().transpose()?)
+        rows.next().transpose()
     }
 
     pub fn insert_server(&self, server: &McpServerRecord) -> rusqlite::Result<()> {

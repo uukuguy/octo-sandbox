@@ -3,21 +3,16 @@ use std::path::PathBuf;
 use serde::{Deserialize, Serialize};
 
 /// Trust level for skill execution (IronClaw Trust Attenuation).
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TrustLevel {
     /// Full access to all tools.
     Trusted,
     /// Only allowed-tools list.
+    #[default]
     Installed,
     /// Read-only tools only.
     Unknown,
-}
-
-impl Default for TrustLevel {
-    fn default() -> Self {
-        Self::Installed
-    }
 }
 
 /// Trigger conditions for automatic skill activation.
@@ -30,10 +25,11 @@ pub enum SkillTrigger {
 }
 
 /// Where the skill was loaded from.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SkillSourceType {
     /// .octo/skills/ in project.
+    #[default]
     ProjectLocal,
     /// ~/.octo/skills/ user-global.
     UserLocal,
@@ -41,12 +37,6 @@ pub enum SkillSourceType {
     PluginBundled,
     /// Downloaded from registry.
     Registry,
-}
-
-impl Default for SkillSourceType {
-    fn default() -> Self {
-        Self::ProjectLocal
-    }
 }
 
 /// Skill definition parsed from a SKILL.md file.

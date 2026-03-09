@@ -33,6 +33,7 @@ struct SkillInfo {
 }
 
 #[derive(Deserialize)]
+#[allow(dead_code)]
 struct ExecuteRequest {
     #[serde(default)]
     args: Option<serde_json::Value>,
@@ -47,10 +48,7 @@ struct ExecuteResponse {
 pub fn router() -> Router<Arc<AppState>> {
     Router::new()
         .route("/skills", get(list_skills))
-        .route(
-            "/skills/{name}",
-            get(get_skill).delete(delete_skill),
-        )
+        .route("/skills/{name}", get(get_skill).delete(delete_skill))
         .route("/skills/{name}/execute", post(execute_skill))
 }
 

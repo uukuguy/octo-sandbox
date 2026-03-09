@@ -46,8 +46,7 @@ async fn test_wasm_runtime_check_environment() {
 
 #[tokio::test]
 async fn test_wasm_runtime_check_environment_bad_dir() {
-    let runtime =
-        WasmSkillRuntime::new(PathBuf::from("/nonexistent/wasm/dir/that/does/not/exist"));
+    let runtime = WasmSkillRuntime::new(PathBuf::from("/nonexistent/wasm/dir/that/does/not/exist"));
     let result = runtime.check_environment().await;
     assert!(result.is_err());
     let err_msg = result.unwrap_err().to_string();
@@ -64,11 +63,7 @@ async fn test_wasm_runtime_execute_invalid_script() {
     let context = SkillContext::new("test_wasm".to_string(), PathBuf::from("/tmp"));
 
     let result = runtime
-        .execute(
-            "not_a_wasm_file_or_wat",
-            serde_json::json!({}),
-            &context,
-        )
+        .execute("not_a_wasm_file_or_wat", serde_json::json!({}), &context)
         .await;
 
     assert!(result.is_err());

@@ -41,7 +41,7 @@ impl SqliteSchedulerStorage {
                 .parse::<i64>()
                 .map(|t| chrono::DateTime::from_timestamp(t, 0))
                 .unwrap_or(None)
-                .unwrap_or_else(|| chrono::Utc::now()),
+                .unwrap_or_else(chrono::Utc::now),
             updated_at: chrono::Utc::now(),
         })
     }

@@ -142,7 +142,10 @@ impl SkillDependencyGraph {
         for (node, deps) in edges {
             for dep in deps {
                 // node depends on dep => edge dep -> node in reverse graph
-                reverse_adj.entry(dep.as_str()).or_default().push(node.as_str());
+                reverse_adj
+                    .entry(dep.as_str())
+                    .or_default()
+                    .push(node.as_str());
                 *in_deg.entry(node.as_str()).or_insert(0) += 1;
             }
         }

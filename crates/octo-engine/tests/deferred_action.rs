@@ -39,7 +39,11 @@ fn test_multiple_deferrals() {
     let text = "I'll handle that later. Also, let me come back to the error handling. \
                 Finally, let's defer that to phase 2.";
     let matches = detector.detect(text);
-    assert!(matches.len() >= 3, "expected at least 3, got {}", matches.len());
+    assert!(
+        matches.len() >= 3,
+        "expected at least 3, got {}",
+        matches.len()
+    );
 
     let categories: Vec<&DeferredCategory> = matches.iter().map(|m| &m.category).collect();
     assert!(categories.contains(&&DeferredCategory::PostponedAction));

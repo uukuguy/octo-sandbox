@@ -26,6 +26,12 @@ pub struct EncryptedStore {
     pub ciphertext: Vec<u8>,
 }
 
+impl Default for EncryptedStore {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl EncryptedStore {
     /// Create a new empty encrypted store
     pub fn new() -> Self {

@@ -76,10 +76,7 @@ fn test_fork_isolation() {
 
 #[test]
 fn test_fork_new_messages() {
-    let parent = vec![
-        ChatMessage::user("msg1"),
-        ChatMessage::assistant("msg2"),
-    ];
+    let parent = vec![ChatMessage::user("msg1"), ChatMessage::assistant("msg2")];
 
     let original_count = parent.len();
     let mut fork = ContextFork::from_parent(&parent, None, None);

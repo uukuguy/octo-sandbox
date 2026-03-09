@@ -228,7 +228,10 @@ impl EmbeddingClient {
         }
 
         let result = self.call_api(&[text]).await?;
-        let vec = result.into_iter().next().context("empty embedding response")?;
+        let vec = result
+            .into_iter()
+            .next()
+            .context("empty embedding response")?;
 
         // Cache store (key is a hash — plaintext is not retained)
         self.cache.write().await.insert(key, vec.clone());
@@ -333,11 +336,7 @@ mod tests {
         let client = EmbeddingClient::new(EmbeddingConfig::openai("fake"));
         // Manually seed cache using the hashed key
         let key = cache_key("hello");
-        client
-            .cache
-            .write()
-            .await
-            .insert(key, vec![0.1, 0.2, 0.3]);
+        client.cache.write().await.insert(key, vec![0.1, 0.2, 0.3]);
         let result = client.embed("hello").await.unwrap();
         assert_eq!(result, vec![0.1f32, 0.2, 0.3]);
     }
@@ -374,7 +373,10 @@ mod tests {
     fn test_cache_key_hides_plaintext() {
         let text = "user@example.com SSN: 123-45-6789";
         let key = cache_key(text);
-        assert!(!key.contains(text), "cache key must not contain plaintext input");
+        assert!(
+            !key.contains(text),
+            "cache key must not contain plaintext input"
+        );
         assert!(!key.contains("user@"), "cache key must not leak email");
         assert_eq!(key.len(), 32, "key should be 32 hex chars (128-bit)");
     }
@@ -382,7 +384,15 @@ mod tests {
     #[test]
     fn test_cache_key_deterministic() {
         let text = "hello world";
-        assert_eq!(cache_key(text), cache_key(text), "same input must produce same key");
-        assert_ne!(cache_key("foo"), cache_key("bar"), "different inputs must produce different keys");
+        assert_eq!(
+            cache_key(text),
+            cache_key(text),
+            "same input must produce same key"
+        );
+        assert_ne!(
+            cache_key("foo"),
+            cache_key("bar"),
+            "different inputs must produce different keys"
+        );
     }
 }

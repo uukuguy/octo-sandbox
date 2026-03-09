@@ -179,11 +179,10 @@ impl EventStore {
     pub async fn latest_sequence(&self) -> anyhow::Result<i64> {
         self.conn
             .call(|c| {
-                let seq: i64 = c.query_row(
-                    "SELECT COALESCE(MAX(sequence), 0) FROM events",
-                    [],
-                    |row| row.get(0),
-                )?;
+                let seq: i64 =
+                    c.query_row("SELECT COALESCE(MAX(sequence), 0) FROM events", [], |row| {
+                        row.get(0)
+                    })?;
                 Ok(seq)
             })
             .await

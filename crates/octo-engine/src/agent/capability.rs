@@ -29,7 +29,9 @@ impl AgentCapability {
     /// Parse from string (case-insensitive)
     pub fn from_str_loose(s: &str) -> Self {
         match s.to_lowercase().as_str() {
-            "code-generation" | "code_generation" | "coding" | "implementation" => Self::CodeGeneration,
+            "code-generation" | "code_generation" | "coding" | "implementation" => {
+                Self::CodeGeneration
+            }
             "code-review" | "code_review" | "review" => Self::CodeReview,
             "testing" | "test" => Self::Testing,
             "security" | "security-audit" | "security_audit" => Self::SecurityAudit,
@@ -50,48 +52,27 @@ impl AgentCapability {
     /// Keywords associated with this capability (for task matching)
     pub fn keywords(&self) -> &[&str] {
         match self {
-            Self::CodeGeneration => &[
-                "implement", "create", "build", "add", "write",
-            ],
-            Self::CodeReview => &[
-                "review", "audit", "check", "validate",
-            ],
-            Self::Testing => &[
-                "test", "spec", "coverage",
-            ],
-            Self::SecurityAudit => &[
-                "security", "vulnerability",
-            ],
-            Self::Research => &[
-                "research", "find", "search", "analyze",
-            ],
-            Self::Architecture => &[
-                "design", "architect", "structure", "plan",
-            ],
-            Self::Debugging => &[
-                "debug", "fix", "error", "bug",
-            ],
-            Self::Refactoring => &[
-                "refactor", "cleanup",
-            ],
-            Self::Documentation => &[
-                "document", "docs", "readme",
-            ],
-            Self::DevOps => &[
-                "deploy", "docker", "ci", "cd", "pipeline",
-            ],
-            Self::FrontendDev => &[
-                "ui", "frontend", "component", "react", "css",
-            ],
-            Self::BackendDev => &[
-                "api", "endpoint", "server", "database",
-            ],
+            Self::CodeGeneration => &["implement", "create", "build", "add", "write"],
+            Self::CodeReview => &["review", "audit", "check", "validate"],
+            Self::Testing => &["test", "spec", "coverage"],
+            Self::SecurityAudit => &["security", "vulnerability"],
+            Self::Research => &["research", "find", "search", "analyze"],
+            Self::Architecture => &["design", "architect", "structure", "plan"],
+            Self::Debugging => &["debug", "fix", "error", "bug"],
+            Self::Refactoring => &["refactor", "cleanup"],
+            Self::Documentation => &["document", "docs", "readme"],
+            Self::DevOps => &["deploy", "docker", "ci", "cd", "pipeline"],
+            Self::FrontendDev => &["ui", "frontend", "component", "react", "css"],
+            Self::BackendDev => &["api", "endpoint", "server", "database"],
             Self::DataAnalysis => &[
-                "data", "analysis", "analytics", "metrics", "statistics", "report",
+                "data",
+                "analysis",
+                "analytics",
+                "metrics",
+                "statistics",
+                "report",
             ],
-            Self::General => &[
-                "help", "assist", "general", "anything",
-            ],
+            Self::General => &["help", "assist", "general", "anything"],
             Self::Custom(_) => &[],
         }
     }
@@ -103,10 +84,22 @@ mod tests {
 
     #[test]
     fn test_from_str_loose() {
-        assert_eq!(AgentCapability::from_str_loose("coding"), AgentCapability::CodeGeneration);
-        assert_eq!(AgentCapability::from_str_loose("REVIEW"), AgentCapability::CodeReview);
-        assert_eq!(AgentCapability::from_str_loose("security-audit"), AgentCapability::SecurityAudit);
-        assert_eq!(AgentCapability::from_str_loose("frontend"), AgentCapability::FrontendDev);
+        assert_eq!(
+            AgentCapability::from_str_loose("coding"),
+            AgentCapability::CodeGeneration
+        );
+        assert_eq!(
+            AgentCapability::from_str_loose("REVIEW"),
+            AgentCapability::CodeReview
+        );
+        assert_eq!(
+            AgentCapability::from_str_loose("security-audit"),
+            AgentCapability::SecurityAudit
+        );
+        assert_eq!(
+            AgentCapability::from_str_loose("frontend"),
+            AgentCapability::FrontendDev
+        );
         assert_eq!(
             AgentCapability::from_str_loose("something-custom"),
             AgentCapability::Custom("something-custom".to_string())

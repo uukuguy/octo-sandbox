@@ -155,6 +155,9 @@ fn test_delete_session_wrong_owner_returns_not_found() {
 
     // User A should still be able to access and delete their own session
     let deleted_by_owner = runtime_a.delete_session("user-a", &session_a.id);
-    assert!(deleted_by_owner, "Owner should be able to delete their own session");
+    assert!(
+        deleted_by_owner,
+        "Owner should be able to delete their own session"
+    );
     assert_eq!(runtime_a.sessions.len(), 0);
 }

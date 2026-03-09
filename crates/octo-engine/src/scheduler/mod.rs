@@ -378,6 +378,7 @@ impl Scheduler {
         // Run agent with timeout
         let result = tokio::time::timeout(
             std::time::Duration::from_secs(config.timeout_secs),
+            #[allow(deprecated)]
             agent_loop.run(
                 &session_id,
                 &user_id,

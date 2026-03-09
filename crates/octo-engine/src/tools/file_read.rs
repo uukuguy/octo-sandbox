@@ -11,6 +11,12 @@ const MAX_FILE_SIZE: u64 = 1_024 * 1_024; // 1 MB
 
 pub struct FileReadTool;
 
+impl Default for FileReadTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileReadTool {
     pub fn new() -> Self {
         Self

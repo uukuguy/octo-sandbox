@@ -43,7 +43,10 @@ fn test_tool_info_read_only_annotation() {
         ..Default::default()
     };
     let tool = tool_with_annotations(Some(ann));
-    assert_eq!(risk_from_annotations(&tool.annotations), RiskLevel::ReadOnly);
+    assert_eq!(
+        risk_from_annotations(&tool.annotations),
+        RiskLevel::ReadOnly
+    );
 }
 
 #[test]
@@ -53,7 +56,10 @@ fn test_tool_info_destructive_annotation() {
         ..Default::default()
     };
     let tool = tool_with_annotations(Some(ann));
-    assert_eq!(risk_from_annotations(&tool.annotations), RiskLevel::Destructive);
+    assert_eq!(
+        risk_from_annotations(&tool.annotations),
+        RiskLevel::Destructive
+    );
 }
 
 #[test]
@@ -63,7 +69,10 @@ fn test_tool_info_open_world_annotation() {
         ..Default::default()
     };
     let tool = tool_with_annotations(Some(ann));
-    assert_eq!(risk_from_annotations(&tool.annotations), RiskLevel::HighRisk);
+    assert_eq!(
+        risk_from_annotations(&tool.annotations),
+        RiskLevel::HighRisk
+    );
 }
 
 #[test]
@@ -74,7 +83,10 @@ fn test_destructive_takes_priority_over_open_world() {
         ..Default::default()
     };
     let tool = tool_with_annotations(Some(ann));
-    assert_eq!(risk_from_annotations(&tool.annotations), RiskLevel::Destructive);
+    assert_eq!(
+        risk_from_annotations(&tool.annotations),
+        RiskLevel::Destructive
+    );
 }
 
 #[test]
@@ -85,7 +97,10 @@ fn test_destructive_takes_priority_over_read_only() {
         ..Default::default()
     };
     let tool = tool_with_annotations(Some(ann));
-    assert_eq!(risk_from_annotations(&tool.annotations), RiskLevel::Destructive);
+    assert_eq!(
+        risk_from_annotations(&tool.annotations),
+        RiskLevel::Destructive
+    );
 }
 
 #[test]
@@ -96,7 +111,10 @@ fn test_open_world_takes_priority_over_read_only() {
         ..Default::default()
     };
     let tool = tool_with_annotations(Some(ann));
-    assert_eq!(risk_from_annotations(&tool.annotations), RiskLevel::HighRisk);
+    assert_eq!(
+        risk_from_annotations(&tool.annotations),
+        RiskLevel::HighRisk
+    );
 }
 
 #[test]

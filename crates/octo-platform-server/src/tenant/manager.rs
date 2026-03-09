@@ -44,7 +44,7 @@ impl TenantManager {
                 max_memory_mb INTEGER NOT NULL DEFAULT 1024,
                 max_mcp_servers INTEGER NOT NULL DEFAULT 5
             );
-            "
+            ",
         )?;
 
         // Create default tenant

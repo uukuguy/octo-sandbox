@@ -1,6 +1,4 @@
-use octo_platform_server::agent_pool::{
-    AgentPool, PoolConfig, IsolationStrategy,
-};
+use octo_platform_server::agent_pool::{AgentPool, IsolationStrategy, PoolConfig};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -50,9 +48,7 @@ async fn test_concurrent_users() {
     let mut handles = vec![];
     for i in 0..3 {
         let pool = Arc::clone(&pool);
-        let handle = tokio::spawn(async move {
-            pool.get_instance(&format!("user_{}", i)).await
-        });
+        let handle = tokio::spawn(async move { pool.get_instance(&format!("user_{}", i)).await });
         handles.push(handle);
     }
 

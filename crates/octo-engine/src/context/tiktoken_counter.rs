@@ -5,8 +5,8 @@
 
 use tiktoken_rs::CoreBPE;
 
-use octo_types::message::ChatMessage;
 use super::manager::TokenCounter;
+use octo_types::message::ChatMessage;
 
 /// Token counter that uses tiktoken for precise token counting.
 ///

@@ -9,6 +9,12 @@ use super::traits::Tool;
 
 pub struct FileEditTool;
 
+impl Default for FileEditTool {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FileEditTool {
     pub fn new() -> Self {
         Self

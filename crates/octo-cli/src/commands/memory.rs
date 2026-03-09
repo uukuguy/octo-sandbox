@@ -15,7 +15,7 @@ pub async fn handle_memory(action: MemoryCommands, state: &AppState) -> Result<(
 
 /// Search memory
 async fn search_memory(query: String, limit: usize, state: &AppState) -> Result<()> {
-    let memory = state.agent_runtime.memory();
+    let _memory = state.agent_runtime.memory();
 
     // Try to use hybrid search if available
     println!("Searching memory for: {} (limit: {})", query, limit);
@@ -28,7 +28,7 @@ async fn search_memory(query: String, limit: usize, state: &AppState) -> Result<
 
 /// List recent memories
 async fn list_memories(limit: usize, state: &AppState) -> Result<()> {
-    let memory = state.agent_runtime.memory();
+    let _memory = state.agent_runtime.memory();
 
     println!("Listing recent memories (limit: {})", limit);
 
@@ -38,7 +38,7 @@ async fn list_memories(limit: usize, state: &AppState) -> Result<()> {
 }
 
 /// Add a memory entry
-async fn add_memory(content: String, tags: Option<String>, state: &AppState) -> Result<()> {
+async fn add_memory(content: String, tags: Option<String>, _state: &AppState) -> Result<()> {
     let tags_str = tags.unwrap_or_default();
     println!("Adding memory: {} (tags: {})", content, tags_str);
 

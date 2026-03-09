@@ -3,7 +3,9 @@
 use octo_types::{ChatMessage, SandboxId, SessionId, UserId};
 
 use super::runtime::AgentRuntime;
-use super::{AgentError, AgentExecutorHandle, AgentId, AgentMessage, AgentStatus, CancellationToken};
+use super::{
+    AgentError, AgentExecutorHandle, AgentId, AgentMessage, AgentStatus, CancellationToken,
+};
 
 impl AgentRuntime {
     /// 启动 agent：从 catalog 读取 manifest，启动 primary Executor，更新状态机。

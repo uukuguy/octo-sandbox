@@ -139,7 +139,7 @@ impl PythonRuntime {
     }
 
     /// Get the Python executable path in the virtual environment.
-    fn get_python_exe(venv_path: &PathBuf) -> PathBuf {
+    fn get_python_exe(venv_path: &std::path::Path) -> PathBuf {
         #[cfg(windows)]
         {
             venv_path.join("Scripts").join("python.exe")

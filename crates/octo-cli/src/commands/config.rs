@@ -18,11 +18,34 @@ async fn show_config() -> Result<()> {
 
     // Show environment variables
     println!("\nEnvironment Variables:");
-    println!("  OCTO_DB_PATH: {}", std::env::var("OCTO_DB_PATH").unwrap_or_else(|_| "not set".to_string()));
-    println!("  ANTHROPIC_API_KEY: {}", if std::env::var("ANTHROPIC_API_KEY").is_ok() { "***set***" } else { "not set" });
-    println!("  OPENAI_API_KEY: {}", if std::env::var("OPENAI_API_KEY").is_ok() { "***set***" } else { "not set" });
-    println!("  LLM_PROVIDER: {}", std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic (default)".to_string()));
-    println!("  RUST_LOG: {}", std::env::var("RUST_LOG").unwrap_or_else(|_| "not set".to_string()));
+    println!(
+        "  OCTO_DB_PATH: {}",
+        std::env::var("OCTO_DB_PATH").unwrap_or_else(|_| "not set".to_string())
+    );
+    println!(
+        "  ANTHROPIC_API_KEY: {}",
+        if std::env::var("ANTHROPIC_API_KEY").is_ok() {
+            "***set***"
+        } else {
+            "not set"
+        }
+    );
+    println!(
+        "  OPENAI_API_KEY: {}",
+        if std::env::var("OPENAI_API_KEY").is_ok() {
+            "***set***"
+        } else {
+            "not set"
+        }
+    );
+    println!(
+        "  LLM_PROVIDER: {}",
+        std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "anthropic (default)".to_string())
+    );
+    println!(
+        "  RUST_LOG: {}",
+        std::env::var("RUST_LOG").unwrap_or_else(|_| "not set".to_string())
+    );
 
     // Show CLI defaults
     println!("\nDefault Paths:");

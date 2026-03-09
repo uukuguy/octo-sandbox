@@ -324,10 +324,7 @@ mod tests {
             params: serde_json::Value,
             _ctx: &ToolContext,
         ) -> Result<ToolResult> {
-            let ms = params
-                .get("ms")
-                .and_then(|v| v.as_u64())
-                .unwrap_or(10);
+            let ms = params.get("ms").and_then(|v| v.as_u64()).unwrap_or(10);
             tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
             Ok(ToolResult::success(format!("delayed {}ms", ms)))
         }

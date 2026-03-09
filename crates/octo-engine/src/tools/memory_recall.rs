@@ -80,7 +80,11 @@ impl Tool for MemoryRecallTool {
         );
 
         if include_related {
-            let query_embedding = match self.provider.embed(&[entry.content.clone()]).await {
+            let query_embedding = match self
+                .provider
+                .embed(std::slice::from_ref(&entry.content))
+                .await
+            {
                 Ok(mut embeddings) if !embeddings.is_empty() => Some(embeddings.remove(0)),
                 _ => {
                     debug!("Embedding not available for related search, using FTS");

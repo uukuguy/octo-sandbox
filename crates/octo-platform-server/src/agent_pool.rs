@@ -311,7 +311,8 @@ impl AgentPool {
         let mut idle_instances = self.idle_instances.lock().await;
         let now = Utc::now();
         let timeout = self.config.idle_timeout;
-        let timeout_delta = chrono::Duration::from_std(timeout).unwrap_or_else(|_| chrono::Duration::zero());
+        let timeout_delta =
+            chrono::Duration::from_std(timeout).unwrap_or_else(|_| chrono::Duration::zero());
 
         // Find timed out instances
         let to_remove: Vec<InstanceId> = idle_instances
@@ -407,7 +408,7 @@ impl AgentPool {
             format!("/tmp/octo-platform-agent-{}.db", uuid::Uuid::new_v4()),
             provider_config,
             Vec::new(), // No skills dirs for now
-            None,      // No provider chain
+            None,       // No provider chain
             Some(PathBuf::from("/tmp/octo-sandbox")),
             false, // Disable event bus for pool instances
         );
@@ -493,17 +494,25 @@ impl AgentPool {
             let file_path = workspace_dir.join(format!("{}.json", session_id));
 
             // Serialize context to JSON
-            let json_content = serde_json::to_string_pretty(&workspace.context)
-                .unwrap_or_else(|e| {
+            let json_content =
+                serde_json::to_string_pretty(&workspace.context).unwrap_or_else(|e| {
                     tracing::error!("Failed to serialize workspace context: {}", e);
                     String::new()
                 });
 
             // Write to file
             if let Err(e) = std::fs::write(&file_path, &json_content) {
-                tracing::error!("Failed to write workspace file {}: {}", file_path.display(), e);
+                tracing::error!(
+                    "Failed to write workspace file {}: {}",
+                    file_path.display(),
+                    e
+                );
             } else {
-                tracing::debug!("Persisted workspace for user: {}, session: {}", workspace.user_id, session_id);
+                tracing::debug!(
+                    "Persisted workspace for user: {}, session: {}",
+                    workspace.user_id,
+                    session_id
+                );
             }
         }
     }

@@ -11,12 +11,12 @@ use serde::{Deserialize, Serialize};
 /// JWT claims
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Claims {
-    pub sub: String,      // User ID
-    pub email: String,    // User email
-    pub role: String,     // User role
+    pub sub: String,       // User ID
+    pub email: String,     // User email
+    pub role: String,      // User role
     pub tenant_id: String, // Tenant ID
-    pub exp: i64,         // Expiration timestamp
-    pub iat: i64,         // Issued at timestamp
+    pub exp: i64,          // Expiration timestamp
+    pub iat: i64,          // Issued at timestamp
 }
 
 /// JWT configuration
@@ -57,7 +57,13 @@ impl JwtManager {
     }
 
     /// Generate access token
-    pub fn generate_access_token(&self, user_id: &str, email: &str, role: &str, tenant_id: &str) -> Result<String> {
+    pub fn generate_access_token(
+        &self,
+        user_id: &str,
+        email: &str,
+        role: &str,
+        tenant_id: &str,
+    ) -> Result<String> {
         let now = chrono::Utc::now();
         let claims = Claims {
             sub: user_id.to_string(),
@@ -77,7 +83,13 @@ impl JwtManager {
     }
 
     /// Generate refresh token (longer lived)
-    pub fn generate_refresh_token(&self, user_id: &str, email: &str, role: &str, tenant_id: &str) -> Result<String> {
+    pub fn generate_refresh_token(
+        &self,
+        user_id: &str,
+        email: &str,
+        role: &str,
+        tenant_id: &str,
+    ) -> Result<String> {
         let now = chrono::Utc::now();
         let claims = Claims {
             sub: user_id.to_string(),

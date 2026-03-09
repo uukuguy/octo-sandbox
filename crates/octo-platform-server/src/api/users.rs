@@ -194,10 +194,7 @@ pub async fn update_user(
 
     // Validate role if provided
     if let Some(ref role) = req.role {
-        let valid_role = match role.to_lowercase().as_str() {
-            "admin" | "member" | "viewer" => true,
-            _ => false,
-        };
+        let valid_role = matches!(role.to_lowercase().as_str(), "admin" | "member" | "viewer");
         if !valid_role {
             return Err((
                 StatusCode::BAD_REQUEST,
@@ -260,14 +257,17 @@ pub async fn delete_user(
         ));
     }
 
-    let deleted = state.db.delete_user(&auth.tenant_id, &user_id).map_err(|e| {
-        (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(ErrorResponse {
-                error: format!("Failed to delete user: {}", e),
-            }),
-        )
-    })?;
+    let deleted = state
+        .db
+        .delete_user(&auth.tenant_id, &user_id)
+        .map_err(|e| {
+            (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(ErrorResponse {
+                    error: format!("Failed to delete user: {}", e),
+                }),
+            )
+        })?;
 
     if deleted {
         tracing::info!("User deleted: {}", user_id);
@@ -300,10 +300,10 @@ pub async fn update_user_role(
     }
 
     // Validate role
-    let valid_role = match req.role.to_lowercase().as_str() {
-        "admin" | "member" | "viewer" => true,
-        _ => false,
-    };
+    let valid_role = matches!(
+        req.role.to_lowercase().as_str(),
+        "admin" | "member" | "viewer"
+    );
 
     if !valid_role {
         return Err((

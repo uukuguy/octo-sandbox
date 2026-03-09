@@ -16,16 +16,12 @@ use uuid::Uuid;
 /// User role
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum UserRole {
     Admin,
+    #[default]
     Member,
     Viewer,
-}
-
-impl Default for UserRole {
-    fn default() -> Self {
-        UserRole::Member
-    }
 }
 
 impl std::fmt::Display for UserRole {
@@ -295,7 +291,12 @@ impl UserDatabase {
     }
 
     /// List users with pagination (admin only)
-    pub fn list_users(&self, tenant_id: &str, page: i64, per_page: i64) -> Result<PaginatedUsersResponse> {
+    pub fn list_users(
+        &self,
+        tenant_id: &str,
+        page: i64,
+        per_page: i64,
+    ) -> Result<PaginatedUsersResponse> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         // Get total count for this tenant
@@ -342,15 +343,22 @@ impl UserDatabase {
     }
 
     /// Update a user
-    pub fn update_user(&self, tenant_id: &str, user_id: &str, req: &UpdateUserRequest) -> Result<Option<UserResponse>> {
+    pub fn update_user(
+        &self,
+        tenant_id: &str,
+        user_id: &str,
+        req: &UpdateUserRequest,
+    ) -> Result<Option<UserResponse>> {
         let conn = self.conn.lock().unwrap_or_else(|e| e.into_inner());
 
         // Check if user exists in this tenant
-        let exists: bool = conn.query_row(
-            "SELECT 1 FROM users WHERE id = ?1 AND tenant_id = ?2",
-            params![user_id, tenant_id],
-            |row| row.get::<_, i32>(0),
-        ).is_ok();
+        let exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM users WHERE id = ?1 AND tenant_id = ?2",
+                params![user_id, tenant_id],
+                |row| row.get::<_, i32>(0),
+            )
+            .is_ok();
 
         if !exists {
             return Ok(None);
@@ -365,11 +373,13 @@ impl UserDatabase {
 
         // Check and update email if provided
         if let Some(ref email) = req.email {
-            let email_taken: bool = conn.query_row(
-                "SELECT 1 FROM users WHERE email = ?1 AND id != ?2 AND tenant_id = ?3",
-                params![email, user_id, tenant_id],
-                |row| row.get::<_, i32>(0),
-            ).is_ok();
+            let email_taken: bool = conn
+                .query_row(
+                    "SELECT 1 FROM users WHERE email = ?1 AND id != ?2 AND tenant_id = ?3",
+                    params![email, user_id, tenant_id],
+                    |row| row.get::<_, i32>(0),
+                )
+                .is_ok();
 
             if email_taken {
                 anyhow::bail!("Email already in use");

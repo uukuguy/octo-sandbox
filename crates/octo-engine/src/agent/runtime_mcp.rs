@@ -145,7 +145,7 @@ impl AgentRuntime {
     pub async fn list_mcp_servers(&self) -> Vec<crate::mcp::manager::ServerRuntimeState> {
         let guard = self.mcp_manager.lock().await;
         let states = guard.all_runtime_states();
-        states.into_iter().map(|(_, state)| state).collect()
+        states.into_values().collect()
     }
 
     /// 获取所有 MCP servers 的运行时状态（包含名称）

@@ -83,8 +83,14 @@ impl SafetyLayer for SanitizeLayer {
 async fn empty_pipeline_always_allows() {
     let pipeline = SafetyPipeline::new();
 
-    assert_eq!(pipeline.check_input("anything").await, SafetyDecision::Allow);
-    assert_eq!(pipeline.check_output("anything").await, SafetyDecision::Allow);
+    assert_eq!(
+        pipeline.check_input("anything").await,
+        SafetyDecision::Allow
+    );
+    assert_eq!(
+        pipeline.check_output("anything").await,
+        SafetyDecision::Allow
+    );
     assert_eq!(
         pipeline.check_tool_result("bash", "output").await,
         SafetyDecision::Allow
@@ -155,9 +161,7 @@ async fn credential_scrubber_detects_api_key() {
 
     // Input with API key should be blocked.
     assert_eq!(
-        pipeline
-            .check_input("my key is sk-ant-abc123xyz")
-            .await,
+        pipeline.check_input("my key is sk-ant-abc123xyz").await,
         SafetyDecision::Block("Input contains potential credentials".into())
     );
 
@@ -187,9 +191,7 @@ async fn credential_scrubber_allows_normal_content() {
         SafetyDecision::Allow
     );
     assert_eq!(
-        pipeline
-            .check_output("The weather is sunny today.")
-            .await,
+        pipeline.check_output("The weather is sunny today.").await,
         SafetyDecision::Allow
     );
     assert_eq!(

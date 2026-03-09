@@ -1,15 +1,11 @@
 use tempfile::TempDir;
 
-use octo_engine::skills::{SkillLoader, SkillManager, SkillRegistry};
 use octo_engine::skills::trust::TrustManager;
+use octo_engine::skills::{SkillLoader, SkillManager, SkillRegistry};
 
 /// Helper: create a SKILL.md inside `<temp>/.octo/skills/<name>/SKILL.md`.
 fn create_skill(temp: &TempDir, name: &str, desc: &str, always: bool, tags: &[&str]) {
-    let skill_dir = temp
-        .path()
-        .join(".octo")
-        .join("skills")
-        .join(name);
+    let skill_dir = temp.path().join(".octo").join("skills").join(name);
     std::fs::create_dir_all(&skill_dir).unwrap();
 
     let tags_yaml = if tags.is_empty() {
@@ -191,7 +187,10 @@ fn test_always_active_skills_filters_correctly() {
     let mut always = mgr.always_active_skills();
     always.sort();
 
-    assert_eq!(always, vec!["also-always".to_string(), "always-on".to_string()]);
+    assert_eq!(
+        always,
+        vec!["also-always".to_string(), "always-on".to_string()]
+    );
 }
 
 #[test]

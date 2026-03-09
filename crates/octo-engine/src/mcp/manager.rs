@@ -257,11 +257,7 @@ impl McpManager {
     }
 
     /// Read a specific resource by URI from a specific MCP server.
-    pub async fn read_resource(
-        &self,
-        server_name: &str,
-        uri: &str,
-    ) -> Result<McpResourceContent> {
+    pub async fn read_resource(&self, server_name: &str, uri: &str) -> Result<McpResourceContent> {
         let client = self
             .clients
             .get(server_name)

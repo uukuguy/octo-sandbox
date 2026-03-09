@@ -346,14 +346,7 @@ impl<S> SseStream<S> {
     fn parse_sse_events(&mut self) -> Vec<Result<StreamEvent>> {
         let mut events = Vec::new();
 
-        loop {
-            // Find complete SSE event (ends with double newline)
-            let boundary = if let Some(pos) = self.buffer.find("\n\n") {
-                pos
-            } else {
-                break;
-            };
-
+        while let Some(boundary) = self.buffer.find("\n\n") {
             let raw_event = self.buffer[..boundary].to_string();
             self.buffer = self.buffer[boundary + 2..].to_string();
 

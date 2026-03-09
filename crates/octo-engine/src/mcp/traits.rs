@@ -61,8 +61,7 @@ pub fn validate_resource_uri(uri: &str) -> anyhow::Result<()> {
 /// - `http://` is only allowed for `localhost` / `127.0.0.1` (dev mode).
 /// - Private IP ranges are rejected for both schemes.
 pub fn validate_server_url(url: &str) -> anyhow::Result<()> {
-    let parsed =
-        Url::parse(url).map_err(|e| anyhow::anyhow!("Invalid server URL '{url}': {e}"))?;
+    let parsed = Url::parse(url).map_err(|e| anyhow::anyhow!("Invalid server URL '{url}': {e}"))?;
 
     let scheme = parsed.scheme();
     let host_str = parsed.host_str().unwrap_or("");

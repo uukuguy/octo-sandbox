@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use octo_engine::skill_runtime::{ShellRuntime, SkillContext, SkillRuntime};
 use octo_engine::skill_runtime::traits::RuntimeType;
+use octo_engine::skill_runtime::{ShellRuntime, SkillContext, SkillRuntime};
 
 #[test]
 fn test_shell_runtime_type() {
@@ -29,11 +29,7 @@ async fn test_shell_execute_json() {
     let context = SkillContext::new("test_shell_json".to_string(), PathBuf::from("/tmp"));
 
     let result = runtime
-        .execute(
-            r#"echo '{"key":"val"}'"#,
-            serde_json::json!({}),
-            &context,
-        )
+        .execute(r#"echo '{"key":"val"}'"#, serde_json::json!({}), &context)
         .await;
 
     assert!(result.is_ok(), "execute failed: {:?}", result.err());
@@ -71,7 +67,11 @@ async fn test_shell_execute_failure() {
 async fn test_shell_check_environment() {
     let runtime = ShellRuntime::new();
     let result = runtime.check_environment().await;
-    assert!(result.is_ok(), "check_environment failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "check_environment failed: {:?}",
+        result.err()
+    );
 }
 
 #[tokio::test]

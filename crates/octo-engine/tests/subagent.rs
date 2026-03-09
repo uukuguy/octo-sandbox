@@ -1,6 +1,4 @@
-use octo_engine::agent::{
-    SubAgentManager, SubAgentStatus, SubAgentTask,
-};
+use octo_engine::agent::{SubAgentManager, SubAgentStatus, SubAgentTask};
 use octo_types::ChatMessage;
 
 #[tokio::test]
@@ -15,8 +13,12 @@ async fn test_subagent_manager_creation() {
 #[tokio::test]
 async fn test_subagent_register_and_list() {
     let mgr = SubAgentManager::new(4, 3);
-    mgr.register("sa-1".into(), "first task".into()).await.unwrap();
-    mgr.register("sa-2".into(), "second task".into()).await.unwrap();
+    mgr.register("sa-1".into(), "first task".into())
+        .await
+        .unwrap();
+    mgr.register("sa-2".into(), "second task".into())
+        .await
+        .unwrap();
 
     let agents = mgr.list().await;
     assert_eq!(agents.len(), 2);
@@ -33,7 +35,9 @@ async fn test_subagent_register_and_list() {
 #[tokio::test]
 async fn test_subagent_complete() {
     let mgr = SubAgentManager::new(4, 3);
-    mgr.register("sa-1".into(), "do something".into()).await.unwrap();
+    mgr.register("sa-1".into(), "do something".into())
+        .await
+        .unwrap();
 
     let result = mgr.complete("sa-1", Some("done!".into())).await.unwrap();
     assert_eq!(result.id, "sa-1");
@@ -47,7 +51,9 @@ async fn test_subagent_complete() {
 #[tokio::test]
 async fn test_subagent_fail() {
     let mgr = SubAgentManager::new(4, 3);
-    mgr.register("sa-1".into(), "failing task".into()).await.unwrap();
+    mgr.register("sa-1".into(), "failing task".into())
+        .await
+        .unwrap();
 
     mgr.fail("sa-1", "something broke".into()).await.unwrap();
 
@@ -61,7 +67,9 @@ async fn test_subagent_fail() {
 #[tokio::test]
 async fn test_subagent_cancel() {
     let mgr = SubAgentManager::new(4, 3);
-    mgr.register("sa-1".into(), "cancellable task".into()).await.unwrap();
+    mgr.register("sa-1".into(), "cancellable task".into())
+        .await
+        .unwrap();
 
     mgr.cancel("sa-1").await.unwrap();
 
@@ -99,9 +107,10 @@ async fn test_subagent_max_concurrent() {
     // Third should fail — max concurrent is 2
     let err = mgr.register("sa-3".into(), "task 3".into()).await;
     assert!(err.is_err());
-    assert!(
-        err.unwrap_err().to_string().contains("Maximum concurrent sub-agents reached")
-    );
+    assert!(err
+        .unwrap_err()
+        .to_string()
+        .contains("Maximum concurrent sub-agents reached"));
 
     // Complete one, then we can register again
     mgr.complete("sa-1", None).await.unwrap();
@@ -123,15 +132,18 @@ async fn test_subagent_depth_limit() {
     // depth 2 + 1 = 3 which equals max_depth(3), so it should fail
     let err = child2.child();
     assert!(err.is_err());
-    assert!(
-        err.unwrap_err().to_string().contains("recursion depth limit reached")
-    );
+    assert!(err
+        .unwrap_err()
+        .to_string()
+        .contains("recursion depth limit reached"));
 }
 
 #[tokio::test]
 async fn test_subagent_child_manager() {
     let mgr = SubAgentManager::new(4, 5);
-    mgr.register("parent-sa".into(), "parent task".into()).await.unwrap();
+    mgr.register("parent-sa".into(), "parent task".into())
+        .await
+        .unwrap();
 
     let child = mgr.child().unwrap();
     assert_eq!(child.depth(), 1);
@@ -140,7 +152,10 @@ async fn test_subagent_child_manager() {
     // Child has its own independent active_agents
     assert!(child.list().await.is_empty());
 
-    child.register("child-sa".into(), "child task".into()).await.unwrap();
+    child
+        .register("child-sa".into(), "child task".into())
+        .await
+        .unwrap();
     assert_eq!(child.list().await.len(), 1);
 
     // Parent still has only its own agent

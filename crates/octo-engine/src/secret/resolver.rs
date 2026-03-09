@@ -115,12 +115,11 @@ impl CredentialResolver {
                 let mut value = line[eq_pos + 1..].trim().to_string();
 
                 // Handle quoted values
-                if (value.starts_with('"') && value.ends_with('"'))
-                    || (value.starts_with('\'') && value.ends_with('\''))
+                if ((value.starts_with('"') && value.ends_with('"'))
+                    || (value.starts_with('\'') && value.ends_with('\'')))
+                    && value.len() >= 2
                 {
-                    if value.len() >= 2 {
-                        value = value[1..value.len() - 1].to_string();
-                    }
+                    value = value[1..value.len() - 1].to_string();
                 }
 
                 // Handle escape sequences in double-quoted values

@@ -1,43 +1,7 @@
 use octo_engine::agent::{AgentEvent, AgentLoopResult, NormalizedStopReason};
 
 #[test]
-fn test_agent_event_new_variants() {
-    let event = AgentEvent::ContextDegraded {
-        level: "warning".into(),
-        usage_pct: 85.0,
-    };
-    assert!(matches!(event, AgentEvent::ContextDegraded { .. }));
-
-    let event = AgentEvent::SecurityBlocked {
-        reason: "injection detected".into(),
-    };
-    assert!(matches!(event, AgentEvent::SecurityBlocked { .. }));
-
-    let event = AgentEvent::IterationStart { round: 1 };
-    assert!(matches!(event, AgentEvent::IterationStart { round: 1 }));
-}
-
-#[test]
-fn test_agent_loop_result_default() {
-    let result = AgentLoopResult::default();
-    assert_eq!(result.rounds, 0);
-    assert_eq!(result.tool_calls, 0);
-    assert_eq!(result.stop_reason, NormalizedStopReason::EndTurn);
-}
-
-#[test]
-fn test_completed_event() {
-    let result = AgentLoopResult {
-        rounds: 3,
-        tool_calls: 5,
-        stop_reason: NormalizedStopReason::MaxIterations,
-    };
-    let event = AgentEvent::Completed(result);
-    assert!(matches!(event, AgentEvent::Completed(_)));
-}
-
-#[test]
-fn test_all_agent_event_variants_constructible() {
+fn test_all_agent_event_variants_serialize() {
     let events: Vec<AgentEvent> = vec![
         AgentEvent::TextDelta { text: "hi".into() },
         AgentEvent::TextComplete {
@@ -50,7 +14,7 @@ fn test_all_agent_event_variants_constructible() {
         AgentEvent::ToolStart {
             tool_id: "t1".into(),
             tool_name: "bash".into(),
-            input: serde_json::json!({}),
+            input: serde_json::json!({"cmd": "ls"}),
         },
         AgentEvent::ToolResult {
             tool_id: "t1".into(),
@@ -75,17 +39,40 @@ fn test_all_agent_event_variants_constructible() {
         },
         AgentEvent::IterationStart { round: 0 },
         AgentEvent::IterationEnd { round: 0 },
-        AgentEvent::Completed(AgentLoopResult::default()),
+        AgentEvent::Completed(AgentLoopResult {
+            rounds: 3,
+            tool_calls: 5,
+            stop_reason: NormalizedStopReason::EndTurn,
+        }),
     ];
-    assert!(events.len() >= 16);
+
+    for event in &events {
+        let json = serde_json::to_string(event);
+        assert!(json.is_ok(), "Failed to serialize: {:?}", event);
+        let json_str = json.unwrap();
+        assert!(
+            json_str.contains("\"type\""),
+            "Missing type tag in: {}",
+            json_str
+        );
+    }
 }
 
 #[test]
-fn test_normalized_stop_reason_variants() {
-    assert_eq!(
-        NormalizedStopReason::default(),
-        NormalizedStopReason::EndTurn
-    );
+fn test_agent_loop_result_serialize() {
+    let result = AgentLoopResult {
+        rounds: 5,
+        tool_calls: 10,
+        stop_reason: NormalizedStopReason::MaxIterations,
+    };
+    let json = serde_json::to_string(&result).unwrap();
+    assert!(json.contains("\"rounds\":5"));
+    assert!(json.contains("\"tool_calls\":10"));
+    assert!(json.contains("MaxIterations"));
+}
+
+#[test]
+fn test_normalized_stop_reason_serialize_all() {
     let reasons = vec![
         NormalizedStopReason::EndTurn,
         NormalizedStopReason::ToolCall,
@@ -96,5 +83,8 @@ fn test_normalized_stop_reason_variants() {
         NormalizedStopReason::Cancelled,
         NormalizedStopReason::Error,
     ];
-    assert_eq!(reasons.len(), 8);
+    for reason in &reasons {
+        let json = serde_json::to_string(reason);
+        assert!(json.is_ok(), "Failed to serialize: {:?}", reason);
+    }
 }

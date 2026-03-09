@@ -16,6 +16,12 @@ pub struct ShellRuntime {
     timeout: Duration,
 }
 
+impl Default for ShellRuntime {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ShellRuntime {
     /// Create a new Shell runtime with platform-appropriate defaults.
     pub fn new() -> Self {
@@ -147,11 +153,7 @@ mod tests {
         let context = SkillContext::new("test_shell_json".to_string(), PathBuf::from("/tmp"));
 
         let result = runtime
-            .execute(
-                r#"echo '{"key":"val"}'"#,
-                serde_json::json!({}),
-                &context,
-            )
+            .execute(r#"echo '{"key":"val"}'"#, serde_json::json!({}), &context)
             .await;
 
         assert!(result.is_ok());
@@ -170,10 +172,7 @@ mod tests {
 
         assert!(result.is_ok());
         let val = result.unwrap();
-        assert_eq!(
-            val,
-            serde_json::Value::String("my_skill".to_string())
-        );
+        assert_eq!(val, serde_json::Value::String("my_skill".to_string()));
     }
 
     #[tokio::test]

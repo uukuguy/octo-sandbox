@@ -38,12 +38,12 @@ pub use context::{
 };
 pub use db::Database;
 pub use event::{EventBus, EventCountProjection, EventStore, OctoEvent, Projection, StoredEvent};
-pub use hooks::{
-    BoxHookHandler, HookAction, HookContext, HookFailureMode, HookHandler, HookPoint, HookRegistry,
-};
 pub use extension::{
     AgentResult, Extension, ExtensionContext, ExtensionEvent, ExtensionHostActions,
     ExtensionManager, HostcallInterceptor, InMemoryExtensionHostActions, LoggingExtension,
+};
+pub use hooks::{
+    BoxHookHandler, HookAction, HookContext, HookFailureMode, HookHandler, HookPoint, HookRegistry,
 };
 pub use logging::{
     init_logging, init_logging_with_filter, init_pretty_logging, init_pretty_logging_with_filter,

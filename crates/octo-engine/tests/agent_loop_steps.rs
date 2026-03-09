@@ -48,9 +48,7 @@ fn test_inject_zone_b_replaces_existing() {
     }];
     loop_steps::inject_zone_b(&mut messages, "<context>new</context>");
     assert_eq!(messages.len(), 1); // replaced, not prepended
-    assert!(
-        matches!(&messages[0].content[0], ContentBlock::Text { text } if text.contains("new"))
-    );
+    assert!(matches!(&messages[0].content[0], ContentBlock::Text { text } if text.contains("new")));
 }
 
 #[test]
@@ -94,8 +92,7 @@ fn test_check_loop_guard_verdict_warn() {
 #[test]
 fn test_check_loop_guard_verdict_block() {
     use octo_engine::agent::loop_guard::LoopGuardVerdict;
-    let result =
-        loop_steps::check_loop_guard_verdict(&LoopGuardVerdict::Block("blocked!".into()));
+    let result = loop_steps::check_loop_guard_verdict(&LoopGuardVerdict::Block("blocked!".into()));
     assert!(result.is_some());
     assert!(result.unwrap().contains("Loop Guard"));
 }

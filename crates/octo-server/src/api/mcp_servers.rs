@@ -281,11 +281,14 @@ pub async fn update_server(
 
     let now = chrono::Utc::now().to_rfc3339();
     // Serialize env as JSON (same format as create_server) so start_server can deserialize it
-    let env_str = serde_json::to_string(&req.env.as_ref().unwrap_or(&std::collections::HashMap::new()))
-        .unwrap_or_default();
+    let env_str = serde_json::to_string(
+        &req.env
+            .as_ref()
+            .unwrap_or(&std::collections::HashMap::new()),
+    )
+    .unwrap_or_default();
     // Serialize args as JSON array (same format as create_server)
-    let args_str = serde_json::to_string(&req.args.as_deref().unwrap_or(&[]))
-        .unwrap_or_default();
+    let args_str = serde_json::to_string(&req.args.as_deref().unwrap_or(&[])).unwrap_or_default();
 
     let record = McpServerRecord {
         id: id.clone(),

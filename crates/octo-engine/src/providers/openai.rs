@@ -569,9 +569,9 @@ impl<S> OpenAISseStream<S> {
             for line in raw_event.lines() {
                 if let Some(d) = line.strip_prefix("data: ") {
                     data_lines.push(d.to_string());
-                } else if line.starts_with("data:") {
+                } else if let Some(d) = line.strip_prefix("data:") {
                     // Handle "data:" with no space
-                    data_lines.push(line[5..].to_string());
+                    data_lines.push(d.to_string());
                 }
             }
 

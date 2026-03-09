@@ -168,7 +168,9 @@ mod tests {
     #[test]
     fn test_routes_to_coder() {
         let router = make_router();
-        let result = router.route("implement a new authentication module").unwrap();
+        let result = router
+            .route("implement a new authentication module")
+            .unwrap();
         assert_eq!(result.agent_id, "coder-1");
         assert!(result.confidence > 0.3);
     }
@@ -176,7 +178,9 @@ mod tests {
     #[test]
     fn test_routes_to_reviewer() {
         let router = make_router();
-        let result = router.route("review the security vulnerability in auth").unwrap();
+        let result = router
+            .route("review the security vulnerability in auth")
+            .unwrap();
         assert_eq!(result.agent_id, "reviewer-1");
     }
 

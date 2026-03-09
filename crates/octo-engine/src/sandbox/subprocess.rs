@@ -55,7 +55,7 @@ impl RuntimeAdapter for SubprocessAdapter {
         };
 
         // Create working directory
-        std::fs::create_dir_all(&working_dir).map_err(|e| SandboxError::IoError(e))?;
+        std::fs::create_dir_all(&working_dir).map_err(SandboxError::IoError)?;
 
         let instance = SubprocessInstance {
             config: config.clone(),
@@ -132,8 +132,7 @@ impl RuntimeAdapter for SubprocessAdapter {
         if let Some(instance) = instances.remove(id) {
             // Clean up working directory
             if instance.working_dir.exists() {
-                std::fs::remove_dir_all(&instance.working_dir)
-                    .map_err(|e| SandboxError::IoError(e))?;
+                std::fs::remove_dir_all(&instance.working_dir).map_err(SandboxError::IoError)?;
             }
             tracing::debug!("Destroyed subprocess sandbox: {}", id);
         }

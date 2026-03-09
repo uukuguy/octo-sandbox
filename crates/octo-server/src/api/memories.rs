@@ -156,7 +156,7 @@ pub async fn delete_memories_by_filter(
     let categories = params
         .category
         .as_deref()
-        .and_then(MemoryCategory::from_str)
+        .and_then(MemoryCategory::parse)
         .map(|c| vec![c]);
 
     let filter = MemoryFilter {
@@ -184,7 +184,7 @@ pub async fn create_memory(
     // Parse category or default to "profile"
     let category = req
         .category
-        .and_then(|c| MemoryCategory::from_str(&c))
+        .and_then(|c| MemoryCategory::parse(&c))
         .unwrap_or(MemoryCategory::Profile);
 
     // Use provided sandbox_id or default

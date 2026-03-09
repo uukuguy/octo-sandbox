@@ -4,9 +4,9 @@ pub mod agent;
 pub mod config;
 pub mod memory;
 pub mod session;
+pub mod state;
 pub mod tools;
 pub mod types;
-pub mod state;
 
 // Re-export types for external use
 pub use types::{AgentCommands, ConfigCommands, MemoryCommands, SessionCommands, ToolsCommands};

@@ -102,9 +102,7 @@ impl Provider for MockProvider {
         }
         Ok(CompletionResponse {
             id: format!("resp-{}", call),
-            content: vec![ContentBlock::Text {
-                text: "ok".into(),
-            }],
+            content: vec![ContentBlock::Text { text: "ok".into() }],
             stop_reason: None,
             usage: self.usage.clone(),
         })
@@ -146,7 +144,10 @@ async fn test_pipeline_builder_basic() {
 #[tokio::test]
 async fn test_retry_provider_retries_on_retryable() {
     // Fail 2 times with 429, then succeed. Policy allows 3 retries.
-    let mock = Arc::new(MockProvider::fail_then_ok(2, "HTTP 429 rate limit exceeded"));
+    let mock = Arc::new(MockProvider::fail_then_ok(
+        2,
+        "HTTP 429 rate limit exceeded",
+    ));
     let policy = RetryPolicy {
         max_retries: 3,
         base_delay: Duration::from_millis(1), // fast for tests
@@ -190,7 +191,9 @@ async fn test_retry_provider_exhausts_retries() {
 
 #[tokio::test]
 async fn test_retry_provider_no_retry_on_auth() {
-    let mock = Arc::new(MockProvider::always_fail("401 unauthorized api_key invalid"));
+    let mock = Arc::new(MockProvider::always_fail(
+        "401 unauthorized api_key invalid",
+    ));
     let policy = RetryPolicy {
         max_retries: 3,
         base_delay: Duration::from_millis(1),
@@ -337,8 +340,7 @@ async fn test_cost_guard_tracks_spending() {
 #[tokio::test]
 async fn test_pipeline_chain() {
     // Build a full pipeline: retry → circuit_breaker → cost_guard.
-    let mock = MockProvider::fail_then_ok(1, "HTTP 429 rate limit exceeded")
-        .with_usage(500, 200);
+    let mock = MockProvider::fail_then_ok(1, "HTTP 429 rate limit exceeded").with_usage(500, 200);
 
     let policy = RetryPolicy {
         max_retries: 2,

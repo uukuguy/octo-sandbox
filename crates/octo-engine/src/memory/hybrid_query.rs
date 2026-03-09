@@ -119,10 +119,7 @@ impl HybridQueryEngine {
         let trimmed = query.trim();
 
         // Check for structured query prefixes
-        if trimmed.contains("tag:")
-            || trimmed.contains("id:")
-            || trimmed.contains("key:")
-        {
+        if trimmed.contains("tag:") || trimmed.contains("id:") || trimmed.contains("key:") {
             return QueryType::Structured;
         }
 
@@ -153,9 +150,7 @@ impl HybridQueryEngine {
         debug!(?query_type, query = %query, "HybridQueryEngine routing query");
 
         match query_type {
-            QueryType::Semantic => {
-                self.semantic_search(query, embedding, limit).await
-            }
+            QueryType::Semantic => self.semantic_search(query, embedding, limit).await,
             QueryType::Structured | QueryType::Hybrid => {
                 // Structured search is handled by existing MemoryStore.
                 // Caller should merge with MemoryStore results.
@@ -246,7 +241,10 @@ mod tests {
     fn test_classify_structured_queries() {
         let engine = HybridQueryEngine::new(None);
 
-        assert_eq!(engine.classify_query("tag:important"), QueryType::Structured);
+        assert_eq!(
+            engine.classify_query("tag:important"),
+            QueryType::Structured
+        );
         assert_eq!(engine.classify_query("id:abc-123"), QueryType::Structured);
         assert_eq!(
             engine.classify_query("key:my_setting"),

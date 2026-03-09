@@ -1,6 +1,13 @@
 use octo_engine::skills::{CatalogEntry, CatalogQuery, SkillCatalog};
 
-fn make_entry(id: &str, name: &str, desc: &str, tags: &[&str], runtime: &str, downloads: u64) -> CatalogEntry {
+fn make_entry(
+    id: &str,
+    name: &str,
+    desc: &str,
+    tags: &[&str],
+    runtime: &str,
+    downloads: u64,
+) -> CatalogEntry {
     CatalogEntry {
         id: id.to_string(),
         name: name.to_string(),
@@ -17,10 +24,38 @@ fn make_entry(id: &str, name: &str, desc: &str, tags: &[&str], runtime: &str, do
 
 fn populated_catalog() -> SkillCatalog {
     let mut catalog = SkillCatalog::new();
-    catalog.add_entry(make_entry("org/web-search", "Web Search", "Search the web for information", &["search", "web"], "python", 1000));
-    catalog.add_entry(make_entry("org/file-manager", "File Manager", "Manage files on disk", &["files", "io"], "nodejs", 500));
-    catalog.add_entry(make_entry("org/code-runner", "Code Runner", "Execute code snippets safely", &["code", "execution"], "wasm", 2000));
-    catalog.add_entry(make_entry("org/db-query", "DB Query", "Query databases with SQL", &["database", "sql"], "python", 800));
+    catalog.add_entry(make_entry(
+        "org/web-search",
+        "Web Search",
+        "Search the web for information",
+        &["search", "web"],
+        "python",
+        1000,
+    ));
+    catalog.add_entry(make_entry(
+        "org/file-manager",
+        "File Manager",
+        "Manage files on disk",
+        &["files", "io"],
+        "nodejs",
+        500,
+    ));
+    catalog.add_entry(make_entry(
+        "org/code-runner",
+        "Code Runner",
+        "Execute code snippets safely",
+        &["code", "execution"],
+        "wasm",
+        2000,
+    ));
+    catalog.add_entry(make_entry(
+        "org/db-query",
+        "DB Query",
+        "Query databases with SQL",
+        &["database", "sql"],
+        "python",
+        800,
+    ));
     catalog
 }
 
@@ -41,7 +76,14 @@ fn test_catalog_default_is_empty() {
 #[test]
 fn test_catalog_add_and_get() {
     let mut catalog = SkillCatalog::new();
-    let entry = make_entry("org/test", "Test Skill", "A test skill", &["test"], "python", 100);
+    let entry = make_entry(
+        "org/test",
+        "Test Skill",
+        "A test skill",
+        &["test"],
+        "python",
+        100,
+    );
     catalog.add_entry(entry);
 
     assert_eq!(catalog.len(), 1);
@@ -121,8 +163,8 @@ fn test_catalog_search_sorted_by_downloads() {
 
     assert_eq!(results.len(), 4);
     assert_eq!(results[0].id, "org/code-runner"); // 2000
-    assert_eq!(results[1].id, "org/web-search");  // 1000
-    assert_eq!(results[2].id, "org/db-query");    // 800
+    assert_eq!(results[1].id, "org/web-search"); // 1000
+    assert_eq!(results[2].id, "org/db-query"); // 800
     assert_eq!(results[3].id, "org/file-manager"); // 500
 }
 
@@ -146,8 +188,7 @@ fn test_catalog_search_no_results() {
 
 #[test]
 fn test_catalog_with_registry() {
-    let catalog = SkillCatalog::new()
-        .with_registry("https://registry.example.com");
+    let catalog = SkillCatalog::new().with_registry("https://registry.example.com");
 
     assert!(catalog.has_registry());
     assert_eq!(catalog.registry_url(), Some("https://registry.example.com"));
@@ -164,9 +205,7 @@ fn test_catalog_list() {
 fn test_catalog_query_combined_filters() {
     let catalog = populated_catalog();
     // Query "code" + runtime "wasm"
-    let query = CatalogQuery::new()
-        .with_query("code")
-        .with_runtime("wasm");
+    let query = CatalogQuery::new().with_query("code").with_runtime("wasm");
     let results = catalog.search(&query);
 
     assert_eq!(results.len(), 1);

@@ -23,7 +23,7 @@ pub enum Action {
 }
 
 impl Action {
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "read" => Some(Action::Read),
             "create_session" => Some(Action::CreateSession),
@@ -40,10 +40,12 @@ impl Action {
 /// 用户角色 - 扩展为 5 级角色
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
+#[derive(Default)]
 pub enum Role {
     /// 查看者 - 仅能读取资源
     Viewer,
     /// 普通用户 - 可以创建会话和运行 Agent
+    #[default]
     User,
     /// 管理员 - 可以管理 MCP 和 Skills
     Admin,
@@ -51,15 +53,9 @@ pub enum Role {
     Owner,
 }
 
-impl Default for Role {
-    fn default() -> Self {
-        Self::User
-    }
-}
-
 impl Role {
     /// 从字符串解析角色
-    pub fn from_str(s: &str) -> Option<Self> {
+    pub fn parse(s: &str) -> Option<Self> {
         match s.to_lowercase().as_str() {
             "viewer" => Some(Role::Viewer),
             "user" => Some(Role::User),
@@ -241,31 +237,22 @@ mod tests {
 
     #[test]
     fn test_role_from_str() {
-        assert_eq!(Role::from_str("viewer"), Some(Role::Viewer));
-        assert_eq!(Role::from_str("USER"), Some(Role::User));
-        assert_eq!(Role::from_str("Admin"), Some(Role::Admin));
-        assert_eq!(Role::from_str("OWNER"), Some(Role::Owner));
-        assert_eq!(Role::from_str("unknown"), None);
+        assert_eq!(Role::parse("viewer"), Some(Role::Viewer));
+        assert_eq!(Role::parse("USER"), Some(Role::User));
+        assert_eq!(Role::parse("Admin"), Some(Role::Admin));
+        assert_eq!(Role::parse("OWNER"), Some(Role::Owner));
+        assert_eq!(Role::parse("unknown"), None);
     }
 
     #[test]
     fn test_action_from_str() {
-        assert_eq!(Action::from_str("read"), Some(Action::Read));
-        assert_eq!(
-            Action::from_str("create_session"),
-            Some(Action::CreateSession)
-        );
-        assert_eq!(Action::from_str("run_agent"), Some(Action::RunAgent));
-        assert_eq!(Action::from_str("manage_mcp"), Some(Action::ManageMcp));
-        assert_eq!(
-            Action::from_str("manage_skills"),
-            Some(Action::ManageSkills)
-        );
-        assert_eq!(Action::from_str("manage_users"), Some(Action::ManageUsers));
-        assert_eq!(
-            Action::from_str("manage_config"),
-            Some(Action::ManageConfig)
-        );
-        assert_eq!(Action::from_str("unknown"), None);
+        assert_eq!(Action::parse("read"), Some(Action::Read));
+        assert_eq!(Action::parse("create_session"), Some(Action::CreateSession));
+        assert_eq!(Action::parse("run_agent"), Some(Action::RunAgent));
+        assert_eq!(Action::parse("manage_mcp"), Some(Action::ManageMcp));
+        assert_eq!(Action::parse("manage_skills"), Some(Action::ManageSkills));
+        assert_eq!(Action::parse("manage_users"), Some(Action::ManageUsers));
+        assert_eq!(Action::parse("manage_config"), Some(Action::ManageConfig));
+        assert_eq!(Action::parse("unknown"), None);
     }
 }

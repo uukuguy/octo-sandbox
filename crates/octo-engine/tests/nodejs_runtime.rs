@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
-use octo_engine::skill_runtime::{NodeJsRuntime, SkillContext, SkillRuntime};
 use octo_engine::skill_runtime::traits::RuntimeType;
+use octo_engine::skill_runtime::{NodeJsRuntime, SkillContext, SkillRuntime};
 
 fn node_available() -> bool {
     std::process::Command::new("node")
@@ -112,5 +112,9 @@ async fn test_nodejs_check_environment() {
 
     let runtime = NodeJsRuntime::new();
     let result = runtime.check_environment().await;
-    assert!(result.is_ok(), "check_environment failed: {:?}", result.err());
+    assert!(
+        result.is_ok(),
+        "check_environment failed: {:?}",
+        result.err()
+    );
 }

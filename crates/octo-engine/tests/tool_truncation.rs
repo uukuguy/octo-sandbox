@@ -1,6 +1,4 @@
-use octo_engine::tools::truncation::{
-    truncate_output, ToolExecutionConfig, TruncationStrategy,
-};
+use octo_engine::tools::truncation::{truncate_output, ToolExecutionConfig, TruncationStrategy};
 
 #[test]
 fn short_content_is_not_truncated() {

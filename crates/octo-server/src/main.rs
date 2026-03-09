@@ -212,8 +212,11 @@ async fn main() -> Result<()> {
 
     // Create scheduler with required dependencies from agent_runtime
     let scheduler = if cfg.scheduler.enabled {
-        tracing::info!("Scheduler enabled: interval={}s, max_concurrent={}",
-            cfg.scheduler.check_interval_secs, cfg.scheduler.max_concurrent);
+        tracing::info!(
+            "Scheduler enabled: interval={}s, max_concurrent={}",
+            cfg.scheduler.check_interval_secs,
+            cfg.scheduler.max_concurrent
+        );
         let storage = SqliteSchedulerStorage::new(conn.clone());
         let s = Scheduler::new(
             cfg.scheduler.clone(),
@@ -222,7 +225,8 @@ async fn main() -> Result<()> {
             agent_runtime.tools().clone(),
             agent_runtime.memory().clone(),
             agent_runtime.session_store().clone(),
-            Some(agent_runtime.security_policy().clone() as std::sync::Arc<dyn octo_types::PathValidator>),
+            Some(agent_runtime.security_policy().clone()
+                as std::sync::Arc<dyn octo_types::PathValidator>),
         );
         Some(Arc::new(s))
     } else {
