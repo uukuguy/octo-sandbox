@@ -4,6 +4,10 @@ edition.workspace = true
 version.workspace = true
 description = "Octo CLI - Local CLI for interacting with Octo agents"
 
+[lib]
+name = "octo_cli"
+path = "src/lib.rs"
+
 [[bin]]
 name = "octo"
 path = "src/main.rs"

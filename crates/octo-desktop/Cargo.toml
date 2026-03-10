@@ -1,0 +1,30 @@
+[package]
+name = "octo-desktop"
+edition.workspace = true
+version.workspace = true
+description = "Octo Desktop - Native desktop application wrapping Octo Dashboard"
+
+[[bin]]
+name = "octo-desktop"
+path = "src/main.rs"
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "2"
+tauri-plugin-shell = "2"
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["full"] }
+octo-cli = { path = "../octo-cli" }
+octo-engine = { workspace = true }
+octo-types = { workspace = true }
+axum = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+[dev-dependencies]
+reqwest = { workspace = true }
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }

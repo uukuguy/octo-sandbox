@@ -9,6 +9,7 @@ use std::path::Path;
 ///
 /// # Examples
 /// ```
+/// use octo_cli::repl::file_ref::expand_file_refs;
 /// let input = "Explain @src/main.rs";
 /// let expanded = expand_file_refs(input, &std::env::current_dir().unwrap());
 /// // → "Explain \n<file path=\"src/main.rs\">\n...file contents...\n</file>"
