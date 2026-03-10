@@ -4,6 +4,7 @@ pub mod catalog;
 pub mod config;
 pub mod context;
 pub mod continuation;
+pub mod dual;
 pub mod deferred_action;
 pub mod entry;
 pub mod events;
@@ -33,6 +34,7 @@ pub use capability::AgentCapability;
 pub use catalog::AgentCatalog;
 pub use config::AgentConfig;
 pub use continuation::{ContinuationConfig, ContinuationTracker};
+pub use dual::{AgentSlot, DualAgentManager, DualAgentProfile, PlanStep, ToolFilterMode};
 pub use deferred_action::{
     DeferredActionDetector, DeferredActionMatch, DeferredCategory, DeferredPattern,
 };

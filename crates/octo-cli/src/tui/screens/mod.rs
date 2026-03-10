@@ -3,6 +3,7 @@
 pub mod agents;
 pub mod chat;
 pub mod dashboard;
+pub mod dual_chat;
 pub mod logs;
 pub mod mcp;
 pub mod memory;

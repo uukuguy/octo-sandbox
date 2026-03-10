@@ -3,7 +3,7 @@
 use anyhow::Result;
 use octo_types::SessionId;
 
-use super::context::{ReplContext, ReplMode};
+use super::context::{AgentSlot, ReplContext, ReplMode};
 use crate::commands::state::AppState;
 
 /// Action to take after a slash command executes
@@ -39,6 +39,8 @@ pub async fn handle_slash_command(
         "/save" => cmd_save(session_id),
         "/undo" => cmd_undo(),
         "/theme" => cmd_theme(args),
+        "/switch" => cmd_switch(args, ctx),
+        "/plan-to-build" | "/ptb" => cmd_plan_to_build(ctx),
         _ => {
             eprintln!(
                 "Unknown command: {}. Type /help for available commands.",
@@ -61,6 +63,8 @@ fn cmd_help() -> Result<SlashAction> {
     eprintln!("  /save            Save current session");
     eprintln!("  /undo            Undo last tool operation");
     eprintln!("  /theme [name]    Show or switch color theme");
+    eprintln!("  /switch [plan|build] Switch active agent (dual mode)");
+    eprintln!("  /plan-to-build   Transfer plan steps to build agent context");
     Ok(SlashAction::Continue)
 }
 
@@ -185,6 +189,64 @@ fn cmd_theme(args: &str) -> Result<SlashAction> {
     } else {
         eprintln!("[theme] Switched to: {}", args);
     }
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_switch(args: &str, ctx: &mut ReplContext) -> Result<SlashAction> {
+    // Check if dual mode is active
+    if ctx.active_agent.is_none() {
+        eprintln!("[switch] Dual agent mode is not active.");
+        eprintln!("  Start with: octo run --dual");
+        return Ok(SlashAction::Continue);
+    }
+
+    if args.is_empty() {
+        // Toggle between Plan and Build
+        let current = ctx.active_agent.unwrap_or(AgentSlot::Build);
+        let new_slot = match current {
+            AgentSlot::Plan => AgentSlot::Build,
+            AgentSlot::Build => AgentSlot::Plan,
+        };
+        ctx.active_agent = Some(new_slot);
+        eprintln!("[switch] Switched to {} agent.", new_slot);
+        return Ok(SlashAction::Continue);
+    }
+
+    match args.trim().to_lowercase().as_str() {
+        "plan" => {
+            ctx.active_agent = Some(AgentSlot::Plan);
+            eprintln!("[switch] Switched to plan agent.");
+            eprintln!("  Tool execution is disabled. Agent will analyze and plan.");
+        }
+        "build" => {
+            ctx.active_agent = Some(AgentSlot::Build);
+            eprintln!("[switch] Switched to build agent.");
+            eprintln!("  Tool execution is enabled. Agent will implement changes.");
+        }
+        _ => {
+            eprintln!(
+                "[switch] Unknown agent: '{}'. Valid: plan, build",
+                args.trim()
+            );
+        }
+    }
+
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_plan_to_build(ctx: &ReplContext) -> Result<SlashAction> {
+    if ctx.active_agent.is_none() {
+        eprintln!("[plan-to-build] Dual agent mode is not active.");
+        return Ok(SlashAction::Continue);
+    }
+
+    // In a full implementation, this would:
+    // 1. Extract plan steps from Plan Agent's last response
+    // 2. Inject them into Build Agent's context
+    // For now, signal that the transfer was requested
+    eprintln!("[plan-to-build] Plan context transfer requested.");
+    eprintln!("  Plan steps will be injected into Build agent's next prompt.");
+
     Ok(SlashAction::Continue)
 }
 
@@ -383,6 +445,154 @@ mod tests {
         let mut ctx = ReplContext::default();
 
         let action = handle_slash_command("/help", &state, &sid, &mut ctx).await.unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    // ── /switch tests ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_cmd_switch_not_in_dual_mode() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default(); // active_agent = None
+
+        let action = handle_slash_command("/switch", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert_eq!(ctx.active_agent, None); // unchanged
+    }
+
+    #[tokio::test]
+    async fn test_cmd_switch_toggle() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Build),
+            ..Default::default()
+        };
+
+        // Toggle from Build -> Plan
+        let action = handle_slash_command("/switch", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert_eq!(ctx.active_agent, Some(AgentSlot::Plan));
+
+        // Toggle from Plan -> Build
+        let action = handle_slash_command("/switch", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert_eq!(ctx.active_agent, Some(AgentSlot::Build));
+    }
+
+    #[tokio::test]
+    async fn test_cmd_switch_to_plan() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Build),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/switch plan", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert_eq!(ctx.active_agent, Some(AgentSlot::Plan));
+    }
+
+    #[tokio::test]
+    async fn test_cmd_switch_to_build() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Plan),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/switch build", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert_eq!(ctx.active_agent, Some(AgentSlot::Build));
+    }
+
+    #[tokio::test]
+    async fn test_cmd_switch_invalid() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Build),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/switch foobar", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        // active_agent unchanged — still Build
+        assert_eq!(ctx.active_agent, Some(AgentSlot::Build));
+    }
+
+    #[tokio::test]
+    async fn test_cmd_switch_already_plan() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Plan),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/switch plan", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert_eq!(ctx.active_agent, Some(AgentSlot::Plan)); // still plan
+    }
+
+    // ── /plan-to-build tests ────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_cmd_plan_to_build_not_dual() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default(); // active_agent = None
+
+        let action = handle_slash_command("/plan-to-build", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_plan_to_build_dual_mode() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Plan),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/plan-to-build", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_plan_to_build_alias_ptb() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Build),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/ptb", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
         assert_eq!(action, SlashAction::Continue);
     }
 

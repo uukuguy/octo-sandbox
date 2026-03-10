@@ -116,6 +116,12 @@ pub async fn run_repl(state: &AppState, opts: &RunOptions) -> Result<()> {
 
     // ── REPL context (mutable state for slash commands) ─────────────────
     let mut repl_ctx = context::ReplContext::default();
+    if opts.dual {
+        repl_ctx.active_agent = Some(context::AgentSlot::Build);
+        eprintln!("Dual agent mode enabled. Active: build agent.");
+        eprintln!("  /switch [plan|build] to toggle agents.");
+        eprintln!("  /plan-to-build to transfer plan context.\n");
+    }
 
     // ── 5. Main loop ────────────────────────────────────────────────────
     let prompt = "octo> ".to_string();

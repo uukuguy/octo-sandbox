@@ -72,6 +72,9 @@ enum Commands {
         /// Additional directories to include as context
         #[arg(long = "add-dir")]
         add_dirs: Vec<String>,
+        /// Enable dual agent mode (Plan + Build agents)
+        #[arg(long)]
+        dual: bool,
     },
 
     /// Send a single query (headless mode)
@@ -198,6 +201,7 @@ async fn main() -> Result<()> {
             agent,
             theme,
             add_dirs,
+            dual,
         } => {
             execute_run(
                 commands::run::RunOptions {
@@ -206,6 +210,7 @@ async fn main() -> Result<()> {
                     agent_id: agent,
                     theme,
                     add_dirs,
+                    dual,
                 },
                 &state,
             )

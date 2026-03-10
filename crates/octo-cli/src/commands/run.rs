@@ -12,6 +12,8 @@ pub struct RunOptions {
     pub theme: String,
     /// Additional directories to include as context
     pub add_dirs: Vec<String>,
+    /// Enable dual agent mode (Plan + Build)
+    pub dual: bool,
 }
 
 /// Execute the run command: start an interactive REPL session

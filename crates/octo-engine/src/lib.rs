@@ -25,7 +25,8 @@ pub use agent::{
     run_agent_loop, AgentCapability, AgentCatalog, AgentEntry, AgentError, AgentEvent,
     AgentExecutor, AgentExecutorHandle, AgentId, AgentLoop, AgentLoopConfig, AgentLoopResult,
     AgentManifest, AgentMessage, AgentProfile, AgentRouter, AgentRuntime, AgentRuntimeConfig,
-    AgentStatus, AgentStore, NormalizedStopReason, RouteAlternative, RouteResult, TenantContext,
+    AgentSlot, AgentStatus, AgentStore, DualAgentManager, DualAgentProfile,
+    NormalizedStopReason, PlanStep, RouteAlternative, RouteResult, TenantContext, ToolFilterMode,
     TurnGate,
 };
 pub use audit::{AuditEvent, AuditRecord, AuditStorage};

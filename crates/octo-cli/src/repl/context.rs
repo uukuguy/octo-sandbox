@@ -1,5 +1,7 @@
 //! REPL session context — mutable state shared across the REPL loop
 
+pub use octo_engine::AgentSlot;
+
 /// Operating mode for the REPL
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ReplMode {
@@ -57,6 +59,8 @@ pub struct ReplContext {
     pub tool_calls: u32,
     /// Number of messages in the conversation
     pub message_count: usize,
+    /// Active agent slot when in dual-agent mode (None = single agent mode)
+    pub active_agent: Option<AgentSlot>,
 }
 
 impl Default for ReplContext {
@@ -68,6 +72,7 @@ impl Default for ReplContext {
             rounds: 0,
             tool_calls: 0,
             message_count: 0,
+            active_agent: None,
         }
     }
 }
@@ -132,6 +137,7 @@ mod tests {
         assert_eq!(ctx.rounds, 0);
         assert_eq!(ctx.tool_calls, 0);
         assert_eq!(ctx.message_count, 0);
+        assert_eq!(ctx.active_agent, None);
     }
 
     #[test]
