@@ -17,24 +17,31 @@
         <div class="nav-tabs">
             <button
                 :class="{ 'nav-tab-active': tab === 'chat' }"
-                @click="tab = 'chat'"
+                @click="switchTab('chat')"
                 class="nav-tab">Chat</button>
             <button
                 :class="{ 'nav-tab-active': tab === 'sessions' }"
-                @click="tab = 'sessions'"
+                @click="switchTab('sessions')"
                 class="nav-tab">Sessions</button>
             <button
                 :class="{ 'nav-tab-active': tab === 'memory' }"
-                @click="tab = 'memory'"
+                @click="switchTab('memory')"
                 class="nav-tab">Memory</button>
             <button
                 :class="{ 'nav-tab-active': tab === 'mcp' }"
-                @click="tab = 'mcp'"
+                @click="switchTab('mcp')"
                 class="nav-tab">MCP</button>
         </div>
-        <div class="nav-status">
-            <span class="status-dot" :class="connected ? 'status-connected' : 'status-disconnected'"></span>
-            <span x-text="connected ? 'Connected' : 'Disconnected'"></span>
+        <div class="nav-right">
+            <select @change="setTheme($event.target.value)" class="theme-select">
+                <template x-for="t in themes" :key="t">
+                    <option :value="t" :selected="theme === t" x-text="t"></option>
+                </template>
+            </select>
+            <div class="nav-status">
+                <span class="status-dot" :class="connected ? 'status-connected' : 'status-disconnected'"></span>
+                <span x-text="connected ? 'Connected' : 'Disconnected'"></span>
+            </div>
         </div>
     </nav>
 
@@ -81,6 +88,8 @@
                 <template x-for="session in sessions" :key="session.id">
                     <div class="list-item">
                         <span class="list-item-title" x-text="session.id"></span>
+                        <span class="list-item-tag" x-text="session.status"></span>
+                        <span class="list-item-meta" x-text="session.messages + ' msgs'"></span>
                         <span class="list-item-meta" x-text="session.created_at"></span>
                     </div>
                 </template>
@@ -101,6 +110,7 @@
                     <div class="list-item">
                         <span class="list-item-tag" x-text="mem.category"></span>
                         <span class="list-item-title" x-text="mem.content"></span>
+                        <span class="list-item-meta" x-text="(mem.score * 100).toFixed(0) + '%'"></span>
                     </div>
                 </template>
             </div>
@@ -120,6 +130,7 @@
                     <div class="list-item">
                         <span class="list-item-status" :class="server.running ? 'running' : 'stopped'"></span>
                         <span class="list-item-title" x-text="server.name"></span>
+                        <span class="list-item-tag" x-text="server.transport"></span>
                         <span class="list-item-meta" x-text="server.tools + ' tools'"></span>
                     </div>
                 </template>

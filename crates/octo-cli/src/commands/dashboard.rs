@@ -4,7 +4,8 @@
 //! All assets are compiled in via `include_str!()`.
 
 use anyhow::Result;
-use axum::{routing::get, Json, Router};
+use axum::{extract::Path, extract::Query, routing::get, Json, Router};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 
 // ── Embedded Assets ──────────────────────────────────────────────
@@ -72,6 +73,75 @@ async fn api_health() -> Json<serde_json::Value> {
     }))
 }
 
+/// D2-3: Chat message endpoint (stub — echoes back in preview mode)
+async fn api_chat_send(Json(body): Json<serde_json::Value>) -> Json<serde_json::Value> {
+    let user_msg = body["message"].as_str().unwrap_or("");
+    Json(serde_json::json!({
+        "response": format!(
+            "Dashboard preview: received '{}'. Use CLI for full agent interaction.",
+            user_msg
+        ),
+        "model": "preview",
+    }))
+}
+
+/// D2-4: List sessions (stub)
+async fn api_sessions_list() -> Json<serde_json::Value> {
+    Json(serde_json::json!([
+        {"id": "session-001", "created_at": "2026-03-10T10:00:00Z", "messages": 12, "status": "active"},
+        {"id": "session-002", "created_at": "2026-03-09T15:30:00Z", "messages": 45, "status": "closed"},
+    ]))
+}
+
+/// D2-4: Session detail (stub)
+async fn api_session_detail(Path(id): Path<String>) -> Json<serde_json::Value> {
+    Json(serde_json::json!({
+        "id": id,
+        "created_at": "2026-03-10T10:00:00Z",
+        "messages": 12,
+        "status": "active",
+        "model": "claude-sonnet-4-6",
+    }))
+}
+
+/// D2-5: List memories (stub)
+async fn api_memories_list() -> Json<serde_json::Value> {
+    Json(serde_json::json!([
+        {"id": "mem-001", "category": "project_structure", "content": "Main entry: src/main.rs", "score": 0.95},
+        {"id": "mem-002", "category": "user_preference", "content": "Always use cargo test --test-threads=1", "score": 0.88},
+        {"id": "mem-003", "category": "technical_decision", "content": "Use Axum for HTTP server", "score": 0.82},
+    ]))
+}
+
+/// D2-5: Search memories (stub)
+async fn api_memories_search(
+    Query(params): Query<HashMap<String, String>>,
+) -> Json<serde_json::Value> {
+    let query = params.get("q").cloned().unwrap_or_default();
+    Json(serde_json::json!({
+        "query": query,
+        "results": [
+            {"id": "mem-001", "category": "project_structure", "content": "Main entry: src/main.rs", "score": 0.95},
+        ],
+    }))
+}
+
+/// D2-6: MCP servers (stub)
+async fn api_mcp_servers() -> Json<serde_json::Value> {
+    Json(serde_json::json!([
+        {"name": "filesystem", "running": true, "tools": 5, "transport": "stdio"},
+        {"name": "github", "running": false, "tools": 12, "transport": "sse"},
+    ]))
+}
+
+/// D2-7: Available themes list
+async fn api_themes_list() -> Json<serde_json::Value> {
+    Json(serde_json::json!([
+        "cyan", "sgcc", "blue", "indigo", "violet", "emerald",
+        "amber", "coral", "rose", "teal", "sunset", "slate"
+    ]))
+}
+
 // ── Router ──────────────────────────────────────────────────────
 
 fn build_router() -> Router {
@@ -82,6 +152,18 @@ fn build_router() -> Router {
         .route("/style.css", get(style_css_handler))
         // API endpoints
         .route("/api/health", get(api_health))
+        // D2-3: Chat
+        .route("/api/chat", axum::routing::post(api_chat_send))
+        // D2-4: Sessions
+        .route("/api/sessions", get(api_sessions_list))
+        .route("/api/sessions/{id}", get(api_session_detail))
+        // D2-5: Memory
+        .route("/api/memories", get(api_memories_list))
+        .route("/api/memories/search", get(api_memories_search))
+        // D2-6: MCP
+        .route("/api/mcp/servers", get(api_mcp_servers))
+        // D2-7: Themes
+        .route("/api/themes", get(api_themes_list))
 }
 
 /// Run the dashboard server.
@@ -128,6 +210,28 @@ fn open_browser(url: &str) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::body::Body;
+    use axum::http::Request;
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    /// Helper: GET a URI, assert 200, parse JSON body.
+    async fn get_json(uri: &str) -> serde_json::Value {
+        let app = build_router();
+        let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), 200);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        serde_json::from_slice(&body).unwrap()
+    }
+
+    /// Helper: GET a URI, return status code.
+    async fn get_status(uri: &str) -> u16 {
+        let app = build_router();
+        let req = Request::builder().uri(uri).body(Body::empty()).unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        res.status().as_u16()
+    }
 
     #[test]
     fn test_dashboard_options_default() {
@@ -153,24 +257,23 @@ mod tests {
 
     #[test]
     fn test_index_html_contains_all_tabs() {
-        assert!(INDEX_HTML.contains("Chat"));
-        assert!(INDEX_HTML.contains("Sessions"));
-        assert!(INDEX_HTML.contains("Memory"));
-        assert!(INDEX_HTML.contains("MCP"));
+        for tab in ["Chat", "Sessions", "Memory", "MCP"] {
+            assert!(INDEX_HTML.contains(tab), "Missing tab: {tab}");
+        }
     }
 
     #[test]
     fn test_style_css_has_root_variables() {
-        assert!(STYLE_CSS.contains(":root"));
-        assert!(STYLE_CSS.contains("--accent"));
-        assert!(STYLE_CSS.contains("--bg"));
+        for var in [":root", "--accent", "--bg"] {
+            assert!(STYLE_CSS.contains(var), "Missing CSS var: {var}");
+        }
     }
 
     #[test]
     fn test_app_js_has_app_function() {
-        assert!(APP_JS.contains("function app()"));
-        assert!(APP_JS.contains("checkHealth"));
-        assert!(APP_JS.contains("sendMessage"));
+        for token in ["function app()", "checkHealth", "sendMessage"] {
+            assert!(APP_JS.contains(token), "Missing JS token: {token}");
+        }
     }
 
     #[test]
@@ -180,79 +283,91 @@ mod tests {
 
     #[tokio::test]
     async fn test_health_endpoint() {
-        use axum::body::Body;
-        use axum::http::Request;
-        use tower::ServiceExt;
-
-        let app = build_router();
-        let request = Request::builder()
-            .uri("/api/health")
-            .body(Body::empty())
-            .unwrap();
-
-        let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), 200);
+        assert_eq!(get_status("/api/health").await, 200);
     }
 
     #[tokio::test]
     async fn test_index_endpoint() {
-        use axum::body::Body;
-        use axum::http::Request;
-        use tower::ServiceExt;
-
-        let app = build_router();
-        let request = Request::builder()
-            .uri("/")
-            .body(Body::empty())
-            .unwrap();
-
-        let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), 200);
+        assert_eq!(get_status("/").await, 200);
     }
 
     #[tokio::test]
     async fn test_js_endpoint() {
-        use axum::body::Body;
-        use axum::http::Request;
-        use tower::ServiceExt;
-
         let app = build_router();
-        let request = Request::builder()
-            .uri("/app.js")
-            .body(Body::empty())
-            .unwrap();
-
-        let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), 200);
-        let content_type = response
-            .headers()
-            .get("content-type")
-            .unwrap()
-            .to_str()
-            .unwrap();
-        assert_eq!(content_type, "application/javascript");
+        let req = Request::builder().uri("/app.js").body(Body::empty()).unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), 200);
+        let ct = res.headers().get("content-type").unwrap().to_str().unwrap();
+        assert_eq!(ct, "application/javascript");
     }
 
     #[tokio::test]
     async fn test_css_endpoint() {
-        use axum::body::Body;
-        use axum::http::Request;
-        use tower::ServiceExt;
-
         let app = build_router();
-        let request = Request::builder()
-            .uri("/style.css")
-            .body(Body::empty())
-            .unwrap();
+        let req = Request::builder().uri("/style.css").body(Body::empty()).unwrap();
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), 200);
+        let ct = res.headers().get("content-type").unwrap().to_str().unwrap();
+        assert_eq!(ct, "text/css");
+    }
 
-        let response = app.oneshot(request).await.unwrap();
-        assert_eq!(response.status(), 200);
-        let content_type = response
-            .headers()
-            .get("content-type")
-            .unwrap()
-            .to_str()
+    #[tokio::test]
+    async fn test_chat_endpoint() {
+        let app = build_router();
+        let req = Request::builder()
+            .method("POST")
+            .uri("/api/chat")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"message":"hello"}"#))
             .unwrap();
-        assert_eq!(content_type, "text/css");
+        let res = app.oneshot(req).await.unwrap();
+        assert_eq!(res.status(), 200);
+        let body = res.into_body().collect().await.unwrap().to_bytes();
+        let json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert!(json["response"].as_str().unwrap().contains("hello"));
+        assert_eq!(json["model"], "preview");
+    }
+
+    #[tokio::test]
+    async fn test_sessions_list_endpoint() {
+        let json = get_json("/api/sessions").await;
+        assert!(json.as_array().unwrap().len() >= 2);
+    }
+
+    #[tokio::test]
+    async fn test_session_detail_endpoint() {
+        let json = get_json("/api/sessions/test-123").await;
+        assert_eq!(json["id"], "test-123");
+        assert_eq!(json["status"], "active");
+    }
+
+    #[tokio::test]
+    async fn test_memories_list_endpoint() {
+        let json = get_json("/api/memories").await;
+        assert!(json.as_array().unwrap().len() >= 3);
+    }
+
+    #[tokio::test]
+    async fn test_memories_search_endpoint() {
+        let json = get_json("/api/memories/search?q=main").await;
+        assert_eq!(json["query"], "main");
+        assert!(json["results"].as_array().unwrap().len() >= 1);
+    }
+
+    #[tokio::test]
+    async fn test_mcp_servers_endpoint() {
+        let json = get_json("/api/mcp/servers").await;
+        let servers = json.as_array().unwrap();
+        assert_eq!(servers.len(), 2);
+        assert_eq!(servers[0]["name"], "filesystem");
+    }
+
+    #[tokio::test]
+    async fn test_themes_endpoint() {
+        let json = get_json("/api/themes").await;
+        let themes = json.as_array().unwrap();
+        assert_eq!(themes.len(), 12);
+        assert!(themes.contains(&serde_json::json!("cyan")));
+        assert!(themes.contains(&serde_json::json!("slate")));
     }
 }

@@ -17,6 +17,21 @@
     --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
 }
 
+/* ── D2-7: Theme Variations ──────────────────────────────────── */
+
+[data-theme="cyan"]    { --accent: #00bcd4; --accent-hover: #00e5ff; }
+[data-theme="sgcc"]    { --accent: #00e676; --accent-hover: #69f0ae; }
+[data-theme="blue"]    { --accent: #2196f3; --accent-hover: #42a5f5; }
+[data-theme="indigo"]  { --accent: #3f51b5; --accent-hover: #5c6bc0; }
+[data-theme="violet"]  { --accent: #9c27b0; --accent-hover: #ba68c8; }
+[data-theme="emerald"] { --accent: #4caf50; --accent-hover: #66bb6a; }
+[data-theme="amber"]   { --accent: #ff9800; --accent-hover: #ffa726; }
+[data-theme="coral"]   { --accent: #ff5722; --accent-hover: #ff7043; }
+[data-theme="rose"]    { --accent: #e91e63; --accent-hover: #f06292; }
+[data-theme="teal"]    { --accent: #009688; --accent-hover: #26a69a; }
+[data-theme="sunset"]  { --accent: #ff6f00; --accent-hover: #ff8f00; }
+[data-theme="slate"]   { --accent: #607d8b; --accent-hover: #78909c; }
+
 * { margin: 0; padding: 0; box-sizing: border-box; }
 
 body {
@@ -76,6 +91,12 @@ body {
     background: var(--bg-input) !important;
 }
 
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
 .nav-status {
     display: flex;
     align-items: center;
@@ -92,6 +113,22 @@ body {
 
 .status-connected { background: var(--success); }
 .status-disconnected { background: var(--danger); }
+
+/* Theme Selector */
+.theme-select {
+    background: var(--bg-input);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    outline: none;
+}
+
+.theme-select:focus {
+    border-color: var(--accent);
+}
 
 /* Main Content */
 .main {
