@@ -9,12 +9,13 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 mod commands;
 mod output;
+mod repl;
 mod ui;
 
 use commands::{
-    execute_ask, handle_agent, handle_config, handle_memory, handle_session, handle_tools,
-    AgentCommands, AppState, CompletionsCommands, ConfigCommands, McpCommands, MemoryCommands,
-    SessionCommands, ToolsCommands,
+    execute_ask, execute_run, handle_agent, handle_config, handle_memory, handle_session,
+    handle_tools, AgentCommands, AppState, CompletionsCommands, ConfigCommands, McpCommands,
+    MemoryCommands, SessionCommands, ToolsCommands,
 };
 
 #[derive(Parser)]
@@ -179,8 +180,22 @@ async fn main() -> Result<()> {
     let state = AppState::new(db_path.into(), output_config).await?;
 
     match cli.command {
-        Commands::Run { .. } => {
-            println!("Interactive REPL mode — coming in Phase 2 (R9-R14)");
+        Commands::Run {
+            resume,
+            session,
+            agent,
+            theme,
+        } => {
+            execute_run(
+                commands::run::RunOptions {
+                    resume,
+                    session_id: session,
+                    agent_id: agent,
+                    theme,
+                },
+                &state,
+            )
+            .await?;
         }
         Commands::Ask {
             message,

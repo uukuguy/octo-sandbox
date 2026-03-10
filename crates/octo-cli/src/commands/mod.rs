@@ -4,6 +4,7 @@ pub mod agent;
 pub mod ask;
 pub mod config;
 pub mod memory;
+pub mod run;
 pub mod session;
 pub mod state;
 pub mod tools;
@@ -20,6 +21,7 @@ pub use agent::handle_agent;
 pub use ask::execute_ask;
 pub use config::handle_config;
 pub use memory::handle_memory;
+pub use run::execute_run;
 pub use session::handle_session;
 pub use tools::handle_tools;
 

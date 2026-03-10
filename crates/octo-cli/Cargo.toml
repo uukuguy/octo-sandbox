@@ -57,3 +57,12 @@ crossterm = "0.28"
 
 # Database
 rusqlite = { workspace = true }
+
+# REPL / line editing
+rustyline = { version = "17", features = ["with-file-history"] }
+
+# XDG paths
+directories = "6"
+
+[dev-dependencies]
+tempfile = "3"
