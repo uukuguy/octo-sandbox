@@ -56,6 +56,8 @@ notify-debouncer-mini = "0.5"
 # MCP Protocol SDK
 rmcp = { version = "0.16", features = ["client", "transport-child-process", "transport-streamable-http-client-reqwest"] }
 hnsw_rs = "0.3"
+# TUI framework
+ratatui = "0.29"
 # Internal crates
 octo-types = { path = "crates/octo-types" }
 octo-engine = { path = "crates/octo-engine" }

@@ -1,5 +1,7 @@
 //! Color theme management for CLI output
 
+use std::str::FromStr;
+
 use owo_colors::Style;
 
 /// Named color themes for the CLI
@@ -70,6 +72,28 @@ impl Theme {
             warning: Style::new().truecolor(234, 179, 8),
             muted: Style::new().truecolor(100, 116, 139),
             bold: Style::new().bold(),
+        }
+    }
+}
+
+impl FromStr for ThemeName {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_lowercase().as_str() {
+            "cyan" => Ok(ThemeName::Cyan),
+            "sgcc" => Ok(ThemeName::Sgcc),
+            "blue" => Ok(ThemeName::Blue),
+            "indigo" => Ok(ThemeName::Indigo),
+            "violet" => Ok(ThemeName::Violet),
+            "emerald" => Ok(ThemeName::Emerald),
+            "amber" => Ok(ThemeName::Amber),
+            "coral" => Ok(ThemeName::Coral),
+            "rose" => Ok(ThemeName::Rose),
+            "teal" => Ok(ThemeName::Teal),
+            "sunset" => Ok(ThemeName::Sunset),
+            "slate" => Ok(ThemeName::Slate),
+            other => Err(format!("unknown theme: {other}")),
         }
     }
 }

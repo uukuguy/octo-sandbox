@@ -20,6 +20,7 @@ octo-sandbox = { workspace = true }
 # Async runtime
 tokio = { workspace = true, features = ["full"] }
 futures-util = { workspace = true }
+async-trait = { workspace = true }
 
 # CLI parsing
 clap = { version = "4.5", features = ["derive", "env"] }
@@ -54,6 +55,7 @@ termimad = "0.31"
 indicatif = "0.17"
 owo-colors = "4"
 crossterm = "0.28"
+ratatui = { workspace = true }
 
 # Database
 rusqlite = { workspace = true }
