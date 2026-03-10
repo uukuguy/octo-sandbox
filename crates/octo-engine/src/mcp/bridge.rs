@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use tokio::sync::RwLock;
 
-use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::{McpClient, McpToolInfo};
 use crate::tools::Tool;
@@ -57,7 +57,7 @@ impl Tool for McpToolBridge {
         }
     }
 
-    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let client = self.client.read().await;
         match client.call_tool(&self.tool_info.name, params).await {
             Ok(result) => {
@@ -71,12 +71,12 @@ impl Tool for McpToolBridge {
                     .unwrap_or("")
                     .to_string();
                 if is_error {
-                    Ok(ToolResult::error(content))
+                    Ok(ToolOutput::error(content))
                 } else {
-                    Ok(ToolResult::success(content))
+                    Ok(ToolOutput::success(content))
                 }
             }
-            Err(e) => Ok(ToolResult::error(format!("MCP tool error: {e}"))),
+            Err(e) => Ok(ToolOutput::error(format!("MCP tool error: {e}"))),
         }
     }
 }

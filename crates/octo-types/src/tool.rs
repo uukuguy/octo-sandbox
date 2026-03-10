@@ -46,28 +46,6 @@ pub struct ToolSpec {
     pub input_schema: serde_json::Value,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct ToolResult {
-    pub output: String,
-    pub is_error: bool,
-}
-
-impl ToolResult {
-    pub fn success(output: impl Into<String>) -> Self {
-        Self {
-            output: output.into(),
-            is_error: false,
-        }
-    }
-
-    pub fn error(output: impl Into<String>) -> Self {
-        Self {
-            output: output.into(),
-            is_error: true,
-        }
-    }
-}
-
 /// Tool output artifact (file, image, structured data, etc.)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Artifact {
@@ -77,9 +55,6 @@ pub struct Artifact {
 }
 
 /// Structured tool output with artifacts, metadata, and truncation info.
-///
-/// This is an enhanced version of `ToolResult`. Existing code continues to use
-/// `ToolResult`; new code can adopt `ToolOutput` and convert via `From`.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolOutput {
     pub content: String,
@@ -141,15 +116,6 @@ impl ToolOutput {
         self.truncated = true;
         self.original_size = Some(original_size);
         self
-    }
-}
-
-impl From<ToolOutput> for ToolResult {
-    fn from(output: ToolOutput) -> Self {
-        ToolResult {
-            output: output.content,
-            is_error: output.is_error,
-        }
     }
 }
 

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -55,7 +55,7 @@ impl Tool for WebFetchTool {
         })
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let url = params["url"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'url' parameter"))?;
@@ -70,7 +70,7 @@ impl Tool for WebFetchTool {
         match parsed_url.scheme() {
             "http" | "https" => {}
             scheme => {
-                return Ok(ToolResult::error(format!(
+                return Ok(ToolOutput::error(format!(
                     "Blocked URL scheme '{}'. Only http and https are allowed.",
                     scheme
                 )));
@@ -107,7 +107,7 @@ impl Tool for WebFetchTool {
                 || is_private_172
                 || is_metadata
             {
-                return Ok(ToolResult::error(format!(
+                return Ok(ToolOutput::error(format!(
                     "Blocked request to private/internal address: {}",
                     host
                 )));
@@ -125,7 +125,7 @@ impl Tool for WebFetchTool {
             .map_err(|e| anyhow::anyhow!("failed to fetch URL: {e}"))?;
 
         if !response.status().is_success() {
-            return Ok(ToolResult::error(format!(
+            return Ok(ToolOutput::error(format!(
                 "HTTP error: {} - {}",
                 response.status().as_u16(),
                 response
@@ -147,7 +147,7 @@ impl Tool for WebFetchTool {
             content.push_str("\n... (content truncated)");
         }
 
-        Ok(ToolResult::success(content))
+        Ok(ToolOutput::success(content))
     }
 
     fn source(&self) -> ToolSource {

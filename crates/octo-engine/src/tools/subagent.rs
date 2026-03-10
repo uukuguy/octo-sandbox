@@ -8,7 +8,7 @@ use futures_util::StreamExt;
 use serde_json::json;
 
 use octo_types::{
-    ChatMessage, ContentBlock, MessageRole, RiskLevel, ToolContext, ToolResult, ToolSource,
+    ChatMessage, ContentBlock, MessageRole, RiskLevel, ToolContext, ToolOutput, ToolSource,
 };
 
 use crate::agent::events::AgentEvent;
@@ -75,7 +75,7 @@ impl Tool for SpawnSubAgentTool {
         ToolSource::BuiltIn
     }
 
-    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let task = params["task"]
             .as_str()
             .unwrap_or("No task specified")
@@ -87,19 +87,13 @@ impl Tool for SpawnSubAgentTool {
         let child_mgr = match self.subagent_manager.child() {
             Ok(mgr) => Arc::new(mgr),
             Err(e) => {
-                return Ok(ToolResult {
-                    output: format!("Cannot spawn sub-agent: {e}"),
-                    is_error: true,
-                });
+                return Ok(ToolOutput::error(format!("Cannot spawn sub-agent: {e}")));
             }
         };
 
         // Check concurrent limit
         if !self.subagent_manager.can_spawn().await {
-            return Ok(ToolResult {
-                output: "Maximum concurrent sub-agents reached".to_string(),
-                is_error: true,
-            });
+            return Ok(ToolOutput::error("Maximum concurrent sub-agents reached"));
         }
 
         // Generate sub-agent ID
@@ -111,10 +105,7 @@ impl Tool for SpawnSubAgentTool {
             .register(subagent_id.clone(), task.clone())
             .await
         {
-            return Ok(ToolResult {
-                output: format!("Failed to register sub-agent: {e}"),
-                is_error: true,
-            });
+            return Ok(ToolOutput::error(format!("Failed to register sub-agent: {e}")));
         }
 
         // Build child config from parent template
@@ -184,15 +175,12 @@ impl Tool for SpawnSubAgentTool {
             }
         });
 
-        Ok(ToolResult {
-            output: json!({
+        Ok(ToolOutput::success(json!({
                 "session_id": subagent_id,
                 "status": "spawned",
                 "depth": child_mgr.depth(),
             })
-            .to_string(),
-            is_error: false,
-        })
+            .to_string()))
     }
 }
 
@@ -236,17 +224,14 @@ impl Tool for QuerySubAgentTool {
         ToolSource::BuiltIn
     }
 
-    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let session_id = params["session_id"]
             .as_str()
             .unwrap_or("")
             .to_string();
 
         if session_id.is_empty() {
-            return Ok(ToolResult {
-                output: "Missing session_id parameter".to_string(),
-                is_error: true,
-            });
+            return Ok(ToolOutput::error("Missing session_id parameter"));
         }
 
         let agents = self.subagent_manager.list().await;
@@ -264,25 +249,19 @@ impl Tool for QuerySubAgentTool {
                 None
             };
 
-            Ok(ToolResult {
-                output: json!({
+            Ok(ToolOutput::success(json!({
                     "session_id": session_id,
                     "status": status_str,
                     "description": handle.description,
                     "error": error_msg,
                 })
-                .to_string(),
-                is_error: false,
-            })
+                .to_string()))
         } else {
-            Ok(ToolResult {
-                output: json!({
+            Ok(ToolOutput::error(json!({
                     "session_id": session_id,
                     "status": "not_found",
                 })
-                .to_string(),
-                is_error: true,
-            })
+                .to_string()))
         }
     }
 }

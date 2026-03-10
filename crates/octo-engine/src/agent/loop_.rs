@@ -39,7 +39,7 @@ pub struct AgentLoop {
     pruner: ContextPruner,
     recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
     loop_guard: super::loop_guard::LoopGuard,
-    event_bus: Option<Arc<crate::event::EventBus>>,
+    event_bus: Option<Arc<crate::event::TelemetryBus>>,
     hook_registry: Option<Arc<HookRegistry>>,
     config: AgentConfig,
     /// Zone A: Agent manifest containing role/goal/backstory/system_prompt
@@ -95,7 +95,7 @@ impl AgentLoop {
         self
     }
 
-    pub fn with_event_bus(mut self, bus: Arc<crate::event::EventBus>) -> Self {
+    pub fn with_event_bus(mut self, bus: Arc<crate::event::TelemetryBus>) -> Self {
         self.event_bus = Some(bus);
         self
     }

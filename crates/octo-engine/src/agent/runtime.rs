@@ -13,7 +13,7 @@ use crate::agent::{
     AgentManifest, AgentMessage, AgentStatus, CancellationToken, TenantContext,
 };
 use crate::db::Database;
-use crate::event::EventBus;
+use crate::event::TelemetryBus;
 use crate::hooks::HookRegistry;
 use crate::mcp::manager::McpManager;
 use crate::memory::store_traits::MemoryStore;
@@ -88,7 +88,7 @@ pub struct AgentRuntime {
     pub(crate) session_store: Arc<dyn SessionStore>,
     pub(crate) default_model: String,
     // Observability: event bus already forwarded to AgentExecutor at line 482
-    pub(crate) event_bus: Option<Arc<EventBus>>,
+    pub(crate) event_bus: Option<Arc<TelemetryBus>>,
     pub(crate) recorder: Arc<ToolExecutionRecorder>,
     pub(crate) provider_chain: Option<Arc<ProviderChain>>,
     // Runtime fields (Task 2)
@@ -200,9 +200,9 @@ impl AgentRuntime {
             None
         };
 
-        // 10. EventBus initialization (default enabled)
+        // 10. TelemetryBus initialization (default enabled)
         let event_bus = if config.enable_event_bus {
-            Some(Arc::new(EventBus::new(
+            Some(Arc::new(TelemetryBus::new(
                 1000,
                 1000,
                 Arc::new(crate::metrics::MetricsRegistry::new()),
@@ -281,7 +281,7 @@ impl AgentRuntime {
         self
     }
 
-    pub fn with_event_bus(mut self, bus: Arc<EventBus>) -> Self {
+    pub fn with_event_bus(mut self, bus: Arc<TelemetryBus>) -> Self {
         self.event_bus = Some(bus);
         self
     }

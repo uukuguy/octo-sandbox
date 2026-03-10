@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_json::json;
 use tokio::fs;
 
-use octo_types::{ToolContext, ToolResult, ToolSource};
+use octo_types::{ToolContext, ToolOutput, ToolSource};
 
 use crate::skill_runtime::SkillContext;
 use crate::skills::runtime_bridge::SkillRuntimeBridge;
@@ -68,7 +68,7 @@ impl Tool for SkillTool {
         ToolSource::Skill(self.skill.name.clone())
     }
 
-    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let action = params
             .get("action")
             .and_then(|v| v.as_str())
@@ -78,12 +78,12 @@ impl Tool for SkillTool {
             "activate" => {
                 // Return the skill's instructions as the tool result.
                 // The Agent will follow these instructions.
-                Ok(ToolResult::success(&self.skill.body))
+                Ok(ToolOutput::success(&self.skill.body))
             }
             "list_scripts" => {
                 let scripts_dir = self.skill.base_dir.join("scripts");
                 if !scripts_dir.exists() {
-                    return Ok(ToolResult::success("No scripts directory found."));
+                    return Ok(ToolOutput::success("No scripts directory found."));
                 }
                 let mut scripts = Vec::new();
                 let mut entries = fs::read_dir(&scripts_dir)
@@ -95,11 +95,11 @@ impl Tool for SkillTool {
                     }
                 }
                 if scripts.is_empty() {
-                    Ok(ToolResult::success(
+                    Ok(ToolOutput::success(
                         "No scripts found in scripts/ directory.",
                     ))
                 } else {
-                    Ok(ToolResult::success(format!(
+                    Ok(ToolOutput::success(format!(
                         "Available scripts:\n{}",
                         scripts.join("\n")
                     )))
@@ -116,7 +116,7 @@ impl Tool for SkillTool {
                     .context("run_script requires 'args' parameter with script name")?;
                 let script_path = self.skill.base_dir.join("scripts").join(script_name);
                 if !script_path.exists() {
-                    return Ok(ToolResult::error(format!(
+                    return Ok(ToolOutput::error(format!(
                         "Script not found: {}",
                         script_name
                     )));
@@ -126,9 +126,9 @@ impl Tool for SkillTool {
                 let result = bridge
                     .execute_script_file(&script_path, json!({}), &skill_ctx)
                     .await?;
-                Ok(ToolResult::success(result.to_string()))
+                Ok(ToolOutput::success(result.to_string()))
             }
-            other => Ok(ToolResult::error(format!(
+            other => Ok(ToolOutput::error(format!(
                 "Unknown action: '{}'. Valid actions: activate, run_script, list_scripts",
                 other
             ))),

@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{SearchOptions, ToolContext, ToolResult, ToolSource};
+use octo_types::{SearchOptions, ToolContext, ToolOutput, ToolSource};
 
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
@@ -50,7 +50,7 @@ impl Tool for MemorySearchTool {
         })
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let query = params["query"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'query' parameter"))?;
@@ -76,7 +76,7 @@ impl Tool for MemorySearchTool {
         let results = self.store.search(query, opts).await?;
 
         if results.is_empty() {
-            return Ok(ToolResult::success("No memories found.".to_string()));
+            return Ok(ToolOutput::success("No memories found.".to_string()));
         }
 
         let mut output = format!("Found {} memories:\n\n", results.len());
@@ -91,7 +91,7 @@ impl Tool for MemorySearchTool {
             ));
         }
 
-        Ok(ToolResult::success(output))
+        Ok(ToolOutput::success(output))
     }
 
     fn source(&self) -> ToolSource {

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -50,7 +50,7 @@ impl Tool for GlobTool {
         })
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let pattern = params["pattern"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'pattern' parameter"))?;
@@ -69,7 +69,7 @@ impl Tool for GlobTool {
         // Security: validate base directory against policy
         if let Some(ref validator) = ctx.path_validator {
             if let Err(e) = validator.check_path(&base_dir) {
-                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+                return Ok(ToolOutput::error(format!("Path validation failed: {e}")));
             }
         }
 
@@ -122,9 +122,9 @@ impl Tool for GlobTool {
                     format!("{output}\n\n[{total} files found]")
                 };
 
-                Ok(ToolResult::success(result_text))
+                Ok(ToolOutput::success(result_text))
             }
-            Err(e) => Ok(ToolResult::error(e)),
+            Err(e) => Ok(ToolOutput::error(e)),
         }
     }
 

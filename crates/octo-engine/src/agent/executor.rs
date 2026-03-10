@@ -88,7 +88,7 @@ pub struct AgentExecutor {
     // 工作目录
     working_dir: PathBuf,
     // 事件总线
-    event_bus: Option<Arc<crate::event::EventBus>>,
+    event_bus: Option<Arc<crate::event::TelemetryBus>>,
     // 路径安全验证器
     path_validator: Option<Arc<dyn PathValidator>>,
     // Hook 系统
@@ -113,7 +113,7 @@ impl AgentExecutor {
         system_prompt: Option<String>,
         config: AgentConfig,
         working_dir: PathBuf,
-        event_bus: Option<Arc<crate::event::EventBus>>,
+        event_bus: Option<Arc<crate::event::TelemetryBus>>,
         path_validator: Option<Arc<dyn PathValidator>>,
         hook_registry: Option<Arc<crate::hooks::HookRegistry>>,
     ) -> Self {

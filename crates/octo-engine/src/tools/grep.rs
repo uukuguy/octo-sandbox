@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -54,7 +54,7 @@ impl Tool for GrepTool {
         })
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let pattern = params["pattern"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'pattern' parameter"))?;
@@ -102,10 +102,10 @@ impl Tool for GrepTool {
                     lines.join("\n")
                 };
 
-                Ok(ToolResult::success(result_text))
+                Ok(ToolOutput::success(result_text))
             }
-            Ok(Err(e)) => Ok(ToolResult::error(format!("grep failed: {e}"))),
-            Err(_) => Ok(ToolResult::error(
+            Ok(Err(e)) => Ok(ToolOutput::error(format!("grep failed: {e}"))),
+            Err(_) => Ok(ToolOutput::error(
                 "grep timed out after 30 seconds".to_string(),
             )),
         }

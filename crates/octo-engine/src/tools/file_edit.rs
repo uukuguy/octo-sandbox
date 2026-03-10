@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -56,7 +56,7 @@ impl Tool for FileEditTool {
         })
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let path_str = params["path"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'path' parameter"))?;
@@ -77,7 +77,7 @@ impl Tool for FileEditTool {
         // Security: validate path against policy
         if let Some(ref validator) = ctx.path_validator {
             if let Err(e) = validator.check_path(&path) {
-                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+                return Ok(ToolOutput::error(format!("Path validation failed: {e}")));
             }
         }
 
@@ -89,7 +89,7 @@ impl Tool for FileEditTool {
         );
 
         if !path.exists() {
-            return Ok(ToolResult::error(format!(
+            return Ok(ToolOutput::error(format!(
                 "File not found: {}",
                 path.display()
             )));
@@ -97,19 +97,19 @@ impl Tool for FileEditTool {
 
         let content = match tokio::fs::read_to_string(&path).await {
             Ok(c) => c,
-            Err(e) => return Ok(ToolResult::error(format!("Failed to read file: {e}"))),
+            Err(e) => return Ok(ToolOutput::error(format!("Failed to read file: {e}"))),
         };
 
         let count = content.matches(old_string).count();
         if count == 0 {
-            return Ok(ToolResult::error(
+            return Ok(ToolOutput::error(
                 "old_string not found in file. Make sure it matches exactly (including whitespace and indentation)."
                     .to_string(),
             ));
         }
 
         if !replace_all && count > 1 {
-            return Ok(ToolResult::error(format!(
+            return Ok(ToolOutput::error(format!(
                 "old_string found {count} times. Provide more context to make it unique, or set replace_all=true."
             )));
         }
@@ -121,12 +121,12 @@ impl Tool for FileEditTool {
         };
 
         match tokio::fs::write(&path, &new_content).await {
-            Ok(()) => Ok(ToolResult::success(format!(
+            Ok(()) => Ok(ToolOutput::success(format!(
                 "Replaced {} occurrence(s) in {}",
                 if replace_all { count } else { 1 },
                 path.display()
             ))),
-            Err(e) => Ok(ToolResult::error(format!("Failed to write file: {e}"))),
+            Err(e) => Ok(ToolOutput::error(format!("Failed to write file: {e}"))),
         }
     }
 

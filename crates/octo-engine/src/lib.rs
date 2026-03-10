@@ -37,7 +37,7 @@ pub use context::{
     BootstrapFile, ContextBudgetManager, ContextPruner, DegradationLevel, SystemPromptBuilder,
 };
 pub use db::Database;
-pub use event::{EventBus, EventCountProjection, EventStore, OctoEvent, Projection, StoredEvent};
+pub use event::{TelemetryBus, EventCountProjection, EventStore, TelemetryEvent, Projection, StoredEvent};
 pub use extension::{
     AgentResult, Extension, ExtensionContext, ExtensionEvent, ExtensionHostActions,
     ExtensionManager, HostcallInterceptor, InMemoryExtensionHostActions, LoggingExtension,

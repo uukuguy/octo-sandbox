@@ -3,7 +3,7 @@ use std::sync::Arc;
 use octo_types::{SandboxId, SessionId, ToolContext, UserId};
 
 use crate::context::{ContextBudgetManager, ContextPruner};
-use crate::event::EventBus;
+use crate::event::TelemetryBus;
 use crate::hooks::HookRegistry;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
@@ -59,7 +59,7 @@ pub struct AgentLoopConfig {
     /// Tool execution recorder for observability.
     pub recorder: Option<Arc<ToolExecutionRecorder>>,
     /// Event bus for pub/sub.
-    pub event_bus: Option<Arc<EventBus>>,
+    pub event_bus: Option<Arc<TelemetryBus>>,
     /// Hook registry for lifecycle hooks.
     pub hook_registry: Option<Arc<HookRegistry>>,
     /// AI defence (injection detection, PII detection).
@@ -229,7 +229,7 @@ impl AgentLoopConfigBuilder {
         self
     }
 
-    pub fn event_bus(mut self, v: Arc<EventBus>) -> Self {
+    pub fn event_bus(mut self, v: Arc<TelemetryBus>) -> Self {
         self.config.event_bus = Some(v);
         self
     }

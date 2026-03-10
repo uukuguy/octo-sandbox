@@ -10,7 +10,7 @@ use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
 use octo_types::{
-    ChatMessage, CompletionRequest, ContentBlock, MessageRole, StopReason, StreamEvent, ToolResult,
+    ChatMessage, CompletionRequest, ContentBlock, MessageRole, StopReason, StreamEvent, ToolOutput,
 };
 
 use crate::context::{
@@ -29,6 +29,9 @@ use super::parallel::execute_parallel;
 use super::CancellationToken;
 
 const TOOL_RESULT_SOFT_LIMIT: usize = 30_000;
+
+/// Maximum tool output size before truncation is applied.
+const MAX_TOOL_OUTPUT_SIZE: usize = 100_000;
 
 /// Pending tool call accumulated from stream events.
 struct PendingToolUse {
@@ -204,9 +207,9 @@ async fn run_agent_loop_inner(
             }
         }
 
-        // --- EventBus: LoopTurnStarted ---
+        // --- TelemetryBus: LoopTurnStarted ---
         if let Some(ref bus) = config.event_bus {
-            bus.publish(crate::event::OctoEvent::LoopTurnStarted {
+            bus.publish(crate::event::TelemetryEvent::LoopTurnStarted {
                 session_id: config.session_id.as_str().to_string(),
                 turn: round,
             })
@@ -610,7 +613,7 @@ async fn run_agent_loop_inner(
                 })
                 .await;
             if let Some(ref bus) = config.event_bus {
-                bus.publish(crate::event::OctoEvent::ToolCallStarted {
+                bus.publish(crate::event::TelemetryEvent::ToolCallStarted {
                     session_id: config.session_id.as_str().to_string(),
                     tool_name: tu.name.clone(),
                 })
@@ -639,7 +642,18 @@ async fn run_agent_loop_inner(
             parsed_tools
                 .iter()
                 .zip(results)
-                .map(|((tu, input), (_, result))| (tu, input.clone(), result))
+                .map(|((tu, input), (_, result))| {
+                    // Post-process parallel results: duration is already recorded
+                    // by the parallel executor, but we add truncation + metadata
+                    let duration_ms = result.duration_ms;
+                    let result = postprocess_tool_output(
+                        result,
+                        &tu.name,
+                        config.session_id.as_str(),
+                        duration_ms, // preserve duration if already set
+                    );
+                    (tu, input.clone(), result)
+                })
                 .collect()
         } else {
             let mut outputs = Vec::new();
@@ -671,13 +685,21 @@ async fn run_agent_loop_inner(
                 let result = if let Some(tool) = tools.get(&tu.name) {
                     match tool.execute(input.clone(), &tool_ctx).await {
                         Ok(r) => r,
-                        Err(e) => ToolResult::error(format!("Tool error: {e}")),
+                        Err(e) => ToolOutput::error(format!("Tool error: {e}")),
                     }
                 } else {
-                    ToolResult::error(format!("Unknown tool: {}", tu.name))
+                    ToolOutput::error(format!("Unknown tool: {}", tu.name))
                 };
 
                 let exec_duration = exec_start.elapsed().as_millis() as u64;
+
+                // Post-process: duration, truncation, metadata
+                let result = postprocess_tool_output(
+                    result,
+                    &tu.name,
+                    config.session_id.as_str(),
+                    exec_duration,
+                );
 
                 // PostToolUse hook
                 if let Some(ref hooks) = config.hook_registry {
@@ -685,12 +707,12 @@ async fn run_agent_loop_inner(
                         .with_session(config.session_id.as_str())
                         .with_tool(&tu.name, input.clone())
                         .with_result(!result.is_error, exec_duration);
-                    ctx.tool_result = Some(serde_json::Value::String(result.output.clone()));
+                    ctx.tool_result = Some(serde_json::Value::String(result.content.clone()));
                     hooks.execute(HookPoint::PostToolUse, &ctx).await;
                 }
 
                 if let Some(ref bus) = config.event_bus {
-                    bus.publish(crate::event::OctoEvent::ToolCallCompleted {
+                    bus.publish(crate::event::TelemetryEvent::ToolCallCompleted {
                         session_id: config.session_id.as_str().to_string(),
                         tool_name: tu.name.clone(),
                         duration_ms: exec_duration,
@@ -711,12 +733,12 @@ async fn run_agent_loop_inner(
             let _ = tx
                 .send(AgentEvent::ToolResult {
                     tool_id: tu.id.clone(),
-                    output: result.output.clone(),
+                    output: result.content.clone(),
                     success: !result.is_error,
                 })
                 .await;
 
-            let trimmed_output = soft_trim_tool_result(&result.output);
+            let trimmed_output = soft_trim_tool_result(&result.content);
 
             // AIDefence injection check on tool results
             if let Some(ref defence) = config.defence {
@@ -741,7 +763,7 @@ async fn run_agent_loop_inner(
 
             // Record outcome for loop detection
             if let Some(outcome_warning) =
-                loop_guard.record_outcome(&tu.name, &input, &result.output)
+                loop_guard.record_outcome(&tu.name, &input, &result.content)
             {
                 warn!("Loop Guard outcome: {}", outcome_warning);
             }
@@ -914,6 +936,40 @@ async fn fire_post_task_hooks(
         hooks.execute(HookPoint::SessionEnd, &ctx).await;
     }
     let _ = tx; // used for potential future events
+}
+
+/// Post-process a tool output: record duration, handle truncation, inject metadata.
+fn postprocess_tool_output(
+    mut output: ToolOutput,
+    tool_name: &str,
+    session_id: &str,
+    elapsed_ms: u64,
+) -> ToolOutput {
+    // 1. Record execution duration
+    output.duration_ms = elapsed_ms;
+
+    // 2. Truncation handling: if content exceeds MAX_TOOL_OUTPUT_SIZE, truncate
+    if output.content.len() > MAX_TOOL_OUTPUT_SIZE {
+        let original_size = output.content.len();
+        output.content.truncate(MAX_TOOL_OUTPUT_SIZE);
+        output = output.mark_truncated(original_size);
+        debug!(
+            tool = tool_name,
+            original_size,
+            "Tool output truncated to {} bytes",
+            MAX_TOOL_OUTPUT_SIZE
+        );
+    }
+
+    // 3. Metadata injection: add tool_name and session_id if not already set
+    if output.metadata.is_none() {
+        output = output.with_metadata(serde_json::json!({
+            "tool_name": tool_name,
+            "session_id": session_id,
+        }));
+    }
+
+    output
 }
 
 /// Soft-trim tool result if it exceeds the limit (67% head + 27% tail).

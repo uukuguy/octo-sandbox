@@ -4,7 +4,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 
-use octo_types::{MemoryId, ToolContext, ToolResult, ToolSource};
+use octo_types::{MemoryId, ToolContext, ToolOutput, ToolSource};
 
 use crate::memory::store_traits::MemoryStore;
 
@@ -47,7 +47,7 @@ impl Tool for MemoryUpdateTool {
         })
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let id_str = params["id"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'id' parameter"))?;
@@ -61,14 +61,14 @@ impl Tool for MemoryUpdateTool {
         // Check if memory exists
         let existing = self.store.get(&id).await?;
         if existing.is_none() {
-            return Ok(ToolResult::error(format!(
+            return Ok(ToolOutput::error(format!(
                 "Memory with id '{id_str}' not found"
             )));
         }
 
         self.store.update(&id, content).await?;
 
-        Ok(ToolResult::success(format!("Updated memory {id_str}")))
+        Ok(ToolOutput::success(format!("Updated memory {id_str}")))
     }
 
     fn source(&self) -> ToolSource {

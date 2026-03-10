@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{MemoryCategory, MemoryFilter, MemoryId, ToolContext, ToolResult, ToolSource};
+use octo_types::{MemoryCategory, MemoryFilter, MemoryId, ToolContext, ToolOutput, ToolSource};
 
 use crate::memory::store_traits::MemoryStore;
 
@@ -48,12 +48,12 @@ impl Tool for MemoryForgetTool {
         })
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let id = params["id"].as_str();
         let category = params["category"].as_str();
 
         if id.is_none() && category.is_none() {
-            return Ok(ToolResult::error(
+            return Ok(ToolOutput::error(
                 "At least one of 'id' or 'category' must be provided".to_string(),
             ));
         }
@@ -63,13 +63,13 @@ impl Tool for MemoryForgetTool {
             let mem_id = MemoryId::from_string(id_str);
             let existing = self.store.get(&mem_id).await?;
             if existing.is_none() {
-                return Ok(ToolResult::error(format!(
+                return Ok(ToolOutput::error(format!(
                     "Memory with id '{id_str}' not found"
                 )));
             }
             self.store.delete(&mem_id).await?;
             debug!(id = id_str, "Forgot memory");
-            return Ok(ToolResult::success(format!("Deleted memory {id_str}")));
+            return Ok(ToolOutput::success(format!("Deleted memory {id_str}")));
         }
 
         // Bulk delete by category
@@ -85,12 +85,12 @@ impl Tool for MemoryForgetTool {
 
             let count = self.store.delete_by_filter(filter).await?;
             debug!(category = cat_str, count, "Forgot memories by category");
-            return Ok(ToolResult::success(format!(
+            return Ok(ToolOutput::success(format!(
                 "Deleted {count} memories in category '{cat_str}'"
             )));
         }
 
-        Ok(ToolResult::error(
+        Ok(ToolOutput::error(
             "No valid delete criteria provided".to_string(),
         ))
     }

@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -55,7 +55,7 @@ impl Tool for FindTool {
         })
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let name = params["name"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'name' parameter"))?;
@@ -74,7 +74,7 @@ impl Tool for FindTool {
         // Security: validate search path against policy
         if let Some(ref validator) = ctx.path_validator {
             if let Err(e) = validator.check_path(&search_path) {
-                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+                return Ok(ToolOutput::error(format!("Path validation failed: {e}")));
             }
         }
 
@@ -126,10 +126,10 @@ impl Tool for FindTool {
                     format!("{}\n\n[{total} results]", lines.join("\n"))
                 };
 
-                Ok(ToolResult::success(result_text))
+                Ok(ToolOutput::success(result_text))
             }
-            Ok(Err(e)) => Ok(ToolResult::error(format!("find failed: {e}"))),
-            Err(_) => Ok(ToolResult::error(
+            Ok(Err(e)) => Ok(ToolOutput::error(format!("find failed: {e}"))),
+            Err(_) => Ok(ToolOutput::error(
                 "find timed out after 30 seconds".to_string(),
             )),
         }

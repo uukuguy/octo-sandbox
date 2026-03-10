@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -48,7 +48,7 @@ impl Tool for FileWriteTool {
         })
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let path_str = params["path"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'path' parameter"))?;
@@ -65,7 +65,7 @@ impl Tool for FileWriteTool {
         // Security: validate path against policy
         if let Some(ref validator) = ctx.path_validator {
             if let Err(e) = validator.check_path(&path) {
-                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+                return Ok(ToolOutput::error(format!("Path validation failed: {e}")));
             }
         }
 
@@ -79,12 +79,12 @@ impl Tool for FileWriteTool {
         }
 
         match tokio::fs::write(&path, content).await {
-            Ok(()) => Ok(ToolResult::success(format!(
+            Ok(()) => Ok(ToolOutput::success(format!(
                 "Wrote {} bytes to {}",
                 content.len(),
                 path.display()
             ))),
-            Err(e) => Ok(ToolResult::error(format!("Failed to write file: {e}"))),
+            Err(e) => Ok(ToolOutput::error(format!("Failed to write file: {e}"))),
         }
     }
 

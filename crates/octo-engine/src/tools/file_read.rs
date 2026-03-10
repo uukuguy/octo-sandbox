@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -54,7 +54,7 @@ impl Tool for FileReadTool {
         })
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let path_str = params["path"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'path' parameter"))?;
@@ -71,7 +71,7 @@ impl Tool for FileReadTool {
         // Security: validate path against policy
         if let Some(ref validator) = ctx.path_validator {
             if let Err(e) = validator.check_path(&path) {
-                return Ok(ToolResult::error(format!("Path validation failed: {e}")));
+                return Ok(ToolOutput::error(format!("Path validation failed: {e}")));
             }
         }
 
@@ -79,7 +79,7 @@ impl Tool for FileReadTool {
 
         // Check file exists
         if !path.exists() {
-            return Ok(ToolResult::error(format!(
+            return Ok(ToolOutput::error(format!(
                 "File not found: {}",
                 path.display()
             )));
@@ -88,7 +88,7 @@ impl Tool for FileReadTool {
         // Check file size
         let metadata = tokio::fs::metadata(&path).await?;
         if metadata.len() > MAX_FILE_SIZE {
-            return Ok(ToolResult::error(format!(
+            return Ok(ToolOutput::error(format!(
                 "File too large: {} bytes (max: {MAX_FILE_SIZE} bytes)",
                 metadata.len()
             )));
@@ -117,9 +117,9 @@ impl Tool for FileReadTool {
                     ));
                 }
 
-                Ok(ToolResult::success(output))
+                Ok(ToolOutput::success(output))
             }
-            Err(e) => Ok(ToolResult::error(format!("Failed to read file: {e}"))),
+            Err(e) => Ok(ToolOutput::error(format!("Failed to read file: {e}"))),
         }
     }
 

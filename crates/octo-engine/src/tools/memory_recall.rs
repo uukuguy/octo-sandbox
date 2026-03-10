@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{MemoryId, SearchOptions, ToolContext, ToolResult, ToolSource};
+use octo_types::{MemoryId, SearchOptions, ToolContext, ToolOutput, ToolSource};
 
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
@@ -50,7 +50,7 @@ impl Tool for MemoryRecallTool {
         })
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let id_str = params["id"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'id' parameter"))?;
@@ -63,7 +63,7 @@ impl Tool for MemoryRecallTool {
         let entry = match entry {
             Some(e) => e,
             None => {
-                return Ok(ToolResult::error(format!(
+                return Ok(ToolOutput::error(format!(
                     "Memory with id '{id_str}' not found"
                 )));
             }
@@ -119,7 +119,7 @@ impl Tool for MemoryRecallTool {
             }
         }
 
-        Ok(ToolResult::success(output))
+        Ok(ToolOutput::success(output))
     }
 
     fn source(&self) -> ToolSource {

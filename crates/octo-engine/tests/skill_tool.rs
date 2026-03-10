@@ -42,7 +42,7 @@ async fn test_skill_tool_activate_returns_body() {
     let tool = SkillTool::new(skill);
     let params = serde_json::json!({"action": "activate"});
     let result = tool.execute(params, &test_ctx()).await.unwrap();
-    assert_eq!(result.output, "This is the test skill body.");
+    assert_eq!(result.content, "This is the test skill body.");
     assert!(!result.is_error);
 }
 
@@ -52,7 +52,7 @@ async fn test_skill_tool_default_action_is_activate() {
     let tool = SkillTool::new(skill);
     let params = serde_json::json!({});
     let result = tool.execute(params, &test_ctx()).await.unwrap();
-    assert_eq!(result.output, "This is the test skill body.");
+    assert_eq!(result.content, "This is the test skill body.");
     assert!(!result.is_error);
 }
 
@@ -62,7 +62,7 @@ async fn test_skill_tool_list_scripts_no_dir() {
     let tool = SkillTool::new(skill);
     let params = serde_json::json!({"action": "list_scripts"});
     let result = tool.execute(params, &test_ctx()).await.unwrap();
-    assert!(result.output.contains("No scripts"));
+    assert!(result.content.contains("No scripts"));
     assert!(!result.is_error);
 }
 
@@ -83,7 +83,7 @@ async fn test_skill_tool_unknown_action() {
     let params = serde_json::json!({"action": "invalid"});
     let result = tool.execute(params, &test_ctx()).await.unwrap();
     assert!(result.is_error);
-    assert!(result.output.contains("Unknown action"));
+    assert!(result.content.contains("Unknown action"));
 }
 
 #[tokio::test]

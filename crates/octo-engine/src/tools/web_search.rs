@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -55,7 +55,7 @@ impl Tool for WebSearchTool {
         })
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let query = params["query"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'query' parameter"))?;
@@ -82,7 +82,7 @@ impl Tool for WebSearchTool {
             .map_err(|e| anyhow::anyhow!("failed to fetch search results: {e}"))?;
 
         if !response.status().is_success() {
-            return Ok(ToolResult::error(format!(
+            return Ok(ToolOutput::error(format!(
                 "HTTP error: {} - {}",
                 response.status().as_u16(),
                 response
@@ -101,7 +101,7 @@ impl Tool for WebSearchTool {
         let results = parse_ddg_results(&body, max_results);
 
         if results.is_empty() {
-            return Ok(ToolResult::success("No search results found.".to_string()));
+            return Ok(ToolOutput::success("No search results found.".to_string()));
         }
 
         let output = results
@@ -110,7 +110,7 @@ impl Tool for WebSearchTool {
             .map(|(i, r)| format!("{}. {}\n   URL: {}\n   {}\n", i + 1, r.0, r.1, r.2))
             .collect::<String>();
 
-        Ok(ToolResult::success(output))
+        Ok(ToolOutput::success(output))
     }
 
     fn source(&self) -> ToolSource {

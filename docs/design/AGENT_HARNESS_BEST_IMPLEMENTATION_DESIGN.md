@@ -347,7 +347,7 @@ octo-sandbox 的 MCP 集成已经完善，改进方向：
 | **ZeroClaw** | ✅ HookRunner | ✅ plugins/ | ✅ wasmi+wasmtime | ✅ Observer | ❌ |
 | **Moltis** | ✅ HookRegistry | ✅ plugins/ | ✅ wasmtime 36 | ❌ | ✅ spawn_agent |
 | **pi_agent_rust** | ❌ | ✅ JS/WASM/Native | ✅ | AgentEvent | ❌ |
-| **octo-sandbox** | ✅ 10 HookPoint | ✅ Extension | ✅ wasmtime | ✅ EventBus | ❌ |
+| **octo-sandbox** | ✅ 10 HookPoint | ✅ Extension | ✅ wasmtime | ✅ TelemetryBus | ❌ |
 
 #### 最佳实践提炼
 
@@ -531,13 +531,13 @@ async fn execute_tools(
     ctx: &ToolContext,
     config: &ToolExecutionConfig,
     event_tx: &Sender<AgentEvent>,
-) -> Vec<ToolResult> { ... }
+) -> Vec<ToolOutput> { ... }
 
 /// 步骤 6: LoopGuard 检查
 fn check_loop_guard(
     guard: &mut LoopGuard,
     tool_calls: &[ToolCall],
-    results: &[ToolResult],
+    results: &[ToolOutput],
     round: u32,
 ) -> LoopGuardDecision { ... }
 
@@ -854,7 +854,7 @@ pub enum ApprovalPolicy {
 - **LoopGuard** — SHA-256 哈希 + ping-pong 检测 + backoff schedule，业界顶级
 - **AIDefence 三层检查** — 输入安全、输出安全、工具结果注入检测
 - **Zone A/B 分区** — 参考 Claude Code 的前沿实践
-- **EventBus + Event Sourcing** — 完整的事件溯源模式
+- **TelemetryBus + Event Sourcing** — 完整的事件溯源模式
 
 ### 需要放弃的设计
 

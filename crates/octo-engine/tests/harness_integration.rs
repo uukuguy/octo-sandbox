@@ -15,7 +15,7 @@ use octo_engine::providers::{CompletionStream, Provider};
 use octo_engine::tools::{Tool, ToolRegistry};
 use octo_types::{
     ChatMessage, CompletionRequest, CompletionResponse, ContentBlock, StopReason, StreamEvent,
-    ToolContext, ToolResult, ToolSource, TokenUsage,
+    ToolContext, ToolOutput, ToolSource, TokenUsage,
 };
 
 // ---------------------------------------------------------------------------
@@ -145,12 +145,12 @@ impl Tool for MockEchoTool {
         })
     }
 
-    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let msg = params
             .get("message")
             .and_then(|v| v.as_str())
             .unwrap_or("(no message)");
-        Ok(ToolResult::success(format!("Echo: {msg}")))
+        Ok(ToolOutput::success(format!("Echo: {msg}")))
     }
 
     fn source(&self) -> ToolSource {

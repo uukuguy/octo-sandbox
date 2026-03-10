@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use tokio::process::Command;
 use tracing::debug;
 
-use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolResult, ToolSource};
+use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolOutput, ToolSource};
 
 use super::traits::Tool;
 
@@ -223,14 +223,14 @@ impl Tool for BashTool {
         })
     }
 
-    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, ctx: &ToolContext) -> Result<ToolOutput> {
         let command = params["command"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'command' parameter"))?;
 
         // 1. 路径遍历检查
         if command.contains("../") || command.contains("..\\") {
-            return Ok(ToolResult::error(
+            return Ok(ToolOutput::error(
                 "Security violation: path traversal detected in command".to_string(),
             ));
         }
@@ -238,7 +238,7 @@ impl Tool for BashTool {
         // 2. ExecPolicy 模式检查
         if let Some(policy) = &self.exec_policy {
             if !policy.is_allowed(command) {
-                return Ok(ToolResult::error(format!(
+                return Ok(ToolOutput::error(format!(
                     "Security violation: command not allowed by exec policy (mode={:?})",
                     policy.mode
                 )));
@@ -266,9 +266,9 @@ impl Tool for BashTool {
                     };
 
                     if exit_code == 0 {
-                        return Ok(ToolResult::success(output_text));
+                        return Ok(ToolOutput::success(output_text));
                     } else {
-                        return Ok(ToolResult::error(format!(
+                        return Ok(ToolOutput::error(format!(
                             "Exit code: {exit_code}\n{output_text}"
                         )));
                     }
@@ -326,15 +326,15 @@ impl Tool for BashTool {
                 };
 
                 if exit_code == 0 {
-                    Ok(ToolResult::success(output_text))
+                    Ok(ToolOutput::success(output_text))
                 } else {
-                    Ok(ToolResult::error(format!(
+                    Ok(ToolOutput::error(format!(
                         "Exit code: {exit_code}\n{output_text}"
                     )))
                 }
             }
-            Ok(Err(e)) => Ok(ToolResult::error(format!("Failed to execute command: {e}"))),
-            Err(_) => Ok(ToolResult::error(format!(
+            Ok(Err(e)) => Ok(ToolOutput::error(format!("Failed to execute command: {e}"))),
+            Err(_) => Ok(ToolOutput::error(format!(
                 "Command timed out after {timeout_secs} seconds"
             ))),
         }

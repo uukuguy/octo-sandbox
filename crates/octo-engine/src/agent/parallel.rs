@@ -9,7 +9,7 @@ use futures_util::future::join_all;
 use tokio::sync::Semaphore;
 use tracing::{debug, warn};
 
-use octo_types::{ToolContext, ToolResult};
+use octo_types::{ToolContext, ToolOutput};
 
 use crate::agent::cancellation::CancellationToken;
 use crate::tools::ToolRegistry;
@@ -24,14 +24,14 @@ use crate::tools::ToolRegistry;
 /// * `tool_ctx` - Tool execution context (sandbox_id, working_dir, etc.)
 ///
 /// # Returns
-/// Vector of (tool_name, ToolResult) tuples in the same order as input
+/// Vector of (tool_name, ToolOutput) tuples in the same order as input
 pub async fn execute_parallel(
     tools: Vec<(String, serde_json::Value)>,
     registry: &Arc<ToolRegistry>,
     max_parallel: u8,
     cancellation: &CancellationToken,
     tool_ctx: &ToolContext,
-) -> Vec<(String, ToolResult)> {
+) -> Vec<(String, ToolOutput)> {
     if tools.is_empty() {
         return vec![];
     }
@@ -58,24 +58,26 @@ pub async fn execute_parallel(
                 // Check cancellation before execution
                 if cancel.is_cancelled() {
                     warn!(tool = %name, "Tool cancelled before execution");
-                    return (name, ToolResult::error("Cancelled by parent"));
+                    return (name, ToolOutput::error("Cancelled by parent"));
                 }
 
-                // Execute the tool
-                let result = if let Some(tool) = registry.get(&name) {
+                // Execute the tool with duration tracking
+                let exec_start = std::time::Instant::now();
+                let mut result = if let Some(tool) = registry.get(&name) {
                     match tool.execute(input, &ctx).await {
                         Ok(r) => r,
                         Err(e) => {
                             warn!(tool = %name, error = %e, "Tool execution failed");
-                            ToolResult::error(format!("Tool error: {e}"))
+                            ToolOutput::error(format!("Tool error: {e}"))
                         }
                     }
                 } else {
                     warn!(tool = %name, "Tool not found in registry");
-                    ToolResult::error(format!("Unknown tool: {}", name))
+                    ToolOutput::error(format!("Unknown tool: {}", name))
                 };
+                result.duration_ms = exec_start.elapsed().as_millis() as u64;
 
-                debug!(tool = %name, "Tool execution completed");
+                debug!(tool = %name, duration_ms = result.duration_ms, "Tool execution completed");
                 (name, result)
             }
         })
@@ -96,7 +98,7 @@ mod tests {
 
     use super::*;
     use crate::tools::Tool;
-    use octo_types::{SandboxId, ToolSource, ToolSpec};
+    use octo_types::{SandboxId, ToolOutput, ToolSource, ToolSpec};
 
     /// Simple test tool implementation
     #[derive(Debug)]
@@ -137,14 +139,14 @@ mod tests {
             &self,
             params: serde_json::Value,
             _ctx: &ToolContext,
-        ) -> Result<ToolResult> {
+        ) -> Result<ToolOutput> {
             // Add a small delay to simulate work
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
 
             if let Some(text) = params.get("text").and_then(|v| v.as_str()) {
-                Ok(ToolResult::success(format!("echo: {}", text)))
+                Ok(ToolOutput::success(format!("echo: {}", text)))
             } else {
-                Ok(ToolResult::success("executed"))
+                Ok(ToolOutput::success("executed"))
             }
         }
 
@@ -231,7 +233,7 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_error);
-        assert!(results[0].1.output.contains("Unknown tool"));
+        assert!(results[0].1.content.contains("Unknown tool"));
     }
 
     #[tokio::test]
@@ -248,7 +250,7 @@ mod tests {
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_error);
-        assert!(results[0].1.output.contains("Cancelled"));
+        assert!(results[0].1.content.contains("Cancelled"));
     }
 
     #[tokio::test]
@@ -282,11 +284,11 @@ mod tests {
         let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx).await;
 
         assert_eq!(results[0].0, "echo");
-        assert!(results[0].1.output.contains("first"));
+        assert!(results[0].1.content.contains("first"));
         assert_eq!(results[1].0, "echo");
-        assert!(results[1].1.output.contains("second"));
+        assert!(results[1].1.content.contains("second"));
         assert_eq!(results[2].0, "echo");
-        assert!(results[2].1.output.contains("third"));
+        assert!(results[2].1.content.contains("third"));
     }
 
     /// Delay tool for timing tests - accepts "ms" parameter for delay duration
@@ -323,10 +325,10 @@ mod tests {
             &self,
             params: serde_json::Value,
             _ctx: &ToolContext,
-        ) -> Result<ToolResult> {
+        ) -> Result<ToolOutput> {
             let ms = params.get("ms").and_then(|v| v.as_u64()).unwrap_or(10);
             tokio::time::sleep(std::time::Duration::from_millis(ms)).await;
-            Ok(ToolResult::success(format!("delayed {}ms", ms)))
+            Ok(ToolOutput::success(format!("delayed {}ms", ms)))
         }
 
         fn source(&self) -> ToolSource {

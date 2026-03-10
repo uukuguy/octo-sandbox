@@ -155,7 +155,7 @@ mod default_impl {
     use anyhow::Result;
     use async_trait::async_trait;
     use octo_engine::tools::traits::Tool;
-    use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolResult, ToolSource};
+    use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolOutput, ToolSource};
     use serde_json::{json, Value};
 
     struct DummyTool;
@@ -171,8 +171,8 @@ mod default_impl {
         fn parameters(&self) -> Value {
             json!({})
         }
-        async fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
-            Ok(ToolResult::success("ok"))
+        async fn execute(&self, _params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+            Ok(ToolOutput::success("ok"))
         }
         fn source(&self) -> ToolSource {
             ToolSource::BuiltIn

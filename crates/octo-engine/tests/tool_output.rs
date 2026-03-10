@@ -1,4 +1,4 @@
-use octo_types::{Artifact, ToolOutput, ToolResult};
+use octo_types::{Artifact, ToolOutput};
 use serde_json::json;
 
 #[test]
@@ -90,30 +90,6 @@ fn test_tool_output_builder_chain() {
     assert_eq!(output.duration_ms, 300);
     assert!(output.truncated);
     assert_eq!(output.original_size, Some(100_000));
-}
-
-#[test]
-fn test_tool_output_into_tool_result() {
-    let output = ToolOutput::success("converted")
-        .with_artifact(Artifact {
-            name: "x".to_string(),
-            content_type: "text/plain".to_string(),
-            data: "data".to_string(),
-        })
-        .with_metadata(json!({"k": "v"}))
-        .with_duration(50);
-
-    let result: ToolResult = output.into();
-    assert_eq!(result.output, "converted");
-    assert!(!result.is_error);
-}
-
-#[test]
-fn test_tool_output_error_into_tool_result() {
-    let output = ToolOutput::error("fail");
-    let result: ToolResult = output.into();
-    assert_eq!(result.output, "fail");
-    assert!(result.is_error);
 }
 
 #[test]

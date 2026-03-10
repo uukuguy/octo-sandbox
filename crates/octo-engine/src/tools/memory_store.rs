@@ -5,7 +5,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::debug;
 
-use octo_types::{MemoryCategory, MemoryEntry, MemorySource, ToolContext, ToolResult, ToolSource};
+use octo_types::{MemoryCategory, MemoryEntry, MemorySource, ToolContext, ToolOutput, ToolSource};
 
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
@@ -55,7 +55,7 @@ impl Tool for MemoryStoreTool {
         })
     }
 
-    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolResult> {
+    async fn execute(&self, params: Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         let content = params["content"]
             .as_str()
             .ok_or_else(|| anyhow::anyhow!("missing 'content' parameter"))?;
@@ -88,7 +88,7 @@ impl Tool for MemoryStoreTool {
 
         let id = self.store.store(entry).await?;
 
-        Ok(ToolResult::success(format!("Stored memory with id: {id}")))
+        Ok(ToolOutput::success(format!("Stored memory with id: {id}")))
     }
 
     fn source(&self) -> ToolSource {

@@ -1,13 +1,13 @@
 use anyhow::Result;
 use async_trait::async_trait;
-use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolResult, ToolSource, ToolSpec};
+use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolOutput, ToolSource, ToolSpec};
 
 #[async_trait]
 pub trait Tool: Send + Sync {
     fn name(&self) -> &str;
     fn description(&self) -> &str;
     fn parameters(&self) -> serde_json::Value;
-    async fn execute(&self, params: serde_json::Value, ctx: &ToolContext) -> Result<ToolResult>;
+    async fn execute(&self, params: serde_json::Value, ctx: &ToolContext) -> Result<ToolOutput>;
     fn source(&self) -> ToolSource;
 
     /// Returns the risk level of this tool. Defaults to LowRisk.

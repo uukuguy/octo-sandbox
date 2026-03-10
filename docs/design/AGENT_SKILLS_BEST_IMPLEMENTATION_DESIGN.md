@@ -192,7 +192,7 @@ context-fork: true                # 可选：独立上下文
 
 | 缺陷 | 严重性 | 说明 |
 |------|--------|------|
-| **SkillTool.execute() 仅返回 body 文本** | 🔴 关键 | `Ok(ToolResult::success(&self.skill.body))` — 只做 prompt injection，完全不执行脚本 |
+| **SkillTool.execute() 仅返回 body 文本** | 🔴 关键 | `Ok(ToolOutput::success(&self.skill.body))` — 只做 prompt injection，完全不执行脚本 |
 | **SkillRuntimeBridge 与 SkillTool 断联** | 🔴 关键 | SkillRuntimeBridge 能执行脚本但未被 SkillTool 调用 |
 | **allowed-tools 不在运行时强制执行** | 🔴 关键 | 仅验证格式合法性，不拦截实际 Tool 调用 |
 | **无 Trust Level 系统** | 🟡 重要 | 所有 Skill 等同对待，无信任分级 |
@@ -436,7 +436,7 @@ impl Tool for SkillTool {
         &self,
         params: serde_json::Value,
         ctx: &ToolContext,
-    ) -> Result<ToolResult> {
+    ) -> Result<ToolOutput> {
         let action = params.get("action")
             .and_then(|v| v.as_str())
             .unwrap_or("activate");
@@ -444,7 +444,7 @@ impl Tool for SkillTool {
         match action {
             // L2: 返回 Skill body 作为 prompt injection
             "activate" => {
-                Ok(ToolResult::success(&self.skill.body))
+                Ok(ToolOutput::success(&self.skill.body))
             }
 
             // L3: 执行 Skill 脚本
@@ -474,7 +474,7 @@ impl Tool for SkillTool {
                     )
                     .await?;
 
-                Ok(ToolResult::success(
+                Ok(ToolOutput::success(
                     &serde_json::to_string_pretty(&result)?
                 ))
             }
@@ -483,7 +483,7 @@ impl Tool for SkillTool {
             "list_scripts" => {
                 let scripts_dir = self.skill.base_dir.join("scripts");
                 if !scripts_dir.is_dir() {
-                    return Ok(ToolResult::success("No scripts available"));
+                    return Ok(ToolOutput::success("No scripts available"));
                 }
                 let mut scripts = Vec::new();
                 for entry in std::fs::read_dir(&scripts_dir)?.flatten() {
@@ -493,7 +493,7 @@ impl Tool for SkillTool {
                         }
                     }
                 }
-                Ok(ToolResult::success(
+                Ok(ToolOutput::success(
                     &format!("Available scripts:\n{}", scripts.join("\n"))
                 ))
             }

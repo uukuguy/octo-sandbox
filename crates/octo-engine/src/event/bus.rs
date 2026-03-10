@@ -8,7 +8,7 @@ use crate::metrics::MetricsRegistry;
 
 /// octo-engine 内部事件（参考 ARCHITECTURE_DESIGN.md §Phase 2.4）
 #[derive(Debug, Clone, serde::Serialize)]
-pub enum OctoEvent {
+pub enum TelemetryEvent {
     /// Agent Loop 开始新一轮
     LoopTurnStarted { session_id: String, turn: u32 },
     /// 工具调用开始
@@ -39,9 +39,9 @@ pub enum OctoEvent {
 ///
 /// 设计：broadcast::Sender（1000 容量）+ 环形缓冲区历史（最近 1000 条）
 /// 参考：OpenFang openfang-kernel/src/event/bus.rs
-pub struct EventBus {
-    sender: broadcast::Sender<OctoEvent>,
-    history: Arc<RwLock<VecDeque<OctoEvent>>>,
+pub struct TelemetryBus {
+    sender: broadcast::Sender<TelemetryEvent>,
+    history: Arc<RwLock<VecDeque<TelemetryEvent>>>,
     history_capacity: usize,
     metrics: Arc<MetricsRegistry>,
     /// Optional persistent event store. When set, every published event
@@ -49,7 +49,7 @@ pub struct EventBus {
     event_store: Option<Arc<EventStore>>,
 }
 
-impl EventBus {
+impl TelemetryBus {
     pub fn new(
         channel_capacity: usize,
         history_capacity: usize,
@@ -81,7 +81,7 @@ impl EventBus {
     }
 
     /// 发布事件（fire-and-forget，不阻塞发送方）
-    pub async fn publish(&self, event: OctoEvent) {
+    pub async fn publish(&self, event: TelemetryEvent) {
         // 记录指标
         self.record_metrics(&event);
 
@@ -116,9 +116,9 @@ impl EventBus {
     }
 
     /// 根据事件类型记录指标
-    fn record_metrics(&self, event: &OctoEvent) {
+    fn record_metrics(&self, event: &TelemetryEvent) {
         match event {
-            OctoEvent::ToolCallCompleted {
+            TelemetryEvent::ToolCallCompleted {
                 tool_name: _,
                 duration_ms,
                 ..
@@ -133,7 +133,7 @@ impl EventBus {
                     )
                     .observe(*duration_ms as f64);
             }
-            OctoEvent::LoopTurnStarted { turn, .. } => {
+            TelemetryEvent::LoopTurnStarted { turn, .. } => {
                 self.metrics.counter("octo.sessions.turns.total").inc();
                 self.metrics
                     .histogram(
@@ -142,20 +142,20 @@ impl EventBus {
                     )
                     .observe(*turn as f64);
             }
-            OctoEvent::ToolCallStarted { tool_name: _, .. } => {
+            TelemetryEvent::ToolCallStarted { tool_name: _, .. } => {
                 self.metrics.counter("octo.tools.calls.started.total").inc();
             }
-            OctoEvent::ContextDegraded { level: _, .. } => {
+            TelemetryEvent::ContextDegraded { level: _, .. } => {
                 self.metrics
                     .counter("octo.context.degradations.total")
                     .inc();
             }
-            OctoEvent::LoopGuardTriggered { reason: _, .. } => {
+            TelemetryEvent::LoopGuardTriggered { reason: _, .. } => {
                 self.metrics
                     .counter("octo.sessions.guards.triggered.total")
                     .inc();
             }
-            OctoEvent::TokenBudgetUpdated {
+            TelemetryEvent::TokenBudgetUpdated {
                 used, total, ratio, ..
             } => {
                 self.metrics
@@ -173,43 +173,43 @@ impl EventBus {
     }
 
     /// 订阅事件流（每个订阅者独立接收）
-    pub fn subscribe(&self) -> broadcast::Receiver<OctoEvent> {
+    pub fn subscribe(&self) -> broadcast::Receiver<TelemetryEvent> {
         self.sender.subscribe()
     }
 
     /// 获取最近 N 条历史事件
-    pub async fn recent_events(&self, n: usize) -> Vec<OctoEvent> {
+    pub async fn recent_events(&self, n: usize) -> Vec<TelemetryEvent> {
         let history = self.history.read().await;
         let collected: Vec<_> = history.iter().rev().take(n).cloned().collect();
         collected.into_iter().rev().collect()
     }
 }
 
-impl Default for EventBus {
+impl Default for TelemetryBus {
     fn default() -> Self {
         Self::new(1000, 1000, Arc::new(MetricsRegistry::new()))
     }
 }
 
-/// Extract event type name and session_id from an OctoEvent.
-fn event_metadata(event: &OctoEvent) -> (String, Option<String>) {
+/// Extract event type name and session_id from an TelemetryEvent.
+fn event_metadata(event: &TelemetryEvent) -> (String, Option<String>) {
     match event {
-        OctoEvent::LoopTurnStarted { session_id, .. } => {
+        TelemetryEvent::LoopTurnStarted { session_id, .. } => {
             ("LoopTurnStarted".to_string(), Some(session_id.clone()))
         }
-        OctoEvent::ToolCallStarted { session_id, .. } => {
+        TelemetryEvent::ToolCallStarted { session_id, .. } => {
             ("ToolCallStarted".to_string(), Some(session_id.clone()))
         }
-        OctoEvent::ToolCallCompleted { session_id, .. } => {
+        TelemetryEvent::ToolCallCompleted { session_id, .. } => {
             ("ToolCallCompleted".to_string(), Some(session_id.clone()))
         }
-        OctoEvent::ContextDegraded { session_id, .. } => {
+        TelemetryEvent::ContextDegraded { session_id, .. } => {
             ("ContextDegraded".to_string(), Some(session_id.clone()))
         }
-        OctoEvent::LoopGuardTriggered { session_id, .. } => {
+        TelemetryEvent::LoopGuardTriggered { session_id, .. } => {
             ("LoopGuardTriggered".to_string(), Some(session_id.clone()))
         }
-        OctoEvent::TokenBudgetUpdated { session_id, .. } => {
+        TelemetryEvent::TokenBudgetUpdated { session_id, .. } => {
             ("TokenBudgetUpdated".to_string(), Some(session_id.clone()))
         }
     }
