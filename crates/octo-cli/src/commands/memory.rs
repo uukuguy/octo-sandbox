@@ -9,6 +9,7 @@ pub async fn handle_memory(action: MemoryCommands, state: &AppState) -> Result<(
         MemoryCommands::Search { query, limit } => search_memory(query, limit, state).await?,
         MemoryCommands::List { limit } => list_memories(limit, state).await?,
         MemoryCommands::Add { content, tags } => add_memory(content, tags, state).await?,
+        MemoryCommands::Graph { query, limit } => show_graph(query, limit, state).await?,
     }
     Ok(())
 }
@@ -44,5 +45,15 @@ async fn add_memory(content: String, tags: Option<String>, _state: &AppState) ->
 
     // TODO: Implement actual memory addition using MemoryStore
     println!("(Memory addition requires full memory system initialization)");
+    Ok(())
+}
+
+/// Show knowledge graph entities
+async fn show_graph(query: Option<String>, limit: usize, _state: &AppState) -> Result<()> {
+    match &query {
+        Some(q) => println!("Knowledge graph search: {} (limit: {})", q, limit),
+        None => println!("Knowledge graph entities (limit: {})", limit),
+    }
+    println!("Knowledge graph — coming in Phase 2");
     Ok(())
 }

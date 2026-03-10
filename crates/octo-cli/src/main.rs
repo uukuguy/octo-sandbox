@@ -8,16 +8,19 @@ use tracing::info;
 use tracing_subscriber::{fmt, EnvFilter};
 
 mod commands;
+mod output;
+mod ui;
 
 use commands::{
-    handle_agent, handle_config, handle_memory, handle_session, handle_tools, AgentCommands,
-    AppState, ConfigCommands, MemoryCommands, SessionCommands, ToolsCommands,
+    execute_ask, handle_agent, handle_config, handle_memory, handle_session, handle_tools,
+    AgentCommands, AppState, CompletionsCommands, ConfigCommands, McpCommands, MemoryCommands,
+    SessionCommands, ToolsCommands,
 };
 
 #[derive(Parser)]
 #[command(name = "octo")]
-#[command(version = "0.1.0")]
-#[command(about = "Octo CLI - Local CLI for interacting with Octo agents", long_about = None)]
+#[command(version = env!("CARGO_PKG_VERSION"))]
+#[command(about = "Octo — AI Agent Workbench CLI", long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -33,10 +36,51 @@ struct Cli {
     /// Database path (overrides config)
     #[arg(short, long, global = true)]
     db: Option<String>,
+
+    /// Output format (text, json, table)
+    #[arg(long, global = true, default_value = "text")]
+    output: String,
+
+    /// Disable color output
+    #[arg(long, global = true)]
+    no_color: bool,
+
+    /// Suppress non-essential output
+    #[arg(short, long, global = true)]
+    quiet: bool,
 }
 
 #[derive(Parser)]
 enum Commands {
+    /// Start interactive REPL session
+    Run {
+        /// Resume last session
+        #[arg(short = 'c', long = "continue")]
+        resume: bool,
+        /// Resume specific session
+        #[arg(short, long)]
+        session: Option<String>,
+        /// Use specific agent
+        #[arg(short, long)]
+        agent: Option<String>,
+        /// Color theme
+        #[arg(long, default_value = "cyan")]
+        theme: String,
+    },
+
+    /// Send a single query (headless mode)
+    Ask {
+        /// The message to send
+        #[arg(value_name = "MESSAGE")]
+        message: String,
+        /// Use specific session
+        #[arg(short, long)]
+        session: Option<String>,
+        /// Use specific agent
+        #[arg(short, long)]
+        agent: Option<String>,
+    },
+
     /// Manage agents
     Agent {
         #[command(subcommand)]
@@ -56,15 +100,35 @@ enum Commands {
     },
 
     /// Manage tools
-    Tools {
+    #[command(name = "tool")]
+    Tool {
         #[command(subcommand)]
         action: ToolsCommands,
+    },
+
+    /// Manage MCP servers
+    Mcp {
+        #[command(subcommand)]
+        action: McpCommands,
     },
 
     /// Configuration management
     Config {
         #[command(subcommand)]
         action: ConfigCommands,
+    },
+
+    /// Run health diagnostics
+    Doctor {
+        /// Attempt to fix issues automatically
+        #[arg(long)]
+        repair: bool,
+    },
+
+    /// Generate shell completions
+    Completions {
+        #[command(subcommand)]
+        action: CompletionsCommands,
     },
 }
 
@@ -100,15 +164,59 @@ async fn main() -> Result<()> {
         std::env::var("OCTO_DB_PATH").unwrap_or_else(|_| "octo.db".to_string())
     });
 
+    // Build output config from CLI flags
+    let output_config = output::OutputConfig {
+        format: match cli.output.as_str() {
+            "json" => output::OutputFormat::Json,
+            "stream-json" => output::OutputFormat::StreamJson,
+            _ => output::OutputFormat::Text,
+        },
+        color: !cli.no_color && std::io::IsTerminal::is_terminal(&std::io::stdout()),
+        quiet: cli.quiet,
+    };
+
     // Initialize app state
-    let state = AppState::new(db_path.into()).await?;
+    let state = AppState::new(db_path.into(), output_config).await?;
 
     match cli.command {
+        Commands::Run { .. } => {
+            println!("Interactive REPL mode — coming in Phase 2 (R9-R14)");
+        }
+        Commands::Ask {
+            message,
+            session,
+            agent,
+        } => {
+            execute_ask(
+                commands::ask::AskOptions {
+                    message,
+                    session_id: session,
+                    agent_id: agent,
+                },
+                &state,
+            )
+            .await?;
+        }
         Commands::Agent { action } => handle_agent(action, &state).await?,
         Commands::Session { action } => handle_session(action, &state).await?,
         Commands::Memory { action } => handle_memory(action, &state).await?,
-        Commands::Tools { action } => handle_tools(action, &state).await?,
+        Commands::Tool { action } => handle_tools(action, &state).await?,
+        Commands::Mcp { action } => {
+            println!("MCP commands — coming in Phase 3 (R17)");
+            let _ = action;
+        }
         Commands::Config { action } => handle_config(action, &state).await?,
+        Commands::Doctor { repair } => {
+            println!(
+                "Running diagnostics{}...",
+                if repair { " with auto-repair" } else { "" }
+            );
+            println!("Doctor command — coming in Phase 3 (R19)");
+        }
+        Commands::Completions { action } => {
+            let _ = action;
+            println!("Shell completions — coming in Phase 3 (R20)");
+        }
     }
 
     Ok(())

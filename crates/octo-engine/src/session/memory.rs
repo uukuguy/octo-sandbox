@@ -119,4 +119,25 @@ impl SessionStore for InMemorySessionStore {
         summaries.sort_by(|a, b| b.session_id.cmp(&a.session_id));
         summaries.into_iter().skip(offset).take(limit).collect()
     }
+
+    async fn delete_session(&self, session_id: &SessionId) -> bool {
+        let sid = session_id.as_str().to_string();
+        self.messages.remove(&sid);
+        self.sessions.remove(&sid).is_some()
+    }
+
+    async fn most_recent_session(&self) -> Option<SessionData> {
+        self.sessions
+            .iter()
+            .max_by_key(|entry| entry.value().created_at)
+            .map(|entry| entry.value().clone())
+    }
+
+    async fn most_recent_session_for_user(&self, user_id: &UserId) -> Option<SessionData> {
+        self.sessions
+            .iter()
+            .filter(|entry| entry.value().user_id.as_str() == user_id.as_str())
+            .max_by_key(|entry| entry.value().created_at)
+            .map(|entry| entry.value().clone())
+    }
 }

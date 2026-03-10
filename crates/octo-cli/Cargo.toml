@@ -49,5 +49,11 @@ chrono = { workspace = true }
 # Interactive input
 dialoguer = "0.11"
 
+# Terminal rendering
+termimad = "0.31"
+indicatif = "0.17"
+owo-colors = "4"
+crossterm = "0.28"
+
 # Database
 rusqlite = { workspace = true }

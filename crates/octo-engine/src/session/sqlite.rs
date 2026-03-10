@@ -290,4 +290,84 @@ impl SessionStore for SqliteSessionStore {
 
         result.unwrap_or_default()
     }
+
+    async fn delete_session(&self, session_id: &SessionId) -> bool {
+        let sid = session_id.as_str().to_string();
+        // Remove from caches
+        self.sessions.remove(&sid);
+        self.messages.remove(&sid);
+        // Delete from DB
+        let result = self
+            .conn
+            .call(move |conn| {
+                conn.execute(
+                    "DELETE FROM session_messages WHERE session_id = ?1",
+                    rusqlite::params![sid],
+                )?;
+                let changes = conn.execute(
+                    "DELETE FROM sessions WHERE session_id = ?1",
+                    rusqlite::params![sid],
+                )?;
+                Ok(changes > 0)
+            })
+            .await;
+        result.unwrap_or(false)
+    }
+
+    async fn most_recent_session(&self) -> Option<SessionData> {
+        let result = self
+            .conn
+            .call(|conn| {
+                let data = conn
+                    .query_row(
+                        "SELECT session_id, user_id, sandbox_id, COALESCE(created_at, 0) FROM sessions ORDER BY created_at DESC LIMIT 1",
+                        [],
+                        |row| {
+                            let session_id: String = row.get(0)?;
+                            let user_id: String = row.get(1)?;
+                            let sandbox_id: String = row.get(2)?;
+                            let created_at: i64 = row.get(3)?;
+                            Ok(SessionData {
+                                session_id: SessionId::from_string(&session_id),
+                                user_id: UserId::from_string(&user_id),
+                                sandbox_id: SandboxId::from_string(&sandbox_id),
+                                created_at,
+                            })
+                        },
+                    )
+                    .ok();
+                Ok(data)
+            })
+            .await;
+        result.ok().flatten()
+    }
+
+    async fn most_recent_session_for_user(&self, user_id: &UserId) -> Option<SessionData> {
+        let uid = user_id.as_str().to_string();
+        let result = self
+            .conn
+            .call(move |conn| {
+                let data = conn
+                    .query_row(
+                        "SELECT session_id, user_id, sandbox_id, COALESCE(created_at, 0) FROM sessions WHERE user_id = ?1 ORDER BY created_at DESC LIMIT 1",
+                        rusqlite::params![uid],
+                        |row| {
+                            let session_id: String = row.get(0)?;
+                            let user_id: String = row.get(1)?;
+                            let sandbox_id: String = row.get(2)?;
+                            let created_at: i64 = row.get(3)?;
+                            Ok(SessionData {
+                                session_id: SessionId::from_string(&session_id),
+                                user_id: UserId::from_string(&user_id),
+                                sandbox_id: SandboxId::from_string(&sandbox_id),
+                                created_at,
+                            })
+                        },
+                    )
+                    .ok();
+                Ok(data)
+            })
+            .await;
+        result.ok().flatten()
+    }
 }

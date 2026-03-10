@@ -8,6 +8,26 @@ pub async fn handle_config(action: ConfigCommands, _state: &AppState) -> Result<
     match action {
         ConfigCommands::Show => show_config().await?,
         ConfigCommands::Validate => validate_config().await?,
+        ConfigCommands::Init => {
+            println!("Interactive configuration initialization — coming in Phase 3 (R18)");
+        }
+        ConfigCommands::Get { key } => {
+            println!("Getting config value for key: {}", key);
+            println!("Config get — coming in Phase 3 (R18)");
+        }
+        ConfigCommands::Set { key, value } => {
+            println!("Setting config key '{}' to '{}'", key, value);
+            println!("Config set — coming in Phase 3 (R18)");
+        }
+        ConfigCommands::Paths => {
+            println!("Configuration file paths:");
+            println!("  Default config: config.yaml");
+            println!(
+                "  Database: {}",
+                std::env::var("OCTO_DB_PATH").unwrap_or_else(|_| "octo.db".to_string())
+            );
+            println!("  Environment: .env");
+        }
     }
     Ok(())
 }

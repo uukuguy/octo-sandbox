@@ -8,6 +8,8 @@ use octo_engine::{AgentCatalog, AgentRuntime, AgentRuntimeConfig, AgentStore, Te
 use octo_types::{TenantId, UserId};
 use rusqlite::Connection;
 
+use crate::output::OutputConfig;
+
 /// Application state shared across commands
 pub struct AppState {
     /// Database path
@@ -17,11 +19,17 @@ pub struct AppState {
     pub agent_catalog: Arc<AgentCatalog>,
     /// Agent runtime
     pub agent_runtime: Arc<AgentRuntime>,
+    /// Output configuration
+    pub output_config: OutputConfig,
+    /// Working directory
+    pub working_dir: PathBuf,
 }
 
 impl AppState {
     /// Create new app state
-    pub async fn new(db_path: PathBuf) -> Result<Self> {
+    pub async fn new(db_path: PathBuf, output_config: OutputConfig) -> Result<Self> {
+        let working_dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+
         // Initialize AgentStore
         let agent_conn = {
             let raw = Connection::open(&db_path)?;
@@ -38,7 +46,7 @@ impl AppState {
             octo_engine::providers::ProviderConfig::default(),
             vec![], // skills dirs
             None,   // provider chain
-            None,   // working dir
+            Some(working_dir.clone()),
             false,  // enable event bus
         );
 
@@ -57,6 +65,8 @@ impl AppState {
             db_path,
             agent_catalog,
             agent_runtime,
+            output_config,
+            working_dir,
         })
     }
 }

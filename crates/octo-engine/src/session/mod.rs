@@ -40,6 +40,15 @@ pub trait SessionStore: Send + Sync {
         limit: usize,
         offset: usize,
     ) -> Vec<SessionSummary>;
+
+    /// Delete a session and all its messages
+    async fn delete_session(&self, session_id: &SessionId) -> bool;
+
+    /// Get the most recent session (for --continue functionality)
+    async fn most_recent_session(&self) -> Option<SessionData>;
+
+    /// Get the most recent session for a specific user
+    async fn most_recent_session_for_user(&self, user_id: &UserId) -> Option<SessionData>;
 }
 
 pub use memory::InMemorySessionStore;
