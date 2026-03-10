@@ -1,46 +1,42 @@
 {
-  "plan_file": "docs/plans/2026-03-10-deferred-d2-d4-d5.md",
-  "phase": "deferred-d2-d4-d5",
-  "created_at": "2026-03-10T13:30:00+08:00",
-  "updated_at": "2026-03-10T14:30:00+08:00",
-  "completed_tasks": [
-    "D5-1", "D5-2", "D5-3", "D5-4", "D5-5", "D5-6",
-    "D4-1", "D4-2", "D4-3", "D4-4", "D4-5", "D4-6",
-    "D2-1", "D2-2", "D2-3", "D2-4", "D2-5", "D2-6", "D2-7", "D2-8"
-  ],
+  "plan_file": "docs/plans/2026-03-10-deferred-d3-d6-d7.md",
+  "phase": "deferred-d3-d6-d7",
+  "created_at": "2026-03-10T15:30:00+08:00",
+  "updated_at": "2026-03-10T15:30:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 20,
+  "total_tasks": 24,
   "task_groups": {
-    "Phase6": {
-      "name": "双 Agent 模式 (D5)",
-      "tasks": ["D5-1", "D5-2", "D5-3", "D5-4", "D5-5", "D5-6"],
-      "status": "COMPLETE",
-      "description": "AgentProfile + DualAgentManager + /switch 命令 + 上下文传递 + TUI 双面板"
+    "Phase9": {
+      "name": "Dashboard 远程访问 (D7)",
+      "tasks": ["D7-1", "D7-2", "D7-3", "D7-4", "D7-5", "D7-6", "D7-7", "D7-8"],
+      "status": "PENDING",
+      "description": "TLS/HTTPS + API Key 认证 + RBAC + CORS + 安全头部"
     },
-    "Phase7": {
-      "name": "Auto-memory 跨 Session (D4)",
-      "tasks": ["D4-1", "D4-2", "D4-3", "D4-4", "D4-5", "D4-6"],
-      "status": "COMPLETE",
-      "description": "MemoryExtractor + RuleBasedExtractor + SessionEndHook + 记忆注入 + /memory auto"
+    "Phase10": {
+      "name": "Agent 协作模式 (D6)",
+      "tasks": ["D6-1", "D6-2", "D6-3", "D6-4", "D6-5", "D6-6", "D6-7", "D6-8", "D6-9", "D6-10"],
+      "status": "PENDING",
+      "description": "CollaborationManager + N-Agent 消息传递 + 共享上下文 + REPL 命令"
     },
-    "Phase8": {
-      "name": "嵌入式 Web Dashboard (D2)",
-      "tasks": ["D2-1", "D2-2", "D2-3", "D2-4", "D2-5", "D2-6", "D2-7", "D2-8"],
-      "status": "COMPLETE",
-      "description": "Dashboard 命令 + Alpine.js SPA + Chat/Session/Memory/MCP 面板 + 12 主题"
+    "Phase11": {
+      "name": "Tauri Desktop 桌面应用 (D3)",
+      "tasks": ["D3-1", "D3-2", "D3-3", "D3-4", "D3-5", "D3-6"],
+      "status": "PENDING",
+      "description": "Tauri 2.0 WebView + 嵌入式服务器 + 系统托盘 + 安装包"
     }
   },
-  "execution_order": ["Phase6", "Phase7", "Phase8"],
-  "execution_mode": "subagent-driven-development",
-  "phase_name": "deferred-d2-d4-d5",
-  "tests_baseline": 1071,
+  "execution_order": ["Phase9", "Phase10", "Phase11"],
+  "execution_mode": null,
+  "phase_name": "deferred-d3-d6-d7",
+  "tests_baseline": 1232,
   "tests_current": 1232,
   "previous_plan": {
-    "file": "docs/plans/2026-03-10-octo-cli-redesign.md",
+    "file": "docs/plans/2026-03-10-deferred-d2-d4-d5.md",
     "status": "COMPLETE",
-    "tasks_completed": 34,
-    "final_commit": "3f3b4f5"
+    "tasks_completed": 20,
+    "final_commit": "aa38a51"
   },
-  "plan_status": "COMPLETE",
-  "final_commit": "f519522"
+  "plan_status": "DESIGN",
+  "final_commit": null
 }
