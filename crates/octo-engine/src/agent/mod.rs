@@ -1,6 +1,7 @@
 pub mod cancellation;
 pub mod capability;
 pub mod catalog;
+pub mod collaboration;
 pub mod config;
 pub mod context;
 pub mod continuation;
@@ -32,6 +33,13 @@ pub mod yaml_def;
 pub use cancellation::{CancellationToken, ChildCancellationToken};
 pub use capability::AgentCapability;
 pub use catalog::AgentCatalog;
+pub use collaboration::{
+    build_collaboration_injection, create_channel_pair, CollaborationAgent,
+    CollaborationChannel, CollaborationContext, CollaborationEvent, CollaborationHandle,
+    CollaborationManager, CollaborationMessage, CollaborationProtocol, CollaborationSnapshot,
+    CollaborationStatus, CollaborationStore, InMemoryCollaborationStore, Proposal, ProposalStatus,
+    Vote,
+};
 pub use config::AgentConfig;
 pub use continuation::{ContinuationConfig, ContinuationTracker};
 pub use dual::{AgentSlot, DualAgentManager, DualAgentProfile, PlanStep, ToolFilterMode};

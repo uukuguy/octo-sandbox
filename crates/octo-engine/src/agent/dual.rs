@@ -246,6 +246,20 @@ impl DualAgentManager {
     pub fn session_id(&self) -> &SessionId {
         &self.session_id
     }
+
+    /// Convert this DualAgentManager into a CollaborationManager.
+    /// The Plan agent gets id "plan", the Build agent gets id "build".
+    pub fn into_collaboration_manager(self) -> super::collaboration::manager::CollaborationManager {
+        super::collaboration::manager::CollaborationManager::dual_mode(
+            "plan".to_string(),
+            "Plan Agent".to_string(),
+            self.plan_handle,
+            "build".to_string(),
+            "Build Agent".to_string(),
+            self.build_handle,
+            self.session_id,
+        )
+    }
 }
 
 // ===========================================================================
@@ -599,5 +613,16 @@ mod tests {
         let steps = DualAgentManager::parse_plan_steps(text);
         assert_eq!(steps.len(), 1);
         assert_eq!(steps[0].description, "Real step");
+    }
+
+    // -- into_collaboration_manager ------------------------------------------
+
+    #[test]
+    fn manager_into_collaboration_manager() {
+        let (plan, build) = make_test_handles();
+        let mgr = DualAgentManager::new(plan, build, SessionId::from_string("shared"));
+        let collab = mgr.into_collaboration_manager();
+        assert_eq!(collab.agent_count(), 2);
+        assert_eq!(collab.session_id().as_str(), "shared");
     }
 }

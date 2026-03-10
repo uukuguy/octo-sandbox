@@ -104,6 +104,10 @@ pub struct AgentLoopConfig {
     pub approval_manager: Option<Arc<ApprovalManager>>,
     /// Shared approval gate for pending human approval requests.
     pub approval_gate: Option<ApprovalGate>,
+
+    // === Collaboration (D6) ===
+    /// Optional collaboration context for multi-agent mode.
+    pub collaboration_context: Option<Arc<super::collaboration::context::CollaborationContext>>,
 }
 
 impl Default for AgentLoopConfig {
@@ -141,6 +145,7 @@ impl Default for AgentLoopConfig {
             subagent_manager: None,
             approval_manager: None,
             approval_gate: None,
+            collaboration_context: None,
         }
     }
 }
@@ -332,6 +337,14 @@ impl AgentLoopConfigBuilder {
 
     pub fn approval_gate(mut self, v: ApprovalGate) -> Self {
         self.config.approval_gate = Some(v);
+        self
+    }
+
+    pub fn collaboration_context(
+        mut self,
+        v: Arc<super::collaboration::context::CollaborationContext>,
+    ) -> Self {
+        self.config.collaboration_context = Some(v);
         self
     }
 

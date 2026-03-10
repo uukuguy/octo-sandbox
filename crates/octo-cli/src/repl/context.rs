@@ -65,6 +65,8 @@ pub struct ReplContext {
     pub auto_memory_enabled: bool,
     /// Number of auto-extracted memories in this session
     pub auto_memory_count: usize,
+    /// Collaboration mode info (None = not in collab mode)
+    pub collaboration_agents: Option<Vec<String>>,
 }
 
 impl Default for ReplContext {
@@ -79,6 +81,7 @@ impl Default for ReplContext {
             active_agent: None,
             auto_memory_enabled: true,
             auto_memory_count: 0,
+            collaboration_agents: None,
         }
     }
 }
@@ -146,6 +149,7 @@ mod tests {
         assert_eq!(ctx.active_agent, None);
         assert!(ctx.auto_memory_enabled);
         assert_eq!(ctx.auto_memory_count, 0);
+        assert!(ctx.collaboration_agents.is_none());
     }
 
     #[test]

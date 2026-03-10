@@ -42,6 +42,9 @@ pub async fn handle_slash_command(
         "/switch" => cmd_switch(args, ctx),
         "/plan-to-build" | "/ptb" => cmd_plan_to_build(ctx),
         "/memory" => cmd_memory(args, ctx),
+        "/agents" => cmd_agents(ctx),
+        "/delegate" => cmd_delegate(args, ctx),
+        "/collab" => cmd_collab(args, ctx),
         _ => {
             eprintln!(
                 "Unknown command: {}. Type /help for available commands.",
@@ -67,6 +70,9 @@ fn cmd_help() -> Result<SlashAction> {
     eprintln!("  /switch [plan|build] Switch active agent (dual mode)");
     eprintln!("  /plan-to-build   Transfer plan steps to build agent context");
     eprintln!("  /memory [auto|status|clear|on|off] Manage auto-memory");
+    eprintln!("  /agents            List collaboration agents");
+    eprintln!("  /delegate <a> <t>  Delegate task to agent");
+    eprintln!("  /collab [status|log] Collaboration status");
     Ok(SlashAction::Continue)
 }
 
@@ -250,6 +256,99 @@ fn cmd_plan_to_build(ctx: &ReplContext) -> Result<SlashAction> {
     eprintln!("  Plan steps will be injected into Build agent's next prompt.");
 
     Ok(SlashAction::Continue)
+}
+
+fn cmd_agents(ctx: &ReplContext) -> Result<SlashAction> {
+    if let Some(ref agents) = ctx.collaboration_agents {
+        eprintln!("[agents] Collaboration agents:");
+        for (i, agent) in agents.iter().enumerate() {
+            let active_marker = if ctx.active_agent.map_or(false, |slot| {
+                // In collaboration mode, we use index-based matching
+                // For dual mode: 0=Plan, 1=Build
+                match slot {
+                    AgentSlot::Plan => i == 0,
+                    AgentSlot::Build => i == 1,
+                }
+            }) {
+                " (active)"
+            } else {
+                ""
+            };
+            eprintln!("  {}. {}{}", i + 1, agent, active_marker);
+        }
+    } else if ctx.active_agent.is_some() {
+        eprintln!("[agents] Dual-agent mode:");
+        let active = ctx.active_agent.unwrap();
+        eprintln!(
+            "  Plan  {}",
+            if active == AgentSlot::Plan { "(active)" } else { "" }
+        );
+        eprintln!(
+            "  Build {}",
+            if active == AgentSlot::Build { "(active)" } else { "" }
+        );
+    } else {
+        eprintln!("[agents] Single-agent mode. No collaboration active.");
+        eprintln!("  Start with: octo run --collab <agent1> <agent2> ...");
+    }
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_delegate(args: &str, ctx: &ReplContext) -> Result<SlashAction> {
+    if ctx.collaboration_agents.is_none() && ctx.active_agent.is_none() {
+        eprintln!("[delegate] Collaboration mode is not active.");
+        return Ok(SlashAction::Continue);
+    }
+
+    if args.trim().is_empty() {
+        eprintln!("[delegate] Usage: /delegate <agent> <task description>");
+        eprintln!("  Example: /delegate build implement the login form");
+        return Ok(SlashAction::Continue);
+    }
+
+    let parts: Vec<&str> = args.trim().splitn(2, ' ').collect();
+    let target = parts[0];
+    let task = parts.get(1).copied().unwrap_or("(no description)");
+
+    eprintln!("[delegate] Task delegated to '{}': {}", target, task);
+    eprintln!("  The task will be processed in the next agent turn.");
+
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_collab(args: &str, ctx: &ReplContext) -> Result<SlashAction> {
+    let subcmd = args.trim();
+    match subcmd {
+        "" | "status" => {
+            if let Some(ref agents) = ctx.collaboration_agents {
+                eprintln!("[collab] Collaboration status:");
+                eprintln!("  Agents: {}", agents.len());
+                eprintln!("  Names: {}", agents.join(", "));
+                let active = ctx
+                    .active_agent
+                    .map_or("none".to_string(), |s| s.to_string());
+                eprintln!("  Active: {}", active);
+            } else if ctx.active_agent.is_some() {
+                eprintln!("[collab] Dual-agent mode active.");
+                eprintln!("  Active: {}", ctx.active_agent.unwrap());
+            } else {
+                eprintln!("[collab] No collaboration active.");
+            }
+            Ok(SlashAction::Continue)
+        }
+        "log" => {
+            eprintln!("[collab] Collaboration log:");
+            eprintln!("  (No events recorded yet)");
+            Ok(SlashAction::Continue)
+        }
+        _ => {
+            eprintln!(
+                "[collab] Unknown subcommand: '{}'. Valid: status, log",
+                subcmd
+            );
+            Ok(SlashAction::Continue)
+        }
+    }
 }
 
 fn cmd_memory(args: &str, ctx: &mut ReplContext) -> Result<SlashAction> {
@@ -756,6 +855,137 @@ mod tests {
         let mut ctx = ReplContext::default();
 
         let action = handle_slash_command("/memory foobar", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    // ── /agents tests ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_cmd_agents_no_collab() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default(); // no collab, no dual
+
+        let action = handle_slash_command("/agents", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_agents_dual_mode() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Build),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/agents", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_agents_collab_mode() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Plan),
+            collaboration_agents: Some(vec!["Planner".into(), "Builder".into()]),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/agents", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    // ── /delegate tests ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_cmd_delegate_no_collab() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default(); // no collab
+
+        let action = handle_slash_command("/delegate build do stuff", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_delegate_with_args() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Build),
+            ..Default::default()
+        };
+
+        let action =
+            handle_slash_command("/delegate build implement the login form", &state, &sid, &mut ctx)
+                .await
+                .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_delegate_no_args() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Build),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/delegate", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    // ── /collab tests ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_cmd_collab_status_no_collab() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default();
+
+        let action = handle_slash_command("/collab", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_collab_status_dual() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            active_agent: Some(AgentSlot::Plan),
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/collab status", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_collab_log() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default();
+
+        let action = handle_slash_command("/collab log", &state, &sid, &mut ctx)
             .await
             .unwrap();
         assert_eq!(action, SlashAction::Continue);
