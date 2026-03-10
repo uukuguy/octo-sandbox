@@ -13,16 +13,17 @@ mod repl;
 mod ui;
 
 use commands::{
-    execute_ask, execute_run, handle_agent, handle_config, handle_memory, handle_session,
-    handle_tools, AgentCommands, AppState, CompletionsCommands, ConfigCommands, McpCommands,
-    MemoryCommands, SessionCommands, ToolsCommands,
+    execute_ask, execute_run, generate_completions, handle_agent, handle_config, handle_mcp,
+    handle_memory, handle_session, handle_tools, run_doctor, AgentCommands, AppState,
+    CompletionsCommands, ConfigCommands, McpCommands, MemoryCommands, SessionCommands,
+    ToolsCommands,
 };
 
 #[derive(Parser)]
 #[command(name = "octo")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "Octo — AI Agent Workbench CLI", long_about = None)]
-struct Cli {
+pub(crate) struct Cli {
     #[command(subcommand)]
     command: Commands,
 
@@ -216,22 +217,12 @@ async fn main() -> Result<()> {
         Commands::Session { action } => handle_session(action, &state).await?,
         Commands::Memory { action } => handle_memory(action, &state).await?,
         Commands::Tool { action } => handle_tools(action, &state).await?,
-        Commands::Mcp { action } => {
-            println!("MCP commands — coming in Phase 3 (R17)");
-            let _ = action;
-        }
+        Commands::Mcp { action } => handle_mcp(action, &state).await?,
         Commands::Config { action } => handle_config(action, &state).await?,
-        Commands::Doctor { repair } => {
-            println!(
-                "Running diagnostics{}...",
-                if repair { " with auto-repair" } else { "" }
-            );
-            println!("Doctor command — coming in Phase 3 (R19)");
-        }
-        Commands::Completions { action } => {
-            let _ = action;
-            println!("Shell completions — coming in Phase 3 (R20)");
-        }
+        Commands::Doctor { repair } => run_doctor(repair, &state).await?,
+        Commands::Completions { action } => match action {
+            CompletionsCommands::Generate { shell } => generate_completions(shell)?,
+        },
     }
 
     Ok(())

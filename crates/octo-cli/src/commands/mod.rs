@@ -2,7 +2,10 @@
 
 pub mod agent;
 pub mod ask;
+pub mod completions;
 pub mod config;
+pub mod doctor;
+pub mod mcp;
 pub mod memory;
 pub mod run;
 pub mod session;
@@ -19,7 +22,10 @@ pub use types::{
 // Re-export handler functions
 pub use agent::handle_agent;
 pub use ask::execute_ask;
+pub use completions::generate_completions;
 pub use config::handle_config;
+pub use doctor::run_doctor;
+pub use mcp::handle_mcp;
 pub use memory::handle_memory;
 pub use run::execute_run;
 pub use session::handle_session;
