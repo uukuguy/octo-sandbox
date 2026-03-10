@@ -23,6 +23,7 @@ const SLASH_COMMANDS: &[(&str, &str)] = &[
     ("/save", "Save session"),
     ("/theme", "Switch color theme"),
     ("/exit", "Exit REPL"),
+    ("/memory", "Manage auto-memory"),
 ];
 
 /// REPL helper that provides tab completion, inline hints, and prompt highlighting

@@ -61,6 +61,10 @@ pub struct ReplContext {
     pub message_count: usize,
     /// Active agent slot when in dual-agent mode (None = single agent mode)
     pub active_agent: Option<AgentSlot>,
+    /// Whether auto-memory extraction is enabled
+    pub auto_memory_enabled: bool,
+    /// Number of auto-extracted memories in this session
+    pub auto_memory_count: usize,
 }
 
 impl Default for ReplContext {
@@ -73,6 +77,8 @@ impl Default for ReplContext {
             tool_calls: 0,
             message_count: 0,
             active_agent: None,
+            auto_memory_enabled: true,
+            auto_memory_count: 0,
         }
     }
 }
@@ -138,6 +144,8 @@ mod tests {
         assert_eq!(ctx.tool_calls, 0);
         assert_eq!(ctx.message_count, 0);
         assert_eq!(ctx.active_agent, None);
+        assert!(ctx.auto_memory_enabled);
+        assert_eq!(ctx.auto_memory_count, 0);
     }
 
     #[test]

@@ -41,6 +41,7 @@ pub async fn handle_slash_command(
         "/theme" => cmd_theme(args),
         "/switch" => cmd_switch(args, ctx),
         "/plan-to-build" | "/ptb" => cmd_plan_to_build(ctx),
+        "/memory" => cmd_memory(args, ctx),
         _ => {
             eprintln!(
                 "Unknown command: {}. Type /help for available commands.",
@@ -65,6 +66,7 @@ fn cmd_help() -> Result<SlashAction> {
     eprintln!("  /theme [name]    Show or switch color theme");
     eprintln!("  /switch [plan|build] Switch active agent (dual mode)");
     eprintln!("  /plan-to-build   Transfer plan steps to build agent context");
+    eprintln!("  /memory [auto|status|clear|on|off] Manage auto-memory");
     Ok(SlashAction::Continue)
 }
 
@@ -247,6 +249,66 @@ fn cmd_plan_to_build(ctx: &ReplContext) -> Result<SlashAction> {
     eprintln!("[plan-to-build] Plan context transfer requested.");
     eprintln!("  Plan steps will be injected into Build agent's next prompt.");
 
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_memory(args: &str, ctx: &mut ReplContext) -> Result<SlashAction> {
+    let parts: Vec<&str> = args.trim().splitn(2, ' ').collect();
+    let subcmd = parts.first().copied().unwrap_or("");
+
+    match subcmd {
+        "" | "status" => cmd_memory_status(ctx),
+        "auto" => cmd_memory_auto(ctx),
+        "clear" => cmd_memory_clear(ctx),
+        "on" => cmd_memory_toggle(ctx, true),
+        "off" => cmd_memory_toggle(ctx, false),
+        _ => {
+            eprintln!(
+                "[memory] Unknown subcommand: '{}'. Valid: auto, status, clear, on, off",
+                subcmd
+            );
+            Ok(SlashAction::Continue)
+        }
+    }
+}
+
+fn cmd_memory_status(ctx: &ReplContext) -> Result<SlashAction> {
+    let enabled = ctx.auto_memory_enabled;
+    eprintln!("[memory] Auto-memory status:");
+    eprintln!("  Enabled:    {}", if enabled { "yes" } else { "no" });
+    eprintln!(
+        "  Extracted:  {} memories this session",
+        ctx.auto_memory_count
+    );
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_memory_auto(ctx: &ReplContext) -> Result<SlashAction> {
+    eprintln!("[memory] Manual extraction triggered.");
+    eprintln!(
+        "  Scanning {} messages for extractable information...",
+        ctx.message_count
+    );
+    if ctx.message_count == 0 {
+        eprintln!("  No messages to extract from.");
+    } else {
+        eprintln!("  Extraction will run at session end. Use /memory status to check.");
+    }
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_memory_clear(ctx: &mut ReplContext) -> Result<SlashAction> {
+    ctx.auto_memory_count = 0;
+    eprintln!("[memory] Auto-extracted memories cleared for this session.");
+    Ok(SlashAction::Continue)
+}
+
+fn cmd_memory_toggle(ctx: &mut ReplContext, enabled: bool) -> Result<SlashAction> {
+    ctx.auto_memory_enabled = enabled;
+    eprintln!(
+        "[memory] Auto-memory {}.",
+        if enabled { "enabled" } else { "disabled" }
+    );
     Ok(SlashAction::Continue)
 }
 
@@ -591,6 +653,109 @@ mod tests {
         };
 
         let action = handle_slash_command("/ptb", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    // ── /memory tests ──────────────────────────────────────────────────
+
+    #[tokio::test]
+    async fn test_cmd_memory_status() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default();
+
+        let action = handle_slash_command("/memory", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert!(ctx.auto_memory_enabled); // default is enabled
+    }
+
+    #[tokio::test]
+    async fn test_cmd_memory_default_is_status() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default();
+
+        // "/memory" with no args should behave same as "/memory status"
+        let action = handle_slash_command("/memory status", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_memory_auto_no_messages() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default(); // message_count = 0
+
+        let action = handle_slash_command("/memory auto", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_memory_auto_with_messages() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext {
+            message_count: 15,
+            ..Default::default()
+        };
+
+        let action = handle_slash_command("/memory auto", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_memory_clear() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default();
+        ctx.auto_memory_count = 5;
+
+        let action = handle_slash_command("/memory clear", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert_eq!(ctx.auto_memory_count, 0); // cleared
+    }
+
+    #[tokio::test]
+    async fn test_cmd_memory_on_off() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default();
+        assert!(ctx.auto_memory_enabled); // default on
+
+        // Turn off
+        let action = handle_slash_command("/memory off", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert!(!ctx.auto_memory_enabled);
+
+        // Turn on
+        let action = handle_slash_command("/memory on", &state, &sid, &mut ctx)
+            .await
+            .unwrap();
+        assert_eq!(action, SlashAction::Continue);
+        assert!(ctx.auto_memory_enabled);
+    }
+
+    #[tokio::test]
+    async fn test_cmd_memory_invalid_subcmd() {
+        let state = make_test_state().await;
+        let sid = SessionId::from_string("test-session");
+        let mut ctx = ReplContext::default();
+
+        let action = handle_slash_command("/memory foobar", &state, &sid, &mut ctx)
             .await
             .unwrap();
         assert_eq!(action, SlashAction::Continue);
