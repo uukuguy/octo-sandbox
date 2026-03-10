@@ -1,6 +1,9 @@
+use std::num::NonZeroUsize;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use anyhow::{bail, Context, Result};
+use lru::LruCache;
 use tracing::{debug, warn};
 
 use octo_types::SkillDefinition;
@@ -11,8 +14,13 @@ use crate::skills::validate_skill_structure;
 use crate::skills::SkillMetadata;
 use crate::skills::SkillRuntimeBridge;
 
+/// Default capacity for the skill body LRU cache.
+const BODY_CACHE_CAPACITY: usize = 64;
+
 pub struct SkillLoader {
     search_dirs: Vec<PathBuf>,
+    /// LRU cache for skill body content keyed by source_path.
+    body_cache: Mutex<LruCache<PathBuf, String>>,
 }
 
 impl SkillLoader {
@@ -34,7 +42,12 @@ impl SkillLoader {
                 search_dirs.push(skills_dir);
             }
         }
-        Self { search_dirs }
+        Self {
+            search_dirs,
+            body_cache: Mutex::new(LruCache::new(
+                NonZeroUsize::new(BODY_CACHE_CAPACITY).unwrap(),
+            )),
+        }
     }
 
     /// Scan all directories and parse SKILL.md files.
@@ -68,7 +81,32 @@ impl SkillLoader {
                     continue;
                 }
 
-                match Self::parse_skill(&skill_file) {
+                // Symlink protection: canonicalize and verify path stays within base dir
+                let canonical = match std::fs::canonicalize(&skill_file) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(path = %skill_file.display(), error = %e, "Cannot canonicalize SKILL.md path, skipping");
+                        continue;
+                    }
+                };
+                let canonical_dir = match std::fs::canonicalize(dir) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(dir = %dir.display(), error = %e, "Cannot canonicalize skills directory, skipping");
+                        continue;
+                    }
+                };
+                if !canonical.starts_with(&canonical_dir) {
+                    warn!(
+                        path = %skill_file.display(),
+                        resolved = %canonical.display(),
+                        base = %canonical_dir.display(),
+                        "SKILL.md resolves outside base directory (possible symlink attack), skipping"
+                    );
+                    continue;
+                }
+
+                match self.parse_skill_cached(&skill_file) {
                     Ok(skill) => {
                         if seen_names.contains(&skill.name) {
                             debug!(name = %skill.name, "Skill already loaded (project overrides user)");
@@ -125,6 +163,31 @@ impl SkillLoader {
                     continue;
                 }
 
+                // Symlink protection: canonicalize and verify path stays within base dir
+                let canonical = match std::fs::canonicalize(&skill_file) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(path = %skill_file.display(), error = %e, "Cannot canonicalize SKILL.md path, skipping");
+                        continue;
+                    }
+                };
+                let canonical_dir = match std::fs::canonicalize(dir) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(dir = %dir.display(), error = %e, "Cannot canonicalize skills directory, skipping");
+                        continue;
+                    }
+                };
+                if !canonical.starts_with(&canonical_dir) {
+                    warn!(
+                        path = %skill_file.display(),
+                        resolved = %canonical.display(),
+                        base = %canonical_dir.display(),
+                        "SKILL.md resolves outside base directory (possible symlink attack), skipping"
+                    );
+                    continue;
+                }
+
                 match SkillMetadata::from_frontmatter(&skill_file) {
                     Ok(metadata) => {
                         if seen_names.contains(&metadata.name) {
@@ -150,11 +213,40 @@ impl SkillLoader {
         index
     }
 
-    /// Parse a single SKILL.md file.
-    pub fn parse_skill(path: &Path) -> Result<SkillDefinition> {
+    /// Parse a single SKILL.md file with LRU body caching.
+    /// Uses the instance cache to avoid re-reading the same file from disk.
+    pub fn parse_skill_cached(&self, path: &Path) -> Result<SkillDefinition> {
+        // Check cache first
+        {
+            let mut cache = self.body_cache.lock().unwrap();
+            if let Some(cached_content) = cache.get(&path.to_path_buf()) {
+                debug!(path = %path.display(), "Using cached skill body");
+                return Self::parse_skill_from_content(path, cached_content.clone());
+            }
+        }
+
+        // Cache miss — read from disk
         let content =
             std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
 
+        // Insert into cache
+        {
+            let mut cache = self.body_cache.lock().unwrap();
+            cache.put(path.to_path_buf(), content.clone());
+        }
+
+        Self::parse_skill_from_content(path, content)
+    }
+
+    /// Parse a single SKILL.md file (static, no caching).
+    pub fn parse_skill(path: &Path) -> Result<SkillDefinition> {
+        let content =
+            std::fs::read_to_string(path).with_context(|| format!("reading {}", path.display()))?;
+        Self::parse_skill_from_content(path, content)
+    }
+
+    /// Parse a SKILL.md from already-loaded content string.
+    fn parse_skill_from_content(path: &Path, content: String) -> Result<SkillDefinition> {
         let (frontmatter, body) = Self::split_frontmatter(&content)
             .with_context(|| format!("splitting frontmatter in {}", path.display()))?;
 
@@ -256,6 +348,31 @@ impl SkillLoader {
                     continue;
                 }
 
+                // Symlink protection: canonicalize and verify path stays within base dir
+                let canonical = match std::fs::canonicalize(&skill_file) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(path = %skill_file.display(), error = %e, "Cannot canonicalize SKILL.md path, skipping");
+                        continue;
+                    }
+                };
+                let canonical_dir = match std::fs::canonicalize(dir) {
+                    Ok(p) => p,
+                    Err(e) => {
+                        warn!(dir = %dir.display(), error = %e, "Cannot canonicalize skills directory, skipping");
+                        continue;
+                    }
+                };
+                if !canonical.starts_with(&canonical_dir) {
+                    warn!(
+                        path = %skill_file.display(),
+                        resolved = %canonical.display(),
+                        base = %canonical_dir.display(),
+                        "SKILL.md resolves outside base directory (possible symlink attack), skipping"
+                    );
+                    continue;
+                }
+
                 // First check if this skill matches the name we're looking for
                 // We do a quick frontmatter check to avoid parsing all files
                 if let Ok(content) = std::fs::read_to_string(&skill_file) {
@@ -265,7 +382,7 @@ impl SkillLoader {
                             if let Some(skill_name) = fm.get("name").and_then(|v| v.as_str()) {
                                 if skill_name == name {
                                     // Found the skill, now parse fully
-                                    let mut skill = Self::parse_skill(&skill_file)?;
+                                    let mut skill = self.parse_skill_cached(&skill_file)?;
                                     skill.body_loaded = true;
                                     return Ok(skill);
                                 }

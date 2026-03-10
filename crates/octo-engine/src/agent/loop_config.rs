@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use octo_types::skill::SkillDefinition;
 use octo_types::{SandboxId, SessionId, ToolContext, UserId};
 
 use crate::context::{ContextBudgetManager, ContextPruner};
@@ -85,6 +86,12 @@ pub struct AgentLoopConfig {
     /// Agent-level behavior configuration.
     pub agent_config: AgentConfig,
 
+    // === Skill support ===
+    /// Available skill definitions for the skill index in the system prompt.
+    pub skills: Option<Vec<SkillDefinition>>,
+    /// Currently active skill whose body is injected into the system prompt.
+    pub active_skill: Option<SkillDefinition>,
+
     // === Sub-agent support (D4) ===
     /// Sub-agent manager for recursive agent spawning.
     pub subagent_manager: Option<Arc<SubAgentManager>>,
@@ -119,6 +126,8 @@ impl Default for AgentLoopConfig {
             tool_ctx: None,
             cancel_token: CancellationToken::new(),
             agent_config: AgentConfig::default(),
+            skills: None,
+            active_skill: None,
             subagent_manager: None,
         }
     }
@@ -281,6 +290,16 @@ impl AgentLoopConfigBuilder {
 
     pub fn agent_config(mut self, v: AgentConfig) -> Self {
         self.config.agent_config = v;
+        self
+    }
+
+    pub fn skills(mut self, v: Vec<SkillDefinition>) -> Self {
+        self.config.skills = Some(v);
+        self
+    }
+
+    pub fn active_skill(mut self, v: SkillDefinition) -> Self {
+        self.config.active_skill = Some(v);
         self
     }
 

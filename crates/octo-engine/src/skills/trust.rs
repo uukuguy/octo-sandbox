@@ -29,6 +29,19 @@ impl TrustManager {
         }
     }
 
+    /// Check if a tool name matches a pattern.
+    /// Supports exact match and wildcard suffix patterns (e.g., `mcp__myserver__*`).
+    fn tool_matches(pattern: &str, tool_name: &str) -> bool {
+        if pattern == "*" {
+            return true;
+        }
+        if let Some(prefix) = pattern.strip_suffix('*') {
+            tool_name.starts_with(prefix)
+        } else {
+            pattern == tool_name
+        }
+    }
+
     /// Compute effective trust level: min(declared, source-inferred).
     pub fn effective_trust_level(&self, skill: &SkillDefinition) -> TrustLevel {
         let source_max = match skill.source_type {
@@ -51,7 +64,7 @@ impl TrustManager {
 
         // Check denied_tools first (always enforced).
         if let Some(ref denied) = skill.denied_tools {
-            if denied.iter().any(|d| d == tool_name) {
+            if denied.iter().any(|d| Self::tool_matches(d, tool_name)) {
                 return Err(TrustError::DeniedTool {
                     tool: tool_name.to_string(),
                     skill: skill.name.clone(),
@@ -65,7 +78,7 @@ impl TrustManager {
                 // Only allowed_tools list.
                 match &skill.allowed_tools {
                     Some(allowed) => {
-                        if allowed.iter().any(|a| a == "*" || a == tool_name) {
+                        if allowed.iter().any(|a| Self::tool_matches(a, tool_name)) {
                             Ok(())
                         } else {
                             Err(TrustError::NotInAllowedList {

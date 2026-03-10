@@ -78,7 +78,28 @@ impl Tool for SkillTool {
             "activate" => {
                 // Return the skill's instructions as the tool result.
                 // The Agent will follow these instructions.
-                Ok(ToolOutput::success(&self.skill.body))
+                //
+                // If the skill requests context_fork or model override, attach
+                // metadata so the harness can act on it (e.g. spawn a SubAgent
+                // or switch provider).
+                let mut meta = json!({ "skill_activation": true });
+
+                if self.skill.context_fork {
+                    meta["context_fork"] = json!(true);
+                    meta["skill_body"] = json!(self.skill.body);
+                }
+
+                if let Some(ref model) = self.skill.model {
+                    meta["model_override"] = json!(model);
+                }
+
+                // Only attach metadata when there is something meaningful
+                // beyond the bare activation flag.
+                if self.skill.context_fork || self.skill.model.is_some() {
+                    Ok(ToolOutput::success(&self.skill.body).with_metadata(meta))
+                } else {
+                    Ok(ToolOutput::success(&self.skill.body))
+                }
             }
             "list_scripts" => {
                 let scripts_dir = self.skill.base_dir.join("scripts");

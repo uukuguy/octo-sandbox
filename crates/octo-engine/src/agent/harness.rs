@@ -106,12 +106,18 @@ async fn run_agent_loop_inner(
     };
 
     // --- Zone A: Build system prompt ---
-    let system_prompt = if let Some(ref manifest) = config.manifest {
-        SystemPromptBuilder::new()
-            .with_manifest(manifest.clone())
-            .build()
-    } else {
-        SystemPromptBuilder::new().build()
+    let system_prompt = {
+        let mut builder = SystemPromptBuilder::new();
+        if let Some(ref manifest) = config.manifest {
+            builder = builder.with_manifest(manifest.clone());
+        }
+        if let Some(ref skills) = config.skills {
+            builder = builder.with_skill_index(skills);
+        }
+        if let Some(ref active_skill) = config.active_skill {
+            builder = builder.with_active_skill(active_skill);
+        }
+        builder.build()
     };
     debug!("System prompt length: {} chars", system_prompt.len());
 

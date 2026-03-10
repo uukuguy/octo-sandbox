@@ -80,6 +80,9 @@ pub fn validate_allowed_tools(tools: &[String]) -> Result<()> {
 /// - Start with a lowercase letter (a-z) or underscore
 /// - Contain only lowercase letters (a-z), digits (0-9), hyphens (-), and underscores (_)
 /// - Have at least 1 character
+/// - May end with `*` as a wildcard suffix (e.g., `mcp__myserver__*`)
+///
+/// MCP tool names use double underscores as separators: `mcp__server__tool`
 ///
 /// # Arguments
 /// * `name` - Tool name to validate
@@ -92,7 +95,19 @@ pub fn validate_tool_name(name: &str) -> Result<()> {
         bail!("tool name cannot be empty");
     }
 
-    let mut chars = name.chars();
+    // Handle global wildcard
+    if name == "*" {
+        return Ok(());
+    }
+
+    // Strip trailing wildcard for validation of the prefix part
+    let check_name = name.strip_suffix('*').unwrap_or(name);
+    if check_name.is_empty() {
+        // Already handled "*" above; this shouldn't happen
+        return Ok(());
+    }
+
+    let mut chars = check_name.chars();
 
     // First character must be lowercase letter or underscore
     match chars.next() {
@@ -113,7 +128,7 @@ pub fn validate_tool_name(name: &str) -> Result<()> {
     for c in chars {
         if !c.is_ascii_lowercase() && !c.is_ascii_digit() && c != '-' && c != '_' {
             bail!(
-                "tool name '{}' contains invalid character '{}'. Only lowercase letters, digits, hyphens, and underscores are allowed",
+                "tool name '{}' contains invalid character '{}'. Only lowercase letters, digits, hyphens, underscores, and trailing '*' wildcard are allowed",
                 name,
                 c
             );

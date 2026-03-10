@@ -3,6 +3,10 @@ use tracing::{debug, info, warn};
 
 use super::budget::DegradationLevel;
 
+/// Marker embedded in messages containing skill content with `always: true`.
+/// Messages containing this marker are exempt from pruning/compaction.
+pub const SKILL_PROTECTED_MARKER: &str = "[SKILL:ALWAYS]";
+
 const SOFT_TRIM_HEAD: usize = 1_500;
 const SOFT_TRIM_TAIL: usize = 500;
 
@@ -63,6 +67,9 @@ impl ContextPruner {
         let mut modified = 0;
 
         for msg in messages[..boundary].iter_mut() {
+            if Self::is_skill_protected(msg) {
+                continue;
+            }
             for block in msg.content.iter_mut() {
                 if let ContentBlock::ToolResult { content, .. } = block {
                     if content.len() > (SOFT_TRIM_HEAD + SOFT_TRIM_TAIL + 100) {
@@ -98,6 +105,9 @@ impl ContextPruner {
         let mut modified = 0;
 
         for msg in messages[..boundary].iter_mut() {
+            if Self::is_skill_protected(msg) {
+                continue;
+            }
             for block in msg.content.iter_mut() {
                 if let ContentBlock::ToolResult {
                     content,
@@ -126,14 +136,28 @@ impl ContextPruner {
     }
 
     /// 阶段 3: OverflowCompaction —— 保留最近 4 条消息，drain 旧消息
+    /// Skill-protected messages are never drained.
     fn overflow_compaction(&self, messages: &mut Vec<ChatMessage>) -> usize {
         let keep = OVERFLOW_COMPACTION_KEEP;
         if messages.len() <= keep {
             return 0;
         }
 
-        let drain_count = messages.len() - keep;
-        messages.drain(..drain_count);
+        let drain_end = messages.len() - keep;
+        // Collect indices of skill-protected messages in the drain range
+        let protected_msgs: Vec<ChatMessage> = messages[..drain_end]
+            .iter()
+            .filter(|msg| Self::is_skill_protected(msg))
+            .cloned()
+            .collect();
+
+        let drain_count = drain_end - protected_msgs.len();
+        // Remove non-protected messages from the drain range
+        messages.drain(..drain_end);
+        // Re-insert protected messages at the beginning
+        for (i, msg) in protected_msgs.into_iter().enumerate() {
+            messages.insert(i, msg);
+        }
 
         warn!(
             drain_count,
@@ -145,8 +169,11 @@ impl ContextPruner {
     /// 阶段 +1: ToolResultTruncation —— 截断最后一条工具结果至 8000 chars
     #[allow(clippy::ptr_arg)]
     fn tool_result_truncation(&self, messages: &mut Vec<ChatMessage>) -> usize {
-        // 从末尾向前找最后一条包含 ToolResult 的消息
+        // 从末尾向前找最后一条包含 ToolResult 的消息（跳过 skill-protected）
         for msg in messages.iter_mut().rev() {
+            if Self::is_skill_protected(msg) {
+                continue;
+            }
             for block in msg.content.iter_mut() {
                 if let ContentBlock::ToolResult { content, .. } = block {
                     if content.len() > TOOL_RESULT_TRUNCATION_CHARS {
@@ -167,6 +194,18 @@ impl ContextPruner {
             }
         }
         0
+    }
+
+    /// Check if a message contains the skill-protected marker.
+    /// Messages with this marker must never be pruned or compacted.
+    fn is_skill_protected(msg: &ChatMessage) -> bool {
+        msg.content.iter().any(|block| match block {
+            ContentBlock::Text { text } => text.contains(SKILL_PROTECTED_MARKER),
+            ContentBlock::ToolResult { content, .. } => content.contains(SKILL_PROTECTED_MARKER),
+            ContentBlock::ToolUse { input, .. } => {
+                input.to_string().contains(SKILL_PROTECTED_MARKER)
+            }
+        })
     }
 
     /// Find the message index before which we can prune.

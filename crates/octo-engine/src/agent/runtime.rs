@@ -23,7 +23,7 @@ use crate::providers::ProviderConfig;
 use crate::providers::{create_provider, Provider, ProviderChain, ProviderChainConfig};
 use crate::security::SecurityPolicy;
 use crate::session::{SessionStore, SqliteSessionStore};
-use crate::skills::{SkillLoader, SkillRegistry, SkillTool};
+use crate::skills::{register_skills_as_tools, SkillLoader, SkillRegistry, SkillTool};
 use crate::tools::recorder::ToolExecutionRecorder;
 use crate::tools::{default_tools, register_memory_tools, ToolRegistry};
 
@@ -181,10 +181,8 @@ impl AgentRuntime {
             if let Err(e) = skill_registry.load_from(&skill_loader) {
                 tracing::warn!("Failed to load skills: {}", e);
             }
-            // Register skills as tools
-            for skill in skill_registry.invocable_skills() {
-                tools.register(SkillTool::new(skill));
-            }
+            // Register user-invocable skills as tools via bridge
+            register_skills_as_tools(&skill_loader, &mut tools);
             // Start hot-reload watcher
             if let Err(e) = skill_registry.start_watching(skill_loader) {
                 tracing::warn!("Failed to start skill watcher: {}", e);

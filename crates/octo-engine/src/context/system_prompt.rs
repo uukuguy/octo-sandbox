@@ -11,6 +11,8 @@
 
 use std::path::Path;
 
+use octo_types::skill::SkillDefinition;
+
 use crate::agent::entry::AgentManifest;
 
 const CORE_INSTRUCTIONS: &str = r#"You are Octo, an AI coding assistant running inside a sandboxed environment.
@@ -56,6 +58,10 @@ pub struct SystemPromptBuilder {
     bootstrap_files: Vec<BootstrapFile>,
     /// Output guidelines
     output_guidelines: String,
+    /// Skill index section (L1 listing)
+    skill_index_section: Option<String>,
+    /// Active skill section (L2 body injection)
+    active_skill_section: Option<String>,
 }
 
 impl SystemPromptBuilder {
@@ -66,6 +72,8 @@ impl SystemPromptBuilder {
             core_instructions: CORE_INSTRUCTIONS.to_string(),
             bootstrap_files: Vec::new(),
             output_guidelines: OUTPUT_GUIDELINES.to_string(),
+            skill_index_section: None,
+            active_skill_section: None,
         }
     }
 
@@ -121,6 +129,47 @@ impl SystemPromptBuilder {
         self
     }
 
+    /// Add L1 skill index listing to the system prompt
+    ///
+    /// Lists all user-invocable skills with their names and descriptions.
+    /// If no skills are user-invocable, the section is omitted.
+    pub fn with_skill_index(mut self, skills: &[SkillDefinition]) -> Self {
+        let invocable: Vec<&SkillDefinition> =
+            skills.iter().filter(|s| s.user_invocable).collect();
+
+        if !invocable.is_empty() {
+            let mut section = String::from(
+                "## Available Skills\nThe following skills are available. \
+                 You can invoke them when relevant:",
+            );
+            for skill in &invocable {
+                section.push_str(&format!("\n- **{}**: {}", skill.name, skill.description));
+            }
+            self.skill_index_section = Some(section);
+        }
+
+        self
+    }
+
+    /// Add L2 active skill body to the system prompt
+    ///
+    /// Injects the full body of an activated skill so the agent follows
+    /// its instructions during the current session.
+    /// Skills with `always: true` are prefixed with a protection marker so
+    /// the ContextPruner will never prune messages containing this content.
+    pub fn with_active_skill(mut self, skill: &SkillDefinition) -> Self {
+        let marker = if skill.always {
+            format!("{}\n", super::pruner::SKILL_PROTECTED_MARKER)
+        } else {
+            String::new()
+        };
+        self.active_skill_section = Some(format!(
+            "{}## Active Skill: {}\n{}",
+            marker, skill.name, skill.body
+        ));
+        self
+    }
+
     /// Build Zone A - System Prompt
     ///
     /// Priority order:
@@ -164,6 +213,16 @@ impl SystemPromptBuilder {
             if !file.content.is_empty() {
                 parts.push(format!("## {}\n{}", file.name, file.content));
             }
+        }
+
+        // Skill index (L1 listing)
+        if let Some(ref section) = self.skill_index_section {
+            parts.push(section.clone());
+        }
+
+        // Active skill (L2 body injection)
+        if let Some(ref section) = self.active_skill_section {
+            parts.push(section.clone());
         }
 
         // Priority 4: Core instructions (lowest, always included as fallback)
@@ -294,5 +353,75 @@ mod tests {
         let result = builder.build();
 
         assert!(result.contains("## SOUL.md\nTest SOUL content"));
+    }
+
+    fn make_skill(name: &str, desc: &str, user_invocable: bool) -> SkillDefinition {
+        SkillDefinition {
+            name: name.to_string(),
+            description: desc.to_string(),
+            version: None,
+            user_invocable,
+            allowed_tools: None,
+            body: String::new(),
+            base_dir: std::path::PathBuf::new(),
+            source_path: std::path::PathBuf::new(),
+            body_loaded: false,
+            model: None,
+            context_fork: false,
+            always: false,
+            trust_level: Default::default(),
+            triggers: vec![],
+            dependencies: vec![],
+            tags: vec![],
+            denied_tools: None,
+            source_type: Default::default(),
+        }
+    }
+
+    #[test]
+    fn test_skill_index_filters_invocable() {
+        let skills = vec![
+            make_skill("code-review", "Reviews code", true),
+            make_skill("internal-only", "Not for users", false),
+            make_skill("deploy", "Deploys app", true),
+        ];
+
+        let builder = SystemPromptBuilder::new().with_skill_index(&skills);
+        let result = builder.build();
+
+        assert!(result.contains("## Available Skills"));
+        assert!(result.contains("- **code-review**: Reviews code"));
+        assert!(result.contains("- **deploy**: Deploys app"));
+        assert!(!result.contains("internal-only"));
+    }
+
+    #[test]
+    fn test_skill_index_empty_when_none_invocable() {
+        let skills = vec![make_skill("hidden", "Hidden skill", false)];
+
+        let builder = SystemPromptBuilder::new().with_skill_index(&skills);
+        let result = builder.build();
+
+        assert!(!result.contains("Available Skills"));
+    }
+
+    #[test]
+    fn test_skill_index_empty_slice() {
+        let builder = SystemPromptBuilder::new().with_skill_index(&[]);
+        let result = builder.build();
+
+        assert!(!result.contains("Available Skills"));
+    }
+
+    #[test]
+    fn test_active_skill_injection() {
+        let mut skill = make_skill("code-review", "Reviews code", true);
+        skill.body = "Review all files for correctness.".to_string();
+
+        let builder = SystemPromptBuilder::new().with_active_skill(&skill);
+        let result = builder.build();
+
+        assert!(result.contains("## Active Skill: code-review"));
+        assert!(result.contains("Review all files for correctness."));
     }
 }

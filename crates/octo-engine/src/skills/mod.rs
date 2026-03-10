@@ -13,6 +13,7 @@ pub mod semantic_index;
 pub mod slash_router;
 pub mod standards;
 pub mod tool;
+pub mod tool_bridge;
 pub mod trust;
 
 pub use catalog::{CatalogEntry, CatalogQuery, SkillCatalog};
@@ -28,4 +29,5 @@ pub use semantic_index::{SemanticMatch, SkillSemanticIndex};
 pub use slash_router::{SkillSlashRouter, SlashCommand};
 pub use standards::{validate_allowed_tools, validate_skill_structure};
 pub use tool::SkillTool;
+pub use tool_bridge::{register_skills_as_tools, register_skills_from_registry};
 pub use trust::TrustManager;
