@@ -9,7 +9,8 @@ use crate::hooks::HookRegistry;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
-use crate::security::AiDefence;
+use crate::security::{AiDefence, SafetyPipeline};
+use crate::tools::approval::{ApprovalGate, ApprovalManager};
 use crate::tools::recorder::ToolExecutionRecorder;
 use crate::tools::ToolRegistry;
 
@@ -65,6 +66,8 @@ pub struct AgentLoopConfig {
     pub hook_registry: Option<Arc<HookRegistry>>,
     /// AI defence (injection detection, PII detection).
     pub defence: Option<Arc<AiDefence>>,
+    /// Composable safety pipeline (injection, PII, canary, credentials).
+    pub safety_pipeline: Option<Arc<SafetyPipeline>>,
     /// Agent manifest (role/goal/backstory/system_prompt).
     pub manifest: Option<AgentManifest>,
     /// Tool call interceptor for skill-based tool filtering.
@@ -95,6 +98,12 @@ pub struct AgentLoopConfig {
     // === Sub-agent support (D4) ===
     /// Sub-agent manager for recursive agent spawning.
     pub subagent_manager: Option<Arc<SubAgentManager>>,
+
+    // === Tool approval (T3) ===
+    /// Approval manager for three-level tool approval enforcement.
+    pub approval_manager: Option<Arc<ApprovalManager>>,
+    /// Shared approval gate for pending human approval requests.
+    pub approval_gate: Option<ApprovalGate>,
 }
 
 impl Default for AgentLoopConfig {
@@ -118,6 +127,7 @@ impl Default for AgentLoopConfig {
             event_bus: None,
             hook_registry: None,
             defence: None,
+            safety_pipeline: None,
             manifest: None,
             interceptor: None,
             session_id: SessionId::default(),
@@ -129,6 +139,8 @@ impl Default for AgentLoopConfig {
             skills: None,
             active_skill: None,
             subagent_manager: None,
+            approval_manager: None,
+            approval_gate: None,
         }
     }
 }
@@ -253,6 +265,11 @@ impl AgentLoopConfigBuilder {
         self
     }
 
+    pub fn safety_pipeline(mut self, v: Arc<SafetyPipeline>) -> Self {
+        self.config.safety_pipeline = Some(v);
+        self
+    }
+
     pub fn manifest(mut self, v: AgentManifest) -> Self {
         self.config.manifest = Some(v);
         self
@@ -305,6 +322,16 @@ impl AgentLoopConfigBuilder {
 
     pub fn subagent_manager(mut self, v: Arc<SubAgentManager>) -> Self {
         self.config.subagent_manager = Some(v);
+        self
+    }
+
+    pub fn approval_manager(mut self, v: Arc<ApprovalManager>) -> Self {
+        self.config.approval_manager = Some(v);
+        self
+    }
+
+    pub fn approval_gate(mut self, v: ApprovalGate) -> Self {
+        self.config.approval_gate = Some(v);
         self
     }
 

@@ -9,6 +9,9 @@ pub mod policy;
 pub mod tracker;
 
 pub use ai_defence::{AiDefence, DefenceViolation, InjectionDetector, OutputValidator, PiiScanner};
-pub use pipeline::{CredentialScrubber, SafetyDecision, SafetyLayer, SafetyPipeline};
+pub use pipeline::{
+    CanaryGuardLayer, CredentialScrubber, InjectionDetectorLayer, PiiScannerLayer, SafetyDecision,
+    SafetyLayer, SafetyPipeline,
+};
 pub use policy::{AutonomyLevel, CommandRiskLevel, SecurityPolicy};
 pub use tracker::ActionTracker;

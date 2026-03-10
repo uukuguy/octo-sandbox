@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use octo_engine::{
     auth::AuthConfig, mcp::McpStorage, metrics::MetricsRegistry, scheduler::Scheduler,
-    AgentExecutorHandle, AgentRuntime,
+    tools::approval::ApprovalGate, AgentExecutorHandle, AgentRuntime,
 };
 use tokio::sync::RwLock;
 
@@ -25,6 +25,8 @@ pub struct AppState {
     pub agent_handle: AgentExecutorHandle,
     /// Server start time for uptime calculation
     pub start_time: std::time::Instant,
+    /// Shared approval gate for pending human approval requests (T3).
+    pub approval_gate: Option<ApprovalGate>,
 }
 
 impl AppState {
@@ -50,6 +52,7 @@ impl AppState {
             agent_supervisor,
             agent_handle,
             start_time: std::time::Instant::now(),
+            approval_gate: None,
         }
     }
 

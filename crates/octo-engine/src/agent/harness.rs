@@ -9,9 +9,14 @@ use futures_util::StreamExt;
 use tokio::sync::mpsc;
 use tracing::{debug, info, warn};
 
+use std::sync::Arc;
+
 use octo_types::{
     ChatMessage, CompletionRequest, ContentBlock, MessageRole, StopReason, StreamEvent, ToolOutput,
 };
+
+use crate::security::SafetyDecision;
+use crate::tools::approval::{ApprovalDecision, ApprovalGate, ApprovalManager};
 
 use crate::context::{
     ContextPruner, DegradationLevel, MemoryFlusher, NewSystemPromptBuilder as SystemPromptBuilder,
@@ -310,6 +315,41 @@ async fn run_agent_loop_inner(
                     }
                 }
             }
+
+            // --- SafetyPipeline input check (T3-8) ---
+            if let Some(ref pipeline) = config.safety_pipeline {
+                let user_text: Option<String> = messages
+                    .iter()
+                    .rev()
+                    .find(|m| m.role == MessageRole::User)
+                    .and_then(|m| {
+                        m.content.iter().find_map(|b| {
+                            if let ContentBlock::Text { text } = b {
+                                Some(text.clone())
+                            } else {
+                                None
+                            }
+                        })
+                    });
+                if let Some(ref text) = user_text {
+                    match pipeline.check_input(text).await {
+                        SafetyDecision::Block(reason) => {
+                            warn!(reason = %reason, "SafetyPipeline blocked input");
+                            let _ = tx
+                                .send(AgentEvent::SecurityBlocked {
+                                    reason: format!("Safety pipeline blocked input: {reason}"),
+                                })
+                                .await;
+                            let _ = tx.send(AgentEvent::Done).await;
+                            return;
+                        }
+                        SafetyDecision::Warn(msg) => {
+                            warn!(msg = %msg, "SafetyPipeline input warning");
+                        }
+                        SafetyDecision::Sanitize(_) | SafetyDecision::Allow => {}
+                    }
+                }
+            }
         }
 
         // --- Build CompletionRequest ---
@@ -481,6 +521,32 @@ async fn run_agent_loop_inner(
                 }
             }
 
+            // --- SafetyPipeline output check (T3-8) ---
+            if !full_text.is_empty() {
+                if let Some(ref pipeline) = config.safety_pipeline {
+                    match pipeline.check_output(&full_text).await {
+                        SafetyDecision::Block(reason) => {
+                            warn!(reason = %reason, "SafetyPipeline blocked output");
+                            let _ = tx
+                                .send(AgentEvent::SecurityBlocked {
+                                    reason: format!("Safety pipeline blocked output: {reason}"),
+                                })
+                                .await;
+                            let _ = tx.send(AgentEvent::Done).await;
+                            return;
+                        }
+                        SafetyDecision::Sanitize(cleaned) => {
+                            debug!("SafetyPipeline sanitized output");
+                            full_text = cleaned;
+                        }
+                        SafetyDecision::Warn(msg) => {
+                            warn!(msg = %msg, "SafetyPipeline output warning");
+                        }
+                        SafetyDecision::Allow => {}
+                    }
+                }
+            }
+
             // P1-4: Detect deferred actions in final text
             if !full_text.is_empty() {
                 let deferred_matches = deferred_detector.detect(&full_text);
@@ -630,11 +696,77 @@ async fn run_agent_loop_inner(
         // --- Execute tools (P0-6) ---
         let cancellation_token = CancellationToken::new();
 
+        // Build a default ApprovalManager if none was injected (dev mode = auto-approve).
+        let approval_mgr = config
+            .approval_manager
+            .as_ref()
+            .map(|m| m.clone())
+            .unwrap_or_else(|| Arc::new(ApprovalManager::dev_mode()));
+
         let tool_outputs: Vec<_> = if config.agent_config.enable_parallel {
             let tools_to_run: Vec<_> = parsed_tools
                 .iter()
                 .map(|(tu, input)| (tu.name.clone(), input.clone()))
                 .collect();
+
+            // --- T3-4: Approval check for parallel tools (before batch execution) ---
+            let mut approval_blocked = false;
+            for (tu, _input) in &parsed_tools {
+                if let Some(tool) = tools.get(&tu.name) {
+                    let requirement = tool.approval();
+                    let risk = tool.risk_level();
+                    let decision = approval_mgr.check_requirement(&tu.name, requirement, risk);
+                    match decision {
+                        ApprovalDecision::NeedsApproval { reason, .. } => {
+                            info!(tool = %tu.name, %reason, "Tool requires approval (parallel)");
+                            let approved = request_approval(
+                                &tu.name,
+                                &tu.id,
+                                risk,
+                                &tx,
+                                &config.approval_gate,
+                            )
+                            .await;
+                            if !approved {
+                                warn!(tool = %tu.name, "Tool approval denied or timed out");
+                                let _ = tx
+                                    .send(AgentEvent::Error {
+                                        message: format!(
+                                            "Tool '{}' execution denied: approval rejected/timed out",
+                                            tu.name
+                                        ),
+                                    })
+                                    .await;
+                                let _ = tx.send(AgentEvent::Done).await;
+                                fire_session_end(&config, &tx).await;
+                                approval_blocked = true;
+                                break;
+                            }
+                        }
+                        ApprovalDecision::Denied { reason } => {
+                            warn!(tool = %tu.name, %reason, "Tool denied by approval policy");
+                            let _ = tx
+                                .send(AgentEvent::Error {
+                                    message: format!(
+                                        "Tool '{}' denied: {reason}",
+                                        tu.name
+                                    ),
+                                })
+                                .await;
+                            let _ = tx.send(AgentEvent::Done).await;
+                            fire_session_end(&config, &tx).await;
+                            approval_blocked = true;
+                            break;
+                        }
+                        ApprovalDecision::Approved => {
+                            debug!(tool = %tu.name, "Tool auto-approved");
+                        }
+                    }
+                }
+            }
+            if approval_blocked {
+                return;
+            }
 
             let results = execute_parallel(
                 tools_to_run,
@@ -664,6 +796,54 @@ async fn run_agent_loop_inner(
         } else {
             let mut outputs = Vec::new();
             for (tu, input) in &parsed_tools {
+                // --- T3-4: Approval check for sequential tools ---
+                if let Some(tool) = tools.get(&tu.name) {
+                    let requirement = tool.approval();
+                    let risk = tool.risk_level();
+                    let decision = approval_mgr.check_requirement(&tu.name, requirement, risk);
+                    match decision {
+                        ApprovalDecision::NeedsApproval { reason, .. } => {
+                            info!(tool = %tu.name, %reason, "Tool requires approval");
+                            let approved = request_approval(
+                                &tu.name,
+                                &tu.id,
+                                risk,
+                                &tx,
+                                &config.approval_gate,
+                            )
+                            .await;
+                            if !approved {
+                                warn!(tool = %tu.name, "Tool approval denied or timed out");
+                                let _ = tx
+                                    .send(AgentEvent::Error {
+                                        message: format!(
+                                            "Tool '{}' execution denied: approval rejected/timed out",
+                                            tu.name
+                                        ),
+                                    })
+                                    .await;
+                                let _ = tx.send(AgentEvent::Done).await;
+                                fire_session_end(&config, &tx).await;
+                                return;
+                            }
+                        }
+                        ApprovalDecision::Denied { reason } => {
+                            warn!(tool = %tu.name, %reason, "Tool denied by approval policy");
+                            let _ = tx
+                                .send(AgentEvent::Error {
+                                    message: format!("Tool '{}' denied: {reason}", tu.name),
+                                })
+                                .await;
+                            let _ = tx.send(AgentEvent::Done).await;
+                            fire_session_end(&config, &tx).await;
+                            return;
+                        }
+                        ApprovalDecision::Approved => {
+                            debug!(tool = %tu.name, "Tool auto-approved");
+                        }
+                    }
+                }
+
                 // PreToolUse hook
                 if let Some(ref hooks) = config.hook_registry {
                     let ctx = HookContext::new()
@@ -766,6 +946,36 @@ async fn run_agent_loop_inner(
                     return;
                 }
             }
+
+            // --- SafetyPipeline tool result check (T3-8) ---
+            let trimmed_output = if let Some(ref pipeline) = config.safety_pipeline {
+                match pipeline.check_tool_result(&tu.name, &trimmed_output).await {
+                    SafetyDecision::Block(reason) => {
+                        warn!(tool = %tu.name, reason = %reason, "SafetyPipeline blocked tool result");
+                        let _ = tx
+                            .send(AgentEvent::SecurityBlocked {
+                                reason: format!(
+                                    "Safety pipeline blocked tool '{}' result: {reason}",
+                                    tu.name
+                                ),
+                            })
+                            .await;
+                        let _ = tx.send(AgentEvent::Done).await;
+                        return;
+                    }
+                    SafetyDecision::Sanitize(cleaned) => {
+                        debug!(tool = %tu.name, "SafetyPipeline sanitized tool result");
+                        cleaned
+                    }
+                    SafetyDecision::Warn(msg) => {
+                        warn!(tool = %tu.name, msg = %msg, "SafetyPipeline tool result warning");
+                        trimmed_output
+                    }
+                    SafetyDecision::Allow => trimmed_output,
+                }
+            } else {
+                trimmed_output
+            };
 
             // Record outcome for loop detection
             if let Some(outcome_warning) =
@@ -976,6 +1186,44 @@ fn postprocess_tool_output(
     }
 
     output
+}
+
+/// Request human approval for a tool invocation.
+///
+/// Emits an `AgentEvent::ApprovalRequired` and waits for a response via the
+/// `ApprovalGate`. If no gate is configured, auto-rejects (safe default).
+async fn request_approval(
+    tool_name: &str,
+    tool_id: &str,
+    risk_level: octo_types::RiskLevel,
+    tx: &mpsc::Sender<AgentEvent>,
+    gate: &Option<ApprovalGate>,
+) -> bool {
+    // Emit the approval request event to consumers
+    let _ = tx
+        .send(AgentEvent::ApprovalRequired {
+            tool_name: tool_name.to_string(),
+            tool_id: tool_id.to_string(),
+            risk_level: risk_level.clone(),
+        })
+        .await;
+
+    // If there's an approval gate, register and wait for the response
+    if let Some(gate) = gate {
+        let rx = gate.register(tool_id).await;
+        info!(
+            tool_name,
+            tool_id, "Waiting for human approval via ApprovalGate"
+        );
+        ApprovalGate::wait_for_approval(rx).await
+    } else {
+        // No gate configured — auto-reject for safety
+        warn!(
+            tool_name,
+            tool_id, "No ApprovalGate configured, auto-rejecting"
+        );
+        false
+    }
 }
 
 /// Soft-trim tool result if it exceeds the limit (67% head + 27% tail).

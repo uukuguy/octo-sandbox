@@ -1,6 +1,6 @@
 use serde::Serialize;
 
-use octo_types::{ChatMessage, StopReason};
+use octo_types::{ChatMessage, RiskLevel, StopReason};
 
 /// Events sent from AgentLoop to consumers (WebSocket handler, CLI, etc.)
 #[derive(Debug, Clone, Serialize)]
@@ -51,6 +51,8 @@ pub enum AgentEvent {
     },
     ApprovalRequired {
         tool_name: String,
+        tool_id: String,
+        risk_level: RiskLevel,
     },
     SecurityBlocked {
         reason: String,

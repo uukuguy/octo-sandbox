@@ -70,6 +70,8 @@ fn test_all_agent_event_variants_constructible() {
         AgentEvent::MemoryFlushed { facts_count: 5 },
         AgentEvent::ApprovalRequired {
             tool_name: "rm".into(),
+            tool_id: "tool-456".into(),
+            risk_level: octo_types::RiskLevel::Destructive,
         },
         AgentEvent::SecurityBlocked {
             reason: "blocked".into(),

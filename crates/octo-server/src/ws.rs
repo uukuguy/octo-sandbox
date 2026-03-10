@@ -21,6 +21,11 @@ enum ClientMessage {
     SendMessage { content: String },
     #[serde(rename = "cancel")]
     Cancel,
+    #[serde(rename = "approval_response")]
+    ApprovalResponse {
+        tool_id: String,
+        approved: bool,
+    },
 }
 
 // --- Server → Client messages ---
@@ -97,6 +102,8 @@ enum ServerMessage {
     ApprovalRequired {
         session_id: String,
         tool_name: String,
+        tool_id: String,
+        risk_level: octo_types::RiskLevel,
     },
 
     #[serde(rename = "security_blocked")]
@@ -270,12 +277,16 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                         facts_count,
                                     }
                                 }
-                                AgentEvent::ApprovalRequired { tool_name } => {
-                                    ServerMessage::ApprovalRequired {
-                                        session_id: sid_str.clone(),
-                                        tool_name,
-                                    }
-                                }
+                                AgentEvent::ApprovalRequired {
+                                    tool_name,
+                                    tool_id,
+                                    risk_level,
+                                } => ServerMessage::ApprovalRequired {
+                                    session_id: sid_str.clone(),
+                                    tool_name,
+                                    tool_id,
+                                    risk_level,
+                                },
                                 AgentEvent::SecurityBlocked { reason } => {
                                     ServerMessage::SecurityBlocked {
                                         session_id: sid_str.clone(),
@@ -302,6 +313,18 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
             ClientMessage::Cancel => {
                 let _ = state.agent_handle.send(AgentMessage::Cancel).await;
                 info!("Agent cancellation requested");
+            }
+            ClientMessage::ApprovalResponse { tool_id, approved } => {
+                if let Some(ref gate) = state.approval_gate {
+                    let found = gate.respond(&tool_id, approved).await;
+                    if found {
+                        info!(tool_id = %tool_id, approved, "Approval response forwarded");
+                    } else {
+                        warn!(tool_id = %tool_id, "No pending approval for tool_id");
+                    }
+                } else {
+                    warn!("ApprovalResponse received but no ApprovalGate configured");
+                }
             }
         }
     }
