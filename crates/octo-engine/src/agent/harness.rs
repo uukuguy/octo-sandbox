@@ -1252,7 +1252,7 @@ async fn request_approval(
         .send(AgentEvent::ApprovalRequired {
             tool_name: tool_name.to_string(),
             tool_id: tool_id.to_string(),
-            risk_level: risk_level.clone(),
+            risk_level,
         })
         .await;
 

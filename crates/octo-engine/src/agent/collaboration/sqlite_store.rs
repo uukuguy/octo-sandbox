@@ -513,7 +513,7 @@ impl ByzantineStore for SqliteByzantineStore {
                             ConsensusKeypair::decrypt_and_restore(&aid, &pub_key, &encrypted, &nonce, &key)
                                 .map_err(|e| {
                                     rusqlite::Error::ToSqlConversionFailure(Box::new(
-                                        std::io::Error::new(std::io::ErrorKind::Other, e),
+                                        std::io::Error::other(e),
                                     ))
                                 })?;
                         Ok(Some(kp))

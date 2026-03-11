@@ -45,7 +45,8 @@ impl SkillLoader {
         Self {
             search_dirs,
             body_cache: Mutex::new(LruCache::new(
-                NonZeroUsize::new(BODY_CACHE_CAPACITY).unwrap(),
+                NonZeroUsize::new(BODY_CACHE_CAPACITY)
+                    .expect("BODY_CACHE_CAPACITY is a non-zero const"),
             )),
         }
     }
@@ -218,7 +219,7 @@ impl SkillLoader {
     pub fn parse_skill_cached(&self, path: &Path) -> Result<SkillDefinition> {
         // Check cache first
         {
-            let mut cache = self.body_cache.lock().unwrap();
+            let mut cache = self.body_cache.lock().expect("body_cache mutex poisoned");
             if let Some(cached_content) = cache.get(&path.to_path_buf()) {
                 debug!(path = %path.display(), "Using cached skill body");
                 return Self::parse_skill_from_content(path, cached_content.clone());
@@ -231,7 +232,7 @@ impl SkillLoader {
 
         // Insert into cache
         {
-            let mut cache = self.body_cache.lock().unwrap();
+            let mut cache = self.body_cache.lock().expect("body_cache mutex poisoned");
             cache.put(path.to_path_buf(), content.clone());
         }
 

@@ -14,16 +14,11 @@ use super::executor::AgentExecutorHandle;
 // ---------------------------------------------------------------------------
 
 /// Which agent slot is active.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentSlot {
     Plan,
+    #[default]
     Build,
-}
-
-impl Default for AgentSlot {
-    fn default() -> Self {
-        Self::Build
-    }
 }
 
 impl std::fmt::Display for AgentSlot {

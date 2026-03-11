@@ -125,7 +125,9 @@ pub async fn ws_handler(
         return axum::response::Response::builder()
             .status(axum::http::StatusCode::UNAUTHORIZED)
             .body(axum::body::Body::from("WebSocket authentication required"))
-            .unwrap()
+            .unwrap_or_else(|_| {
+                axum::response::Response::new(axum::body::Body::from("Unauthorized"))
+            })
             .into_response();
     }
     ws.on_upgrade(move |socket| handle_socket(socket, state))

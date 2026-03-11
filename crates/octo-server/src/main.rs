@@ -322,19 +322,51 @@ async fn main() -> Result<()> {
             .await?;
     }
 
-    // Graceful shutdown: clean up MCP servers
+    // Graceful shutdown: clean up MCP servers with timeout
     tracing::info!("Shutting down MCP servers...");
-    let mcp_manager = state.agent_supervisor.mcp_manager();
-    let mut guard = mcp_manager.lock().await;
-    let _ = guard.shutdown_all().await;
-    tracing::info!("MCP servers shut down");
+    let cleanup = async {
+        let mcp_manager = state.agent_supervisor.mcp_manager();
+        let mut guard = mcp_manager.lock().await;
+        let _ = guard.shutdown_all().await;
+    };
+    tokio::select! {
+        _ = cleanup => tracing::info!("MCP servers shut down"),
+        _ = tokio::time::sleep(std::time::Duration::from_secs(30)) => {
+            tracing::warn!("MCP shutdown timed out after 30s, forcing exit");
+        }
+    }
 
     Ok(())
 }
 
-async fn shutdown_signal(_state: Arc<AppState>) {
-    tokio::signal::ctrl_c()
-        .await
-        .expect("failed to install CTRL+C signal handler");
-    tracing::info!("shutdown signal received");
+async fn shutdown_signal(state: Arc<AppState>) {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install CTRL+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
+            .expect("failed to install SIGTERM handler")
+            .recv()
+            .await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {},
+        _ = terminate => {},
+    }
+
+    tracing::info!("shutdown signal received, starting graceful shutdown...");
+
+    // Stop scheduler if running
+    if let Some(ref sched) = state.scheduler {
+        tracing::info!("Stopping scheduler...");
+        sched.stop();
+    }
 }

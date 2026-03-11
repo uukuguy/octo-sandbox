@@ -153,19 +153,18 @@ impl RuleBasedExtractor {
                     }
                 }
                 // Match common build/test commands
-                if trimmed.starts_with("cargo ")
+                if (trimmed.starts_with("cargo ")
                     || trimmed.starts_with("npm ")
-                    || trimmed.starts_with("make ")
+                    || trimmed.starts_with("make "))
+                    && seen.insert(trimmed.to_string())
                 {
-                    if seen.insert(trimmed.to_string()) {
-                        memories.push(ExtractedMemory {
-                            key: format!("cmd:{}", &trimmed[..trimmed.len().min(50)]),
-                            value: trimmed.to_string(),
-                            category: AutoMemoryCategory::CommandPattern,
-                            tags: vec!["auto".to_string(), "command".to_string()],
-                            confidence: 0.6,
-                        });
-                    }
+                    memories.push(ExtractedMemory {
+                        key: format!("cmd:{}", &trimmed[..trimmed.len().min(50)]),
+                        value: trimmed.to_string(),
+                        category: AutoMemoryCategory::CommandPattern,
+                        tags: vec!["auto".to_string(), "command".to_string()],
+                        confidence: 0.6,
+                    });
                 }
             }
         }
@@ -252,7 +251,7 @@ fn is_likely_file_path(s: &str) -> bool {
     if !has_separator {
         return false;
     }
-    let has_extension = s.rsplit('.').next().map_or(false, |ext| {
+    let has_extension = s.rsplit('.').next().is_some_and(|ext| {
         matches!(
             ext,
             "rs" | "ts"

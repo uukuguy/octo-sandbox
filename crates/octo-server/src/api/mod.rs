@@ -2,6 +2,7 @@ pub mod agents;
 pub mod audit;
 pub mod budget;
 pub mod collaboration;
+pub mod error;
 pub mod events;
 pub mod config;
 pub mod executions;
