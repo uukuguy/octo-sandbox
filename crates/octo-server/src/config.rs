@@ -1,5 +1,5 @@
 use octo_engine::auth::AuthConfigYaml;
-use octo_engine::providers::{ProviderChainConfig, ProviderConfig};
+use octo_engine::providers::{ProviderChainConfig, ProviderConfig, SmartRoutingConfig};
 use octo_engine::scheduler::SchedulerConfig;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -40,6 +40,9 @@ pub struct Config {
     /// Enable event bus for observability (default: false)
     #[serde(default)]
     pub enable_event_bus: bool,
+    /// Smart routing configuration (optional)
+    #[serde(default)]
+    pub smart_routing: Option<SmartRoutingConfig>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

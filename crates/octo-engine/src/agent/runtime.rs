@@ -110,6 +110,11 @@ pub struct AgentRuntime {
     pub(crate) safety_pipeline: Option<Arc<crate::security::SafetyPipeline>>,
     // Canary token for system prompt injection (T1)
     pub(crate) canary_token: Option<String>,
+    // Shared approval gate for pending human approval requests (T7)
+    pub(crate) approval_gate: Option<crate::tools::approval::ApprovalGate>,
+    // Optional collaboration manager for multi-agent sessions (T9)
+    pub(crate) collaboration_manager:
+        Option<Arc<Mutex<crate::agent::collaboration::manager::CollaborationManager>>>,
 }
 
 impl AgentRuntime {
@@ -254,6 +259,9 @@ impl AgentRuntime {
             crate::security::SafetyPipeline::new().add_layer(Box::new(canary_guard)),
         );
 
+        // 17. Shared ApprovalGate for interactive tool approval (T7)
+        let approval_gate = crate::tools::approval::ApprovalGate::new();
+
         let runtime = Self {
             primary_handle: Mutex::new(None),
             agent_handles: DashMap::new(),
@@ -278,6 +286,8 @@ impl AgentRuntime {
             router: tokio::sync::RwLock::new(crate::agent::router::AgentRouter::new()),
             safety_pipeline: Some(safety_pipeline),
             canary_token: Some(canary_token),
+            approval_gate: Some(approval_gate),
+            collaboration_manager: None,
         };
 
         // 17. Load declarative YAML agent definitions (if configured)
@@ -390,6 +400,43 @@ impl AgentRuntime {
         self.safety_pipeline.as_ref()
     }
 
+    /// Get shared approval gate (if any) — T7
+    pub fn approval_gate(&self) -> Option<&crate::tools::approval::ApprovalGate> {
+        self.approval_gate.as_ref()
+    }
+
+    /// Get collaboration context (if a collaboration session is active) — T9.
+    pub fn collaboration_context(
+        &self,
+    ) -> Option<Arc<crate::agent::collaboration::context::CollaborationContext>> {
+        // We try_lock to avoid blocking; if it's locked, collaboration is in use.
+        let mgr_arc = self.collaboration_manager.as_ref()?;
+        let guard = mgr_arc.try_lock().ok()?;
+        Some(Arc::clone(guard.context()))
+    }
+
+    /// Get snapshot of collaboration agents (empty vec if no active collaboration) — T9.
+    pub fn collaboration_agents(
+        &self,
+    ) -> Vec<crate::agent::collaboration::manager::CollaborationAgent> {
+        let mgr_arc = match &self.collaboration_manager {
+            Some(m) => m,
+            None => return vec![],
+        };
+        match mgr_arc.try_lock() {
+            Ok(guard) => guard.agents(),
+            Err(_) => vec![],
+        }
+    }
+
+    /// Set the collaboration manager for this runtime — T9.
+    pub fn set_collaboration_manager(
+        &mut self,
+        mgr: Arc<Mutex<crate::agent::collaboration::manager::CollaborationManager>>,
+    ) {
+        self.collaboration_manager = Some(mgr);
+    }
+
     /// Delete expired memory entries (convenience wrapper).
     pub async fn cleanup_expired_memories(&self) -> anyhow::Result<usize> {
         self.memory_store.delete_expired().await
@@ -489,6 +536,7 @@ impl AgentRuntime {
             Some(self.hook_registry.clone()),
             self.safety_pipeline.clone(),
             self.canary_token.clone(),
+            self.approval_gate.clone(),
         );
 
         // Spawn 持久化主循环

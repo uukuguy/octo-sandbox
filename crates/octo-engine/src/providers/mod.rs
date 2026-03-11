@@ -6,6 +6,7 @@ pub mod openai;
 pub mod pipeline;
 pub mod response_cache;
 pub mod retry;
+pub mod smart_router;
 pub mod traits;
 pub mod usage_recorder;
 
@@ -17,6 +18,9 @@ pub use openai::create_openai_provider;
 pub use pipeline::{CircuitBreakerConfig, CircuitState, CostBudget, ProviderPipelineBuilder};
 pub use response_cache::ResponseCacheProvider;
 pub use retry::{ErrorStrategy, LlmErrorKind, RetryPolicy};
+pub use smart_router::{
+    AnalyzerThresholds, QueryAnalyzer, QueryComplexity, SmartRouterProvider, SmartRoutingConfig,
+};
 pub use traits::{CompletionStream, Provider};
 pub use usage_recorder::{UsageRecorderProvider, UsageStats};
 

@@ -43,6 +43,9 @@ impl AppState {
         // Initialize metrics registry
         let metrics_registry = Arc::new(RwLock::new(MetricsRegistry::new()));
 
+        // Create shared ApprovalGate — same instance shared between WS handler and AgentRuntime
+        let approval_gate = agent_supervisor.approval_gate().cloned();
+
         Self {
             db_path,
             scheduler,
@@ -52,7 +55,7 @@ impl AppState {
             agent_supervisor,
             agent_handle,
             start_time: std::time::Instant::now(),
-            approval_gate: None,
+            approval_gate,
         }
     }
 

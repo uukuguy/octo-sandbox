@@ -25,6 +25,7 @@ use octo_types::{CompletionRequest, CompletionResponse};
 
 use super::response_cache::ResponseCacheProvider;
 use super::retry::{LlmErrorKind, RetryPolicy};
+use super::smart_router::{QueryAnalyzer, QueryComplexity, SmartRouterProvider};
 use super::traits::{CompletionStream, Provider};
 use super::usage_recorder::{UsageRecorderProvider, UsageStats};
 
@@ -414,6 +415,29 @@ impl ProviderPipelineBuilder {
                 self.provider,
                 capacity,
                 Duration::from_secs(ttl_secs),
+            )),
+        }
+    }
+
+    /// Add smart routing that overrides the model based on query complexity.
+    ///
+    /// The analyzer classifies requests as Simple/Medium/Complex and the
+    /// `tier_models` map selects the corresponding model name. Requests whose
+    /// complexity tier is not in the map fall back to `default_model`.
+    ///
+    /// Recommended pipeline order: Raw -> SmartRouter -> Retry -> CircuitBreaker -> CostGuard
+    pub fn with_smart_routing(
+        self,
+        analyzer: QueryAnalyzer,
+        tier_models: std::collections::HashMap<QueryComplexity, String>,
+        default_model: String,
+    ) -> Self {
+        Self {
+            provider: Box::new(SmartRouterProvider::new(
+                self.provider,
+                analyzer,
+                tier_models,
+                default_model,
             )),
         }
     }

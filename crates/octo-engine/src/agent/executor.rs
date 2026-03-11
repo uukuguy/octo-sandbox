@@ -97,6 +97,8 @@ pub struct AgentExecutor {
     safety_pipeline: Option<Arc<crate::security::SafetyPipeline>>,
     // Canary token for system prompt injection (T1)
     canary_token: Option<String>,
+    // Shared approval gate for interactive tool approval (T7)
+    approval_gate: Option<crate::tools::approval::ApprovalGate>,
 }
 
 impl AgentExecutor {
@@ -122,6 +124,7 @@ impl AgentExecutor {
         hook_registry: Option<Arc<crate::hooks::HookRegistry>>,
         safety_pipeline: Option<Arc<crate::security::SafetyPipeline>>,
         canary_token: Option<String>,
+        approval_gate: Option<crate::tools::approval::ApprovalGate>,
     ) -> Self {
         Self {
             session_id,
@@ -145,6 +148,7 @@ impl AgentExecutor {
             hook_registry,
             safety_pipeline,
             canary_token,
+            approval_gate,
             turn_gate: super::turn_gate::TurnGate::new(),
         }
     }
@@ -225,6 +229,7 @@ impl AgentExecutor {
                         agent_config: self.config.clone(),
                         safety_pipeline: self.safety_pipeline.clone(),
                         canary_token: self.canary_token.clone(),
+                        approval_gate: self.approval_gate.clone(),
                         ..AgentLoopConfig::default()
                     };
 
