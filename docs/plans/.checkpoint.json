@@ -1,36 +1,40 @@
 {
   "plan_file": "docs/plans/2026-03-11-wave6-production-hardening.md",
-  "phase": "design",
+  "phase": "complete",
   "created_at": "2026-03-11T17:00:00+08:00",
-  "updated_at": "2026-03-11T17:00:00+08:00",
-  "completed_tasks": [],
+  "updated_at": "2026-03-11T17:30:00+08:00",
+  "completed_tasks": [
+    "W6a-T1", "W6a-T2", "W6a-T3", "W6a-T4", "W6a-T5",
+    "W6b-T1", "W6b-T2", "W6b-T3", "W6b-T4", "W6b-T5",
+    "W6c-T1", "W6c-T2", "W6c-T3", "W6c-T4", "W6c-T5"
+  ],
   "current_task": null,
   "total_tasks": 15,
   "task_groups": {
     "Wave6a": {
       "name": "Server E2E 测试",
       "tasks": ["W6a-T1", "W6a-T2", "W6a-T3", "W6a-T4", "W6a-T5"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "description": "Server 测试基础设施 + Health/Agent/Session/MCP API 测试"
     },
     "Wave6b": {
       "name": "生产加固",
       "tasks": ["W6b-T1", "W6b-T2", "W6b-T3", "W6b-T4", "W6b-T5"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "description": ".unwrap() 修复 + Error 统一化 + Graceful Shutdown"
     },
     "Wave6c": {
       "name": "配置 & 部署完善",
       "tasks": ["W6c-T1", "W6c-T2", "W6c-T3", "W6c-T4", "W6c-T5"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "description": "config 同步 + Docker 验证 + 部署文档 + CLI 验证 + CHANGELOG"
     }
   },
   "execution_order": ["Wave6a", "Wave6b", "Wave6c"],
-  "execution_mode": null,
+  "execution_mode": "subagent-driven-development",
   "phase_name": "wave6-production-hardening",
   "tests_baseline": 1548,
-  "tests_current": 1548,
+  "tests_current": 1594,
   "previous_plan": {
     "file": "docs/plans/2026-03-11-wave5-execution.md",
     "status": "COMPLETE",
@@ -44,6 +48,6 @@
     "docker_frontend": "Keep compose separation (Nginx/Caddy as separate service)",
     "unwrap_governance": "Fix only critical paths, keep test code unwraps"
   },
-  "plan_status": "READY",
-  "notes": "Wave 6 — final phase. Production hardening + E2E testing + config/deploy. 15 tasks across 3 parallel waves."
+  "plan_status": "COMPLETE",
+  "notes": "Wave 6 COMPLETE — production hardening + E2E testing + config/deploy. 15/15 tasks done. 1594 tests passing."
 }
