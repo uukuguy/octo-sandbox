@@ -2,15 +2,18 @@
   "plan_file": "docs/plans/2026-03-11-wave5-execution.md",
   "phase": "execution",
   "created_at": "2026-03-11T15:00:00+08:00",
-  "updated_at": "2026-03-11T15:00:00+08:00",
-  "completed_tasks": [],
+  "updated_at": "2026-03-11T15:30:00+08:00",
+  "completed_tasks": [
+    "D1-P3-T1", "D1-P3-T2", "D1-P3-T3", "D1-P3-T4", "D1-P3-T5", "D1-P3-T6", "D1-P3-T7",
+    "D4-T1", "D4-T2", "D4-T3", "D4-T4", "D4-T5", "D4-T6"
+  ],
   "current_task": null,
   "total_tasks": 22,
   "task_groups": {
     "Wave5a": {
       "name": "共识持久化",
       "tasks": ["D1-P3-T1", "D1-P3-T2", "D1-P3-T3", "D1-P3-T4", "D1-P3-T5", "D1-P3-T6", "D1-P3-T7"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "description": "DB Migration v7 + ByzantineStore + SqliteByzantineStore + 密钥加密 + Manager 集成 + 测试"
     },
     "Wave5b": {
@@ -22,7 +25,7 @@
     "Wave5c": {
       "name": "TLS 支持 (缩减版)",
       "tasks": ["D4-T1", "D4-T2", "D4-T3", "D4-T4", "D4-T5", "D4-T6"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "description": "TLS 配置 + 自签名证书 + Server 集成 + 部署模板 + 测试"
     }
   },
@@ -30,7 +33,7 @@
   "execution_mode": "subagent-driven-development",
   "phase_name": "wave5-execution",
   "tests_baseline": 1501,
-  "tests_current": 1501,
+  "tests_current": 1521,
   "previous_plan": {
     "file": "docs/plans/2026-03-11-deferred-wave3.md",
     "status": "EXECUTING",
@@ -43,7 +46,7 @@
     "D6_timestamp": "Hybrid Logical Clock (causal ordering, ~50 LOC overhead)",
     "D4_scope": "Reduced to TLS config + self-signed + Caddy/Nginx templates (no built-in ACME)"
   },
-  "plan_status": "READY",
+  "plan_status": "EXECUTING",
   "final_commit": null,
-  "notes": "New Wave 5 plan based on deep code analysis of all 3 deferred items. Design doc: docs/design/WAVE5_DEFERRED_DESIGN.md"
+  "notes": "Wave 5a+5c COMPLETE @ c252a15, 1521 tests. Wave 5b (D6 offline sync) remaining."
 }
