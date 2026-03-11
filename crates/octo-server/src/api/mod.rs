@@ -1,6 +1,7 @@
 pub mod agents;
 pub mod audit;
 pub mod budget;
+pub mod events;
 pub mod config;
 pub mod executions;
 pub mod mcp_logs;
@@ -67,9 +68,10 @@ pub fn routes() -> Router<Arc<AppState>> {
             get(memories::get_memory).delete(memories::delete_memory),
         )
         .route("/budget", get(budget::get_budget))
-        // Metrics and Audit
+        // Metrics, Audit, and Events
         .merge(metrics::router())
         .merge(audit::router())
+        .merge(events::router())
         // MCP servers
         .merge(mcp_servers::routes())
         .merge(mcp_tools::routes())
