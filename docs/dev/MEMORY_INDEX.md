@@ -7,6 +7,11 @@
 
 ## [Active Work]
 
+- 16:30 | Wave 5 COMPLETE — 全部 22/22 任务完成, 1548 tests @ d95e468
+  - Wave 5b (D6): 离线同步 HLC+LWW, 3 并行智能体 (core/protocol/tests)
+  - 新增: sync/ 模块 (hlc, changelog, protocol, lww, server, client) + REST API + 30 tests
+  - DB migration v8: sync_metadata + sync_changelog 表
+  - 所有 Wave 3-5 暂缓项已完成，剩余: D4-ACME, D6-V2 (CRDT), D6-Desktop
 - 09:30 | Deferred 项完成方案 (Plan B) 设计完成 — 10 tasks / 2 waves
   - 全量 Deferred 扫描: 17 个待处理项，5 个条件已满足
   - 5 个并行研究智能体 (RuFlo swarm) 深入分析代码集成点

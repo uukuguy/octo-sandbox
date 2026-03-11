@@ -1,5 +1,57 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-03-11 — 架构完成度评估 + Wave 6 计划创建
+
+### 会话概要
+
+完成了 octo-sandbox 全架构的完成度审计（3 个并行研究智能体 + 1 个集成差距分析智能体），确认架构功能完成度 95%+，无重大偏差。基于审计结果创建了 Wave 6（最后阶段）实施计划。
+
+### 架构审计结果
+
+**octo-engine**: 24 模块全部 COMPLETE，44,076 LOC，0 stub，0 todo!()，1548 tests
+**octo-server**: 21 API 端点全部有真实实现，中间件完整（auth → audit → rate_limit）
+**octo-cli**: 50+ 文件，Commands + TUI (16 screens) + REPL，三种交互模式
+**web/ 前端**: 8 页面 + 21 组件全部实现，API/WS 集成已验证
+**octo-desktop**: Tauri 封装 + 嵌入式 Axum server
+**设计文档**: 31 篇，~18K 行，全部实质性内容
+
+### 发现的集成差距
+
+1. **CLI 嵌入引擎运行**，无 HTTP 客户端连 server（设计合理，列为 Deferred D8）
+2. **Server 无 E2E 测试**（`crates/octo-server/tests/` 目录不存在）
+3. **config.default.yaml 与 config.yaml 不同步**，缺少 TLS/sync/consensus 配置
+4. **`.unwrap()` 208 处**（octo-engine），关键热点在 `skills/loader.rs` Mutex 锁
+5. **Docker Compose 前端需 Nginx 分离服务**（非 Dockerfile 内嵌）
+
+### Wave 6 计划
+
+| Wave | 主题 | Tasks | 状态 |
+|------|------|-------|------|
+| 6a | Server E2E 测试 | 5 | PENDING |
+| 6b | 生产加固 (.unwrap + Error + Shutdown) | 5 | PENDING |
+| 6c | 配置 & 部署完善 | 5 | PENDING |
+
+### 产出文件
+
+| 文件 | 说明 |
+|------|------|
+| `docs/plans/2026-03-11-wave6-production-hardening.md` | Wave 6 实施计划（15 tasks） |
+| `docs/plans/.checkpoint.json` | Checkpoint（指向 Wave 6，READY） |
+
+### 设计决策
+
+1. **CLI 维持嵌入引擎** — server 模式作为可选增强（Deferred D8）
+2. **E2E 测试用 axum::TestServer** — 避免端口冲突和网络依赖
+3. **.unwrap() 仅修关键路径** — 测试代码保留
+4. **Docker 维持 compose 分离** — Nginx/Caddy 作为独立服务
+
+### 下一步
+
+- 运行 `/resume-plan` 选择执行模式，开始 Wave 6 三组并行
+- 三组完全独立，可同时启动 6-8 个智能体
+
+---
+
 ## 2026-03-09 — Harness 实现计划创建
 
 ### 会话概要
