@@ -1,7 +1,9 @@
 //! Integration tests for PBFT-lite Byzantine consensus.
 
 use octo_engine::agent::collaboration::{
-    ByzantineProposal, CollaborationMessage, ConsensusPhase, ConsensusVote, PhaseAdvanceResult,
+    sign_consensus_vote, verify_consensus_vote, verify_signature, ByzantineProposal,
+    CollaborationMessage, ConsensusKeypair, ConsensusPhase, ConsensusVote, PhaseAdvanceResult,
+    SignedMessage, VerifyResult, ViewChangeReason, ViewChangeRequest, ViewChangeTracker, ViewState,
 };
 
 fn make_vote(agent_id: &str, approve: bool, phase: ConsensusPhase) -> ConsensusVote {
@@ -533,4 +535,342 @@ fn byzantine_proposal_alongside_regular_proposals() {
     let restored: ByzantineProposal = serde_json::from_value(stored).unwrap();
     assert_eq!(restored.id, "byz-1");
     assert_eq!(restored.prepare_votes.len(), 1);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// D1-P2: Cryptographic Signing Tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn crypto_keypair_generation_produces_unique_keys() {
+    let kp1 = ConsensusKeypair::generate("agent-1".into());
+    let kp2 = ConsensusKeypair::generate("agent-2".into());
+    assert_ne!(kp1.public_key_bytes(), kp2.public_key_bytes());
+    assert_eq!(kp1.agent_id, "agent-1");
+    assert_eq!(kp2.agent_id, "agent-2");
+    // ED25519 public keys are 32 bytes
+    assert_eq!(kp1.public_key_bytes().len(), 32);
+}
+
+#[test]
+fn crypto_sign_and_verify_happy_path() {
+    let kp = ConsensusKeypair::generate("signer".into());
+    let signed = kp.sign(b"hello consensus");
+    assert_eq!(signed.agent_id, "signer");
+    assert_eq!(signed.payload, b"hello consensus");
+    assert_eq!(signed.signature.len(), 64);
+    assert_eq!(signed.signer_public_key.len(), 32);
+    assert_eq!(verify_signature(&signed), VerifyResult::Valid);
+}
+
+#[test]
+fn crypto_wrong_key_fails_verification() {
+    let kp1 = ConsensusKeypair::generate("a1".into());
+    let kp2 = ConsensusKeypair::generate("a2".into());
+    let mut signed = kp1.sign(b"important data");
+    // Swap in a different public key
+    signed.signer_public_key = kp2.public_key_bytes();
+    assert_eq!(verify_signature(&signed), VerifyResult::InvalidSignature);
+}
+
+#[test]
+fn crypto_tampered_payload_detected() {
+    let kp = ConsensusKeypair::generate("agent".into());
+    let mut signed = kp.sign(b"original message");
+    signed.payload = b"tampered message".to_vec();
+    assert_eq!(verify_signature(&signed), VerifyResult::InvalidSignature);
+}
+
+#[test]
+fn crypto_sign_consensus_vote_roundtrip() {
+    let kp = ConsensusKeypair::generate("voter-1".into());
+    let signed = sign_consensus_vote(&kp, "proposal-42", "Prepare", true);
+    assert_eq!(
+        verify_consensus_vote(&signed, "proposal-42", "Prepare"),
+        VerifyResult::Valid
+    );
+}
+
+#[test]
+fn crypto_wrong_proposal_id_in_verify() {
+    let kp = ConsensusKeypair::generate("voter".into());
+    let signed = sign_consensus_vote(&kp, "prop-A", "Commit", false);
+    let result = verify_consensus_vote(&signed, "prop-B", "Commit");
+    match result {
+        VerifyResult::DeserializationError(msg) => {
+            assert!(msg.contains("proposal_id mismatch"));
+        }
+        other => panic!("Expected DeserializationError, got {:?}", other),
+    }
+}
+
+#[test]
+fn crypto_wrong_phase_in_verify() {
+    let kp = ConsensusKeypair::generate("voter".into());
+    let signed = sign_consensus_vote(&kp, "prop-1", "Prepare", true);
+    let result = verify_consensus_vote(&signed, "prop-1", "Commit");
+    match result {
+        VerifyResult::DeserializationError(msg) => {
+            assert!(msg.contains("phase mismatch"));
+        }
+        other => panic!("Expected DeserializationError, got {:?}", other),
+    }
+}
+
+#[test]
+fn crypto_signed_message_serialization_roundtrip() {
+    let kp = ConsensusKeypair::generate("serializer".into());
+    let signed = kp.sign(b"serialize me");
+    let json = serde_json::to_string(&signed).unwrap();
+    let decoded: SignedMessage = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.payload, signed.payload);
+    assert_eq!(decoded.signature, signed.signature);
+    assert_eq!(decoded.signer_public_key, signed.signer_public_key);
+    assert_eq!(decoded.agent_id, "serializer");
+    // Deserialized message should still verify
+    assert_eq!(verify_signature(&decoded), VerifyResult::Valid);
+}
+
+#[test]
+fn crypto_multiple_keypairs_only_correct_verifies() {
+    let kp1 = ConsensusKeypair::generate("a1".into());
+    let kp2 = ConsensusKeypair::generate("a2".into());
+    let kp3 = ConsensusKeypair::generate("a3".into());
+
+    let signed = kp1.sign(b"shared data");
+    // Correct key verifies
+    assert_eq!(verify_signature(&signed), VerifyResult::Valid);
+
+    // Wrong keys fail
+    let mut wrong2 = signed.clone();
+    wrong2.signer_public_key = kp2.public_key_bytes();
+    assert_eq!(verify_signature(&wrong2), VerifyResult::InvalidSignature);
+
+    let mut wrong3 = signed.clone();
+    wrong3.signer_public_key = kp3.public_key_bytes();
+    assert_eq!(verify_signature(&wrong3), VerifyResult::InvalidSignature);
+}
+
+#[test]
+fn crypto_malformed_public_key_returns_key_mismatch() {
+    let kp = ConsensusKeypair::generate("agent".into());
+    let mut signed = kp.sign(b"data");
+    signed.signer_public_key = vec![0u8; 10]; // Wrong length
+    assert_eq!(verify_signature(&signed), VerifyResult::KeyMismatch);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// D1-P2: View Change Tests
+// ═══════════════════════════════════════════════════════════════════════════
+
+#[test]
+fn view_state_new_sets_correct_initial_state() {
+    let agents = vec!["a1".into(), "a2".into(), "a3".into()];
+    let vs = ViewState::new(agents.clone());
+    assert_eq!(vs.view_number, 0);
+    assert_eq!(vs.leader, "a1");
+    assert_eq!(vs.agents, agents);
+}
+
+#[test]
+fn view_state_leader_for_view_round_robin() {
+    let agents: Vec<String> = vec!["a1".into(), "a2".into(), "a3".into()];
+    assert_eq!(ViewState::leader_for_view(0, &agents), "a1");
+    assert_eq!(ViewState::leader_for_view(1, &agents), "a2");
+    assert_eq!(ViewState::leader_for_view(2, &agents), "a3");
+    assert_eq!(ViewState::leader_for_view(3, &agents), "a1"); // wraps around
+    assert_eq!(ViewState::leader_for_view(4, &agents), "a2");
+}
+
+#[test]
+fn view_state_is_leader() {
+    let vs = ViewState::new(vec!["leader".into(), "follower1".into(), "follower2".into()]);
+    assert!(vs.is_leader("leader"));
+    assert!(!vs.is_leader("follower1"));
+    assert!(!vs.is_leader("follower2"));
+    assert!(!vs.is_leader("unknown"));
+}
+
+#[test]
+fn view_change_tracker_request_accumulation() {
+    let agents = vec!["a1".into(), "a2".into(), "a3".into(), "a4".into()];
+    let mut tracker = ViewChangeTracker::new(agents, 5000);
+    assert_eq!(tracker.view_number(), 0);
+    assert_eq!(tracker.current_leader(), "a1");
+
+    // First request: not yet quorum (4 agents, quorum=3)
+    let req1 = ViewChangeRequest {
+        from_agent: "a2".into(),
+        current_view: 0,
+        proposed_view: 1,
+        reason: ViewChangeReason::LeaderTimeout,
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    };
+    assert!(!tracker.request_view_change(req1));
+    assert_eq!(tracker.requests.len(), 1);
+}
+
+#[test]
+fn view_change_quorum_triggers_change() {
+    // 4 agents: quorum = 2*1+1 = 3
+    let agents = vec!["a1".into(), "a2".into(), "a3".into(), "a4".into()];
+    let mut tracker = ViewChangeTracker::new(agents, 5000);
+
+    let make_req = |agent: &str| ViewChangeRequest {
+        from_agent: agent.into(),
+        current_view: 0,
+        proposed_view: 1,
+        reason: ViewChangeReason::LeaderTimeout,
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    };
+
+    assert!(!tracker.request_view_change(make_req("a2")));
+    assert!(!tracker.request_view_change(make_req("a3")));
+    // Third request reaches quorum
+    assert!(tracker.request_view_change(make_req("a4")));
+}
+
+#[test]
+fn view_change_execute_advances_view_and_rotates_leader() {
+    let agents = vec!["a1".into(), "a2".into(), "a3".into(), "a4".into()];
+    let mut tracker = ViewChangeTracker::new(agents, 5000);
+
+    assert_eq!(tracker.current_leader(), "a1");
+    assert_eq!(tracker.view_number(), 0);
+
+    let new_state = tracker.execute_view_change();
+    assert_eq!(new_state.view_number, 1);
+    assert_eq!(new_state.leader, "a2");
+    assert_eq!(tracker.current_leader(), "a2");
+    assert_eq!(tracker.view_number(), 1);
+    // Requests should be cleared
+    assert!(tracker.requests.is_empty());
+
+    // Execute again
+    let new_state = tracker.execute_view_change();
+    assert_eq!(new_state.view_number, 2);
+    assert_eq!(new_state.leader, "a3");
+}
+
+#[test]
+fn view_change_duplicate_requests_from_same_agent_ignored() {
+    let agents = vec!["a1".into(), "a2".into(), "a3".into(), "a4".into()];
+    let mut tracker = ViewChangeTracker::new(agents, 5000);
+
+    let make_req = |agent: &str| ViewChangeRequest {
+        from_agent: agent.into(),
+        current_view: 0,
+        proposed_view: 1,
+        reason: ViewChangeReason::LeaderTimeout,
+        timestamp: chrono::Utc::now().to_rfc3339(),
+    };
+
+    tracker.request_view_change(make_req("a2"));
+    tracker.request_view_change(make_req("a2")); // duplicate
+    tracker.request_view_change(make_req("a2")); // duplicate
+    assert_eq!(tracker.requests.len(), 1); // Only counted once
+
+    // Still needs 2 more unique agents for quorum
+    assert!(!tracker.request_view_change(make_req("a3")));
+    assert!(tracker.request_view_change(make_req("a4"))); // Now quorum
+}
+
+#[test]
+fn view_change_reason_serialization() {
+    for reason in &[
+        ViewChangeReason::LeaderTimeout,
+        ViewChangeReason::LeaderMalicious,
+        ViewChangeReason::Explicit,
+    ] {
+        let json = serde_json::to_string(reason).unwrap();
+        let decoded: ViewChangeReason = serde_json::from_str(&json).unwrap();
+        assert_eq!(&decoded, reason);
+    }
+}
+
+#[test]
+fn view_state_serialization_roundtrip() {
+    let vs = ViewState::new(vec!["a1".into(), "a2".into(), "a3".into()]);
+    let json = serde_json::to_string(&vs).unwrap();
+    let decoded: ViewState = serde_json::from_str(&json).unwrap();
+    assert_eq!(decoded.view_number, 0);
+    assert_eq!(decoded.leader, "a1");
+    assert_eq!(decoded.agents.len(), 3);
+}
+
+// ─── New channel variant serialization tests ───
+
+#[test]
+fn signed_prepare_vote_message_serialization() {
+    let msg = CollaborationMessage::SignedPrepareVote {
+        proposal_id: "p1".into(),
+        agent_id: "a1".into(),
+        approve: true,
+        signature: vec![1, 2, 3],
+        public_key: vec![4, 5, 6],
+    };
+    let json = serde_json::to_string(&msg).unwrap();
+    let decoded: CollaborationMessage = serde_json::from_str(&json).unwrap();
+    match decoded {
+        CollaborationMessage::SignedPrepareVote {
+            proposal_id,
+            agent_id,
+            approve,
+            signature,
+            public_key,
+        } => {
+            assert_eq!(proposal_id, "p1");
+            assert_eq!(agent_id, "a1");
+            assert!(approve);
+            assert_eq!(signature, vec![1, 2, 3]);
+            assert_eq!(public_key, vec![4, 5, 6]);
+        }
+        other => panic!("Expected SignedPrepareVote, got {:?}", other),
+    }
+}
+
+#[test]
+fn view_change_request_message_serialization() {
+    let msg = CollaborationMessage::ViewChangeRequest {
+        from_agent: "a2".into(),
+        current_view: 0,
+        proposed_view: 1,
+        reason: "LeaderTimeout".into(),
+    };
+    let json = serde_json::to_string(&msg).unwrap();
+    let decoded: CollaborationMessage = serde_json::from_str(&json).unwrap();
+    match decoded {
+        CollaborationMessage::ViewChangeRequest {
+            from_agent,
+            current_view,
+            proposed_view,
+            reason,
+        } => {
+            assert_eq!(from_agent, "a2");
+            assert_eq!(current_view, 0);
+            assert_eq!(proposed_view, 1);
+            assert_eq!(reason, "LeaderTimeout");
+        }
+        other => panic!("Expected ViewChangeRequest, got {:?}", other),
+    }
+}
+
+#[test]
+fn new_view_message_serialization() {
+    let msg = CollaborationMessage::NewView {
+        view_number: 3,
+        new_leader: "a4".into(),
+    };
+    let json = serde_json::to_string(&msg).unwrap();
+    let decoded: CollaborationMessage = serde_json::from_str(&json).unwrap();
+    match decoded {
+        CollaborationMessage::NewView {
+            view_number,
+            new_leader,
+        } => {
+            assert_eq!(view_number, 3);
+            assert_eq!(new_leader, "a4");
+        }
+        other => panic!("Expected NewView, got {:?}", other),
+    }
 }

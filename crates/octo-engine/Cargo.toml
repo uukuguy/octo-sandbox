@@ -43,6 +43,7 @@ aes-gcm = "0.10"
 argon2 = "0.5"
 zeroize = { version = "1.7", features = ["derive"] }
 rand = "0.8"
+ed25519-dalek = { version = "2", features = ["rand_core"] }
 keyring = { version = "3", optional = true }
 regex = "1"
 lru = "0.12"

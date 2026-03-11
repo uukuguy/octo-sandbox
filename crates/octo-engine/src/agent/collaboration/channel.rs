@@ -62,6 +62,34 @@ pub enum CollaborationMessage {
         finalized: bool,
         phase: String,
     },
+    /// Signed consensus vote (Prepare phase) with ED25519 signature.
+    SignedPrepareVote {
+        proposal_id: String,
+        agent_id: String,
+        approve: bool,
+        signature: Vec<u8>,
+        public_key: Vec<u8>,
+    },
+    /// Signed consensus vote (Commit phase) with ED25519 signature.
+    SignedCommitVote {
+        proposal_id: String,
+        agent_id: String,
+        approve: bool,
+        signature: Vec<u8>,
+        public_key: Vec<u8>,
+    },
+    /// View change request from a replica.
+    ViewChangeRequest {
+        from_agent: String,
+        current_view: u64,
+        proposed_view: u64,
+        reason: String,
+    },
+    /// New view announcement (broadcast by the new leader).
+    NewView {
+        view_number: u64,
+        new_leader: String,
+    },
 }
 
 /// A bidirectional communication channel between two agents.

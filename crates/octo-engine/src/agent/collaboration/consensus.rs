@@ -246,6 +246,150 @@ impl ByzantineProposal {
     }
 }
 
+// ─── View Change Protocol ───────────────────────────────────────────────────
+
+/// Tracks the current view (leader epoch) for Byzantine consensus.
+///
+/// The view number increases monotonically; each view has exactly one leader
+/// selected via round-robin from the ordered agent list.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewState {
+    /// Monotonically increasing view identifier.
+    pub view_number: u64,
+    /// Agent ID of the current leader.
+    pub leader: String,
+    /// Ordered list of all participating agent IDs.
+    pub agents: Vec<String>,
+}
+
+/// A request from a replica to change the current view (leader rotation).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ViewChangeRequest {
+    /// Agent that issued this request.
+    pub from_agent: String,
+    /// The view this agent considers current.
+    pub current_view: u64,
+    /// The view this agent wants to move to.
+    pub proposed_view: u64,
+    /// Why the change is requested.
+    pub reason: ViewChangeReason,
+    /// ISO 8601 timestamp.
+    pub timestamp: String,
+}
+
+/// Reason for requesting a view change.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ViewChangeReason {
+    /// The current leader has not responded within the timeout.
+    LeaderTimeout,
+    /// The current leader is suspected of misbehaviour.
+    LeaderMalicious,
+    /// Explicitly requested (e.g. admin action).
+    Explicit,
+}
+
+/// Collects [`ViewChangeRequest`]s and triggers a view change once a quorum
+/// (2f + 1) of distinct agents have requested it.
+pub struct ViewChangeTracker {
+    /// Current view state.
+    pub state: ViewState,
+    /// Accumulated view-change requests.
+    pub requests: Vec<ViewChangeRequest>,
+    /// Configurable timeout in milliseconds (informational).
+    pub timeout_ms: u64,
+}
+
+impl ViewState {
+    /// Creates an initial view state (view 0) with the first agent as leader.
+    ///
+    /// # Panics
+    /// Panics if `agents` is empty.
+    pub fn new(agents: Vec<String>) -> Self {
+        assert!(!agents.is_empty(), "agents list must not be empty");
+        let leader = agents[0].clone();
+        Self {
+            view_number: 0,
+            leader,
+            agents,
+        }
+    }
+
+    /// Returns the leader for a given view number using round-robin selection.
+    pub fn leader_for_view(view_number: u64, agents: &[String]) -> &str {
+        let idx = (view_number as usize) % agents.len();
+        &agents[idx]
+    }
+
+    /// Returns `true` if the given agent is the current leader.
+    pub fn is_leader(&self, agent_id: &str) -> bool {
+        self.leader == agent_id
+    }
+}
+
+impl ViewChangeTracker {
+    /// Creates a new tracker with the given agents and timeout.
+    pub fn new(agents: Vec<String>, timeout_ms: u64) -> Self {
+        let state = ViewState::new(agents);
+        Self {
+            state,
+            requests: Vec::new(),
+            timeout_ms,
+        }
+    }
+
+    /// Records a view-change request. Duplicate requests from the same agent
+    /// are silently ignored.
+    ///
+    /// Returns `true` if the accumulated distinct requests have reached the
+    /// quorum threshold (2f + 1), indicating that a view change should be
+    /// executed.
+    pub fn request_view_change(&mut self, request: ViewChangeRequest) -> bool {
+        // Ignore duplicates from the same agent.
+        if self.requests.iter().any(|r| r.from_agent == request.from_agent) {
+            return self.has_quorum();
+        }
+        self.requests.push(request);
+        self.has_quorum()
+    }
+
+    /// Executes the view change: increments the view number, selects the next
+    /// leader via round-robin, and clears accumulated requests.
+    ///
+    /// Returns the new [`ViewState`].
+    pub fn execute_view_change(&mut self) -> ViewState {
+        self.state.view_number += 1;
+        self.state.leader = ViewState::leader_for_view(
+            self.state.view_number,
+            &self.state.agents,
+        )
+        .to_string();
+        self.requests.clear();
+        self.state.clone()
+    }
+
+    /// Returns a reference to the current leader's agent ID.
+    pub fn current_leader(&self) -> &str {
+        &self.state.leader
+    }
+
+    /// Returns the current view number.
+    pub fn view_number(&self) -> u64 {
+        self.state.view_number
+    }
+
+    /// Quorum threshold: 2f + 1 where f = floor((N-1) / 3).
+    fn quorum_threshold(&self) -> usize {
+        let n = self.state.agents.len();
+        let f = n.saturating_sub(1) / 3;
+        2 * f + 1
+    }
+
+    /// Whether accumulated distinct requests have met the quorum.
+    fn has_quorum(&self) -> bool {
+        self.requests.len() >= self.quorum_threshold()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
