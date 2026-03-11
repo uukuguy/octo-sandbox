@@ -4671,6 +4671,7 @@ dependencies = [
  "serde_json",
  "serde_yaml",
  "tokio",
+ "tokio-rusqlite",
  "tokio-stream",
  "tower",
  "tower-http",

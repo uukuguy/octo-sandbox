@@ -364,3 +364,51 @@ pub fn migration_v7() -> Migration {
         "#,
     )
 }
+
+/// Migration v8: Sync infrastructure tables
+pub fn migration_v8() -> Migration {
+    Migration::new(
+        8,
+        "sync_infrastructure",
+        r#"
+        -- Sync metadata: device sync state
+        CREATE TABLE IF NOT EXISTS sync_metadata (
+            device_id TEXT PRIMARY KEY,
+            last_sync_at TEXT,
+            sync_version INTEGER NOT NULL DEFAULT 0,
+            server_url TEXT,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Sync changelog: change tracking with HLC columns
+        CREATE TABLE IF NOT EXISTS sync_changelog (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            table_name TEXT NOT NULL,
+            row_id TEXT NOT NULL,
+            operation TEXT NOT NULL,
+            data TEXT NOT NULL DEFAULT '{}',
+            hlc_physical_ms INTEGER NOT NULL DEFAULT 0,
+            hlc_logical INTEGER NOT NULL DEFAULT 0,
+            node_id TEXT NOT NULL DEFAULT '',
+            device_id TEXT NOT NULL DEFAULT '',
+            sync_version INTEGER NOT NULL DEFAULT 0,
+            synced INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_cl_unsynced ON sync_changelog(synced, sync_version);
+        CREATE INDEX IF NOT EXISTS idx_cl_table ON sync_changelog(table_name, row_id);
+        CREATE INDEX IF NOT EXISTS idx_cl_device ON sync_changelog(device_id);
+
+        -- Auto-assign sync_version on insert via trigger
+        CREATE TRIGGER IF NOT EXISTS sync_changelog_version
+        AFTER INSERT ON sync_changelog
+        WHEN NEW.sync_version = 0
+        BEGIN
+            UPDATE sync_changelog
+            SET sync_version = NEW.id
+            WHERE id = NEW.id;
+        END;
+        "#,
+    )
+}

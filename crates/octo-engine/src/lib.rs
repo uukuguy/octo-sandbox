@@ -18,6 +18,7 @@ pub mod security;
 pub mod session;
 pub mod skill_runtime;
 pub mod skills;
+pub mod sync;
 pub mod tls;
 pub mod tools;
 
@@ -68,6 +69,11 @@ pub use sandbox::{
     SubprocessAdapter, WasmAdapter,
 };
 pub use security::{ActionTracker, AutonomyLevel, CommandRiskLevel, SecurityPolicy};
+pub use sync::{
+    ChangeTracker, ConflictResolution, HlcTimestamp, HybridClock, LwwResolver, SyncChange,
+    SyncClient, SyncConflict, SyncOperation, SyncPullRequest, SyncPullResponse, SyncPushRequest,
+    SyncPushResponse, SyncReport, SyncServer, SyncStatus,
+};
 pub use session::{
     InMemorySessionStore, SessionData, SessionStore, SessionSummary, SqliteSessionStore,
 };
