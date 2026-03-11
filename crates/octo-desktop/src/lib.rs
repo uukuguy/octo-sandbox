@@ -4,18 +4,32 @@ mod tray;
 
 use tauri::Manager;
 
+#[tauri::command]
+async fn check_for_updates(app: tauri::AppHandle) -> Result<Option<String>, String> {
+    use tauri_plugin_updater::UpdaterExt;
+
+    let updater = app.updater_builder().build().map_err(|e| e.to_string())?;
+    match updater.check().await {
+        Ok(Some(update)) => Ok(Some(update.version)),
+        Ok(None) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 pub fn run() {
     tracing_subscriber::fmt::init();
 
     tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|_app, _args, _cwd| {}))
         .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             commands::get_status,
             commands::get_port,
             commands::get_version,
             commands::get_app_info,
             commands::get_dashboard_url,
+            check_for_updates,
         ])
         .setup(|app| {
             tray::create_tray(app)?;
