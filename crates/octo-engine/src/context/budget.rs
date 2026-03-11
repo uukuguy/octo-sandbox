@@ -73,6 +73,8 @@ impl ContextBudgetManager {
                             name.len() + id.len() + input.to_string().len()
                         }
                         ContentBlock::ToolResult { content, .. } => content.len(),
+                        ContentBlock::Image { data, .. } => data.len(),
+                        ContentBlock::Document { data, .. } => data.len(),
                     })
                     .sum::<usize>()
             })

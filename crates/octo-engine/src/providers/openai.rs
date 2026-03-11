@@ -11,8 +11,8 @@ use serde_json::Value;
 use tracing::debug;
 
 use octo_types::{
-    ChatMessage, CompletionRequest, CompletionResponse, ContentBlock, MessageRole, StopReason,
-    StreamEvent, TokenUsage, ToolSpec,
+    ChatMessage, CompletionRequest, CompletionResponse, ContentBlock, ImageSourceType, MessageRole,
+    StopReason, StreamEvent, TokenUsage, ToolSpec,
 };
 
 use super::traits::{CompletionStream, Provider};
@@ -117,6 +117,21 @@ struct ApiMessage {
 #[serde(untagged)]
 enum ApiContent {
     Text(String),
+    Parts(Vec<ApiContentPart>),
+}
+
+#[derive(Serialize, Clone)]
+#[serde(tag = "type")]
+enum ApiContentPart {
+    #[serde(rename = "text")]
+    Text { text: String },
+    #[serde(rename = "image_url")]
+    ImageUrl { image_url: ApiImageUrl },
+}
+
+#[derive(Serialize, Clone)]
+struct ApiImageUrl {
+    url: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -242,23 +257,73 @@ fn convert_messages(messages: &[ChatMessage], system: Option<&str>) -> Vec<ApiMe
                         }
                     }
                 } else {
-                    // Normal user message — concatenate text blocks
-                    let text: String = msg
-                        .content
-                        .iter()
-                        .filter_map(|b| match b {
-                            ContentBlock::Text { text } => Some(text.as_str()),
-                            _ => None,
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n");
-
-                    api_messages.push(ApiMessage {
-                        role: "user".into(),
-                        content: Some(ApiContent::Text(text)),
-                        tool_calls: None,
-                        tool_call_id: None,
+                    // Check if message contains any image blocks
+                    let has_images = msg.content.iter().any(|b| {
+                        matches!(b, ContentBlock::Image { .. } | ContentBlock::Document { .. })
                     });
+
+                    if has_images {
+                        // Multi-part content with text and images
+                        let parts: Vec<ApiContentPart> = msg
+                            .content
+                            .iter()
+                            .filter_map(|b| match b {
+                                ContentBlock::Text { text } => {
+                                    Some(ApiContentPart::Text { text: text.clone() })
+                                }
+                                ContentBlock::Image {
+                                    source_type,
+                                    media_type,
+                                    data,
+                                } => {
+                                    let url = match source_type {
+                                        ImageSourceType::Base64 => {
+                                            format!("data:{media_type};base64,{data}")
+                                        }
+                                        ImageSourceType::Url => data.clone(),
+                                    };
+                                    Some(ApiContentPart::ImageUrl {
+                                        image_url: ApiImageUrl { url },
+                                    })
+                                }
+                                ContentBlock::Document {
+                                    media_type, data, ..
+                                } => {
+                                    // Documents sent as base64 image_url (best-effort)
+                                    let url = format!("data:{media_type};base64,{data}");
+                                    Some(ApiContentPart::ImageUrl {
+                                        image_url: ApiImageUrl { url },
+                                    })
+                                }
+                                _ => None,
+                            })
+                            .collect();
+
+                        api_messages.push(ApiMessage {
+                            role: "user".into(),
+                            content: Some(ApiContent::Parts(parts)),
+                            tool_calls: None,
+                            tool_call_id: None,
+                        });
+                    } else {
+                        // Normal user message — concatenate text blocks
+                        let text: String = msg
+                            .content
+                            .iter()
+                            .filter_map(|b| match b {
+                                ContentBlock::Text { text } => Some(text.as_str()),
+                                _ => None,
+                            })
+                            .collect::<Vec<_>>()
+                            .join("\n");
+
+                        api_messages.push(ApiMessage {
+                            role: "user".into(),
+                            content: Some(ApiContent::Text(text)),
+                            tool_calls: None,
+                            tool_call_id: None,
+                        });
+                    }
                 }
             }
             MessageRole::Assistant => {

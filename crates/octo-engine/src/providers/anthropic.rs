@@ -11,8 +11,8 @@ use serde_json::Value;
 use tracing::{debug, warn};
 
 use octo_types::{
-    ChatMessage, CompletionRequest, CompletionResponse, ContentBlock, MessageRole, StopReason,
-    StreamEvent, TokenUsage, ToolSpec,
+    ChatMessage, CompletionRequest, CompletionResponse, ContentBlock, ImageSourceType, MessageRole,
+    StopReason, StreamEvent, TokenUsage, ToolSpec,
 };
 
 use super::traits::{CompletionStream, Provider};
@@ -88,6 +88,24 @@ enum ApiContentBlock {
         #[serde(skip_serializing_if = "std::ops::Not::not")]
         is_error: bool,
     },
+    Image {
+        #[serde(rename = "type")]
+        type_: String,
+        source: ApiImageSource,
+    },
+    Document {
+        #[serde(rename = "type")]
+        type_: String,
+        source: ApiImageSource,
+    },
+}
+
+#[derive(Serialize)]
+struct ApiImageSource {
+    #[serde(rename = "type")]
+    type_: String,
+    media_type: String,
+    data: String,
 }
 
 #[derive(Serialize)]
@@ -162,6 +180,36 @@ fn convert_messages(messages: &[ChatMessage]) -> Vec<ApiMessage> {
                         tool_use_id: tool_use_id.clone(),
                         content: content.clone(),
                         is_error: *is_error,
+                    },
+                    ContentBlock::Image {
+                        source_type,
+                        media_type,
+                        data,
+                    } => {
+                        let st = match source_type {
+                            ImageSourceType::Base64 => "base64",
+                            ImageSourceType::Url => "url",
+                        };
+                        ApiContentBlock::Image {
+                            type_: "image".into(),
+                            source: ApiImageSource {
+                                type_: st.into(),
+                                media_type: media_type.clone(),
+                                data: data.clone(),
+                            },
+                        }
+                    }
+                    ContentBlock::Document {
+                        source_type,
+                        media_type,
+                        data,
+                    } => ApiContentBlock::Document {
+                        type_: "document".into(),
+                        source: ApiImageSource {
+                            type_: source_type.clone(),
+                            media_type: media_type.clone(),
+                            data: data.clone(),
+                        },
                     },
                 })
                 .collect();

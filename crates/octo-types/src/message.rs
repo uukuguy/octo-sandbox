@@ -41,6 +41,13 @@ impl ChatMessage {
     }
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[serde(rename_all = "snake_case")]
+pub enum ImageSourceType {
+    Base64,
+    Url,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ContentBlock {
@@ -60,5 +67,19 @@ pub enum ContentBlock {
         content: String,
         #[serde(default)]
         is_error: bool,
+    },
+
+    #[serde(rename = "image")]
+    Image {
+        source_type: ImageSourceType,
+        media_type: String,
+        data: String,
+    },
+
+    #[serde(rename = "document")]
+    Document {
+        source_type: String,
+        media_type: String,
+        data: String,
     },
 }

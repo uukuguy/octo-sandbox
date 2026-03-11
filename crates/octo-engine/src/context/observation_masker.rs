@@ -158,6 +158,8 @@ impl ObservationMasker {
             ContentBlock::Text { text } => text.len(),
             ContentBlock::ToolUse { input, .. } => input.to_string().len(),
             ContentBlock::ToolResult { content, .. } => content.len(),
+            ContentBlock::Image { data, .. } => data.len(),
+            ContentBlock::Document { data, .. } => data.len(),
         }
     }
 }

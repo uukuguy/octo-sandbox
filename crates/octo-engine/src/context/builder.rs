@@ -279,6 +279,8 @@ pub fn estimate_messages_tokens(
                     octo_types::ContentBlock::Text { text } => text.len(),
                     octo_types::ContentBlock::ToolUse { input, .. } => input.to_string().len(),
                     octo_types::ContentBlock::ToolResult { content, .. } => content.len(),
+                    octo_types::ContentBlock::Image { data, .. } => data.len(),
+                    octo_types::ContentBlock::Document { data, .. } => data.len(),
                 })
                 .sum::<usize>()
         })

@@ -205,6 +205,7 @@ impl ContextPruner {
             ContentBlock::ToolUse { input, .. } => {
                 input.to_string().contains(SKILL_PROTECTED_MARKER)
             }
+            ContentBlock::Image { .. } | ContentBlock::Document { .. } => false,
         })
     }
 
@@ -259,6 +260,8 @@ impl ContextPruner {
                     ContentBlock::Text { text } => text.len(),
                     ContentBlock::ToolUse { input, .. } => input.to_string().len(),
                     ContentBlock::ToolResult { content, .. } => content.len(),
+                    ContentBlock::Image { data, .. } => data.len(),
+                    ContentBlock::Document { data, .. } => data.len(),
                 })
                 .sum();
 
