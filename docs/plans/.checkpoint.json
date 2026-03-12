@@ -1,53 +1,52 @@
 {
-  "plan_file": "docs/plans/2026-03-11-wave6-production-hardening.md",
-  "phase": "complete",
-  "created_at": "2026-03-11T17:00:00+08:00",
-  "updated_at": "2026-03-11T17:30:00+08:00",
-  "completed_tasks": [
-    "W6a-T1", "W6a-T2", "W6a-T3", "W6a-T4", "W6a-T5",
-    "W6b-T1", "W6b-T2", "W6b-T3", "W6b-T4", "W6b-T5",
-    "W6c-T1", "W6c-T2", "W6c-T3", "W6c-T4", "W6c-T5"
-  ],
+  "plan_file": "docs/plans/2026-03-12-wave7-9-enhancement-plan.md",
+  "phase": "planned",
+  "created_at": "2026-03-12T10:45:00+08:00",
+  "updated_at": "2026-03-12T10:45:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 15,
+  "total_tasks": 23,
   "task_groups": {
-    "Wave6a": {
-      "name": "Server E2E 测试",
-      "tasks": ["W6a-T1", "W6a-T2", "W6a-T3", "W6a-T4", "W6a-T5"],
-      "status": "COMPLETE",
-      "description": "Server 测试基础设施 + Health/Agent/Session/MCP API 测试"
+    "Wave7": {
+      "name": "运行时防护强化 (P0)",
+      "tasks": ["W7-T1", "W7-T2", "W7-T3", "W7-T4", "W7-T5"],
+      "status": "PLANNED",
+      "description": "自修复系统 + compaction 三策略 + 文本工具恢复 + E-Stop + prompt cache"
     },
-    "Wave6b": {
-      "name": "生产加固",
-      "tasks": ["W6b-T1", "W6b-T2", "W6b-T3", "W6b-T4", "W6b-T5"],
-      "status": "COMPLETE",
-      "description": ".unwrap() 修复 + Error 统一化 + Graceful Shutdown"
+    "Wave8": {
+      "name": "集成与记忆增强 (P1)",
+      "tasks": ["W8-T1", "W8-T2", "W8-T3", "W8-T4", "W8-T5", "W8-T6", "W8-T7", "W8-T8", "W8-T9"],
+      "status": "PLANNED",
+      "description": "MCP OAuth + LLM Reranking + Session Thread/Turn + Provider mapping + retry + Tool trait + KG tools + dynamic budget + rmcp upgrade"
     },
-    "Wave6c": {
-      "name": "配置 & 部署完善",
-      "tasks": ["W6c-T1", "W6c-T2", "W6c-T3", "W6c-T4", "W6c-T5"],
-      "status": "COMPLETE",
-      "description": "config 同步 + Docker 验证 + 部署文档 + CLI 验证 + CHANGELOG"
+    "Wave9": {
+      "name": "精细优化 (P2)",
+      "tasks": ["W9-T1", "W9-T2", "W9-T3", "W9-T4", "W9-T5", "W9-T6", "W9-T7", "W9-T8", "W9-T9"],
+      "status": "PLANNED",
+      "description": "RRF + Merkle + priority queue + metering + canary + MCP Server + image token + ToolProgress + schema token"
     }
   },
-  "execution_order": ["Wave6a", "Wave6b", "Wave6c"],
+  "execution_order": ["Wave7", "Wave8", "Wave9"],
   "execution_mode": "subagent-driven-development",
-  "phase_name": "wave6-production-hardening",
-  "tests_baseline": 1548,
+  "phase_name": "wave7-9-enhancement",
+  "tests_baseline": 1594,
   "tests_current": 1594,
   "previous_plan": {
-    "file": "docs/plans/2026-03-11-wave5-execution.md",
+    "file": "docs/plans/2026-03-11-wave6-production-hardening.md",
     "status": "COMPLETE",
-    "tasks_completed": 22,
-    "final_commit": "d95e468",
-    "notes": "Wave 5 COMPLETE — D1-P3 + D4-lite + D6, 1548 tests"
+    "tasks_completed": 15,
+    "final_commit": "763ab56",
+    "notes": "Wave 6 COMPLETE — production hardening + E2E testing + config/deploy. 1594 tests."
   },
-  "design_decisions": {
-    "cli_architecture": "Maintain embedded engine (no HTTP client to server)",
-    "e2e_test_strategy": "Mock HTTP layer via axum::TestServer (no real port binding)",
-    "docker_frontend": "Keep compose separation (Nginx/Caddy as separate service)",
-    "unwrap_governance": "Fix only critical paths, keep test code unwraps"
+  "analysis_source": {
+    "file": "docs/design/COMPETITIVE_CODE_ANALYSIS_V2.md",
+    "gaps_total": 23,
+    "gaps_p0": 5,
+    "gaps_p1": 9,
+    "gaps_p2": 9,
+    "current_score": 7.55,
+    "target_score": 8.9
   },
-  "plan_status": "COMPLETE",
-  "notes": "Wave 6 COMPLETE — production hardening + E2E testing + config/deploy. 15/15 tasks done. 1594 tests passing."
+  "plan_status": "PLANNED",
+  "notes": "Wave 7-9 enhancement plan based on competitive analysis V2. 23 tasks, ~6930 LOC. Ready for implementation."
 }

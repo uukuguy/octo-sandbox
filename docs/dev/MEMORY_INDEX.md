@@ -7,6 +7,18 @@
 
 ## [Active Work]
 
+- 10:45 | Wave 7-9 增强实施方案完成 — 23 tasks, ~6930 LOC, 3 Waves (P0/P1/P2)
+  - 方案: docs/plans/2026-03-12-wave7-9-enhancement-plan.md
+  - Wave 7 (P0, ~1680 LOC): self_repair, compaction 三策略, text tool recovery, E-Stop, prompt cache
+  - Wave 8 (P1, ~3480 LOC): MCP OAuth, LLM Reranking, Session Thread/Turn, Provider mapping, retry, Tool trait, KG tools, dynamic budget, rmcp upgrade
+  - Wave 9 (P2, ~1770 LOC): RRF, Merkle audit, priority queue, metering, canary rotation, MCP Server, image token, ToolProgress, schema token
+  - 目标评分: 7.55 -> 8.9
+- 10:15 | 竞品分析 V2 完成 — 纠正 V1 四大误判，octo-sandbox 排名第一 (7.55/10)
+  - V2 报告: docs/design/COMPETITIVE_CODE_ANALYSIS_V2.md
+  - 纠正: LoopGuard 877行(非"无"), Provider with_base_url 无限覆盖(非"仅2个"), Docker+WASM 沙箱(非"缺失"), Taint Tracking 已实现(非"缺少")
+  - 18 个独有优势, 23 个真实差距, 7 个伪差距
+- 17:50 | [V1-已修正] 竞品分析 V1 — 存在 4 个重大误判，已被 V2 替代
+  - V1 报告: docs/design/COMPETITIVE_CODE_ANALYSIS.md (仅供参考，以 V2 为准)
 - 16:30 | Wave 5 COMPLETE — 全部 22/22 任务完成, 1548 tests @ d95e468
   - Wave 5b (D6): 离线同步 HLC+LWW, 3 并行智能体 (core/protocol/tests)
   - 新增: sync/ 模块 (hlc, changelog, protocol, lww, server, client) + REST API + 30 tests
