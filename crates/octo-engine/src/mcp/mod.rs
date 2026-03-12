@@ -2,6 +2,7 @@ pub mod bridge;
 pub mod convert;
 pub mod manager;
 pub mod oauth;
+pub mod server;
 pub mod sse;
 pub mod stdio;
 pub mod storage;
@@ -14,6 +15,7 @@ pub use oauth::{
 };
 pub use sse::SseMcpClient;
 pub use stdio::StdioMcpClient;
+pub use server::{OctoMcpServer, OctoMcpServerConfig};
 pub use storage::McpStorage;
 pub use traits::{
     McpClient, McpPromptArgument, McpPromptInfo, McpPromptMessage, McpPromptResult,
