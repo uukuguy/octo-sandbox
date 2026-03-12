@@ -8,6 +8,7 @@ use rmcp::model::{
     CallToolRequestParams, GetPromptRequestParams, RawContent, ReadResourceRequestParams,
 };
 use rmcp::service::RunningService;
+use rmcp::transport::streamable_http_client::StreamableHttpClientTransportConfig;
 use rmcp::transport::StreamableHttpClientTransport;
 use rmcp::{RoleClient, ServiceExt};
 
@@ -19,9 +20,12 @@ use super::traits::{
 
 /// MCP client using Streamable HTTP (SSE) transport.
 /// Connects to a remote MCP server via HTTP URL.
+/// Optionally injects an OAuth bearer token via `auth_token`.
 pub struct SseMcpClient {
     name: String,
     url: String,
+    /// OAuth bearer token value (without "Bearer " prefix).
+    auth_token: Option<String>,
     service: Option<RunningService<RoleClient, ()>>,
 }
 
@@ -30,6 +34,17 @@ impl SseMcpClient {
         Self {
             name,
             url,
+            auth_token: None,
+            service: None,
+        }
+    }
+
+    /// Create a new SSE client with an OAuth bearer token for authentication.
+    pub fn with_auth(name: String, url: String, auth_token: String) -> Self {
+        Self {
+            name,
+            url,
+            auth_token: Some(auth_token),
             service: None,
         }
     }
@@ -45,11 +60,18 @@ impl McpClient for SseMcpClient {
         info!(
             name = %self.name,
             url = %self.url,
+            has_auth = self.auth_token.is_some(),
             "Connecting to remote MCP server via SSE"
         );
 
         validate_server_url(&self.url)?;
-        let transport = StreamableHttpClientTransport::from_uri(self.url.clone());
+        let config = if let Some(ref token) = self.auth_token {
+            StreamableHttpClientTransportConfig::with_uri(self.url.clone())
+                .auth_header(token.clone())
+        } else {
+            StreamableHttpClientTransportConfig::with_uri(self.url.clone())
+        };
+        let transport = StreamableHttpClientTransport::from_config(config);
 
         let service = ()
             .serve(transport)

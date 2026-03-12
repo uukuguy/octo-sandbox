@@ -99,6 +99,84 @@ impl LlmErrorKind {
     }
 }
 
+/// 从 HTTP 响应中提取的重试信息
+#[derive(Debug, Clone)]
+pub struct RetryInfo {
+    /// 错误分类
+    pub kind: LlmErrorKind,
+    /// 从 Retry-After header 解析的等待时间
+    pub retry_after: Option<Duration>,
+    /// 从 JSON body 提取的错误代码
+    pub error_code: Option<String>,
+}
+
+impl RetryInfo {
+    /// 从 HTTP status code 和 body 构建
+    pub fn from_status_body(status: u16, body: &str) -> Self {
+        let kind = Self::classify_status(status, body);
+        let error_code = Self::extract_error_code(body);
+        Self {
+            kind,
+            retry_after: None,
+            error_code,
+        }
+    }
+
+    /// 从 HTTP status + Retry-After header + body 构建
+    pub fn from_response(status: u16, retry_after_header: Option<&str>, body: &str) -> Self {
+        let kind = Self::classify_status(status, body);
+        let retry_after = retry_after_header.and_then(Self::parse_retry_after);
+        let error_code = Self::extract_error_code(body);
+        Self {
+            kind,
+            retry_after,
+            error_code,
+        }
+    }
+
+    /// 精确分类 HTTP status code
+    fn classify_status(status: u16, body: &str) -> LlmErrorKind {
+        match status {
+            429 => LlmErrorKind::RateLimit,
+            402 => LlmErrorKind::BillingError,
+            401 | 403 => LlmErrorKind::AuthError,
+            529 => LlmErrorKind::Overloaded,
+            408 | 504 => LlmErrorKind::Timeout,
+            500 | 502 | 503 => LlmErrorKind::ServiceError,
+            _ if body.contains("credit_balance_too_low") || body.contains("billing") => {
+                LlmErrorKind::BillingError
+            }
+            _ if body.contains("context_length_exceeded") || body.contains("too long") => {
+                LlmErrorKind::ContextOverflow
+            }
+            _ => LlmErrorKind::Unknown,
+        }
+    }
+
+    /// 解析 Retry-After header（秒数或 HTTP-date）
+    fn parse_retry_after(value: &str) -> Option<Duration> {
+        // 尝试解析为秒数
+        if let Ok(secs) = value.trim().parse::<u64>() {
+            return Some(Duration::from_secs(secs));
+        }
+        // 大多数 API 返回秒数格式；HTTP-date 格式暂不支持
+        None
+    }
+
+    /// 从 JSON body 提取错误代码
+    fn extract_error_code(body: &str) -> Option<String> {
+        // 尝试解析 {"error": {"type": "..."}} 或 {"error": {"code": "..."}}
+        if let Ok(v) = serde_json::from_str::<serde_json::Value>(body) {
+            if let Some(err) = v.get("error") {
+                if let Some(code) = err.get("type").or_else(|| err.get("code")) {
+                    return code.as_str().map(|s| s.to_string());
+                }
+            }
+        }
+        None
+    }
+}
+
 /// 重试策略配置
 #[derive(Debug, Clone)]
 pub struct RetryPolicy {
@@ -129,6 +207,20 @@ impl RetryPolicy {
         let delay_secs = self.base_delay.as_secs_f64() * self.backoff_factor.powi(attempt as i32);
         let clamped = delay_secs.min(self.max_delay.as_secs_f64());
         Duration::from_secs_f64(clamped)
+    }
+
+    /// 使用 RetryInfo 判断是否重试，并计算延迟
+    /// 如果有 Retry-After header，优先使用其值
+    pub fn should_retry_with_info(&self, info: &RetryInfo, attempt: u32) -> Option<Duration> {
+        if attempt >= self.max_retries {
+            return None;
+        }
+        if !info.kind.is_retryable() {
+            return None;
+        }
+        // 优先使用 Retry-After，否则用指数退避
+        let delay = info.retry_after.unwrap_or_else(|| self.delay_for(attempt));
+        Some(delay.min(self.max_delay))
     }
 
     /// 判断给定错误和重试次数是否应该继续重试
@@ -324,5 +416,155 @@ mod tests {
             LlmErrorKind::BillingError.routing_strategy(),
             ErrorStrategy::Fail
         );
+    }
+
+    // === RetryInfo tests ===
+
+    #[test]
+    fn test_retry_info_rate_limit() {
+        let info = RetryInfo::from_status_body(429, "rate limit exceeded");
+        assert_eq!(info.kind, LlmErrorKind::RateLimit);
+    }
+
+    #[test]
+    fn test_retry_info_billing() {
+        let info = RetryInfo::from_status_body(402, "insufficient credits");
+        assert_eq!(info.kind, LlmErrorKind::BillingError);
+    }
+
+    #[test]
+    fn test_retry_info_auth() {
+        let info = RetryInfo::from_status_body(401, "unauthorized");
+        assert_eq!(info.kind, LlmErrorKind::AuthError);
+        let info403 = RetryInfo::from_status_body(403, "forbidden");
+        assert_eq!(info403.kind, LlmErrorKind::AuthError);
+    }
+
+    #[test]
+    fn test_retry_info_overloaded() {
+        let info = RetryInfo::from_status_body(529, "overloaded");
+        assert_eq!(info.kind, LlmErrorKind::Overloaded);
+    }
+
+    #[test]
+    fn test_retry_info_timeout() {
+        let info = RetryInfo::from_status_body(408, "request timeout");
+        assert_eq!(info.kind, LlmErrorKind::Timeout);
+        let info504 = RetryInfo::from_status_body(504, "gateway timeout");
+        assert_eq!(info504.kind, LlmErrorKind::Timeout);
+    }
+
+    #[test]
+    fn test_retry_info_service_error() {
+        for status in [500, 502, 503] {
+            let info = RetryInfo::from_status_body(status, "server error");
+            assert_eq!(info.kind, LlmErrorKind::ServiceError);
+        }
+    }
+
+    #[test]
+    fn test_retry_info_body_billing_fallback() {
+        let info = RetryInfo::from_status_body(200, "credit_balance_too_low");
+        assert_eq!(info.kind, LlmErrorKind::BillingError);
+        let info2 = RetryInfo::from_status_body(200, "billing issue");
+        assert_eq!(info2.kind, LlmErrorKind::BillingError);
+    }
+
+    #[test]
+    fn test_retry_info_body_context_overflow_fallback() {
+        let info = RetryInfo::from_status_body(200, "context_length_exceeded");
+        assert_eq!(info.kind, LlmErrorKind::ContextOverflow);
+        let info2 = RetryInfo::from_status_body(200, "input too long");
+        assert_eq!(info2.kind, LlmErrorKind::ContextOverflow);
+    }
+
+    #[test]
+    fn test_retry_info_with_retry_after_seconds() {
+        let info = RetryInfo::from_response(429, Some("30"), "rate limited");
+        assert_eq!(info.retry_after, Some(Duration::from_secs(30)));
+    }
+
+    #[test]
+    fn test_retry_info_with_retry_after_none() {
+        let info = RetryInfo::from_response(500, None, "server error");
+        assert!(info.retry_after.is_none());
+    }
+
+    #[test]
+    fn test_retry_info_with_retry_after_invalid() {
+        let info = RetryInfo::from_response(429, Some("not-a-number"), "rate limited");
+        assert!(info.retry_after.is_none());
+    }
+
+    #[test]
+    fn test_retry_info_extract_error_code() {
+        let body =
+            r#"{"error": {"type": "rate_limit_error", "message": "too many requests"}}"#;
+        let info = RetryInfo::from_status_body(429, body);
+        assert_eq!(info.error_code.as_deref(), Some("rate_limit_error"));
+    }
+
+    #[test]
+    fn test_retry_info_extract_error_code_from_code_field() {
+        let body = r#"{"error": {"code": "insufficient_quota", "message": "out of quota"}}"#;
+        let info = RetryInfo::from_status_body(402, body);
+        assert_eq!(info.error_code.as_deref(), Some("insufficient_quota"));
+    }
+
+    #[test]
+    fn test_retry_info_no_error_code_in_plain_text() {
+        let info = RetryInfo::from_status_body(500, "internal server error");
+        assert!(info.error_code.is_none());
+    }
+
+    #[test]
+    fn test_should_retry_with_info_respects_retry_after() {
+        let policy = RetryPolicy::default();
+        let info = RetryInfo {
+            kind: LlmErrorKind::RateLimit,
+            retry_after: Some(Duration::from_secs(15)),
+            error_code: None,
+        };
+        let delay = policy.should_retry_with_info(&info, 0);
+        assert_eq!(delay, Some(Duration::from_secs(15)));
+    }
+
+    #[test]
+    fn test_should_retry_with_info_falls_back_to_backoff() {
+        let policy = RetryPolicy::default();
+        let info = RetryInfo {
+            kind: LlmErrorKind::RateLimit,
+            retry_after: None,
+            error_code: None,
+        };
+        // attempt 0 → base_delay * 2^0 = 1s
+        let delay = policy.should_retry_with_info(&info, 0);
+        assert_eq!(delay, Some(Duration::from_secs(1)));
+    }
+
+    #[test]
+    fn test_should_retry_with_info_non_retryable() {
+        let policy = RetryPolicy::default();
+        let info = RetryInfo::from_status_body(401, "unauthorized");
+        assert!(policy.should_retry_with_info(&info, 0).is_none());
+    }
+
+    #[test]
+    fn test_should_retry_with_info_max_retries_exceeded() {
+        let policy = RetryPolicy::default();
+        let info = RetryInfo::from_status_body(429, "rate limited");
+        assert!(policy.should_retry_with_info(&info, 3).is_none());
+    }
+
+    #[test]
+    fn test_should_retry_with_info_caps_at_max_delay() {
+        let policy = RetryPolicy::default(); // max_delay = 60s
+        let info = RetryInfo {
+            kind: LlmErrorKind::RateLimit,
+            retry_after: Some(Duration::from_secs(120)),
+            error_code: None,
+        };
+        let delay = policy.should_retry_with_info(&info, 0);
+        assert_eq!(delay, Some(Duration::from_secs(60)));
     }
 }

@@ -264,6 +264,9 @@ pub struct McpServerConfigV2 {
     /// SSE transport 专用：服务器 URL（如 "http://localhost:8080/mcp"）
     #[serde(default)]
     pub url: Option<String>,
+    /// OAuth 2.1 configuration for SSE transport authentication.
+    #[serde(default)]
+    pub oauth: Option<super::oauth::OAuthConfig>,
 }
 
 impl From<McpServerConfigV2> for McpServerConfig {

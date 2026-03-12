@@ -412,3 +412,36 @@ pub fn migration_v8() -> Migration {
         "#,
     )
 }
+
+/// Migration v9: Session threads and turns for conversation branching/undo
+pub fn migration_v9() -> Migration {
+    Migration::new(
+        9,
+        "session_threads_turns",
+        r#"
+        -- Conversation threads within a session
+        CREATE TABLE IF NOT EXISTS threads (
+            thread_id TEXT PRIMARY KEY,
+            session_id TEXT NOT NULL,
+            title TEXT,
+            parent_thread_id TEXT,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+            FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_threads_session_id ON threads(session_id);
+
+        -- Individual conversation turns within a thread
+        CREATE TABLE IF NOT EXISTS turns (
+            turn_id TEXT PRIMARY KEY,
+            thread_id TEXT NOT NULL,
+            user_message_json TEXT NOT NULL,
+            assistant_messages_json TEXT NOT NULL,
+            created_at INTEGER NOT NULL DEFAULT (strftime('%s','now')),
+            FOREIGN KEY (thread_id) REFERENCES threads(thread_id)
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_turns_thread_id ON turns(thread_id);
+        "#,
+    )
+}

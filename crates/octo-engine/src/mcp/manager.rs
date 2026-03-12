@@ -147,7 +147,41 @@ impl McpManager {
                 let url = config.url.clone().ok_or_else(|| {
                     anyhow::anyhow!("SSE transport requires 'url' field for server '{name}'")
                 })?;
-                Box::new(SseMcpClient::new(config.name.clone(), url))
+                if let Some(ref oauth) = config.oauth {
+                    // If OAuth is configured, try to get a valid token
+                    let oauth_mgr = super::oauth::McpOAuthManager::new();
+                    let token_store = super::oauth::InMemoryTokenStore::new();
+                    match oauth_mgr
+                        .get_valid_token(oauth, &token_store, &config.id)
+                        .await
+                    {
+                        Ok(Some(token)) => {
+                            info!(server = %name, "Using OAuth token for SSE connection");
+                            Box::new(SseMcpClient::with_auth(
+                                config.name.clone(),
+                                url,
+                                token.bearer_value().to_string(),
+                            ))
+                        }
+                        Ok(None) => {
+                            warn!(
+                                server = %name,
+                                "OAuth configured but no valid token available; connecting without auth"
+                            );
+                            Box::new(SseMcpClient::new(config.name.clone(), url))
+                        }
+                        Err(e) => {
+                            warn!(
+                                server = %name,
+                                error = %e,
+                                "OAuth token retrieval failed; connecting without auth"
+                            );
+                            Box::new(SseMcpClient::new(config.name.clone(), url))
+                        }
+                    }
+                } else {
+                    Box::new(SseMcpClient::new(config.name.clone(), url))
+                }
             }
         };
 

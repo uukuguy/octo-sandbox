@@ -4,6 +4,7 @@
 //! allowing multiple tools to run concurrently with a configurable maximum parallelism.
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures_util::future::join_all;
 use tokio::sync::Semaphore;
@@ -22,6 +23,8 @@ use crate::tools::ToolRegistry;
 /// * `max_parallel` - Maximum number of tools to run concurrently
 /// * `cancellation` - Cancellation token to check for cancellation
 /// * `tool_ctx` - Tool execution context (sandbox_id, working_dir, etc.)
+/// * `config_timeout_secs` - Optional config-level timeout in seconds; effective
+///   timeout per tool is `min(config_timeout, tool.execution_timeout())`.
 ///
 /// # Returns
 /// Vector of (tool_name, ToolOutput) tuples in the same order as input
@@ -31,6 +34,7 @@ pub async fn execute_parallel(
     max_parallel: u8,
     cancellation: &CancellationToken,
     tool_ctx: &ToolContext,
+    config_timeout_secs: Option<u64>,
 ) -> Vec<(String, ToolOutput)> {
     if tools.is_empty() {
         return vec![];
@@ -64,11 +68,36 @@ pub async fn execute_parallel(
                 // Execute the tool with duration tracking
                 let exec_start = std::time::Instant::now();
                 let mut result = if let Some(tool) = registry.get(&name) {
-                    match tool.execute(input, &ctx).await {
-                        Ok(r) => r,
-                        Err(e) => {
+                    // Compute effective timeout: min(config timeout, per-tool timeout)
+                    let tool_timeout = tool.execution_timeout();
+                    let effective_timeout = match config_timeout_secs {
+                        Some(secs) if secs > 0 => {
+                            tool_timeout.min(Duration::from_secs(secs))
+                        }
+                        _ => tool_timeout,
+                    };
+
+                    match tokio::time::timeout(
+                        effective_timeout,
+                        tool.execute(input, &ctx),
+                    )
+                    .await
+                    {
+                        Ok(Ok(r)) => r,
+                        Ok(Err(e)) => {
                             warn!(tool = %name, error = %e, "Tool execution failed");
                             ToolOutput::error(format!("Tool error: {e}"))
+                        }
+                        Err(_) => {
+                            warn!(
+                                tool = %name,
+                                timeout_ms = effective_timeout.as_millis() as u64,
+                                "Tool execution timed out"
+                            );
+                            ToolOutput::error(format!(
+                                "Tool '{}' timed out after {:?}",
+                                name, effective_timeout
+                            ))
                         }
                     }
                 } else {
@@ -186,7 +215,7 @@ mod tests {
         let cancellation = CancellationToken::new();
         let ctx = test_tool_ctx();
 
-        let results = execute_parallel(vec![], &registry, 4, &cancellation, &ctx).await;
+        let results = execute_parallel(vec![], &registry, 4, &cancellation, &ctx, None).await;
 
         assert!(results.is_empty());
     }
@@ -198,7 +227,7 @@ mod tests {
         let ctx = test_tool_ctx();
 
         let tools = vec![("echo".to_string(), serde_json::json!({"text": "hello"}))];
-        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx, None).await;
 
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].0, "echo");
@@ -215,7 +244,7 @@ mod tests {
             ("echo".to_string(), serde_json::json!({"text": "hello"})),
             ("echo".to_string(), serde_json::json!({"text": "world"})),
         ];
-        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx, None).await;
 
         assert_eq!(results.len(), 2);
         assert!(!results[0].1.is_error);
@@ -229,7 +258,7 @@ mod tests {
         let ctx = test_tool_ctx();
 
         let tools = vec![("unknown".to_string(), serde_json::json!({}))];
-        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx, None).await;
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_error);
@@ -246,7 +275,7 @@ mod tests {
         cancellation.cancel();
 
         let tools = vec![("echo".to_string(), serde_json::json!({"text": "hello"}))];
-        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx, None).await;
 
         assert_eq!(results.len(), 1);
         assert!(results[0].1.is_error);
@@ -264,7 +293,7 @@ mod tests {
             ("echo".to_string(), serde_json::json!({"text": "a"})),
             ("echo".to_string(), serde_json::json!({"text": "b"})),
         ];
-        let results = execute_parallel(tools, &registry, 1, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 1, &cancellation, &ctx, None).await;
 
         assert_eq!(results.len(), 2);
     }
@@ -281,7 +310,7 @@ mod tests {
             ("echo".to_string(), serde_json::json!({"text": "second"})),
             ("echo".to_string(), serde_json::json!({"text": "third"})),
         ];
-        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx, None).await;
 
         assert_eq!(results[0].0, "echo");
         assert!(results[0].1.content.contains("first"));
@@ -365,7 +394,7 @@ mod tests {
 
         // Parallel execution with max_parallel=2
         let start = std::time::Instant::now();
-        let results = execute_parallel(tools, &registry, 2, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 2, &cancellation, &ctx, None).await;
         let parallel_duration = start.elapsed().as_millis();
 
         // Should complete in roughly 100ms (parallel) not 200ms (sequential)
@@ -396,7 +425,7 @@ mod tests {
 
         // Parallel execution with max_parallel=1 (should be sequential)
         let start = std::time::Instant::now();
-        let results = execute_parallel(tools, &registry, 1, &cancellation, &ctx).await;
+        let results = execute_parallel(tools, &registry, 1, &cancellation, &ctx, None).await;
         let duration = start.elapsed().as_millis();
 
         // Should take at least 300ms (sequential)
@@ -407,5 +436,113 @@ mod tests {
         );
 
         assert_eq!(results.len(), 3);
+    }
+
+    // ── Timeout enforcement tests ──────────────────────────────────────
+
+    /// A tool that sleeps for a configurable duration and reports a short
+    /// per-tool `execution_timeout` so we can test the timeout path.
+    #[derive(Debug)]
+    struct SlowTool {
+        timeout: Duration,
+    }
+
+    impl SlowTool {
+        fn new(timeout: Duration) -> Self {
+            Self { timeout }
+        }
+    }
+
+    #[async_trait]
+    impl Tool for SlowTool {
+        fn name(&self) -> &str {
+            "slow"
+        }
+        fn description(&self) -> &str {
+            "Slow tool for timeout testing"
+        }
+        fn parameters(&self) -> serde_json::Value {
+            serde_json::json!({
+                "type": "object",
+                "properties": {
+                    "sleep_ms": { "type": "number" }
+                }
+            })
+        }
+        async fn execute(
+            &self,
+            params: serde_json::Value,
+            _ctx: &ToolContext,
+        ) -> Result<ToolOutput> {
+            let ms = params.get("sleep_ms").and_then(|v| v.as_u64()).unwrap_or(5000);
+            tokio::time::sleep(Duration::from_millis(ms)).await;
+            Ok(ToolOutput::success("done"))
+        }
+        fn source(&self) -> ToolSource {
+            ToolSource::BuiltIn
+        }
+        fn execution_timeout(&self) -> Duration {
+            self.timeout
+        }
+    }
+
+    #[tokio::test]
+    async fn test_tool_timeout_enforcement() {
+        // SlowTool with 200ms per-tool timeout, but execute sleeps 5s
+        let mut registry = ToolRegistry::new();
+        registry.register(SlowTool::new(Duration::from_millis(200)));
+        let registry = Arc::new(registry);
+
+        let cancellation = CancellationToken::new();
+        let ctx = test_tool_ctx();
+
+        let tools = vec![("slow".to_string(), serde_json::json!({"sleep_ms": 5000}))];
+
+        let start = std::time::Instant::now();
+        let results = execute_parallel(tools, &registry, 4, &cancellation, &ctx, None).await;
+        let elapsed = start.elapsed();
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].1.is_error, "Expected timeout error");
+        assert!(
+            results[0].1.content.contains("timed out"),
+            "Error should mention timeout, got: {}",
+            results[0].1.content
+        );
+        // Should finish well before the 5s sleep
+        assert!(
+            elapsed < Duration::from_secs(1),
+            "Timeout should have triggered quickly, took {:?}",
+            elapsed
+        );
+    }
+
+    #[tokio::test]
+    async fn test_config_timeout_takes_min() {
+        // SlowTool with 10s per-tool timeout, config timeout = 200ms
+        let mut registry = ToolRegistry::new();
+        registry.register(SlowTool::new(Duration::from_secs(10)));
+        let registry = Arc::new(registry);
+
+        let cancellation = CancellationToken::new();
+        let ctx = test_tool_ctx();
+
+        let tools = vec![("slow".to_string(), serde_json::json!({"sleep_ms": 5000}))];
+
+        let start = std::time::Instant::now();
+        // config_timeout_secs = 0.2s (we pass seconds as u64, so use 1s to be safe
+        // but the per-tool timeout is 10s — config wins at min)
+        let results =
+            execute_parallel(tools, &registry, 4, &cancellation, &ctx, Some(1)).await;
+        let elapsed = start.elapsed();
+
+        assert_eq!(results.len(), 1);
+        assert!(results[0].1.is_error);
+        assert!(results[0].1.content.contains("timed out"));
+        assert!(
+            elapsed < Duration::from_secs(2),
+            "Config timeout (1s) should have kicked in, took {:?}",
+            elapsed
+        );
     }
 }

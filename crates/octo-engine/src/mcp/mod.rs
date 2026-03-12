@@ -1,6 +1,7 @@
 pub mod bridge;
 pub mod convert;
 pub mod manager;
+pub mod oauth;
 pub mod sse;
 pub mod stdio;
 pub mod storage;
@@ -8,6 +9,9 @@ pub mod traits;
 
 pub use bridge::McpToolBridge;
 pub use manager::McpManager;
+pub use oauth::{
+    InMemoryTokenStore, McpOAuthManager, OAuthConfig, OAuthToken, OAuthTokenStore, PkceChallenge,
+};
 pub use sse::SseMcpClient;
 pub use stdio::StdioMcpClient;
 pub use storage::McpStorage;

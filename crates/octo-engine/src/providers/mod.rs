@@ -1,6 +1,7 @@
 pub mod anthropic;
 pub mod chain;
 pub mod config;
+pub mod defaults;
 pub mod metering_provider;
 pub mod openai;
 pub mod pipeline;
@@ -29,13 +30,22 @@ pub use usage_recorder::{UsageRecorderProvider, UsageStats};
 ///
 /// Supported providers: "anthropic", "openai".
 /// Falls back to Anthropic if the name is unrecognized.
+///
+/// If `base_url` is `None`, the provider defaults table is consulted to
+/// resolve a well-known base URL for the given `provider_name`.
 pub fn create_provider(
     provider_name: &str,
     api_key: String,
     base_url: Option<String>,
 ) -> Box<dyn Provider> {
+    let resolved_url = defaults::resolve_provider_url(
+        provider_name,
+        base_url.as_deref(),
+    )
+    .or(base_url);
+
     match provider_name {
-        "openai" => create_openai_provider(api_key, base_url),
-        _ => create_anthropic_provider(api_key, base_url),
+        "openai" => create_openai_provider(api_key, resolved_url),
+        _ => create_anthropic_provider(api_key, resolved_url),
     }
 }

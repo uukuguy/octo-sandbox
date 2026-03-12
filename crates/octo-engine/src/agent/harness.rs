@@ -38,6 +38,35 @@ const TOOL_RESULT_SOFT_LIMIT: usize = 30_000;
 /// Maximum tool output size before truncation is applied.
 const MAX_TOOL_OUTPUT_SIZE: usize = 100_000;
 
+/// Default context window when no budget is configured (128K tokens).
+const DEFAULT_CONTEXT_WINDOW: usize = 128_000;
+
+/// Compute dynamic tool result budget based on context window size.
+///
+/// Returns `(soft_limit, hard_limit)` in characters:
+/// - `soft_limit` = 15% of context_window, clamped to [8K, 50K]
+/// - `hard_limit` = 30% of context_window, clamped to [30K, 200K]
+///
+/// Falls back to compile-time constants when context_window is 0.
+fn tool_result_budget(context_window: usize) -> (usize, usize) {
+    if context_window == 0 {
+        return (TOOL_RESULT_SOFT_LIMIT, MAX_TOOL_OUTPUT_SIZE);
+    }
+    let soft = ((context_window as f64 * 0.15) as usize).clamp(8_000, 50_000);
+    let hard = ((context_window as f64 * 0.30) as usize).clamp(30_000, 200_000);
+    (soft, hard)
+}
+
+/// Extract context window from an `AgentLoopConfig`, falling back to default.
+fn context_window_from_config(config: &AgentLoopConfig) -> usize {
+    config
+        .budget
+        .as_ref()
+        .map(|b| b.context_window() as usize)
+        .filter(|&w| w > 0)
+        .unwrap_or(DEFAULT_CONTEXT_WINDOW)
+}
+
 /// Pending tool call accumulated from stream events.
 struct PendingToolUse {
     id: String,
@@ -150,6 +179,14 @@ async fn run_agent_loop_inner(
     let mut budget = config.budget.clone().unwrap_or_default();
     let pruner = config.pruner.clone().unwrap_or_default();
     let mut loop_guard = config.loop_guard.clone().unwrap_or_default();
+
+    // --- Dynamic tool result budget (W8-T8) ---
+    let ctx_window = context_window_from_config(&config);
+    let (tool_soft_limit, tool_hard_limit) = tool_result_budget(ctx_window);
+    debug!(
+        ctx_window,
+        tool_soft_limit, tool_hard_limit, "Dynamic tool result budget computed"
+    );
 
     // --- Compute max rounds ---
     let max_rounds = loop_steps::effective_max_rounds(config.max_iterations);
@@ -814,12 +851,18 @@ async fn run_agent_loop_inner(
                 return;
             }
 
+            let config_timeout = if config.tool_timeout_secs > 0 {
+                Some(config.tool_timeout_secs)
+            } else {
+                None
+            };
             let results = execute_parallel(
                 tools_to_run,
                 &tools,
                 config.agent_config.max_parallel_tools,
                 &cancellation_token,
                 &tool_ctx,
+                config_timeout,
             )
             .await;
 
@@ -835,6 +878,7 @@ async fn run_agent_loop_inner(
                         &tu.name,
                         config.session_id.as_str(),
                         duration_ms, // preserve duration if already set
+                        tool_hard_limit,
                     );
                     (tu, input.clone(), result)
                 })
@@ -931,6 +975,7 @@ async fn run_agent_loop_inner(
                     &tu.name,
                     config.session_id.as_str(),
                     exec_duration,
+                    tool_hard_limit,
                 );
 
                 // PostToolUse hook
@@ -970,7 +1015,7 @@ async fn run_agent_loop_inner(
                 })
                 .await;
 
-            let trimmed_output = soft_trim_tool_result(&result.content);
+            let trimmed_output = soft_trim_tool_result(&result.content, tool_soft_limit);
 
             // AIDefence injection check on tool results
             if let Some(ref defence) = config.defence {
@@ -1209,20 +1254,21 @@ fn postprocess_tool_output(
     tool_name: &str,
     session_id: &str,
     elapsed_ms: u64,
+    hard_limit: usize,
 ) -> ToolOutput {
     // 1. Record execution duration
     output.duration_ms = elapsed_ms;
 
-    // 2. Truncation handling: if content exceeds MAX_TOOL_OUTPUT_SIZE, truncate
-    if output.content.len() > MAX_TOOL_OUTPUT_SIZE {
+    // 2. Truncation handling: if content exceeds hard_limit, truncate
+    if output.content.len() > hard_limit {
         let original_size = output.content.len();
-        output.content.truncate(MAX_TOOL_OUTPUT_SIZE);
+        output.content.truncate(hard_limit);
         output = output.mark_truncated(original_size);
         debug!(
             tool = tool_name,
             original_size,
             "Tool output truncated to {} bytes",
-            MAX_TOOL_OUTPUT_SIZE
+            hard_limit
         );
     }
 
@@ -1276,22 +1322,25 @@ async fn request_approval(
 }
 
 /// Soft-trim tool result if it exceeds the limit (67% head + 27% tail).
-fn soft_trim_tool_result(result: &str) -> String {
-    if result.len() <= TOOL_RESULT_SOFT_LIMIT {
+fn soft_trim_tool_result(result: &str, soft_limit: usize) -> String {
+    if result.len() <= soft_limit {
         return result.to_string();
     }
+    // Distribute: 67% head, 27% tail (remaining 6% for omission marker)
+    let head_chars = (soft_limit as f64 * 0.67) as usize;
+    let tail_chars = (soft_limit as f64 * 0.27) as usize;
     let head_end = result
         .char_indices()
-        .nth(20_000)
+        .nth(head_chars)
         .map(|(idx, _)| idx)
         .unwrap_or(result.len());
     let char_count = result.chars().count();
     let tail_start = result
         .char_indices()
-        .nth(char_count.saturating_sub(8_000))
+        .nth(char_count.saturating_sub(tail_chars))
         .map(|(idx, _)| idx)
         .unwrap_or(result.len());
-    let omitted = result.len().saturating_sub(20_000 + 8_000);
+    let omitted = result.len().saturating_sub(head_chars + tail_chars);
     format!(
         "{}\n\n[... omitted {} chars ...]\n\n{}",
         &result[..head_end],
@@ -1460,5 +1509,59 @@ mod tests {
         assert_eq!(calls.len(), 2);
         assert_eq!(calls[0].name, "bash");
         assert_eq!(calls[1].name, "file_read");
+    }
+
+    // --- W8-T8: Dynamic tool result budget tests ---
+
+    #[test]
+    fn test_tool_result_budget_small_context() {
+        let (soft, hard) = tool_result_budget(32_000);
+        assert_eq!(soft, 8_000); // 32K * 0.15 = 4.8K, clamped to 8K min
+        assert_eq!(hard, 30_000); // 32K * 0.30 = 9.6K, clamped to 30K min
+    }
+
+    #[test]
+    fn test_tool_result_budget_large_context() {
+        let (soft, hard) = tool_result_budget(200_000);
+        assert_eq!(soft, 30_000); // 200K * 0.15 = 30K
+        assert_eq!(hard, 60_000); // 200K * 0.30 = 60K
+    }
+
+    #[test]
+    fn test_tool_result_budget_very_large() {
+        let (soft, hard) = tool_result_budget(1_000_000);
+        assert_eq!(soft, 50_000); // clamped to 50K max
+        assert_eq!(hard, 200_000); // clamped to 200K max
+    }
+
+    #[test]
+    fn test_tool_result_budget_zero_fallback() {
+        let (soft, hard) = tool_result_budget(0);
+        assert_eq!(soft, TOOL_RESULT_SOFT_LIMIT);
+        assert_eq!(hard, MAX_TOOL_OUTPUT_SIZE);
+    }
+
+    #[test]
+    fn test_tool_result_budget_default_128k() {
+        let (soft, hard) = tool_result_budget(DEFAULT_CONTEXT_WINDOW);
+        // 128K * 0.15 = 19.2K (within [8K, 50K])
+        assert_eq!(soft, 19_200);
+        // 128K * 0.30 = 38.4K (within [30K, 200K])
+        assert_eq!(hard, 38_400);
+    }
+
+    #[test]
+    fn test_soft_trim_within_limit() {
+        let input = "hello world";
+        let result = soft_trim_tool_result(input, 100);
+        assert_eq!(result, "hello world");
+    }
+
+    #[test]
+    fn test_soft_trim_exceeds_limit() {
+        let input = "a".repeat(10_000);
+        let result = soft_trim_tool_result(&input, 1_000);
+        assert!(result.contains("[... omitted"));
+        assert!(result.len() < input.len());
     }
 }

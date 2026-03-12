@@ -8,6 +8,7 @@ pub mod find;
 pub mod glob;
 pub mod grep;
 pub mod interceptor;
+pub mod knowledge_graph;
 pub mod path_safety;
 pub mod memory_forget;
 pub mod memory_recall;
@@ -41,6 +42,9 @@ use self::memory_store::MemoryStoreTool;
 use self::memory_update::MemoryUpdateTool;
 use self::web_fetch::WebFetchTool;
 use self::web_search::WebSearchTool;
+use tokio::sync::RwLock;
+
+use crate::memory::graph::KnowledgeGraph;
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
 use octo_types::ToolSpec;
@@ -135,4 +139,11 @@ pub fn register_memory_tools(
     registry.register(MemoryUpdateTool::new(store.clone()));
     registry.register(MemoryRecallTool::new(store.clone(), provider));
     registry.register(MemoryForgetTool::new(store));
+}
+
+pub fn register_kg_tools(
+    registry: &mut ToolRegistry,
+    kg: Arc<RwLock<KnowledgeGraph>>,
+) {
+    knowledge_graph::register_kg_tools(registry, kg);
 }
