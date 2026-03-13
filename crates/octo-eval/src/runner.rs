@@ -178,13 +178,24 @@ impl EvalRunner {
 
     /// Run all tasks and generate an aggregated report
     pub async fn run_suite(&self, tasks: &[Box<dyn EvalTask>]) -> Result<EvalReport> {
-        let mut results = Vec::with_capacity(tasks.len());
+        let total = tasks.len();
+        let mut results = Vec::with_capacity(total);
 
-        for task in tasks {
+        for (i, task) in tasks.iter().enumerate() {
+            let idx = i + 1;
+            eprintln!("[{}/{}] Running task: {} ...", idx, total, task.id());
+
             match self.run_task(task.as_ref()).await {
-                Ok(result) => results.push(result),
+                Ok(result) => {
+                    let status = if result.score.passed { "PASS" } else { "FAIL" };
+                    eprintln!(
+                        "[{}/{}] {} {} (score={:.2}, {}ms)",
+                        idx, total, status, result.task_id, result.score.score, result.duration_ms
+                    );
+                    results.push(result);
+                }
                 Err(e) => {
-                    warn!(task_id = task.id(), error = %e, "Task failed with error");
+                    eprintln!("[{}/{}] ERROR {}: {}", idx, total, task.id(), e);
                     // Record as a failed result rather than aborting the suite
                     results.push(TaskResult {
                         task_id: task.id().to_string(),
@@ -201,6 +212,7 @@ impl EvalRunner {
             }
         }
 
+        eprintln!("Suite complete: {}/{} passed", results.iter().filter(|r| r.score.passed).count(), total);
         Ok(EvalReport::from_results(results))
     }
 

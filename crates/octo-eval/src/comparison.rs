@@ -227,10 +227,11 @@ impl ComparisonRunner {
         tasks: &[Box<dyn EvalTask>],
     ) -> Result<ComparisonReport> {
         let mut model_reports = Vec::new();
+        let model_count = self.config.models.len();
 
-        for entry in &self.config.models {
+        for (mi, entry) in self.config.models.iter().enumerate() {
             let eval_config = self.config.to_eval_config(entry);
-            info!(model = %entry.info.name, tier = %entry.info.tier, "Starting model evaluation");
+            eprintln!("\n=== Model [{}/{}]: {} ({}) ===", mi + 1, model_count, entry.info.name, entry.info.tier);
 
             let runner = EvalRunner::new(eval_config)?;
             let report = runner.run_suite(tasks).await?;
