@@ -45,3 +45,4 @@ data-platform/*.db-wal
 .claude/memory.db
 .claude/skills/
 .swarm/
+eval_output/

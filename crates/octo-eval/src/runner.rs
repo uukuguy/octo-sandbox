@@ -137,12 +137,16 @@ impl EvalRunner {
             EvalTarget::Engine(c) => c,
         };
 
+        // Build tool registry with built-in tools (file_read, bash, grep, etc.)
+        let tool_registry = Arc::new(octo_engine::tools::default_tools());
+
         // Build AgentLoopConfig
         let loop_config = AgentLoopConfig::builder()
             .provider(self.provider.clone())
             .model(engine_config.model.clone())
             .max_tokens(engine_config.max_tokens)
             .max_iterations(engine_config.max_iterations)
+            .tools(tool_registry)
             .build();
 
         // Create the initial user message from the task prompt

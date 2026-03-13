@@ -21,6 +21,9 @@ use octo_eval::suites::tool_call::ToolCallSuite;
 use octo_eval::task::EvalTask;
 
 fn main() -> Result<()> {
+    // Load .env from project root (walk up from crate dir)
+    let _ = dotenvy::dotenv();
+
     tracing_subscriber::fmt::init();
 
     let args: Vec<String> = std::env::args().collect();
@@ -154,8 +157,11 @@ fn cmd_compare(args: &[String]) -> Result<()> {
     let (suite_name, output_dir, format) = parse_args(args);
     let tasks = load_suite(&suite_name)?;
 
-    // Load model configurations from environment
-    let models = load_models_from_env();
+    // Load model configurations: EVAL_MODEL_* env vars, or auto-detect from .env
+    let mut models = load_models_from_env();
+    if models.is_empty() {
+        models = auto_detect_models();
+    }
     if models.is_empty() {
         println!("No models configured. Using mock models for demonstration.\n");
         return run_mock_comparison(&tasks, &output_dir, &format, &suite_name);
@@ -182,6 +188,42 @@ fn cmd_compare(args: &[String]) -> Result<()> {
 
     output_comparison(&report, &tasks, &output_dir, &format)?;
     Ok(())
+}
+
+fn auto_detect_models() -> Vec<ModelEntry> {
+    let api_key = std::env::var("OPENAI_API_KEY").ok();
+    let base_url = std::env::var("OPENAI_BASE_URL").ok();
+
+    if api_key.is_none() {
+        return vec![];
+    }
+
+    let models = vec![
+        ("DeepSeek-V3", "deepseek/deepseek-chat-v3-0324", ModelTier::Economy, 0.30, 0.88),
+        ("Qwen3-30B", "qwen/qwen3-30b-a3b", ModelTier::Economy, 0.15, 0.60),
+        ("Qwen3.5-122B", "qwen/qwen3.5-122b-a10b", ModelTier::Standard, 0.30, 1.20),
+    ];
+
+    models
+        .into_iter()
+        .map(|(name, model_id, tier, cost_in, cost_out)| ModelEntry {
+            engine: EngineConfig {
+                provider_name: "openai".into(),
+                api_key: api_key.clone(),
+                base_url: base_url.clone(),
+                model: model_id.into(),
+                ..EngineConfig::default()
+            },
+            info: ModelInfo {
+                name: name.into(),
+                model_id: model_id.into(),
+                provider: "openrouter".into(),
+                tier,
+                cost_per_1m_input: cost_in,
+                cost_per_1m_output: cost_out,
+            },
+        })
+        .collect()
 }
 
 fn load_models_from_env() -> Vec<ModelEntry> {
