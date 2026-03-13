@@ -1,4 +1,4 @@
-//! Tool Call evaluation suite — tests tool selection and argument accuracy.
+//! Context evaluation suite — tests output quality, instruction following, error handling.
 
 use std::path::Path;
 
@@ -7,27 +7,25 @@ use anyhow::Result;
 use crate::datasets::loader::{load_jsonl, load_jsonl_as_tasks, JsonlTask};
 use crate::task::EvalTask;
 
-/// Tool call evaluation suite
-pub struct ToolCallSuite;
+/// Context evaluation suite
+pub struct ContextSuite;
 
-impl ToolCallSuite {
+impl ContextSuite {
     /// Default dataset path (relative to crate root)
-    const DEFAULT_DATASET: &'static str = "datasets/octo_tool_call.jsonl";
+    const DEFAULT_DATASET: &'static str = "datasets/octo_context.jsonl";
 
     /// Load tasks from the default dataset
     pub fn load() -> Result<Vec<Box<dyn EvalTask>>> {
-        // Try relative to current dir, then relative to crate manifest dir
         let path = Path::new(Self::DEFAULT_DATASET);
         if path.exists() {
             return load_jsonl_as_tasks(path);
         }
-        // Try from crate root
         let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(Self::DEFAULT_DATASET);
         if crate_path.exists() {
             return load_jsonl_as_tasks(&crate_path);
         }
         anyhow::bail!(
-            "Tool call dataset not found at {} or {}",
+            "Context dataset not found at {} or {}",
             path.display(),
             crate_path.display()
         )
@@ -50,23 +48,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_tool_call_suite() {
-        let tasks = ToolCallSuite::load().unwrap();
+    fn test_load_context_suite() {
+        let tasks = ContextSuite::load().unwrap();
         assert!(
-            tasks.len() >= 20,
-            "Expected at least 20 tool call tasks, got {}",
+            tasks.len() >= 4,
+            "Expected at least 4 context tasks, got {}",
             tasks.len()
         );
-
-        // Verify first task (L1 basic tool selection)
-        assert_eq!(tasks[0].id(), "tc-L1-01");
-        assert!(tasks[0].prompt().contains("Read"));
+        assert_eq!(tasks[0].id(), "ctx-CX1-01");
     }
 
     #[test]
     fn test_load_raw() {
-        let tasks = ToolCallSuite::load_raw().unwrap();
-        assert!(tasks.len() >= 3);
-        assert_eq!(tasks[0].category, "tool_call");
+        let tasks = ContextSuite::load_raw().unwrap();
+        assert!(tasks.len() >= 4);
+        assert_eq!(tasks[0].category, "context");
     }
 }

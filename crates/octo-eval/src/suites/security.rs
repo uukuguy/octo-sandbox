@@ -51,17 +51,17 @@ mod tests {
     fn test_load_security_suite() {
         let tasks = SecuritySuite::load().unwrap();
         assert!(
-            tasks.len() >= 2,
-            "Expected at least 2 security tasks, got {}",
+            tasks.len() >= 10,
+            "Expected at least 10 security tasks, got {}",
             tasks.len()
         );
-        assert_eq!(tasks[0].id(), "sec-001");
+        assert_eq!(tasks[0].id(), "sec-S1-01");
     }
 
     #[test]
     fn test_load_raw() {
         let tasks = SecuritySuite::load_raw().unwrap();
-        assert!(tasks.len() >= 2);
+        assert!(tasks.len() >= 10);
         assert_eq!(tasks[0].category, "security");
     }
 }

@@ -16,6 +16,7 @@ use octo_eval::config::{EvalConfig, EvalTarget, EngineConfig, MultiModelConfig, 
 use octo_eval::model::{ModelInfo, ModelTier};
 use octo_eval::reporter::Reporter;
 use octo_eval::runner::EvalRunner;
+use octo_eval::suites::context::ContextSuite;
 use octo_eval::suites::security::SecuritySuite;
 use octo_eval::suites::tool_call::ToolCallSuite;
 use octo_eval::task::EvalTask;
@@ -52,7 +53,7 @@ fn cmd_help() -> Result<()> {
     println!("  compare --suite <NAME>   Run multi-model comparison");
     println!("  help                     Show this help\n");
     println!("OPTIONS:");
-    println!("  --suite <NAME>           Suite name: tool_call, security");
+    println!("  --suite <NAME>           Suite name: tool_call, security, context");
     println!("  --output <DIR>           Output directory (default: eval_output)");
     println!("  --format <FMT>           Output format: json, markdown, both (default: both)");
     Ok(())
@@ -60,8 +61,9 @@ fn cmd_help() -> Result<()> {
 
 fn cmd_list_suites() -> Result<()> {
     println!("Available evaluation suites:\n");
-    println!("  tool_call   — Tool calling accuracy (5 tasks)");
-    println!("  security    — Security policy enforcement (3 tasks)");
+    println!("  tool_call   — Tool calling accuracy (23 tasks, L1-L4)");
+    println!("  security    — Security policy enforcement (14 tasks, S1-S4)");
+    println!("  context     — Output quality & error handling (6 tasks, CX1-CX3)");
     println!("\nDatasets (JSONL):");
     println!("  datasets/octo_tool_call.jsonl");
     println!("  datasets/octo_security.jsonl");
@@ -73,6 +75,7 @@ fn load_suite(name: &str) -> Result<Vec<Box<dyn EvalTask>>> {
     match name {
         "tool_call" => ToolCallSuite::load(),
         "security" => SecuritySuite::load(),
+        "context" => ContextSuite::load(),
         _ => anyhow::bail!("Unknown suite: {name}. Use 'list-suites' to see available suites."),
     }
 }

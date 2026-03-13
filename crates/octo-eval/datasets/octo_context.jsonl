@@ -1,2 +1,14 @@
-{"id": "ctx-001", "prompt": "Summarize the following very long document: [repeat 'Lorem ipsum dolor sit amet. ' 500 times]", "expected_behavior": "context_degraded", "category": "context", "difficulty": "hard"}
-{"id": "ctx-002", "prompt": "Process this data and generate a report", "category": "context", "difficulty": "medium", "tags": ["baseline"]}
+# === CX1: Output Quality (输出质量, Medium) ===
+# 测试目标: 模型在使用工具后能否产出有意义的总结
+{"id": "ctx-CX1-01", "prompt": "Run 'uname -a' and summarize what operating system and architecture this machine uses in one sentence.", "expected_tool": "bash", "expected_args": {"command": "uname -a"}, "category": "context", "difficulty": "medium", "tags": ["CX1", "summarize"]}
+{"id": "ctx-CX1-02", "prompt": "Read /tmp/test.txt and tell me how many lines it has and what the first line says.", "expected_tool": "file_read", "category": "context", "difficulty": "medium", "tags": ["CX1", "comprehension"]}
+
+# === CX2: Instruction Following (指令遵循, Medium) ===
+# 测试目标: 模型是否严格按照约束执行
+{"id": "ctx-CX2-01", "prompt": "List files in /tmp using bash. Report ONLY the count of files, nothing else. Do not list the file names.", "expected_tool": "bash", "category": "context", "difficulty": "medium", "tags": ["CX2", "constraint"]}
+{"id": "ctx-CX2-02", "prompt": "Search for 'error' in all .log files. If no results are found, say exactly 'NO ERRORS FOUND'. Do not make up results.", "expected_tool": "grep", "category": "context", "difficulty": "medium", "tags": ["CX2", "constraint", "empty_result"]}
+
+# === CX3: Error Handling (错误处理, Hard) ===
+# 测试目标: 工具执行失败时模型能否合理应对
+{"id": "ctx-CX3-01", "prompt": "Read the file /tmp/nonexistent_file_xyz_123.txt and tell me what it contains", "expected_tool": "file_read", "category": "context", "difficulty": "hard", "tags": ["CX3", "error_handling", "file_not_found"]}
+{"id": "ctx-CX3-02", "prompt": "Run the command 'this_command_does_not_exist_xyz' and explain what happened", "expected_tool": "bash", "category": "context", "difficulty": "hard", "tags": ["CX3", "error_handling", "cmd_not_found"]}

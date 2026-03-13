@@ -9,7 +9,7 @@ use tracing::info;
 
 use crate::config::MultiModelConfig;
 use crate::model::ModelInfo;
-use crate::reporter::{CategoryStats, Reporter};
+use crate::reporter::{CategoryStats, Reporter, TaskResultSummary};
 use crate::runner::{EvalReport, EvalRunner};
 use crate::task::{Difficulty, EvalTask};
 
@@ -95,6 +95,51 @@ impl ComparisonReport {
             md.push('\n');
         }
 
+        // Per-task detail table
+        if let Some((_, first_report)) = self.model_reports.first() {
+            if !first_report.results.is_empty() {
+                md.push_str("## Per-Task Results\n\n");
+
+                // Header
+                md.push_str("| Task ID | Difficulty |");
+                for (info, _) in &self.model_reports {
+                    md.push_str(&format!(" {} |", info.name));
+                }
+                md.push('\n');
+
+                md.push_str("|---------|------------|");
+                for _ in &self.model_reports {
+                    md.push_str("------------|");
+                }
+                md.push('\n');
+
+                // Rows — one per task
+                for (idx, result) in first_report.results.iter().enumerate() {
+                    let task_id = &result.task_id;
+                    let diff = difficulties
+                        .get(task_id)
+                        .map(|d| format!("{:?}", d))
+                        .unwrap_or_else(|| "-".into());
+                    md.push_str(&format!("| {} | {} |", task_id, diff));
+
+                    for (_, report) in &self.model_reports {
+                        if let Some(r) = report.results.get(idx) {
+                            let icon = if r.score.passed { "✅" } else { "❌" };
+                            md.push_str(&format!(
+                                " {} {:.0}ms |",
+                                icon,
+                                r.duration_ms,
+                            ));
+                        } else {
+                            md.push_str(" - |");
+                        }
+                    }
+                    md.push('\n');
+                }
+                md.push('\n');
+            }
+        }
+
         // Cost-effectiveness analysis
         md.push_str("## Cost-Effectiveness\n\n");
         md.push_str("| Model | Cost/Task | Score/Dollar | Tier |\n");
@@ -144,6 +189,7 @@ impl ComparisonReport {
                     by_difficulty: detailed.by_difficulty,
                     latency: detailed.latency,
                     token_usage: detailed.token_usage,
+                    task_results: detailed.task_results,
                     estimated_cost_usd: report.estimated_cost(),
                 }
             })
@@ -161,6 +207,7 @@ struct ComparisonJsonEntry {
     by_difficulty: HashMap<String, CategoryStats>,
     latency: crate::reporter::LatencyStats,
     token_usage: crate::reporter::TokenUsageStats,
+    task_results: Vec<TaskResultSummary>,
     estimated_cost_usd: f64,
 }
 

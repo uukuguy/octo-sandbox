@@ -1,5 +1,34 @@
-{"id": "tool-001", "prompt": "Read the contents of /tmp/test.txt", "expected_tool": "file_read", "expected_args": {"path": "/tmp/test.txt"}, "category": "tool_call", "difficulty": "easy"}
-{"id": "tool-002", "prompt": "Run the command 'echo hello world'", "expected_tool": "bash", "expected_args": {"command": "echo hello world"}, "category": "tool_call", "difficulty": "easy"}
-{"id": "tool-003", "prompt": "Write 'Hello World' to /tmp/output.txt", "expected_tool": "file_write", "expected_args": {"path": "/tmp/output.txt"}, "category": "tool_call", "difficulty": "easy"}
-{"id": "tool-004", "prompt": "Search for the word 'TODO' in all .rs files", "expected_tool": "grep", "category": "tool_call", "difficulty": "medium"}
-{"id": "tool-005", "prompt": "Find all Python files in the current directory", "expected_tool": "glob", "category": "tool_call", "difficulty": "medium"}
+# === L1: Basic Tool Selection (单工具选择, Easy) ===
+# 测试目标: 模型能否根据自然语言意图选择正确的工具
+{"id": "tc-L1-01", "prompt": "Read the contents of /tmp/test.txt", "expected_tool": "file_read", "expected_args": {"path": "/tmp/test.txt"}, "category": "tool_call", "difficulty": "easy", "tags": ["L1", "file_read"]}
+{"id": "tc-L1-02", "prompt": "Run the command 'echo hello world'", "expected_tool": "bash", "expected_args": {"command": "echo hello world"}, "category": "tool_call", "difficulty": "easy", "tags": ["L1", "bash"]}
+{"id": "tc-L1-03", "prompt": "Write 'Hello World' to /tmp/output.txt", "expected_tool": "file_write", "expected_args": {"path": "/tmp/output.txt"}, "category": "tool_call", "difficulty": "easy", "tags": ["L1", "file_write"]}
+{"id": "tc-L1-04", "prompt": "Search for the word 'TODO' in all .rs files", "expected_tool": "grep", "category": "tool_call", "difficulty": "easy", "tags": ["L1", "grep"]}
+{"id": "tc-L1-05", "prompt": "Find all Python files in the current directory", "expected_tool": "glob", "category": "tool_call", "difficulty": "easy", "tags": ["L1", "glob"]}
+{"id": "tc-L1-06", "prompt": "List all files named 'Cargo.toml' in the project tree", "expected_tool": "find", "category": "tool_call", "difficulty": "easy", "tags": ["L1", "find"]}
+{"id": "tc-L1-07", "prompt": "Show me the system uptime by running 'uptime'", "expected_tool": "bash", "expected_args": {"command": "uptime"}, "category": "tool_call", "difficulty": "easy", "tags": ["L1", "bash"]}
+{"id": "tc-L1-08", "prompt": "Read the file at /etc/hostname", "expected_tool": "file_read", "expected_args": {"path": "/etc/hostname"}, "category": "tool_call", "difficulty": "easy", "tags": ["L1", "file_read"]}
+
+# === L2: Argument Precision (参数精确度, Medium) ===
+# 测试目标: 模型能否从复杂描述中提取精确参数
+{"id": "tc-L2-01", "prompt": "Create a file at /tmp/config.json with the content: {\"port\": 8080, \"host\": \"0.0.0.0\"}", "expected_tool": "file_write", "expected_args": {"path": "/tmp/config.json"}, "category": "tool_call", "difficulty": "medium", "tags": ["L2", "file_write", "json"]}
+{"id": "tc-L2-02", "prompt": "Search for lines containing 'fn main' in all Rust source files under the src/ directory", "expected_tool": "grep", "expected_args": {"pattern": "fn main"}, "category": "tool_call", "difficulty": "medium", "tags": ["L2", "grep", "pattern"]}
+{"id": "tc-L2-03", "prompt": "Execute 'wc -l src/**/*.rs' to count lines of Rust code", "expected_tool": "bash", "expected_args": {"command": "wc -l src/**/*.rs"}, "category": "tool_call", "difficulty": "medium", "tags": ["L2", "bash", "exact_cmd"]}
+{"id": "tc-L2-04", "prompt": "Find all files with .toml extension modified in the last 7 days", "expected_tool": "find", "category": "tool_call", "difficulty": "medium", "tags": ["L2", "find", "temporal"]}
+{"id": "tc-L2-05", "prompt": "Read only lines 10 through 25 of /tmp/large_file.log", "expected_tool": "file_read", "expected_args": {"path": "/tmp/large_file.log"}, "category": "tool_call", "difficulty": "medium", "tags": ["L2", "file_read", "range"]}
+
+# === L3: Multi-Step Tool Chains (多步工具链, Medium-Hard) ===
+# 测试目标: 模型能否按正确顺序调用多个工具完成复合任务
+{"id": "tc-L3-01", "prompt": "Read the file /tmp/input.txt, then write its content to /tmp/backup.txt as a backup", "expected_sequence": ["file_read", "file_write"], "category": "tool_call", "difficulty": "medium", "tags": ["L3", "sequence", "copy"]}
+{"id": "tc-L3-02", "prompt": "Search for all TODO comments in .rs files, then count how many there are using bash 'wc -l'", "expected_sequence": ["grep", "bash"], "category": "tool_call", "difficulty": "medium", "tags": ["L3", "sequence", "grep_then_bash"]}
+{"id": "tc-L3-03", "prompt": "First check if /tmp/output exists by reading it, then write 'data processed' to /tmp/output", "expected_sequence": ["file_read", "file_write"], "category": "tool_call", "difficulty": "medium", "tags": ["L3", "sequence", "check_then_write"]}
+{"id": "tc-L3-04", "prompt": "Find all .py files, read the first one found, and search for 'import' statements in it", "expected_sequence": ["glob", "file_read", "grep"], "category": "tool_call", "difficulty": "hard", "tags": ["L3", "sequence", "3step"]}
+{"id": "tc-L3-05", "prompt": "Run 'date +%Y-%m-%d' to get today's date, then write it to /tmp/today.txt, then read it back to confirm", "expected_sequence": ["bash", "file_write", "file_read"], "category": "tool_call", "difficulty": "hard", "tags": ["L3", "sequence", "3step"]}
+
+# === L4: Ambiguous / Distractor Tasks (歧义消解, Hard) ===
+# 测试目标: 面对模糊指令或干扰信息时选择最合适工具的能力
+{"id": "tc-L4-01", "prompt": "I need to see what's in the README file. Can you show me?", "expected_tool": "file_read", "category": "tool_call", "difficulty": "medium", "tags": ["L4", "ambiguous", "implicit_path"]}
+{"id": "tc-L4-02", "prompt": "Check if port 8080 is in use on this machine", "expected_tool": "bash", "category": "tool_call", "difficulty": "medium", "tags": ["L4", "ambiguous", "system_check"]}
+{"id": "tc-L4-03", "prompt": "Replace all occurrences of 'localhost' with '0.0.0.0' in /tmp/server.conf", "expected_tool": "file_edit", "category": "tool_call", "difficulty": "medium", "tags": ["L4", "edit_vs_write"]}
+{"id": "tc-L4-04", "prompt": "I accidentally wrote wrong data to /tmp/log.txt. Please fix line 5 to say 'status: OK' instead of 'status: ERROR'", "expected_tool": "file_edit", "category": "tool_call", "difficulty": "hard", "tags": ["L4", "edit", "targeted_fix"]}
+{"id": "tc-L4-05", "prompt": "Look through the codebase and find where the 'authenticate' function is defined", "expected_tool": "grep", "category": "tool_call", "difficulty": "medium", "tags": ["L4", "grep_vs_find", "code_search"]}
