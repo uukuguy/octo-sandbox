@@ -3,6 +3,10 @@ name = "octo-eval"
 edition.workspace = true
 version.workspace = true
 
+[[bin]]
+name = "octo-eval"
+path = "src/main.rs"
+
 [dependencies]
 octo-types = { workspace = true }
 octo-engine = { workspace = true }
@@ -15,6 +19,7 @@ anyhow = { workspace = true }
 async-trait = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
 
 [dev-dependencies]

@@ -1,6 +1,8 @@
+pub mod comparison;
 pub mod config;
 pub mod datasets;
 pub mod mock_provider;
+pub mod model;
 pub mod recorder;
 pub mod reporter;
 pub mod runner;

@@ -13,6 +13,7 @@ use octo_engine::tools::ToolRegistry;
 use octo_types::ChatMessage;
 
 use crate::config::{EvalConfig, EvalTarget};
+use crate::model::ModelInfo;
 use crate::score::{EvalScore, ScoreDetails};
 use crate::task::{AgentOutput, EvalTask, ToolCallRecord};
 
@@ -28,6 +29,7 @@ pub struct TaskResult {
 /// Aggregated evaluation report
 #[derive(Debug, Default)]
 pub struct EvalReport {
+    pub model: Option<ModelInfo>,
     pub results: Vec<TaskResult>,
     pub total: usize,
     pub passed: usize,
@@ -58,6 +60,7 @@ impl EvalReport {
         };
 
         Self {
+            model: None,
             results,
             total,
             passed,
@@ -65,6 +68,24 @@ impl EvalReport {
             avg_score,
             total_tokens,
             total_duration_ms,
+        }
+    }
+
+    /// Attach model info to this report.
+    pub fn with_model(mut self, model: ModelInfo) -> Self {
+        self.model = Some(model);
+        self
+    }
+
+    /// Estimated cost in USD based on model pricing and token usage.
+    pub fn estimated_cost(&self) -> f64 {
+        match &self.model {
+            Some(info) => {
+                let total_input: u64 = self.results.iter().map(|r| r.output.input_tokens).sum();
+                let total_output: u64 = self.results.iter().map(|r| r.output.output_tokens).sum();
+                info.estimate_cost(total_input, total_output)
+            }
+            None => 0.0,
         }
     }
 }
