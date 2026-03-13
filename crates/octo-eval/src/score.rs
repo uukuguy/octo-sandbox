@@ -35,6 +35,16 @@ pub enum ScoreDetails {
     Timeout {
         elapsed_secs: u64,
     },
+    LlmJudge {
+        score: f64,
+        reasoning: String,
+        rubric: String,
+    },
+    PatchVerify {
+        test_cmd: String,
+        test_output: String,
+        exit_code: i32,
+    },
 }
 
 impl EvalScore {

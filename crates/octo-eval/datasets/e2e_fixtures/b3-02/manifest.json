@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B3-02",
+  "name": "Wrong return type in to_pairs",
+  "test_cmd": "python3 test.py",
+  "fix_file": "src.py",
+  "difficulty": "medium"
+}

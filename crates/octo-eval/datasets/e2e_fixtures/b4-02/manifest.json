@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B4-02",
+  "name": "API contract mismatch between src and caller",
+  "test_cmd": "python3 test.py",
+  "fix_file": "caller.py",
+  "difficulty": "hard"
+}

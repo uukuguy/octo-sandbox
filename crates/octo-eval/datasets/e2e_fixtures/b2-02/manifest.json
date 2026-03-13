@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B2-02",
+  "name": "Boundary error in clamp",
+  "test_cmd": "python3 test.py",
+  "fix_file": "src.py",
+  "difficulty": "easy"
+}

@@ -17,6 +17,9 @@ use octo_eval::model::{ModelInfo, ModelTier};
 use octo_eval::reporter::Reporter;
 use octo_eval::runner::EvalRunner;
 use octo_eval::suites::context::ContextSuite;
+use octo_eval::suites::e2e::E2eSuite;
+use octo_eval::suites::memory::MemorySuite;
+use octo_eval::suites::provider::ProviderSuite;
 use octo_eval::suites::security::SecuritySuite;
 use octo_eval::suites::tool_call::ToolCallSuite;
 use octo_eval::task::EvalTask;
@@ -53,7 +56,7 @@ fn cmd_help() -> Result<()> {
     println!("  compare --suite <NAME>   Run multi-model comparison");
     println!("  help                     Show this help\n");
     println!("OPTIONS:");
-    println!("  --suite <NAME>           Suite name: tool_call, security, context");
+    println!("  --suite <NAME>           Suite name: tool_call, security, context, provider, memory, e2e");
     println!("  --output <DIR>           Output directory (default: eval_output)");
     println!("  --format <FMT>           Output format: json, markdown, both (default: both)");
     println!("  --baseline <PATH>        Baseline report JSON for regression detection");
@@ -62,13 +65,15 @@ fn cmd_help() -> Result<()> {
 
 fn cmd_list_suites() -> Result<()> {
     println!("Available evaluation suites:\n");
-    println!("  tool_call   — Tool calling accuracy (23 tasks, L1-L4)");
-    println!("  security    — Security policy enforcement (14 tasks, S1-S4)");
-    println!("  context     — Output quality & error handling (6 tasks, CX1-CX3)");
-    println!("\nDatasets (JSONL):");
-    println!("  datasets/octo_tool_call.jsonl");
-    println!("  datasets/octo_security.jsonl");
-    println!("  datasets/octo_context.jsonl");
+    println!("  Agent Loop Suites (require LLM provider):");
+    println!("    tool_call   — Tool calling accuracy (23 tasks, L1-L4)");
+    println!("    security    — Security policy enforcement (14 tasks, S1-S4)");
+    println!("    context     — Output quality & error handling (6 tasks, CX1-CX3)");
+    println!();
+    println!("  Direct API Suites (mock-based, no LLM required):");
+    println!("    provider    — Provider fault tolerance & failover (10 tests)");
+    println!("    memory      — Memory system consistency across 4 layers (12 tests)");
+    println!("    e2e         — End-to-end bug-fix verification (8 fixtures)");
     Ok(())
 }
 
@@ -136,6 +141,13 @@ fn parse_args(args: &[String]) -> CliArgs {
 
 fn cmd_run(args: &[String]) -> Result<()> {
     let cli = parse_args(args);
+
+    // Direct API suites — run their own runner, no LLM required
+    match cli.suite.as_str() {
+        "provider" | "memory" | "e2e" => return cmd_run_direct_suite(&cli),
+        _ => {}
+    }
+
     let tasks = load_suite(&cli.suite)?;
 
     println!("Running suite '{}' ({} tasks)...\n", cli.suite, tasks.len());
@@ -157,17 +169,51 @@ fn cmd_run(args: &[String]) -> Result<()> {
     let (categories, difficulties) = build_metadata(&tasks);
     let detailed = Reporter::generate(&report, &categories, &difficulties);
 
+    output_report(&cli, &detailed)?;
+    Ok(())
+}
+
+/// Run direct API suites (provider, memory, e2e) — no LLM provider needed
+fn cmd_run_direct_suite(cli: &CliArgs) -> Result<()> {
+    println!("Running direct API suite '{}'...\n", cli.suite);
+
+    let rt = tokio::runtime::Runtime::new()?;
+    let report = rt.block_on(async {
+        match cli.suite.as_str() {
+            "provider" => ProviderSuite::run().await,
+            "memory" => MemorySuite::run().await,
+            "e2e" => E2eSuite::run().await,
+            _ => unreachable!(),
+        }
+    })?;
+
+    println!(
+        "Results: {}/{} passed ({:.1}%)\n",
+        report.passed, report.total, report.pass_rate * 100.0
+    );
+
+    // Generate report with empty metadata (direct suites don't use JSONL metadata)
+    let categories = HashMap::new();
+    let difficulties = HashMap::new();
+    let detailed = Reporter::generate(&report, &categories, &difficulties);
+
+    output_report(cli, &detailed)?;
+    Ok(())
+}
+
+/// Write report files and handle regression detection
+fn output_report(cli: &CliArgs, detailed: &octo_eval::reporter::DetailedReport) -> Result<()> {
     std::fs::create_dir_all(&cli.output)?;
 
     if cli.format == "json" || cli.format == "both" {
-        let json = Reporter::to_json(&detailed);
+        let json = Reporter::to_json(detailed);
         let path = cli.output.join("report.json");
         std::fs::write(&path, &json)?;
         println!("JSON report: {}", path.display());
     }
 
     if cli.format == "markdown" || cli.format == "both" {
-        let md = Reporter::to_markdown(&detailed);
+        let md = Reporter::to_markdown(detailed);
         let path = cli.output.join("report.md");
         std::fs::write(&path, &md)?;
         println!("Markdown report: {}", path.display());
@@ -178,7 +224,7 @@ fn cmd_run(args: &[String]) -> Result<()> {
         let baseline_content = std::fs::read_to_string(baseline_path)?;
         let baseline: octo_eval::reporter::DetailedReport =
             serde_json::from_str(&baseline_content)?;
-        let regression = Reporter::diff_report(&detailed, &baseline);
+        let regression = Reporter::diff_report(detailed, &baseline);
         let regression_md = Reporter::regression_to_markdown(&regression);
 
         let regression_path = cli.output.join("regression.md");

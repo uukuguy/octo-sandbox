@@ -22,6 +22,6 @@ dotenvy = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 uuid = { workspace = true }
+tempfile = "3"
 
 [dev-dependencies]
-tempfile = "3"

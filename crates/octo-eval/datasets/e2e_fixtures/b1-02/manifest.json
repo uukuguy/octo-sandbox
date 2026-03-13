@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B1-02",
+  "name": "Typo in variable name",
+  "test_cmd": "python3 test.py",
+  "fix_file": "src.py",
+  "difficulty": "easy"
+}

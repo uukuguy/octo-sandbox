@@ -210,6 +210,145 @@ pub fn auto_scorer(task_def: &serde_json::Value) -> Box<dyn Scorer> {
     Box::new(BehaviorScorer::new("completed"))
 }
 
+// === LLM Judge Scorer ===
+
+/// LLM-based judge scoring — used at runner level (async, not via Scorer trait).
+///
+/// Sends the task prompt and agent output to an LLM provider with a rubric,
+/// then parses the LLM's JSON response to produce a score.
+pub struct LlmJudgeScorer {
+    pub rubric: String,
+    pub pass_threshold: f64,
+}
+
+impl LlmJudgeScorer {
+    pub fn new(rubric: String, pass_threshold: f64) -> Self {
+        Self {
+            rubric,
+            pass_threshold,
+        }
+    }
+
+    /// Score using an LLM provider (async — called from runner, not Scorer trait)
+    pub async fn score_async(
+        &self,
+        provider: &dyn octo_engine::providers::Provider,
+        model: &str,
+        task_prompt: &str,
+        output: &AgentOutput,
+    ) -> EvalScore {
+        let agent_output_text = output
+            .messages
+            .last()
+            .map(|m| m.text_content())
+            .unwrap_or_default();
+
+        let judge_prompt = format!(
+            "You are an evaluation judge. Score the following agent output on a scale of 0.0 to 1.0.\n\n\
+             ## Task\n{}\n\n\
+             ## Agent Output\n{}\n\n\
+             ## Rubric\n{}\n\n\
+             Respond with JSON only: {{\"score\": 0.0, \"reasoning\": \"...\"}}",
+            task_prompt, agent_output_text, self.rubric
+        );
+
+        let request = octo_types::CompletionRequest {
+            model: model.to_string(),
+            messages: vec![octo_types::ChatMessage::user(&judge_prompt)],
+            max_tokens: 1024,
+            temperature: Some(0.0),
+            ..Default::default()
+        };
+
+        match provider.complete(request).await {
+            Ok(response) => {
+                let text = response
+                    .content
+                    .iter()
+                    .filter_map(|b| match b {
+                        octo_types::ContentBlock::Text { text } => Some(text.as_str()),
+                        _ => None,
+                    })
+                    .collect::<Vec<_>>()
+                    .join("");
+
+                self.parse_judge_response(&text)
+            }
+            Err(e) => EvalScore::fail(
+                0.0,
+                ScoreDetails::LlmJudge {
+                    score: 0.0,
+                    reasoning: format!("Judge provider error: {}", e),
+                    rubric: self.rubric.clone(),
+                },
+            ),
+        }
+    }
+
+    /// Parse the LLM's response text into an EvalScore.
+    /// Handles JSON, markdown-wrapped JSON, and plain text fallback.
+    pub(crate) fn parse_judge_response(&self, text: &str) -> EvalScore {
+        let json_str = text
+            .trim()
+            .trim_start_matches("```json")
+            .trim_start_matches("```")
+            .trim_end_matches("```")
+            .trim();
+
+        #[derive(serde::Deserialize)]
+        struct JudgeResponse {
+            score: f64,
+            reasoning: String,
+        }
+
+        match serde_json::from_str::<JudgeResponse>(json_str) {
+            Ok(resp) => {
+                let score = resp.score.clamp(0.0, 1.0);
+                let passed = score >= self.pass_threshold;
+                EvalScore {
+                    passed,
+                    score,
+                    details: ScoreDetails::LlmJudge {
+                        score,
+                        reasoning: resp.reasoning,
+                        rubric: self.rubric.clone(),
+                    },
+                }
+            }
+            Err(_) => {
+                // Fallback: try to extract a number from the text
+                let score = extract_score_from_text(json_str).unwrap_or(0.0);
+                let passed = score >= self.pass_threshold;
+                EvalScore {
+                    passed,
+                    score,
+                    details: ScoreDetails::LlmJudge {
+                        score,
+                        reasoning: format!(
+                            "Failed to parse JSON, extracted score from text: {}",
+                            text
+                        ),
+                        rubric: self.rubric.clone(),
+                    },
+                }
+            }
+        }
+    }
+}
+
+/// Try to extract a 0.0-1.0 score from free-form text.
+fn extract_score_from_text(text: &str) -> Option<f64> {
+    for word in text.split_whitespace() {
+        let cleaned = word.trim_matches(|c: char| !c.is_ascii_digit() && c != '.');
+        if let Ok(val) = cleaned.parse::<f64>() {
+            if (0.0..=1.0).contains(&val) {
+                return Some(val);
+            }
+        }
+    }
+    None
+}
+
 // === Helper ===
 
 fn compute_arg_match_rate(expected: &serde_json::Value, actual: &serde_json::Value) -> f64 {
@@ -388,5 +527,92 @@ mod tests {
         let output = AgentOutput::default();
         let result = scorer.score(&output);
         assert!(result.passed);
+    }
+
+    // === LlmJudgeScorer tests ===
+
+    #[test]
+    fn test_parse_judge_response_valid_json() {
+        let scorer = LlmJudgeScorer::new("test rubric".into(), 0.5);
+        let result =
+            scorer.parse_judge_response(r#"{"score": 0.8, "reasoning": "Good output"}"#);
+        assert!(result.passed);
+        assert!((result.score - 0.8).abs() < 0.01);
+        match &result.details {
+            ScoreDetails::LlmJudge {
+                score, reasoning, ..
+            } => {
+                assert!((score - 0.8).abs() < 0.01);
+                assert_eq!(reasoning, "Good output");
+            }
+            _ => panic!("Expected LlmJudge details"),
+        }
+    }
+
+    #[test]
+    fn test_parse_judge_response_code_block() {
+        let scorer = LlmJudgeScorer::new("test rubric".into(), 0.5);
+        let result = scorer
+            .parse_judge_response("```json\n{\"score\": 0.3, \"reasoning\": \"Poor\"}\n```");
+        assert!(!result.passed);
+        assert!((result.score - 0.3).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_judge_response_malformed() {
+        let scorer = LlmJudgeScorer::new("test rubric".into(), 0.5);
+        let result =
+            scorer.parse_judge_response("I think the score is 0.7 because it was decent");
+        assert!(result.passed);
+        assert!((result.score - 0.7).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_parse_judge_response_no_score() {
+        let scorer = LlmJudgeScorer::new("test rubric".into(), 0.5);
+        let result = scorer.parse_judge_response("no numbers here at all");
+        assert!(!result.passed);
+        assert!(result.score < 0.01);
+    }
+
+    #[test]
+    fn test_parse_judge_threshold_boundary() {
+        let scorer = LlmJudgeScorer::new("rubric".into(), 0.5);
+        // Exactly at threshold should pass
+        let result =
+            scorer.parse_judge_response(r#"{"score": 0.5, "reasoning": "borderline"}"#);
+        assert!(result.passed);
+
+        // Just below threshold should fail
+        let result =
+            scorer.parse_judge_response(r#"{"score": 0.49, "reasoning": "borderline"}"#);
+        assert!(!result.passed);
+    }
+
+    #[test]
+    fn test_parse_judge_response_clamps_score() {
+        let scorer = LlmJudgeScorer::new("rubric".into(), 0.5);
+        let result =
+            scorer.parse_judge_response(r#"{"score": 1.5, "reasoning": "over max"}"#);
+        assert!((result.score - 1.0).abs() < 0.01);
+
+        let result =
+            scorer.parse_judge_response(r#"{"score": -0.3, "reasoning": "under min"}"#);
+        assert!(result.score.abs() < 0.01);
+    }
+
+    #[test]
+    fn test_extract_score_from_text_various() {
+        assert_eq!(
+            extract_score_from_text("the score is 0.8 because"),
+            Some(0.8)
+        );
+        assert_eq!(extract_score_from_text("score: 0.95"), Some(0.95));
+        // 5.0 is out of 0-1 range
+        assert_eq!(extract_score_from_text("no valid score 5.0 here"), None);
+        assert_eq!(extract_score_from_text(""), None);
+        // Edge: 0.0 and 1.0 are valid
+        assert_eq!(extract_score_from_text("got 0.0 result"), Some(0.0));
+        assert_eq!(extract_score_from_text("perfect 1.0"), Some(1.0));
     }
 }

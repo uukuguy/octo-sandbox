@@ -206,8 +206,27 @@ impl EvalRunner {
 
         let duration_ms = start.elapsed().as_millis() as u64;
 
-        // Score the output using the task's scoring function
-        let score = task.score(&output);
+        // Score the output using the task's scoring function,
+        // then re-score with LlmJudge if the task requests it.
+        let score = if let Some(judge_config) = task.llm_judge_config() {
+            let judge = crate::scorer::LlmJudgeScorer::new(
+                judge_config.rubric,
+                judge_config.pass_threshold,
+            );
+            let engine_config = match &self.config.target {
+                EvalTarget::Engine(c) => c,
+            };
+            judge
+                .score_async(
+                    self.provider.as_ref(),
+                    &engine_config.model,
+                    task.prompt(),
+                    &output,
+                )
+                .await
+        } else {
+            task.score(&output)
+        };
 
         info!(
             task_id = %task_id,

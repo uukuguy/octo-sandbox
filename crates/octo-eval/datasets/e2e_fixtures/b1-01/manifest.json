@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B1-01",
+  "name": "Off-by-one in count_items",
+  "test_cmd": "python3 test.py",
+  "fix_file": "src.py",
+  "difficulty": "easy"
+}

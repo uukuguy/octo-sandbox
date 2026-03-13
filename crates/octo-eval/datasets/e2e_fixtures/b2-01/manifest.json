@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B2-01",
+  "name": "Inverted condition in is_positive",
+  "test_cmd": "python3 test.py",
+  "fix_file": "src.py",
+  "difficulty": "easy"
+}

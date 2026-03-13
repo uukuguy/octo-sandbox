@@ -41,6 +41,13 @@ pub enum Difficulty {
     Hard,
 }
 
+/// Configuration for LLM-based judge scoring
+#[derive(Debug, Clone)]
+pub struct LlmJudgeConfig {
+    pub rubric: String,
+    pub pass_threshold: f64,
+}
+
 /// Core evaluation task trait
 pub trait EvalTask: Send + Sync {
     fn id(&self) -> &str;
@@ -52,6 +59,12 @@ pub trait EvalTask: Send + Sync {
     /// Optional tool name allowlist — when set, only these tools are available.
     /// The runner uses these names to filter the ToolRegistry.
     fn tool_allowlist(&self) -> Option<Vec<String>> {
+        None
+    }
+
+    /// Optional LLM judge configuration for subjective scoring.
+    /// When present, the runner will re-score using an LLM provider.
+    fn llm_judge_config(&self) -> Option<LlmJudgeConfig> {
         None
     }
 }

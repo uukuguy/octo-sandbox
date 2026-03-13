@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B4-01",
+  "name": "Multi-function fix: calculate and format_result",
+  "test_cmd": "python3 test.py",
+  "fix_file": "src.py",
+  "difficulty": "hard"
+}

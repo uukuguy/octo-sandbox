@@ -2,8 +2,8 @@
   "plan_file": "docs/plans/2026-03-14-phase-e-eval-enhancement.md",
   "phase": "execution",
   "created_at": "2026-03-14T02:30:00+08:00",
-  "updated_at": "2026-03-14T03:30:00+08:00",
-  "completed_tasks": ["E1-T1", "E1-T2", "E1-T3", "E1-T4", "E1-T5", "E1-T6"],
+  "updated_at": "2026-03-14T04:30:00+08:00",
+  "completed_tasks": ["E1-T1", "E1-T2", "E1-T3", "E1-T4", "E1-T5", "E1-T6", "E2-T1", "E2-T2", "E2-T3", "E2-T4", "E2-T5"],
   "current_task": null,
   "total_tasks": 17,
   "task_groups": {
@@ -17,7 +17,7 @@
     "PhaseE2": {
       "name": "新评估套件",
       "tasks": ["E2-T1", "E2-T2", "E2-T3", "E2-T4", "E2-T5"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": false,
       "description": "LlmJudge + Provider容错 + 记忆一致性 + E2E编程 + 注册验证"
     },
@@ -33,7 +33,7 @@
   "execution_mode": "direct",
   "phase_name": "Agent Evaluation — Phase E Eval Enhancement",
   "tests_baseline": 1870,
-  "tests_current": 1891,
+  "tests_current": 1917,
   "status": "IN_PROGRESS",
   "previous_plan": {
     "file": "docs/plans/2026-03-13-phase-d-multi-model-evaluation.md",
@@ -48,14 +48,15 @@
       "actual_changes": "~350 lines changed across 6 files, 25 integration tests (was 18), 4 new reporter unit tests"
     },
     "phase_e2": {
-      "scope": "新套件: LlmJudge + provider(10) + memory(12) + e2e(8) = +40 tasks",
-      "estimated_changes": "~650 lines, 13 new tests, 40 new tasks"
+      "scope": "新套件: LlmJudge + provider(10) + memory(12) + e2e(8) + CLI分发",
+      "estimated_changes": "~650 lines, 13 new tests, 40 new tasks",
+      "actual_changes": "~367 lines changed in 9 existing files + 3 new suite modules + 8 e2e fixtures, 26 new tests (85 unit + 25 integration = 110 total in octo-eval)"
     },
     "phase_e3": {
       "scope": "多轨道: CLI/Server target + BFCL适配 + eval.toml + CI",
       "estimated_changes": "~600 lines"
     }
   },
-  "commits": [],
-  "notes": "Phase E1 COMPLETE. All 6 tasks implemented: Recorder auto-integration (T1), Timeout enforcement via tokio::time::timeout wrapping collect_events (T2), Concurrent evaluation via buffer_unordered with stable result ordering (T3), Per-task tool allowlists via JsonlTask.tools field (T4), Regression detection with diff_report + regression_to_markdown (T5), Full verification 1891 tests passing (T6). Design gaps identified by reviewer agent were all addressed: ScoreDetails::Timeout variant, TaskResult/EvalReport Serialize/Deserialize derives, RegressionReport/TaskDiff/DiffStatus types, CLI --baseline parameter, tool_allowlist() trait method."
+  "commits": ["d848c02"],
+  "notes": "Phase E2 COMPLETE. All 5 tasks implemented: E2-T1 LlmJudgeScorer with async scoring at runner level (scorer.rs, runner.rs, task.rs, loader.rs), E2-T2 Provider fault tolerance suite with FaultProvider + 10 tests (suites/provider.rs), E2-T3 Memory consistency suite testing 4 layers with 12 tests (suites/memory.rs), E2-T4 E2E programming suite with 8 Python fixtures and PatchVerifyScorer (suites/e2e.rs + datasets/e2e_fixtures/), E2-T5 CLI dispatch for direct API suites + full verification 1917 tests passing. Design review identified 25 gaps (7 CRITICAL) which were all resolved: Scorer async problem solved at runner level, Provider/Memory suites use direct API testing instead of agent loop, FaultProvider for error injection, CLI dispatch via cmd_run_direct_suite()."
 }

@@ -1,0 +1,7 @@
+{
+  "id": "e2e-B3-01",
+  "name": "Missing import in parse_json",
+  "test_cmd": "python3 test.py",
+  "fix_file": "src.py",
+  "difficulty": "medium"
+}

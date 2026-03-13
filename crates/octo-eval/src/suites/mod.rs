@@ -1,9 +1,15 @@
 //! Pre-defined evaluation suites.
 
 pub mod context;
+pub mod e2e;
+pub mod memory;
+pub mod provider;
 pub mod security;
 pub mod tool_call;
 
 pub use context::ContextSuite;
+pub use e2e::E2eSuite;
+pub use memory::MemorySuite;
+pub use provider::ProviderSuite;
 pub use security::SecuritySuite;
 pub use tool_call::ToolCallSuite;

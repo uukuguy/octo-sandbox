@@ -10,7 +10,7 @@ use anyhow::Result;
 use serde::{Deserialize, Serialize};
 
 use crate::score::{EvalScore, ScoreDetails};
-use crate::task::{AgentOutput, Difficulty, EvalTask, TaskMetadata};
+use crate::task::{AgentOutput, Difficulty, EvalTask, LlmJudgeConfig, TaskMetadata};
 
 /// A single evaluation task loaded from JSONL.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -46,6 +46,22 @@ pub struct JsonlTask {
     /// Optional tool allowlist — when set, only these tools are available
     #[serde(default)]
     pub tools: Option<Vec<String>>,
+
+    /// Scorer override (e.g., "llm_judge")
+    #[serde(default)]
+    pub scorer: Option<String>,
+
+    /// Rubric text for LlmJudge scoring
+    #[serde(default)]
+    pub rubric: Option<String>,
+
+    /// Pass threshold for LlmJudge scoring (default: 0.5)
+    #[serde(default)]
+    pub pass_threshold: Option<f64>,
+
+    /// Fixture path for E2E tasks
+    #[serde(default)]
+    pub fixture_path: Option<String>,
 }
 
 fn default_difficulty() -> Difficulty {
@@ -100,6 +116,17 @@ impl EvalTask for JsonlTask {
 
     fn tool_allowlist(&self) -> Option<Vec<String>> {
         self.tools.clone()
+    }
+
+    fn llm_judge_config(&self) -> Option<LlmJudgeConfig> {
+        if self.scorer.as_deref() == Some("llm_judge") {
+            Some(LlmJudgeConfig {
+                rubric: self.rubric.clone().unwrap_or_default(),
+                pass_threshold: self.pass_threshold.unwrap_or(0.5),
+            })
+        } else {
+            None
+        }
     }
 }
 
@@ -594,6 +621,10 @@ mod tests {
             expected_output: None,
             expected_sequence: None,
             tools: None,
+            scorer: None,
+            rubric: None,
+            pass_threshold: None,
+            fixture_path: None,
         }
     }
 }
