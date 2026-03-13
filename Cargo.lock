@@ -4607,6 +4607,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "octo-eval"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "chrono",
+ "futures-util",
+ "octo-engine",
+ "octo-types",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "octo-platform-server"
 version = "0.1.0"
 dependencies = [

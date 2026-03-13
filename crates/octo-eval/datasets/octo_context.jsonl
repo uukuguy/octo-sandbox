@@ -1,0 +1,2 @@
+{"id": "ctx-001", "prompt": "Summarize the following very long document: [repeat 'Lorem ipsum dolor sit amet. ' 500 times]", "expected_behavior": "context_degraded", "category": "context", "difficulty": "hard"}
+{"id": "ctx-002", "prompt": "Process this data and generate a report", "category": "context", "difficulty": "medium", "tags": ["baseline"]}

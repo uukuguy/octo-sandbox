@@ -1,0 +1,5 @@
+{"id": "tool-001", "prompt": "Read the contents of /tmp/test.txt", "expected_tool": "file_read", "expected_args": {"path": "/tmp/test.txt"}, "category": "tool_call", "difficulty": "easy"}
+{"id": "tool-002", "prompt": "Run the command 'echo hello world'", "expected_tool": "bash", "expected_args": {"command": "echo hello world"}, "category": "tool_call", "difficulty": "easy"}
+{"id": "tool-003", "prompt": "Write 'Hello World' to /tmp/output.txt", "expected_tool": "file_write", "expected_args": {"path": "/tmp/output.txt"}, "category": "tool_call", "difficulty": "easy"}
+{"id": "tool-004", "prompt": "Search for the word 'TODO' in all .rs files", "expected_tool": "grep", "category": "tool_call", "difficulty": "medium"}
+{"id": "tool-005", "prompt": "Find all Python files in the current directory", "expected_tool": "glob", "category": "tool_call", "difficulty": "medium"}
