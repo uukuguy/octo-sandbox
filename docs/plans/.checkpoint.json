@@ -1,51 +1,60 @@
 {
-  "plan_file": "docs/plans/2026-03-13-phase-d-multi-model-evaluation.md",
-  "phase": "complete",
-  "created_at": "2026-03-13T20:20:00+08:00",
-  "updated_at": "2026-03-13T20:30:00+08:00",
-  "completed_tasks": ["T1", "T2", "T3", "T4", "T5", "T6", "T7"],
+  "plan_file": "docs/plans/2026-03-14-phase-e-eval-enhancement.md",
+  "phase": "planning",
+  "created_at": "2026-03-14T02:30:00+08:00",
+  "updated_at": "2026-03-14T02:30:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 7,
+  "total_tasks": 17,
   "task_groups": {
-    "GroupA-P0": {
-      "name": "模型元数据与配置扩展",
-      "tasks": ["T1", "T2"],
-      "status": "COMPLETE",
-      "parallel": true,
-      "description": "ModelInfo/ModelTier (5 tests) + MultiModelConfig/ModelEntry"
-    },
-    "GroupB-P0": {
-      "name": "对比运行器",
-      "tasks": ["T3", "T4"],
-      "status": "COMPLETE",
-      "parallel": true,
-      "description": "ComparisonRunner + ComparisonReport (4 tests, Markdown+JSON)"
-    },
-    "GroupC-P1": {
-      "name": "可执行入口与测试",
-      "tasks": ["T5", "T6", "T7"],
-      "status": "COMPLETE",
+    "PhaseE1": {
+      "name": "Runner 加固",
+      "tasks": ["E1-T1", "E1-T2", "E1-T3", "E1-T4", "E1-T5", "E1-T6"],
+      "status": "PENDING",
       "parallel": false,
-      "description": "CLI main.rs (help/list-suites/run/compare) + workspace 1870 tests pass"
+      "description": "Recorder集成 + Timeout + 并发 + Allowlist + 回归检测 + 验证"
+    },
+    "PhaseE2": {
+      "name": "新评估套件",
+      "tasks": ["E2-T1", "E2-T2", "E2-T3", "E2-T4", "E2-T5"],
+      "status": "PENDING",
+      "parallel": false,
+      "description": "LlmJudge + Provider容错 + 记忆一致性 + E2E编程 + 注册验证"
+    },
+    "PhaseE3": {
+      "name": "多轨道 + 外部Benchmark",
+      "tasks": ["E3-T1", "E3-T2", "E3-T3", "E3-T4", "E3-T5", "E3-T6"],
+      "status": "PENDING",
+      "parallel": false,
+      "description": "CLI模式 + Server模式 + BFCL适配 + eval.toml + CI集成 + 验证"
     }
   },
-  "execution_order": ["GroupA-P0", "GroupB-P0", "GroupC-P1"],
-  "execution_mode": "subagent-driven-development",
-  "phase_name": "Agent Evaluation — Phase D Multi-Model Comparison",
-  "tests_baseline": 1861,
+  "execution_order": ["PhaseE1", "PhaseE2", "PhaseE3"],
+  "execution_mode": null,
+  "phase_name": "Agent Evaluation — Phase E Eval Enhancement",
+  "tests_baseline": 1870,
   "tests_current": 1870,
-  "status": "COMPLETE",
+  "status": "PLANNING",
   "previous_plan": {
-    "file": "docs/plans/2026-03-13-phase-c-octo-eval-crate.md",
+    "file": "docs/plans/2026-03-13-phase-d-multi-model-evaluation.md",
     "status": "COMPLETE",
     "tasks_completed": 10,
-    "final_commit": "24b02d4"
+    "final_commit": "998f3b4"
   },
   "deliverables": {
-    "new_modules": ["model.rs", "comparison.rs", "main.rs"],
-    "modified_modules": ["lib.rs", "config.rs", "runner.rs", "Cargo.toml"],
-    "new_tests": 9,
-    "cli_commands": ["help", "list-suites", "run", "compare"]
+    "phase_e1": {
+      "scope": "Runner加固: Recorder集成, Timeout, 并发, Allowlist, 回归检测",
+      "estimated_changes": "~200 lines, 6 new tests"
+    },
+    "phase_e2": {
+      "scope": "新套件: LlmJudge + provider(10) + memory(12) + e2e(8) = +40 tasks",
+      "estimated_changes": "~650 lines, 13 new tests, 40 new tasks"
+    },
+    "phase_e3": {
+      "scope": "多轨道: CLI/Server target + BFCL适配 + eval.toml + CI",
+      "estimated_changes": "~600 lines"
+    }
   },
-  "notes": "Phase D COMPLETE. Added multi-model comparison infrastructure: ModelInfo/ModelTier, MultiModelConfig, ComparisonRunner, ComparisonReport (Markdown+JSON), CLI binary (cargo run -p octo-eval). 1870 tests pass (was 1861, +9 new). Docker tests excluded (5 pre-existing failures, Docker not running)."
+  "commits": [],
+  "notes": "Phase E 设计方案已完成。三个子阶段可独立执行: E1(Runner加固, 2-3天) → E2(新套件, 3-5天) → E3(多轨道, 5-7天)。Phase D 模型扩展(更多模型跑分)暂缓，优先补全框架能力。"
 }
