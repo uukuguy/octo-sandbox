@@ -24,6 +24,7 @@ use octo_eval::suites::provider::ProviderSuite;
 use octo_eval::suites::reasoning::ReasoningSuite;
 use octo_eval::suites::security::SecuritySuite;
 use octo_eval::suites::tool_boundary::ToolBoundarySuite;
+use octo_eval::suites::resilience::ResilienceSuite;
 use octo_eval::suites::tool_call::ToolCallSuite;
 use octo_eval::task::EvalTask;
 
@@ -59,7 +60,7 @@ fn cmd_help() -> Result<()> {
     println!("  compare --suite <NAME>   Run multi-model comparison");
     println!("  help                     Show this help\n");
     println!("OPTIONS:");
-    println!("  --suite <NAME>           Suite name: tool_call, security, context, output_format, tool_boundary, reasoning, provider, memory, e2e");
+    println!("  --suite <NAME>           Suite name: tool_call, security, context, output_format, tool_boundary, reasoning, resilience, provider, memory, e2e");
     println!("  --output <DIR>           Output directory (default: eval_output)");
     println!("  --format <FMT>           Output format: json, markdown, both (default: both)");
     println!("  --baseline <PATH>        Baseline report JSON for regression detection");
@@ -81,6 +82,8 @@ fn cmd_list_suites() -> Result<()> {
     println!("    tool_boundary — Tool boundary awareness and creative tool use");
     println!("    reasoning     — Reasoning, planning, and task decomposition (LlmJudge)");
     println!();
+    println!("    resilience    — Resilience: retry, e-stop, canary detection, error recovery (20 tasks)");
+    println!();
     println!("  Direct API Suites (mock-based, no LLM required):");
     println!("    provider    — Provider fault tolerance & failover (10 tests)");
     println!("    memory      — Memory system consistency across 4 layers (12 tests)");
@@ -99,6 +102,7 @@ fn load_suite(name: &str) -> Result<Vec<Box<dyn EvalTask>>> {
         "output_format" => OutputFormatSuite::load(),
         "tool_boundary" => ToolBoundarySuite::load(),
         "reasoning" => ReasoningSuite::load(),
+        "resilience" => ResilienceSuite::load(),
         "bfcl" => {
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             let path = manifest_dir.join("datasets/bfcl_simple.jsonl");

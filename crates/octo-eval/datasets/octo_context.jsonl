@@ -31,3 +31,63 @@
 # 测试目标: Regex scorer 验证输出格式严格匹配
 {"id":"ctx-CX4-01","prompt":"Summarize in exactly one sentence: The Rust programming language helps everyone build reliable and efficient software. It is fast, memory-safe, and concurrent.","expected_regex":"^[^.]*\\.$","category":"context","difficulty":"hard","tags":["CX4","length_control"]}
 {"id":"ctx-CX4-02","prompt":"Reply with only a number: how many subdirectories are in /tmp?","expected_regex":"^\\d+$","category":"context","difficulty":"hard","tags":["CX4","length_control"]}
+
+# === CX5: Context Degradation (上下文降级) ===
+# 测试目标: 当 context 接近上限时，模型是否正确降级
+{"id":"ctx-DG-01","prompt":"Process this 50KB configuration file and extract all database connection strings. The context window is nearly full.","expected_behavior":"context_degraded","category":"context","difficulty":"medium","tags":["CX5","context_stress","degradation"]}
+{"id":"ctx-DG-02","prompt":"Analyze these 200 log entries and provide a summary. Note: context budget is at 95% capacity.","expected_behavior":"context_degraded","category":"context","difficulty":"medium","tags":["CX5","context_stress","degradation"]}
+{"id":"ctx-DG-03","prompt":"Read and process all 15 source files in the project. Context window is limited to 4096 tokens.","expected_behavior":"context_degraded","category":"context","difficulty":"hard","tags":["CX5","context_stress","degradation"]}
+{"id":"ctx-DG-04","prompt":"Load the entire git history (500+ commits) and find when the bug was introduced.","expected_behavior":"context_degraded","category":"context","difficulty":"hard","tags":["CX5","context_stress","degradation"]}
+{"id":"ctx-DG-05","prompt":"Process a 100MB CSV file and compute statistics for each column.","expected_behavior":"context_degraded","category":"context","difficulty":"hard","tags":["CX5","context_stress","degradation"]}
+
+# === CX6: Token Budget Boundary (Token 预算边界) ===
+# 测试目标: 接近 token 上限时的行为
+{"id":"ctx-TB-01","prompt":"You have a token budget of 100 tokens remaining. Summarize the following 500-word document concisely.","expected_contains_all":["summary"],"category":"context","difficulty":"medium","tags":["CX6","context_stress","token_budget"]}
+{"id":"ctx-TB-02","prompt":"With limited context remaining, list the top 3 most important files in this project.","expected_contains_all":["1","2","3"],"category":"context","difficulty":"medium","tags":["CX6","context_stress","token_budget"]}
+{"id":"ctx-TB-03","prompt":"Context is nearly exhausted. Provide a one-line answer: what is the main purpose of this codebase?","expected_regex":"^.{10,200}$","category":"context","difficulty":"medium","tags":["CX6","context_stress","token_budget"]}
+{"id":"ctx-TB-04","prompt":"You are running low on context. Should you read 10 more files or summarize what you already know? Explain your decision.","expected_contains_all":["summarize"],"category":"context","difficulty":"hard","tags":["CX6","context_stress","token_budget"]}
+{"id":"ctx-TB-05","prompt":"Token budget is at 98%. Complete this task in under 50 tokens: What programming language is this project written in?","expected_regex":"^.{5,100}$","category":"context","difficulty":"easy","tags":["CX6","context_stress","token_budget"]}
+
+# === CX7: Long Prompt Handling (长输入处理) ===
+# 测试目标: 对超长输入的截断/摘要策略
+{"id":"ctx-LP-01","prompt":"Here is a 5000-word technical specification document. Please extract the 3 most critical requirements and list them as bullet points.","expected_contains_all":["1","2","3"],"category":"context","difficulty":"medium","tags":["CX7","context_stress","long_prompt"]}
+{"id":"ctx-LP-02","prompt":"I'm pasting 100 lines of error logs below. Identify the root cause error and suggest a fix. [logs truncated for testing]","expected_contains_all":["error","fix"],"category":"context","difficulty":"medium","tags":["CX7","context_stress","long_prompt"]}
+{"id":"ctx-LP-03","prompt":"Analyze this entire 2000-line source file and identify the top 5 code quality issues.","expected_contains_all":["issue"],"category":"context","difficulty":"hard","tags":["CX7","context_stress","long_prompt"]}
+{"id":"ctx-LP-04","prompt":"Given this 10-page API documentation, generate a quick-start guide in under 200 words.","expected_regex":"^.{50,1000}$","category":"context","difficulty":"hard","tags":["CX7","context_stress","long_prompt"]}
+{"id":"ctx-LP-05","prompt":"Process this multi-page JSON schema and validate whether our config.yaml conforms to it.","expected_contains_all":["valid"],"category":"context","difficulty":"hard","tags":["CX7","context_stress","long_prompt"]}
+
+# === CX8: Multi-Turn Context Retention (多轮上下文保持) ===
+# 测试目标: 多轮对话后能否回忆之前的信息
+{"id":"ctx-MC-01","prompt":"In a previous turn I told you the project uses Rust 1.75. What language version does this project use?","expected_contains_all":["rust","1.75"],"category":"context","difficulty":"easy","tags":["CX8","context_stress","multi_turn"]}
+{"id":"ctx-MC-02","prompt":"Earlier we discussed that the database is SQLite. What database engine does this project use?","expected_contains_all":["sqlite"],"category":"context","difficulty":"easy","tags":["CX8","context_stress","multi_turn"]}
+{"id":"ctx-MC-03","prompt":"Recall from our conversation: the API server runs on port 3001. What port does the server use?","expected_contains_all":["3001"],"category":"context","difficulty":"easy","tags":["CX8","context_stress","multi_turn"]}
+{"id":"ctx-MC-04","prompt":"We established earlier that the frontend uses React 19 with Vite 6. Name the frontend framework and build tool.","expected_contains_all":["react","vite"],"category":"context","difficulty":"medium","tags":["CX8","context_stress","multi_turn"]}
+{"id":"ctx-MC-05","prompt":"Remember: the crate dependency order is octo-types -> octo-engine -> octo-server. What depends on octo-engine?","expected_contains_all":["octo-server"],"category":"context","difficulty":"medium","tags":["CX8","context_stress","multi_turn"]}
+
+# === CX9: Prioritization Under Pressure (压力下的优先级) ===
+{"id":"ctx-PR-01","prompt":"You have limited context. The user wants: (1) fix a bug, (2) add a feature, (3) write docs. Prioritize and explain which to do first.","expected_contains_all":["bug","first"],"category":"context","difficulty":"medium","tags":["CX9","context_stress","prioritization"]}
+{"id":"ctx-PR-02","prompt":"There are 20 files to review but you can only read 5 more. Which 5 files are most important to review for a security audit of a web server?","expected_contains_all":["auth"],"category":"context","difficulty":"hard","tags":["CX9","context_stress","prioritization"]}
+{"id":"ctx-PR-03","prompt":"Context is limited. Should you read the entire 500-line config file or just search for the database connection string? Explain.","expected_contains_all":["search"],"category":"context","difficulty":"medium","tags":["CX9","context_stress","prioritization"]}
+
+# === CX10: Context Recovery (上下文恢复) ===
+{"id":"ctx-CR-01","prompt":"A previous tool call returned a very long output that consumed most of the context. Summarize what you know so far in 3 bullet points.","expected_contains_all":["1","2","3"],"category":"context","difficulty":"medium","tags":["CX10","context_stress","recovery"]}
+{"id":"ctx-CR-02","prompt":"The conversation has been going for 20 turns. Summarize the key decisions made so far before proceeding.","expected_contains_all":["decision"],"category":"context","difficulty":"medium","tags":["CX10","context_stress","recovery"]}
+{"id":"ctx-CR-03","prompt":"Context was pruned and you lost earlier tool outputs. How do you proceed with the current task of finding bugs in the code?","expected_contains_all":["read"],"category":"context","difficulty":"hard","tags":["CX10","context_stress","recovery"]}
+
+# === CX11: Format Consistency Under Stress (压力下格式一致性) ===
+{"id":"ctx-FC-01","prompt":"Even though context is limited, format your response as valid JSON with keys 'status' and 'message'.","expected_regex":"\\{.*\"status\".*\"message\".*\\}","category":"context","difficulty":"medium","tags":["CX11","context_stress","format_consistency"]}
+{"id":"ctx-FC-02","prompt":"List exactly 3 items in a numbered list format (1. 2. 3.) about the benefits of Rust.","expected_regex":"1\\..*2\\..*3\\.","category":"context","difficulty":"easy","tags":["CX11","context_stress","format_consistency"]}
+{"id":"ctx-FC-03","prompt":"Respond in exactly two sentences. First sentence: what Rust is. Second sentence: why it's useful.","expected_regex":"^[^.]*\\.[^.]*\\.$","category":"context","difficulty":"hard","tags":["CX11","context_stress","format_consistency"]}
+
+# === CX12: Information Density (信息密度) ===
+{"id":"ctx-ID-01","prompt":"In under 50 words, explain what this project does: an autonomous AI agent workbench built with Rust and React.","expected_regex":"^.{20,300}$","category":"context","difficulty":"easy","tags":["CX12","context_stress","information_density"]}
+{"id":"ctx-ID-02","prompt":"Provide a one-line description of each: MCP, AgentRuntime, ToolRegistry, SessionStore.","expected_contains_all":["MCP","AgentRuntime","ToolRegistry","SessionStore"],"category":"context","difficulty":"medium","tags":["CX12","context_stress","information_density"]}
+{"id":"ctx-ID-03","prompt":"Compress this information into a table: Rust is fast, Python is easy, JavaScript runs in browsers, Go has great concurrency.","expected_contains_all":["Rust","Python","JavaScript","Go"],"category":"context","difficulty":"medium","tags":["CX12","context_stress","information_density"]}
+
+# === CX5 extended: More Degradation Scenarios ===
+{"id":"ctx-DG-06","prompt":"The system prompt alone consumes 80% of the context window. How should the agent handle a complex multi-step request?","expected_behavior":"context_degraded","category":"context","difficulty":"hard","tags":["CX5","context_stress","degradation"]}
+{"id":"ctx-DG-07","prompt":"Previous conversation history has 50 messages. Summarize before continuing with a new task about code refactoring.","expected_contains_all":["summarize"],"category":"context","difficulty":"medium","tags":["CX5","context_stress","degradation"]}
+
+# === CX8 extended: More Multi-Turn Scenarios ===
+{"id":"ctx-MC-06","prompt":"Three turns ago we decided to use Axum for the HTTP server. What framework are we using?","expected_contains_all":["axum"],"category":"context","difficulty":"easy","tags":["CX8","context_stress","multi_turn"]}
+{"id":"ctx-MC-07","prompt":"In our earlier discussion, the team agreed on 3-layer memory: working, session, persistent. Name all three memory layers.","expected_contains_all":["working","session","persistent"],"category":"context","difficulty":"medium","tags":["CX8","context_stress","multi_turn"]}

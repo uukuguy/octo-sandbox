@@ -48,6 +48,9 @@ jobs:
       - name: Run memory suite (mock, no LLM)
         run: cargo run -p octo-eval -- run --suite memory --output eval_output/memory
 
+      - name: Run resilience suite (mock, no LLM)
+        run: cargo run -p octo-eval -- run --suite resilience --output eval_output/resilience
+
       - name: Run replay baseline (if traces exist)
         if: hashFiles('crates/octo-eval/datasets/replay_baseline/traces/*.json') != ''
         run: cargo run -p octo-eval -- run --suite tool_call --replay crates/octo-eval/datasets/replay_baseline/ --output eval_output/replay

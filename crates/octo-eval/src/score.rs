@@ -68,6 +68,12 @@ pub enum ScoreDetails {
         matched: usize,
         total: usize,
     },
+    AstMatch {
+        expected_tool: String,
+        actual_tool: Option<String>,
+        arg_match_rate: f64,
+        mismatched_fields: Vec<String>,
+    },
 }
 
 impl EvalScore {

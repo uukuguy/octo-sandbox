@@ -1,6 +1,6 @@
 {
   "plan_file": "docs/plans/2026-03-14-phase-h-eval-capstone.md",
-  "phase": "design",
+  "phase": "execution",
   "created_at": "2026-03-14T17:30:00+08:00",
   "updated_at": "2026-03-14T17:30:00+08:00",
   "completed_tasks": [],
@@ -41,7 +41,7 @@
   "phase_name": "Phase H — Eval Capstone",
   "tests_baseline": 1962,
   "tests_current": 1962,
-  "status": "DESIGN_COMPLETE",
+  "status": "EXECUTING",
   "previous_plan": {
     "file": "docs/plans/2026-03-14-phase-g-deferred-resolution.md",
     "status": "COMPLETE",

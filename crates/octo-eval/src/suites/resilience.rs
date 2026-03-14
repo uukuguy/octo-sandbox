@@ -1,4 +1,5 @@
-//! Context evaluation suite — tests output quality, instruction following, error handling.
+//! Resilience evaluation suite — tests retry, emergency stop, canary detection,
+//! error recovery, and text-tool recovery behaviors.
 
 use std::path::Path;
 
@@ -7,14 +8,12 @@ use anyhow::Result;
 use crate::datasets::loader::{load_jsonl, load_jsonl_as_tasks, JsonlTask};
 use crate::task::EvalTask;
 
-/// Context evaluation suite
-pub struct ContextSuite;
+/// Resilience evaluation suite
+pub struct ResilienceSuite;
 
-impl ContextSuite {
-    /// Default dataset path (relative to crate root)
-    const DEFAULT_DATASET: &'static str = "datasets/octo_context.jsonl";
+impl ResilienceSuite {
+    const DEFAULT_DATASET: &'static str = "datasets/octo_resilience.jsonl";
 
-    /// Load tasks from the default dataset
     pub fn load() -> Result<Vec<Box<dyn EvalTask>>> {
         let path = Path::new(Self::DEFAULT_DATASET);
         if path.exists() {
@@ -25,18 +24,16 @@ impl ContextSuite {
             return load_jsonl_as_tasks(&crate_path);
         }
         anyhow::bail!(
-            "Context dataset not found at {} or {}",
+            "Resilience dataset not found at {} or {}",
             path.display(),
             crate_path.display()
         )
     }
 
-    /// Load tasks from a custom path
     pub fn load_from(path: &Path) -> Result<Vec<Box<dyn EvalTask>>> {
         load_jsonl_as_tasks(path)
     }
 
-    /// Load raw JsonlTask structs (useful for inspection)
     pub fn load_raw() -> Result<Vec<JsonlTask>> {
         let crate_path = Path::new(env!("CARGO_MANIFEST_DIR")).join(Self::DEFAULT_DATASET);
         load_jsonl(&crate_path)
@@ -48,20 +45,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_load_context_suite() {
-        let tasks = ContextSuite::load().unwrap();
-        assert!(
-            tasks.len() >= 50,
-            "Expected at least 50 context tasks, got {}",
+    fn test_load_resilience_suite() {
+        let tasks = ResilienceSuite::load().unwrap();
+        assert_eq!(
+            tasks.len(),
+            20,
+            "Expected 20 resilience tasks, got {}",
             tasks.len()
         );
-        assert_eq!(tasks[0].id(), "ctx-CX1-01");
+        assert_eq!(tasks[0].id(), "res-RT-01");
     }
 
     #[test]
-    fn test_load_raw() {
-        let tasks = ContextSuite::load_raw().unwrap();
-        assert!(tasks.len() >= 4);
-        assert_eq!(tasks[0].category, "context");
+    fn test_load_raw_resilience() {
+        let tasks = ResilienceSuite::load_raw().unwrap();
+        assert_eq!(tasks.len(), 20);
+        assert_eq!(tasks[0].category, "resilience");
     }
 }
