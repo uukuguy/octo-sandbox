@@ -1138,6 +1138,17 @@ fn is_bfcl_file(path: &std::path::Path) -> bool {
         .map_or(false, |name| name.starts_with("bfcl"))
 }
 
+/// External benchmark datasets have their own schemas and dedicated tests.
+fn is_external_benchmark_file(path: &std::path::Path) -> bool {
+    path.file_name()
+        .and_then(|n| n.to_str())
+        .map_or(false, |name| {
+            name.starts_with("gaia_")
+                || name.starts_with("swe_bench_")
+                || name.starts_with("tau_bench_")
+        })
+}
+
 /// F4-T3: Validate the structure of every task in every JSONL dataset file.
 #[test]
 fn test_validate_all_jsonl_datasets() {
@@ -1159,6 +1170,10 @@ fn test_validate_all_jsonl_datasets() {
     let files = collect_jsonl_files();
 
     for file in &files {
+        // External benchmark datasets have their own schemas and dedicated unit tests
+        if is_external_benchmark_file(file) {
+            continue;
+        }
         let bfcl = is_bfcl_file(file);
         let filename = file.file_name().unwrap().to_string_lossy();
         let content = std::fs::read_to_string(file)
