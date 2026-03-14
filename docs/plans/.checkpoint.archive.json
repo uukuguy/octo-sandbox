@@ -1,23 +1,70 @@
 {
-  "plan_file": "docs/plans/2026-03-01-phase2-5-3-user-isolation.md",
-  "phase": "active",
-  "phase_name": "Phase 2.5.3 - User Isolation",
-  "created_at": "2026-03-01T14:30:00+08:00",
-  "updated_at": "2026-03-01T16:30:00+08:00",
-  "completed_tasks": [
-    "Task 1.1-1.5: Database migration v4 - add user_id to all tables",
-    "SessionStore: Added create_session_with_user, get_session_for_user, list_sessions_for_user",
-    "McpStorage: Added user_id field and user-filtered methods",
-    "Task 2.1: Apply auth middleware to routes",
-    "Task 2.2: Modify API handlers to use UserContext",
-    "Task 3: Sessions API user isolation (list, get)",
-    "Task 4: Memories API user isolation (search, create, get, delete)",
-    "Task 5: MCP servers API user isolation (CRUD + start/stop/status)",
-    "Task 6: Tool executions API user isolation + recorder fix",
-    "Task 7: WebSocket user isolation",
-    "Cleanup: Remove outdated comments and fix compilation warnings (22 → 0 warnings)"
+  "plan_file": "docs/plans/2026-03-14-phase-h-eval-capstone.md",
+  "phase": "complete",
+  "created_at": "2026-03-14T17:30:00+08:00",
+  "updated_at": "2026-03-14T18:15:00+08:00",
+  "completed_tasks": ["H1-T1", "H1-T2", "H1-T3", "H2-T1", "H2-T2", "H3-T1", "H3-T2", "H3-T3", "H4-T1", "H4-T2"],
+  "current_task": null,
+  "total_tasks": 10,
+  "task_groups": {
+    "H1": {
+      "name": "Resilience Suite + New Behaviors",
+      "tasks": ["H1-T1", "H1-T2", "H1-T3"],
+      "status": "COMPLETE",
+      "parallel": false,
+      "description": "4 new behavior types + resilience suite + 20 JSONL tasks"
+    },
+    "H2": {
+      "name": "Context Expansion",
+      "tasks": ["H2-T1", "H2-T2"],
+      "status": "COMPLETE",
+      "parallel": true,
+      "description": "Expand context JSONL to 50+ tasks with degradation/budget/long-prompt/multi-turn"
+    },
+    "H3": {
+      "name": "AstMatch Scorer",
+      "tasks": ["H3-T1", "H3-T2", "H3-T3"],
+      "status": "COMPLETE",
+      "parallel": true,
+      "description": "AST-level tool_call arg matching scorer + 10 JSONL tasks"
+    },
+    "H4": {
+      "name": "Verification",
+      "tasks": ["H4-T1", "H4-T2"],
+      "status": "COMPLETE",
+      "parallel": false,
+      "description": "Full test run + CI update + CLI help"
+    }
+  },
+  "execution_order": ["H1", "H2", "H3", "H4"],
+  "execution_mode": null,
+  "phase_name": "Phase H — Eval Capstone",
+  "tests_baseline": 1962,
+  "tests_current": 1979,
+  "status": "COMPLETE",
+  "final_commit": "37680ec",
+  "previous_plan": {
+    "file": "docs/plans/2026-03-14-phase-g-deferred-resolution.md",
+    "status": "COMPLETE",
+    "tasks_completed": 9,
+    "final_commit": "ca5c898"
+  },
+  "upcoming_phases": [
+    {
+      "name": "Phase I — SWE-bench",
+      "plan": "docs/plans/2026-03-14-phase-i-swebench.md",
+      "tasks": 12
+    },
+    {
+      "name": "Phase J — Docker Tests",
+      "plan": "docs/plans/2026-03-14-phase-j-docker-tests.md",
+      "tasks": 8
+    },
+    {
+      "name": "Phase K — Model Benchmark",
+      "plan": "docs/plans/2026-03-14-phase-k-model-benchmark.md",
+      "tasks": 10
+    }
   ],
-  "current_task": "Phase 2.5.3 Complete",
-  "execution_mode": "subagent-driven-development",
-  "notes": "Phase complete. All user isolation tasks done, code compiles with 0 warnings. Ready for testing."
+  "notes": "Phase H COMPLETE. All 10 tasks done. 1979 tests (was 1962). Next: Phase I (SWE-bench)."
 }
