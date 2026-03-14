@@ -1,17 +1,15 @@
 {
-  "active_phases": [
-    {
-      "name": "Agent Evaluation — 智能体测试评估",
-      "started_at": "2026-03-13T13:50:00+08:00",
-      "checkpoint": "docs/plans/.checkpoint.json",
-      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "0% (plan written, awaiting execution)",
-      "design": "docs/design/AGENT_EVALUATION_DESIGN.md",
-      "plan": "docs/plans/2026-03-13-phase-a-evaluation-tests.md"
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Agent Evaluation — Phase A-G + H-K Design",
+      "completed_at": "2026-03-14T17:30:00+08:00",
+      "progress": "100% design, Phase A-G implemented, Phase H-K planned",
+      "tests": 1962,
+      "commit": "ca5c898",
+      "tasks": "Phase A-G: 85/85 complete. Phase H-K: 40 tasks designed, awaiting execution."
+    },
     {
       "name": "Wave 7-10 — Competitive Enhancement + Integration Wiring",
       "completed_at": "2026-03-12T21:00:00+08:00",

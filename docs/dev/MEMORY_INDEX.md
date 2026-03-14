@@ -7,12 +7,15 @@
 
 ## [Active Work]
 
+- 17:00 | Phase G COMPLETE (9/9 tasks) — all deferred items resolved @ ca5c898
+  - G1: 6 Rust E2E fixtures + language-agnostic e2e.rs, 14 total fixtures
+  - G2: Server HTTP eval mode (3 REST endpoints, EvalTarget::Server, run_task_server, CLI --target server)
+  - Both F3-T4 ✅ and F4-T1 ✅ resolved, no remaining deferred items
 - 16:10 | Phase F COMPLETE (20/23 tasks) — eval taskset expanded to ~167 tasks, 1962 tests
   - F1: 4 new scorers + 3 behaviors + combo scoring @ 1bab6a8
   - F2: +77 JSONL tasks (tool_call 48, security 39, context 33) @ c6d5589
   - F3: 3 new suites (output_format, tool_boundary, reasoning) @ c6d5589
   - F4: BFCL 50 tasks + format validation CI + tier pass rates @ b4d1cd2
-  - Deferred: F3-T4 (Rust E2E fixtures), F4-T1 (Server HTTP blocked)
 - 13:35 | Phase E checkpoint saved — all 18 tasks COMPLETE, ready for commit
 - 13:30 | Phase E COMPLETE (18/18 tasks) — 评估框架生产级, 1936 tests
   - E3: CLI subprocess target, BFCL adapter (10 tasks), eval.toml config, replay CLI, CI workflow

@@ -1,51 +1,69 @@
 {
-  "plan_file": "docs/plans/2026-03-14-phase-g-deferred-resolution.md",
-  "phase": "execution",
-  "created_at": "2026-03-14T16:30:00+08:00",
-  "updated_at": "2026-03-14T17:00:00+08:00",
-  "completed_tasks": ["G1-T1", "G1-T2", "G1-T3", "G1-T4", "G2-T1", "G2-T2", "G2-T3", "G2-T4", "G2-T5"],
+  "plan_file": "docs/plans/2026-03-14-phase-h-eval-capstone.md",
+  "phase": "design",
+  "created_at": "2026-03-14T17:30:00+08:00",
+  "updated_at": "2026-03-14T17:30:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 9,
+  "total_tasks": 10,
   "task_groups": {
-    "PhaseG1": {
-      "name": "Rust E2E Fixtures",
-      "tasks": ["G1-T1", "G1-T2", "G1-T3", "G1-T4"],
-      "status": "COMPLETE",
+    "H1": {
+      "name": "Resilience Suite + New Behaviors",
+      "tasks": ["H1-T1", "H1-T2", "H1-T3"],
+      "status": "PENDING",
       "parallel": false,
-      "description": "Fix e2e.rs fix_file hardcoding, create 6 Rust fixtures, update test assertions, verify"
+      "description": "4 new behavior types + resilience suite + 20 JSONL tasks"
     },
-    "PhaseG2": {
-      "name": "Server HTTP Eval Mode",
-      "tasks": ["G2-T1", "G2-T2", "G2-T3", "G2-T4", "G2-T5"],
-      "status": "COMPLETE",
+    "H2": {
+      "name": "Context Expansion",
+      "tasks": ["H2-T1", "H2-T2"],
+      "status": "PENDING",
+      "parallel": true,
+      "description": "Expand context JSONL to 50+ tasks with degradation/budget/long-prompt/multi-turn"
+    },
+    "H3": {
+      "name": "AstMatch Scorer",
+      "tasks": ["H3-T1", "H3-T2", "H3-T3"],
+      "status": "PENDING",
+      "parallel": true,
+      "description": "AST-level tool_call arg matching scorer + 10 JSONL tasks"
+    },
+    "H4": {
+      "name": "Verification",
+      "tasks": ["H4-T1", "H4-T2"],
+      "status": "PENDING",
       "parallel": false,
-      "description": "3 REST eval endpoints in octo-server + EvalTarget::Server + run_task_server + CLI --target server"
+      "description": "Full test run + CI update + CLI help"
     }
   },
-  "execution_order": ["PhaseG1", "PhaseG2"],
-  "execution_mode": "subagent-driven-development",
-  "phase_name": "Agent Evaluation — Phase G Deferred Resolution",
+  "execution_order": ["H1", "H2", "H3", "H4"],
+  "execution_mode": null,
+  "phase_name": "Phase H — Eval Capstone",
   "tests_baseline": 1962,
   "tests_current": 1962,
-  "status": "PHASE_G_COMPLETE",
+  "status": "DESIGN_COMPLETE",
   "previous_plan": {
-    "file": "docs/plans/2026-03-14-phase-f-eval-taskset.md",
+    "file": "docs/plans/2026-03-14-phase-g-deferred-resolution.md",
     "status": "COMPLETE",
-    "tasks_completed": 20,
-    "final_commit": "b4d1cd2"
+    "tasks_completed": 9,
+    "final_commit": "ca5c898"
   },
-  "deliverables": {
-    "phase_g1": {
-      "scope": "Rust E2E fixtures — resolve F3-T4 deferred",
-      "actual": "Fixed e2e.rs fix_file resolution (language-agnostic), created 6 Rust E2E fixtures (r1-01/02, r2-01/02, r3-01/02), updated assertions 8→14",
-      "status": "COMPLETE"
+  "upcoming_phases": [
+    {
+      "name": "Phase I — SWE-bench",
+      "plan": "docs/plans/2026-03-14-phase-i-swebench.md",
+      "tasks": 12
     },
-    "phase_g2": {
-      "scope": "Server HTTP eval mode — resolve F4-T1 deferred",
-      "actual": "3 eval REST endpoints (POST /api/eval/sessions, POST /api/eval/sessions/{id}/messages, DELETE /api/eval/sessions/{id}), EvalTarget::Server + ServerConfig, run_task_server() in runner.rs, --target server CLI",
-      "status": "COMPLETE"
+    {
+      "name": "Phase J — Docker Tests",
+      "plan": "docs/plans/2026-03-14-phase-j-docker-tests.md",
+      "tasks": 8
+    },
+    {
+      "name": "Phase K — Model Benchmark",
+      "plan": "docs/plans/2026-03-14-phase-k-model-benchmark.md",
+      "tasks": 10
     }
-  },
-  "deferred": {},
-  "notes": "PHASE G COMPLETE. All 9 tasks done. Both Phase F deferred items resolved. 14 E2E fixtures (8 Python + 6 Rust). Server HTTP eval mode fully wired: octo-server endpoints + octo-eval client + CLI flag. 1962 tests, 0 regressions."
+  ],
+  "notes": "Phase H-K design complete. H1+H2+H3 can run in parallel. H4 depends on all prior groups. Phase I depends on Phase H. Phase J depends on Phase I. Phase K depends on Phase J."
 }
