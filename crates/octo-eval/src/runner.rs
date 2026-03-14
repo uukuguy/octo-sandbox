@@ -12,7 +12,7 @@ use octo_engine::agent::{run_agent_loop, AgentEvent, AgentLoopConfig};
 use octo_engine::providers::{create_provider, Provider};
 use octo_types::ChatMessage;
 
-use crate::config::{CliConfig, EvalConfig, EvalTarget};
+use crate::config::{CliConfig, EvalConfig, EvalTarget, ServerConfig};
 use crate::model::ModelInfo;
 use crate::recorder::{EvalRecorder, EvalTrace};
 use crate::score::{EvalScore, ScoreDetails};
@@ -163,8 +163,8 @@ impl EvalRunner {
                 );
                 Ok(Arc::from(provider))
             }
-            EvalTarget::Cli(_) => {
-                // CLI mode doesn't use a provider — use a dummy mock
+            EvalTarget::Cli(_) | EvalTarget::Server(_) => {
+                // CLI/Server modes don't use a provider directly — use a dummy mock
                 Ok(Arc::from(create_provider("openai", String::new(), None)))
             }
         }
@@ -175,6 +175,9 @@ impl EvalRunner {
         // Dispatch based on target mode
         match &self.config.target {
             EvalTarget::Cli(cli_config) => return self.run_task_cli(task, cli_config).await,
+            EvalTarget::Server(server_config) => {
+                return self.run_task_server(task, server_config).await
+            }
             EvalTarget::Engine(_) => {} // fall through to engine path below
         }
 
@@ -402,6 +405,219 @@ impl EvalRunner {
             score = score.score,
             duration_ms = duration_ms,
             "CLI task evaluation complete"
+        );
+
+        Ok(TaskResult {
+            task_id,
+            output,
+            score,
+            duration_ms,
+        })
+    }
+
+    /// Run a single evaluation task via HTTP against a running octo-server
+    async fn run_task_server(
+        &self,
+        task: &dyn EvalTask,
+        server_config: &ServerConfig,
+    ) -> Result<TaskResult> {
+        let start = Instant::now();
+        let task_id = task.id().to_string();
+        let timeout_secs = server_config.timeout_secs;
+
+        info!(task_id = %task_id, "Starting Server HTTP evaluation task");
+
+        let client = reqwest::Client::builder()
+            .timeout(Duration::from_secs(timeout_secs))
+            .build()?;
+
+        let base_url = server_config.base_url.trim_end_matches('/');
+
+        // Build common headers
+        let mut headers = reqwest::header::HeaderMap::new();
+        if let Some(ref key) = server_config.api_key {
+            headers.insert(
+                "Authorization",
+                reqwest::header::HeaderValue::from_str(&format!("Bearer {}", key))
+                    .unwrap_or_else(|_| reqwest::header::HeaderValue::from_static("")),
+            );
+        }
+
+        // Step 1: Create session
+        let create_resp = client
+            .post(format!("{}/api/eval/sessions", base_url))
+            .headers(headers.clone())
+            .json(&serde_json::json!({}))
+            .send()
+            .await;
+
+        let session_id = match create_resp {
+            Ok(resp) if resp.status().is_success() => {
+                let body: serde_json::Value = resp.json().await?;
+                body["session_id"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_string()
+            }
+            Ok(resp) => {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                return Ok(TaskResult {
+                    task_id,
+                    output: AgentOutput::default(),
+                    score: EvalScore::fail(
+                        0.0,
+                        ScoreDetails::Custom {
+                            message: format!("Server session create failed ({}): {}", status, body),
+                        },
+                    ),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                });
+            }
+            Err(e) => {
+                return Ok(TaskResult {
+                    task_id,
+                    output: AgentOutput::default(),
+                    score: EvalScore::fail(
+                        0.0,
+                        ScoreDetails::Custom {
+                            message: format!("Server connection failed: {}", e),
+                        },
+                    ),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                });
+            }
+        };
+
+        // Step 2: Send message and wait for complete response
+        let msg_resp = client
+            .post(format!(
+                "{}/api/eval/sessions/{}/messages",
+                base_url, session_id
+            ))
+            .headers(headers.clone())
+            .json(&serde_json::json!({ "content": task.prompt() }))
+            .send()
+            .await;
+
+        let output = match msg_resp {
+            Ok(resp) if resp.status().is_success() => {
+                let body: serde_json::Value = resp.json().await?;
+                AgentOutput {
+                    rounds: body["rounds"].as_u64().unwrap_or(1) as u32,
+                    input_tokens: body["input_tokens"].as_u64().unwrap_or(0),
+                    output_tokens: body["output_tokens"].as_u64().unwrap_or(0),
+                    stop_reason: body["stop_reason"]
+                        .as_str()
+                        .unwrap_or("unknown")
+                        .to_string(),
+                    tool_calls: body["tool_calls"]
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter()
+                                .map(|tc| ToolCallRecord {
+                                    name: tc["name"]
+                                        .as_str()
+                                        .unwrap_or_default()
+                                        .to_string(),
+                                    input: tc["args"].clone(),
+                                    output: tc["result"]
+                                        .as_str()
+                                        .unwrap_or_default()
+                                        .to_string(),
+                                    is_error: !tc["success"].as_bool().unwrap_or(true),
+                                    duration_ms: 0,
+                                })
+                                .collect()
+                        })
+                        .unwrap_or_default(),
+                    messages: vec![octo_types::ChatMessage::assistant(
+                        body["text"].as_str().unwrap_or_default(),
+                    )],
+                    duration_ms: body["duration_ms"].as_u64().unwrap_or(0),
+                }
+            }
+            Ok(resp) => {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                AgentOutput {
+                    messages: vec![octo_types::ChatMessage::assistant(&format!(
+                        "Server error ({}): {}",
+                        status, body
+                    ))],
+                    ..AgentOutput::default()
+                }
+            }
+            Err(e) if e.is_timeout() => {
+                let duration_ms = start.elapsed().as_millis() as u64;
+                warn!(task_id = %task_id, timeout_secs, "Server task timed out");
+                // Cleanup session on timeout
+                let _ = client
+                    .delete(format!("{}/api/eval/sessions/{}", base_url, session_id))
+                    .headers(headers)
+                    .send()
+                    .await;
+                return Ok(TaskResult {
+                    task_id,
+                    output: AgentOutput::default(),
+                    score: EvalScore::fail(
+                        0.0,
+                        ScoreDetails::Timeout {
+                            elapsed_secs: timeout_secs,
+                        },
+                    ),
+                    duration_ms,
+                });
+            }
+            Err(e) => {
+                return Ok(TaskResult {
+                    task_id,
+                    output: AgentOutput::default(),
+                    score: EvalScore::fail(
+                        0.0,
+                        ScoreDetails::Custom {
+                            message: format!("Server request failed: {}", e),
+                        },
+                    ),
+                    duration_ms: start.elapsed().as_millis() as u64,
+                });
+            }
+        };
+
+        // Step 3: Cleanup session
+        let _ = client
+            .delete(format!("{}/api/eval/sessions/{}", base_url, session_id))
+            .headers(headers)
+            .send()
+            .await;
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        // Score the output
+        let score = if let Some(judge_config) = task.llm_judge_config() {
+            let judge = crate::scorer::LlmJudgeScorer::new(
+                judge_config.rubric,
+                judge_config.pass_threshold,
+            );
+            let engine_config = crate::config::EngineConfig::default();
+            judge
+                .score_async(
+                    self.provider.as_ref(),
+                    &engine_config.model,
+                    task.prompt(),
+                    &output,
+                )
+                .await
+        } else {
+            task.score(&output)
+        };
+
+        info!(
+            task_id = %task_id,
+            passed = score.passed,
+            score = score.score,
+            duration_ms = duration_ms,
+            "Server task evaluation complete"
         );
 
         Ok(TaskResult {

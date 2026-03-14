@@ -25,5 +25,6 @@ uuid = { workspace = true }
 tempfile = "3"
 toml = { workspace = true }
 regex = "1"
+reqwest = { workspace = true }
 
 [dev-dependencies]

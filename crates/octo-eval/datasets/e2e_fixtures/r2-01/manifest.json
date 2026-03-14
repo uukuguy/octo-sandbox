@@ -1,0 +1,1 @@
+{"id": "e2e-R2-01", "name": "Missing pub on struct fields", "test_cmd": "cargo test --manifest-path Cargo.toml", "fix_file": "src/lib.rs", "difficulty": "medium"}

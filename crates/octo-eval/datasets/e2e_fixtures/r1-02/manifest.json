@@ -1,0 +1,1 @@
+{"id": "e2e-R1-02", "name": "Panicking unwrap on None", "test_cmd": "cargo test --manifest-path Cargo.toml", "fix_file": "src/lib.rs", "difficulty": "easy"}

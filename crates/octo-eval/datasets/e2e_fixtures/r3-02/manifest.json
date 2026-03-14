@@ -1,0 +1,1 @@
+{"id": "e2e-R3-02", "name": "Trait impl missing required method", "test_cmd": "cargo test --manifest-path Cargo.toml", "fix_file": "src/lib.rs", "difficulty": "hard"}

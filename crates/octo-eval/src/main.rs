@@ -65,8 +65,9 @@ fn cmd_help() -> Result<()> {
     println!("  --baseline <PATH>        Baseline report JSON for regression detection");
     println!("  --config <PATH>          Config file path (default: eval.toml)");
     println!("  --replay <DIR>           Replay mode: use saved traces (zero LLM cost)");
-    println!("  --target <MODE>          Target mode: engine (default) or cli");
+    println!("  --target <MODE>          Target mode: engine (default), cli, or server");
     println!("  --binary <PATH>          CLI binary path (default: target/debug/octo-cli)");
+    println!("  --server-url <URL>       Server base URL (default: http://127.0.0.1:3001)");
     Ok(())
 }
 
@@ -117,6 +118,7 @@ struct CliArgs {
     replay: Option<PathBuf>,
     target: String,
     binary: Option<PathBuf>,
+    server_url: Option<String>,
 }
 
 fn parse_args(args: &[String]) -> CliArgs {
@@ -129,6 +131,7 @@ fn parse_args(args: &[String]) -> CliArgs {
     let mut replay = None;
     let mut target = "engine".to_string();
     let mut binary = None;
+    let mut server_url = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -182,6 +185,12 @@ fn parse_args(args: &[String]) -> CliArgs {
                     i += 1;
                 }
             }
+            "--server-url" => {
+                if i + 1 < args.len() {
+                    server_url = Some(args[i + 1].clone());
+                    i += 1;
+                }
+            }
             _ => {}
         }
         i += 1;
@@ -197,6 +206,7 @@ fn parse_args(args: &[String]) -> CliArgs {
         replay,
         target,
         binary,
+        server_url,
     }
 }
 
@@ -228,15 +238,29 @@ fn cmd_run(args: &[String]) -> Result<()> {
     }
 
     // Apply target mode
-    if cli.target == "cli" {
-        let binary_path = cli
-            .binary
-            .clone()
-            .unwrap_or_else(|| PathBuf::from("target/debug/octo-cli"));
-        config.target = octo_eval::config::EvalTarget::Cli(octo_eval::config::CliConfig {
-            binary_path,
-            ..Default::default()
-        });
+    match cli.target.as_str() {
+        "cli" => {
+            let binary_path = cli
+                .binary
+                .clone()
+                .unwrap_or_else(|| PathBuf::from("target/debug/octo-cli"));
+            config.target = octo_eval::config::EvalTarget::Cli(octo_eval::config::CliConfig {
+                binary_path,
+                ..Default::default()
+            });
+        }
+        "server" => {
+            let base_url = cli
+                .server_url
+                .clone()
+                .unwrap_or_else(|| "http://127.0.0.1:3001".to_string());
+            config.target =
+                octo_eval::config::EvalTarget::Server(octo_eval::config::ServerConfig {
+                    base_url,
+                    ..Default::default()
+                });
+        }
+        _ => {} // "engine" — default
     }
 
     let rt = tokio::runtime::Runtime::new()?;

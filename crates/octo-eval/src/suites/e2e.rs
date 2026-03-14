@@ -123,20 +123,36 @@ impl E2eSuite {
             .map(|r| !r.success)
             .unwrap_or(true);
 
-        // Step 2: Apply fix if fix.py exists
-        let fix_path = fixture_path.join("fix.py");
-        let has_fix = fix_path.exists();
+        // Step 2: Apply fix using manifest's fix_file field.
+        // The fix file shares the same basename as the source file it replaces.
+        // E.g., for Python fixtures: fix_file="src.py", fix source="fix.py"
+        // For Rust fixtures: fix_file="src/lib.rs", fix source="fix.rs"
+        let fix_source = fixture_path.join(
+            if manifest.fix_file.contains('/') {
+                // For nested paths like "src/lib.rs", look for "fix.rs" at fixture root
+                "fix.rs".to_string()
+            } else {
+                // For flat paths like "src.py", look for "fix.py" at fixture root
+                format!("fix.{}", manifest.fix_file.rsplit('.').next().unwrap_or("py"))
+            }
+        );
+        let has_fix = fix_source.exists();
 
         let (fixed_passed, test_output, exit_code) = if has_fix {
-            let fix_content = std::fs::read_to_string(&fix_path)?;
-            std::fs::write(tmpdir.path().join(&manifest.fix_file), &fix_content)?;
+            let fix_content = std::fs::read_to_string(&fix_source)?;
+            // Ensure parent directory exists for nested fix_file paths (e.g., "src/lib.rs")
+            let target_path = tmpdir.path().join(&manifest.fix_file);
+            if let Some(parent) = target_path.parent() {
+                std::fs::create_dir_all(parent)?;
+            }
+            std::fs::write(&target_path, &fix_content)?;
 
             match run_test_cmd(&manifest.test_cmd, tmpdir.path()) {
                 Ok(r) => (r.success, r.output, r.exit_code),
                 Err(e) => (false, format!("Error: {}", e), -1),
             }
         } else {
-            (false, "No fix.py found".into(), 1)
+            (false, format!("No fix file found at {:?}", fix_source), 1)
         };
 
         // Score: both conditions required for full pass
@@ -232,10 +248,10 @@ mod tests {
     #[tokio::test]
     async fn test_e2e_suite_runs() {
         let report = E2eSuite::run().await.unwrap();
-        assert_eq!(report.total, 8, "Expected 8 e2e fixtures");
+        assert_eq!(report.total, 14, "Expected 14 e2e fixtures");
         assert!(
-            report.passed >= 6,
-            "Expected at least 6/8 passed, got {}. Failures: {:?}",
+            report.passed >= 12,
+            "Expected at least 12/14 passed, got {}. Failures: {:?}",
             report.passed,
             report
                 .results
@@ -250,8 +266,8 @@ mod tests {
     async fn test_e2e_all_fixtures_pass() {
         let report = E2eSuite::run().await.unwrap();
         assert_eq!(
-            report.passed, 8,
-            "Expected all 8 e2e fixtures to pass. Failures: {:?}",
+            report.passed, 14,
+            "Expected all 14 e2e fixtures to pass. Failures: {:?}",
             report
                 .results
                 .iter()
@@ -314,7 +330,7 @@ mod tests {
             .filter_map(|e| e.ok())
             .filter(|e| e.path().is_dir())
             .count();
-        assert_eq!(count, 8, "Expected 8 fixture directories, found {}", count);
+        assert_eq!(count, 14, "Expected 14 fixture directories, found {}", count);
     }
 
     #[test]

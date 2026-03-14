@@ -3,6 +3,7 @@ pub mod audit;
 pub mod budget;
 pub mod collaboration;
 pub mod error;
+pub mod eval_sessions;
 pub mod events;
 pub mod config;
 pub mod executions;
@@ -93,4 +94,6 @@ pub fn routes() -> Router<Arc<AppState>> {
         .merge(collaboration::router())
         // Offline sync (D6)
         .merge(sync::router())
+        // Eval session endpoints (Phase G2)
+        .merge(eval_sessions::router())
 }

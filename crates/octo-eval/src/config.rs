@@ -82,8 +82,8 @@ pub enum EvalTarget {
     Engine(EngineConfig),
     /// Track B-1: CLI subprocess — runs `octo ask --output json` as a child process
     Cli(CliConfig),
-    // Track B-2: HTTP calls to server (Phase E4)
-    // Server(ServerConfig),
+    /// Track B-2: HTTP calls to running octo-server instance
+    Server(ServerConfig),
 }
 
 /// CLI subprocess evaluation configuration
@@ -108,6 +108,28 @@ impl Default for CliConfig {
             extra_args: vec![],
             timeout_secs: 120,
             env: HashMap::new(),
+        }
+    }
+}
+
+/// Server HTTP evaluation configuration
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ServerConfig {
+    /// Base URL of the running octo-server (default: "http://127.0.0.1:3001")
+    pub base_url: String,
+    /// Per-request timeout in seconds (default: 120)
+    pub timeout_secs: u64,
+    /// Optional API key for authentication
+    #[serde(default)]
+    pub api_key: Option<String>,
+}
+
+impl Default for ServerConfig {
+    fn default() -> Self {
+        Self {
+            base_url: "http://127.0.0.1:3001".into(),
+            timeout_secs: 120,
+            api_key: None,
         }
     }
 }

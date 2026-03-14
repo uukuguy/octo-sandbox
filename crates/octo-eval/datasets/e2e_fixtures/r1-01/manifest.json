@@ -1,0 +1,1 @@
+{"id": "e2e-R1-01", "name": "Off-by-one in take iterator", "test_cmd": "cargo test --manifest-path Cargo.toml", "fix_file": "src/lib.rs", "difficulty": "easy"}

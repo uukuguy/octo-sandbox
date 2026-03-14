@@ -1,0 +1,1 @@
+{"id": "e2e-R3-01", "name": "Struct field renamed without updating caller", "test_cmd": "cargo test --manifest-path Cargo.toml", "fix_file": "src/lib.rs", "difficulty": "hard"}
