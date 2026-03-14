@@ -1,17 +1,22 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-14 19:15 GMT+8
+**最后更新**: 2026-03-14 20:25 GMT+8
 **当前分支**: `main`
-**当前状态**: Phase A-H COMPLETE, Phase I IN PROGRESS (外部 Benchmark 适配层)
+**当前状态**: Phase A-I COMPLETE, Phase J/K PLANNED
 
 ---
 
-## 项目状态：外部 Benchmark 适配层设计完成，进入实现阶段
+## 项目状态：评估框架四级覆盖完成
 
-评估框架 Phase A-H 全部完成。1979 tests passing @ `37680ec`。
-octo-eval 已具备 10 个 Suite、11 种 Scorer、~248 评估任务、3 种运行轨道、11 种行为类型。
+评估框架 Phase A-I 全部完成。1992 tests passing @ `500e444`。
+octo-eval 已具备完整的四级评估层次覆盖：
 
-Phase I 已从"只做 SWE-bench"扩展为**外部 Benchmark 适配层**，一次性适配 GAIA、SWE-bench、τ-bench 三大核心 benchmark。
+```
+Level 4: 端到端任务成功率 (SWE-bench 50 tasks)     → ✅
+Level 3: 多轮对话+工具链协调 (GAIA 50 + τ-bench 30) → ✅
+Level 2: 单次工具调用精确度 (BFCL 50 tasks)          → ✅
+Level 1: 引擎基础能力 (单元测试 1992 tests)           → ✅
+```
 
 ### 完成清单
 
@@ -26,69 +31,44 @@ Phase I 已从"只做 SWE-bench"扩展为**外部 Benchmark 适配层**，一次
 | Phase F: 评估任务集 | 20/23 | COMPLETE | `b4d1cd2` |
 | Phase G: Deferred 补齐 | 9/9 | COMPLETE | `ca5c898` |
 | Phase H: 评估收官 | 10/10 | COMPLETE | `37680ec` |
-| **Phase I: 外部 Benchmark** | **0/13** | **IN PROGRESS** | — |
+| Phase I: 外部 Benchmark | 13/13 | COMPLETE | `500e444` |
 | Phase J: Docker 修复 | 0/8 | PLANNED | — |
 | Phase K: 模型报告 | 0/10 | PLANNED | — |
 
 ---
 
-## 当前工作：Phase I — 外部 Benchmark 适配层
+## 下一步：Phase J 或 Phase K
 
-### 设计变更说明
+### Phase J: Docker 测试修复
+- SWE-bench 从 mock 模式升级为真实 Docker 沙箱验证
+- 修复 5 个 Docker 测试 (pre-existing failure)
+- 实现 `SweVerifier` 的完整 Docker 验证管线
 
-原 Phase I 仅适配 SWE-bench (12 tasks)。经 brainstorming 分析后扩展为：
-
-1. **ExternalBenchmark 抽象层** — 可插拔的外部 benchmark 适配架构
-2. **GAIA** — Level 3 多步推理+多工具编排 (50 tasks, 无需 Docker)
-3. **SWE-bench** — Level 4 端到端代码修复 (50 tasks, 需 Docker)
-4. **τ-bench** — Level 3 多轮工具一致性 + pass^k (30 tasks, 无需 Docker)
-
-### 任务分组
-
-```
-I1: ExternalBenchmark trait + registry (架构基础)
-  │
-  ├── I2: GAIA 适配 (最简单, 价值最大) ──┐
-  ├── I3: SWE-bench 适配 (行业金标准)  ──┼── 可并行
-  └── I4: τ-bench 适配 (一致性度量)    ──┘
-          │
-          ▼
-        I5: 验证 + CI + ScoreDetails
-```
-
-### 计划文档
-
-| Phase | 文件 | 内容 |
-|-------|------|------|
-| **I** | `docs/plans/2026-03-14-phase-i-swebench.md` | 外部 Benchmark 适配层 (已修订) |
-| J | `docs/plans/2026-03-14-phase-j-docker-tests.md` | Docker 测试修复 |
-| K | `docs/plans/2026-03-14-phase-k-model-benchmark.md` | 多模型对比报告 |
+### Phase K: 多模型对比报告
+- 跨 GAIA/SWE-bench/τ-bench 的多模型对比
+- 生成评估报告 (JSON + Markdown)
+- 模型排行榜
 
 ### 关键代码路径
 
 | 组件 | 文件 | 说明 |
 |------|------|------|
 | 抽象层 | `src/benchmarks/mod.rs` | ExternalBenchmark + Registry |
-| GAIA | `src/benchmarks/gaia.rs` | GaiaRecord + GaiaTask + GaiaBenchmark |
-| SWE-bench | `src/benchmarks/swe_bench.rs` | SweBenchRecord + SweBenchTask |
-| SWE 验证 | `src/swe_verifier.rs` | Docker 沙箱验证 |
-| τ-bench | `src/benchmarks/tau_bench.rs` | TauBenchRecord + TauBenchTask |
-| τ 验证 | `src/tau_verifier.rs` | pass^k 计算 |
-| 分数 | `src/score.rs` | 新增 SweVerify/PassK/GaiaMatch |
+| GAIA | `src/benchmarks/gaia.rs` | 50 tasks, L1-L3 |
+| SWE-bench | `src/benchmarks/swe_bench.rs` | 50 tasks, 8 repos |
+| τ-bench | `src/benchmarks/tau_bench.rs` | 30 tasks, pass^k=8 |
+| 数据集 | `datasets/gaia_sample.jsonl` | GAIA 评估数据 |
+| 数据集 | `datasets/swe_bench_lite.jsonl` | SWE-bench 评估数据 |
+| 数据集 | `datasets/tau_bench_retail.jsonl` | τ-bench 评估数据 |
+| CI | `.github/workflows/eval-ci.yml` | 含 3 个外部 benchmark 步骤 |
 
 ---
 
 ## 基线
 
-- **Tests**: 1979 passing @ `37680ec`
-- **评估任务**: ~248 个 (10 Suite, 11 Scorer, 11 Behavior)
+- **Tests**: 1992 passing @ `500e444`
+- **评估任务**: ~297 个 (内部 167 + 外部 130)
+- **Benchmark**: GAIA (50) + SWE-bench (50) + τ-bench (30) + BFCL (50) + 内部 (117)
 - **运行轨道**: Engine / CLI / Server
 - **测试命令**: `cargo test --workspace -- --test-threads=1`
 - **LLM 配置**: `.env` 中 OpenRouter 端点，不需要额外配置
-
-## 启动命令
-
-```bash
-# 继续 Phase I 实现
-/dev-phase-manager:resume-plan
-```
