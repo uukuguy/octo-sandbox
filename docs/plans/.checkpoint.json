@@ -1,37 +1,37 @@
 {
   "plan_file": "docs/plans/2026-03-14-phase-h-eval-capstone.md",
-  "phase": "execution",
+  "phase": "complete",
   "created_at": "2026-03-14T17:30:00+08:00",
-  "updated_at": "2026-03-14T17:30:00+08:00",
-  "completed_tasks": [],
+  "updated_at": "2026-03-14T18:15:00+08:00",
+  "completed_tasks": ["H1-T1", "H1-T2", "H1-T3", "H2-T1", "H2-T2", "H3-T1", "H3-T2", "H3-T3", "H4-T1", "H4-T2"],
   "current_task": null,
   "total_tasks": 10,
   "task_groups": {
     "H1": {
       "name": "Resilience Suite + New Behaviors",
       "tasks": ["H1-T1", "H1-T2", "H1-T3"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": false,
       "description": "4 new behavior types + resilience suite + 20 JSONL tasks"
     },
     "H2": {
       "name": "Context Expansion",
       "tasks": ["H2-T1", "H2-T2"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": true,
       "description": "Expand context JSONL to 50+ tasks with degradation/budget/long-prompt/multi-turn"
     },
     "H3": {
       "name": "AstMatch Scorer",
       "tasks": ["H3-T1", "H3-T2", "H3-T3"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": true,
       "description": "AST-level tool_call arg matching scorer + 10 JSONL tasks"
     },
     "H4": {
       "name": "Verification",
       "tasks": ["H4-T1", "H4-T2"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": false,
       "description": "Full test run + CI update + CLI help"
     }
@@ -40,8 +40,9 @@
   "execution_mode": null,
   "phase_name": "Phase H — Eval Capstone",
   "tests_baseline": 1962,
-  "tests_current": 1962,
-  "status": "EXECUTING",
+  "tests_current": 1979,
+  "status": "COMPLETE",
+  "final_commit": "37680ec",
   "previous_plan": {
     "file": "docs/plans/2026-03-14-phase-g-deferred-resolution.md",
     "status": "COMPLETE",
@@ -65,5 +66,5 @@
       "tasks": 10
     }
   ],
-  "notes": "Phase H-K design complete. H1+H2+H3 can run in parallel. H4 depends on all prior groups. Phase I depends on Phase H. Phase J depends on Phase I. Phase K depends on Phase J."
+  "notes": "Phase H COMPLETE. All 10 tasks done. 1979 tests (was 1962). Next: Phase I (SWE-bench)."
 }
