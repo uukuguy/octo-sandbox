@@ -1,70 +1,63 @@
 {
-  "plan_file": "docs/plans/2026-03-14-phase-h-eval-capstone.md",
+  "plan_file": "docs/plans/2026-03-14-phase-i-swebench.md",
   "phase": "complete",
-  "created_at": "2026-03-14T17:30:00+08:00",
-  "updated_at": "2026-03-14T18:15:00+08:00",
-  "completed_tasks": ["H1-T1", "H1-T2", "H1-T3", "H2-T1", "H2-T2", "H3-T1", "H3-T2", "H3-T3", "H4-T1", "H4-T2"],
+  "created_at": "2026-03-14T18:55:00+08:00",
+  "updated_at": "2026-03-14T20:20:00+08:00",
+  "completed_tasks": ["I1-T1", "I1-T2", "I2-T1", "I2-T2", "I3-T1", "I3-T2", "I3-T3", "I4-T1", "I4-T2", "I5-T1", "I5-T2", "I5-T3", "I5-T4"],
   "current_task": null,
-  "total_tasks": 10,
+  "total_tasks": 13,
   "task_groups": {
-    "H1": {
-      "name": "Resilience Suite + New Behaviors",
-      "tasks": ["H1-T1", "H1-T2", "H1-T3"],
+    "I1": {
+      "name": "ExternalBenchmark Abstraction Layer",
+      "tasks": ["I1-T1", "I1-T2"],
       "status": "COMPLETE",
       "parallel": false,
-      "description": "4 new behavior types + resilience suite + 20 JSONL tasks"
+      "description": "ExternalBenchmark trait + BenchmarkVerifier + BenchmarkRegistry + CLI integration",
+      "commit": "2e0d365"
     },
-    "H2": {
-      "name": "Context Expansion",
-      "tasks": ["H2-T1", "H2-T2"],
+    "I2": {
+      "name": "GAIA Benchmark Adapter",
+      "tasks": ["I2-T1", "I2-T2"],
       "status": "COMPLETE",
       "parallel": true,
-      "description": "Expand context JSONL to 50+ tasks with degradation/budget/long-prompt/multi-turn"
+      "description": "GAIA multi-step reasoning benchmark: 50 tasks, L1-L3, ExactMatch scoring",
+      "commit": "5512f4f"
     },
-    "H3": {
-      "name": "AstMatch Scorer",
-      "tasks": ["H3-T1", "H3-T2", "H3-T3"],
+    "I3": {
+      "name": "SWE-bench Adapter",
+      "tasks": ["I3-T1", "I3-T2", "I3-T3"],
       "status": "COMPLETE",
       "parallel": true,
-      "description": "AST-level tool_call arg matching scorer + 10 JSONL tasks"
+      "description": "SWE-bench Lite: 50 tasks, Docker sandbox verification, mock fallback",
+      "commit": "5512f4f"
     },
-    "H4": {
-      "name": "Verification",
-      "tasks": ["H4-T1", "H4-T2"],
+    "I4": {
+      "name": "τ-bench Adapter",
+      "tasks": ["I4-T1", "I4-T2"],
+      "status": "COMPLETE",
+      "parallel": true,
+      "description": "τ-bench tool-use reliability: 30 tasks, pass^k consistency metric",
+      "commit": "5512f4f"
+    },
+    "I5": {
+      "name": "Verification & Integration",
+      "tasks": ["I5-T1", "I5-T2", "I5-T3", "I5-T4"],
       "status": "COMPLETE",
       "parallel": false,
-      "description": "Full test run + CI update + CLI help"
+      "description": "ScoreDetails variants + CLI update + CI + full test run",
+      "commit": "57ca310"
     }
   },
-  "execution_order": ["H1", "H2", "H3", "H4"],
-  "execution_mode": null,
-  "phase_name": "Phase H — Eval Capstone",
-  "tests_baseline": 1962,
-  "tests_current": 1979,
+  "execution_order": ["I1", "I2|I3|I4", "I5"],
+  "phase_name": "Phase I — External Benchmark Adapters",
+  "tests_baseline": 1979,
+  "tests_current": 1992,
   "status": "COMPLETE",
-  "final_commit": "37680ec",
+  "final_commit": "57ca310",
   "previous_plan": {
-    "file": "docs/plans/2026-03-14-phase-g-deferred-resolution.md",
+    "file": "docs/plans/2026-03-14-phase-h-eval-capstone.md",
     "status": "COMPLETE",
-    "tasks_completed": 9,
-    "final_commit": "ca5c898"
-  },
-  "upcoming_phases": [
-    {
-      "name": "Phase I — SWE-bench",
-      "plan": "docs/plans/2026-03-14-phase-i-swebench.md",
-      "tasks": 12
-    },
-    {
-      "name": "Phase J — Docker Tests",
-      "plan": "docs/plans/2026-03-14-phase-j-docker-tests.md",
-      "tasks": 8
-    },
-    {
-      "name": "Phase K — Model Benchmark",
-      "plan": "docs/plans/2026-03-14-phase-k-model-benchmark.md",
-      "tasks": 10
-    }
-  ],
-  "notes": "Phase H COMPLETE. All 10 tasks done. 1979 tests (was 1962). Next: Phase I (SWE-bench)."
+    "tasks_completed": 10,
+    "final_commit": "37680ec"
+  }
 }

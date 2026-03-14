@@ -1,21 +1,22 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-14 20:25 GMT+8
+**最后更新**: 2026-03-14 20:50 GMT+8
 **当前分支**: `main`
-**当前状态**: Phase A-I COMPLETE, Phase J/K PLANNED
+**当前状态**: Phase J ACTIVE — 沙箱安全体系建设
 
 ---
 
-## 项目状态：评估框架四级覆盖完成
+## 项目状态：沙箱安全体系建设中
 
 评估框架 Phase A-I 全部完成。1992 tests passing @ `500e444`。
-octo-eval 已具备完整的四级评估层次覆盖：
+Phase J 已完成计划，准备执行。
 
 ```
 Level 4: 端到端任务成功率 (SWE-bench 50 tasks)     → ✅
 Level 3: 多轮对话+工具链协调 (GAIA 50 + τ-bench 30) → ✅
 Level 2: 单次工具调用精确度 (BFCL 50 tasks)          → ✅
 Level 1: 引擎基础能力 (单元测试 1992 tests)           → ✅
+沙箱安全: SandboxPolicy + 审计日志                   → 🔄 Phase J
 ```
 
 ### 完成清单
@@ -23,44 +24,52 @@ Level 1: 引擎基础能力 (单元测试 1992 tests)           → ✅
 | 阶段 | Tasks | 状态 | Commit |
 |------|-------|------|--------|
 | Wave 1-10: v1.0-v1.1 | 全部 | COMPLETE | `675155d` |
-| Phase A: 轨道 A 特色评估 | 8/8 | COMPLETE | `e490da3` |
-| Phase B: 评估手册 | 全部 | COMPLETE | `90017dc` |
-| Phase C: octo-eval crate | 全部 | COMPLETE | `24b02d4` |
-| Phase D: 多模型对比 | 10/10 | COMPLETE | `998f3b4` |
-| Phase E: 评估增强 | 18/18 | COMPLETE | `3e11905` |
-| Phase F: 评估任务集 | 20/23 | COMPLETE | `b4d1cd2` |
-| Phase G: Deferred 补齐 | 9/9 | COMPLETE | `ca5c898` |
-| Phase H: 评估收官 | 10/10 | COMPLETE | `37680ec` |
-| Phase I: 外部 Benchmark | 13/13 | COMPLETE | `500e444` |
-| Phase J: Docker 修复 | 0/8 | PLANNED | — |
+| Phase A-I: 评估框架 | 全部 | COMPLETE | `500e444` |
+| **Phase J: 沙箱安全体系** | **0/16** | **ACTIVE** | — |
 | Phase K: 模型报告 | 0/10 | PLANNED | — |
 
 ---
 
-## 下一步：Phase J 或 Phase K
+## Phase J: 沙箱安全体系建设 (16 tasks, 7 groups)
 
-### Phase J: Docker 测试修复
-- SWE-bench 从 mock 模式升级为真实 Docker 沙箱验证
-- 修复 5 个 Docker 测试 (pre-existing failure)
-- 实现 `SweVerifier` 的完整 Docker 验证管线
+### 设计文档
+- 设计方案: `docs/design/SANDBOX_SECURITY_DESIGN.md`
+- 实施计划: `docs/plans/2026-03-14-phase-j-sandbox-security.md`
+- Checkpoint: `docs/plans/.checkpoint.json`
 
-### Phase K: 多模型对比报告
-- 跨 GAIA/SWE-bench/τ-bench 的多模型对比
-- 生成评估报告 (JSON + Markdown)
-- 模型排行榜
+### 任务分组
+
+| Group | Tasks | Description | 依赖 | 状态 |
+|-------|-------|-------------|------|------|
+| J1 | T1-T2 | SandboxPolicy 策略引擎 | — | PENDING |
+| J2 | T1-T2 | Docker 镜像 + 语言自动检测 | J1 | PENDING |
+| J3 | T1-T2 | DockerAdapter 修复加固 | J1 | PENDING |
+| J4 | T1-T3 | WASM/WASI 完整可用 | J1 | PENDING |
+| J5 | T1-T3 | 沙箱审计日志 | J2,J3,J4 | PENDING |
+| J6 | T1-T2 | Docker 测试修复 | J3 | PENDING |
+| J7 | T1-T2 | CI 集成 + 全量验证 | J6 | PENDING |
+
+**执行顺序**: J1 → J2|J3|J4(并行) → J5 → J6 → J7
+
+### 关键设计决策
+
+1. **SandboxPolicy::Strict 为默认** — 生产环境拒绝 Subprocess
+2. **Docker 镜像**: `python:3.12-slim-bookworm`, `rust:1.92-bookworm`, `node:22-bookworm-slim`, `alpine:latest`
+3. **WASM 完整 WASI** — `wasmtime_wasi` 捕获 stdio，支持 CLI 工具
+4. **审计复用 AuditStorage** — event_type="sandbox" + metadata JSON + hash-chain
 
 ### 关键代码路径
 
 | 组件 | 文件 | 说明 |
 |------|------|------|
-| 抽象层 | `src/benchmarks/mod.rs` | ExternalBenchmark + Registry |
-| GAIA | `src/benchmarks/gaia.rs` | 50 tasks, L1-L3 |
-| SWE-bench | `src/benchmarks/swe_bench.rs` | 50 tasks, 8 repos |
-| τ-bench | `src/benchmarks/tau_bench.rs` | 30 tasks, pass^k=8 |
-| 数据集 | `datasets/gaia_sample.jsonl` | GAIA 评估数据 |
-| 数据集 | `datasets/swe_bench_lite.jsonl` | SWE-bench 评估数据 |
-| 数据集 | `datasets/tau_bench_retail.jsonl` | τ-bench 评估数据 |
-| CI | `.github/workflows/eval-ci.yml` | 含 3 个外部 benchmark 步骤 |
+| 沙箱 traits | `crates/octo-engine/src/sandbox/traits.rs` | SandboxPolicy + RuntimeAdapter |
+| Router | `crates/octo-engine/src/sandbox/router.rs` | SandboxRouter + ToolCategory |
+| Docker | `crates/octo-engine/src/sandbox/docker.rs` | DockerAdapter + ImageRegistry |
+| WASM | `crates/octo-engine/src/sandbox/wasm.rs` | WasmAdapter + WASI CLI |
+| Subprocess | `crates/octo-engine/src/sandbox/subprocess.rs` | SubprocessAdapter |
+| 审计 | `crates/octo-engine/src/audit/storage.rs` | AuditStorage + hash-chain |
+| 安全策略 | `crates/octo-engine/src/security/policy.rs` | SecurityPolicy + AutonomyLevel |
+| Docker 测试 | `crates/octo-engine/tests/sandbox_docker_test.rs` | 7+1 个测试 |
 
 ---
 
@@ -68,7 +77,5 @@ Level 1: 引擎基础能力 (单元测试 1992 tests)           → ✅
 
 - **Tests**: 1992 passing @ `500e444`
 - **评估任务**: ~297 个 (内部 167 + 外部 130)
-- **Benchmark**: GAIA (50) + SWE-bench (50) + τ-bench (30) + BFCL (50) + 内部 (117)
-- **运行轨道**: Engine / CLI / Server
 - **测试命令**: `cargo test --workspace -- --test-threads=1`
-- **LLM 配置**: `.env` 中 OpenRouter 端点，不需要额外配置
+- **LLM 配置**: `.env` 中 OpenRouter 端点

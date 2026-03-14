@@ -311,6 +311,7 @@ The `docs/design/` directory contains architectural decision records and design 
 | `MCP_WORKBENCH_DESIGN.md` | MCP server management and tool bridge |
 | `MEMORY_PLAN.md` | Multi-layer memory architecture |
 | `ENTERPRISE_AGENT_SANDBOX_AUTH_DESIGN.md` | Enterprise sandbox and auth design |
+| `SANDBOX_SECURITY_DESIGN.md` | Sandbox security architecture (SandboxPolicy, Docker images, WASM/WASI, audit) |
 | `D5_SINGLETON_AGENT_CHANNEL_DESIGN.md` | Singleton agent communication channel |
 | `COMPETITIVE_ANALYSIS.md` | Competitive framework analysis (Goose, etc.) |
 | `PHASE_2_5_DESIGN.md` | Phase 2.5: Sandbox, auth, user isolation |
