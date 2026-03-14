@@ -1,5 +1,58 @@
 # octo-sandbox 工作日志
 
+## Phase K — 完整真实模型对比报告 (2026-03-14)
+
+### 完成内容（代码任务）
+
+**K1-T1: 评估配置文件** (@ 6b68deb)
+- 新建 `crates/octo-eval/eval.benchmark.toml` — 5 层模型矩阵
+- T0 免费: Qwen3-Coder-480B (0/0 $/1M)
+- T1 经济: DeepSeek-V3.2 (0.15/0.75 $/1M)
+- T2 标准: Qwen3.5-122B (0.30/1.20 $/1M)
+- T3 高性能: Kimi-K2.5 (0.45/2.20 $/1M)
+- T4 旗舰: Claude-Sonnet-4.6 (3.0/15.0 $/1M)
+
+**K3-T1/T2: BenchmarkAggregator** (@ 6b68deb)
+- 新建 `crates/octo-eval/src/benchmark.rs` (~340 行)
+- `BenchmarkAggregator::aggregate()` — 汇总多 Suite ComparisonReport
+- `ModelBenchmark` — 每模型综合 pass_rate、avg_score、token 消耗、成本
+- `CostAnalysis` — 成本效益分析，自动找出 >80% pass_rate 的最便宜模型
+- `Recommendation` — 3 种场景推荐 (cost_sensitive/balanced/performance_first)
+- `to_markdown()` — 综合报告含维度敏感度分析 (HIGH/MEDIUM/LOW)
+- 7 个单元测试覆盖聚合、成本分析、推荐、Markdown/JSON 生成
+
+**K3-T3: CLI benchmark 命令** (@ 6b68deb)
+- 修改 `crates/octo-eval/src/main.rs` — 新增 `benchmark` 子命令
+- Mode 1: `--suites tool_call,security,...` — 运行所有 suite 的 compare 并汇总
+- Mode 2: `--input eval_output/benchmark` — 从已有 comparison.json 聚合
+
+**K4-T2: CI 集成** (@ 6b68deb)
+- 修改 `.github/workflows/eval-ci.yml` — 新增 benchmark regression step
+
+### 文件变更矩阵
+
+| 文件 | 操作 | 行数 |
+|------|------|------|
+| `crates/octo-eval/eval.benchmark.toml` | **新建** | 38 |
+| `crates/octo-eval/src/benchmark.rs` | **新建** | ~340 |
+| `crates/octo-eval/src/lib.rs` | 修改 | +1 |
+| `crates/octo-eval/src/main.rs` | 修改 | +170 |
+| `.github/workflows/eval-ci.yml` | 修改 | +6 |
+
+### 测试结果
+
+- 2021 tests passing (基线 2014，+7 新增)
+- 新增 benchmark 模块测试: 7 个 (aggregate_empty, aggregate_single_suite, aggregate_multiple_suites, recommendations_generated, cost_analysis, markdown_generation, json_generation)
+
+### 待完成（需用户执行）
+
+- K1-T2: 模型连通性验证 — 需真实 API 调用
+- K2-T1/T2/T3: 核心/差异化/SWE-bench Suite 对比 — 需真实 LLM 评估
+- K4-T1: 录制 Replay 基线 — 评估完成后
+- K5-T1/T2: 文档产出 — 评估数据就绪后
+
+---
+
 ## Phase J — 沙箱安全体系建设 (2026-03-14)
 
 ### 完成内容

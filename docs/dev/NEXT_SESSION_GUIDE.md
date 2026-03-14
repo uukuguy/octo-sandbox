@@ -1,21 +1,24 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-14 21:32 GMT+8
+**最后更新**: 2026-03-14 23:30 GMT+8
 **当前分支**: `main`
-**当前状态**: Phase J COMPLETE — 准备 Phase K
+**当前状态**: Phase K IN_PROGRESS — 代码任务完成，等待用户执行模型评估
 
 ---
 
-## 项目状态：沙箱安全体系已完成
+## 项目状态：Benchmark 代码框架已就绪
 
-评估框架 Phase A-I + 沙箱安全 Phase J 全部完成。2014 tests passing @ `9df0039`。
+评估框架 Phase A-J 全部完成，Phase K 代码任务（BenchmarkAggregator + CLI + CI）已提交。
+剩余任务需要用户用真实 LLM API 执行模型评估。
 
 ```
 Level 4: 端到端任务成功率 (SWE-bench 50 tasks)     → ✅
 Level 3: 多轮对话+工具链协调 (GAIA 50 + τ-bench 30) → ✅
 Level 2: 单次工具调用精确度 (BFCL 50 tasks)          → ✅
-Level 1: 引擎基础能力 (单元测试 2014 tests)           → ✅
+Level 1: 引擎基础能力 (单元测试 2021 tests)           → ✅
 沙箱安全: SandboxPolicy + 审计日志                   → ✅ Phase J COMPLETE
+Benchmark: BenchmarkAggregator + CLI                 → ✅ K1/K3/K4 代码完成
+模型评估: 5 模型 x 6+ Suite 真实对比                 → ⏳ 等待用户执行
 ```
 
 ### 完成清单
@@ -24,56 +27,89 @@ Level 1: 引擎基础能力 (单元测试 2014 tests)           → ✅
 |------|-------|------|--------|
 | Wave 1-10: v1.0-v1.1 | 全部 | COMPLETE | `675155d` |
 | Phase A-I: 评估框架 | 全部 | COMPLETE | `500e444` |
-| Phase J: 沙箱安全体系 | 16/16 | COMPLETE | `9df0039` |
-| **Phase K: 模型报告** | **0/10** | **PLANNED** | — |
+| Phase J: 沙箱安全体系 | 16/16 | COMPLETE | `bc25fbd` |
+| **Phase K: 模型报告** | **5/12** | **IN_PROGRESS** | `6b68deb` |
 
 ---
 
-## Phase K: 跨模型对比报告 (下一阶段)
+## Phase K: 用户执行步骤
 
-### 待规划内容
+### Step 1: 验证模型连通性 (K1-T2)
 
-- 跨 GAIA/SWE-bench/τ-bench 的多模型对比报告
-- 模型性能矩阵和可视化
-- 参考 `docs/design/AGENT_EVALUATION_DESIGN.md` 第六节模型矩阵
-
-### 启动命令
-
-```
-/dev-phase-manager:start-phase
+```bash
+# 对每个模型跑 1 个简单任务验证连通性
+cargo run -p octo-eval -- compare --suite tool_call \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --output eval_output/connectivity_test
 ```
 
----
+如果某个模型失败，编辑 `eval.benchmark.toml` 调整配置。
 
-## Phase J 完成摘要 (供参考)
+### Step 2: 核心 Suite 对比 (K2-T1)
 
-### 关键交付
+```bash
+# 工具调用
+cargo run -p octo-eval -- compare --suite tool_call \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --output eval_output/benchmark/tool_call
 
-| Group | Description | Commit |
-|-------|-------------|--------|
-| J1 | SandboxPolicy 三级策略 (Strict/Preferred/Development) | `4570365` |
-| J2 | Docker 预置镜像 + ImageRegistry (8 种语言映射) | `5553c27` |
-| J3 | ContainerGuard RAII + require_docker() 辅助 | `5553c27` |
-| J4 | WASI CLI 执行器 (wasmtime_wasi preview1) | `5553c27` |
-| J5 | SandboxAuditEvent (SHA-256 代码哈希 + hash-chain) | `5553c27` |
-| J6/J7 | CI docker-sandbox-tests job + 容器泄漏检测 | `45a7342` |
+# 安全
+cargo run -p octo-eval -- compare --suite security \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --output eval_output/benchmark/security
 
-### 关键代码路径
+# BFCL
+cargo run -p octo-eval -- compare --suite bfcl \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --output eval_output/benchmark/bfcl
+```
 
-| 组件 | 文件 | 说明 |
-|------|------|------|
-| 沙箱 traits | `crates/octo-engine/src/sandbox/traits.rs` | SandboxPolicy + RuntimeAdapter |
-| Router | `crates/octo-engine/src/sandbox/router.rs` | SandboxRouter + 策略执行 |
-| Docker | `crates/octo-engine/src/sandbox/docker.rs` | DockerAdapter + ImageRegistry |
-| WASM | `crates/octo-engine/src/sandbox/wasm.rs` | WasmAdapter + WASI CLI |
-| 审计 | `crates/octo-engine/src/sandbox/audit.rs` | SandboxAuditEvent |
-| Docker 测试 | `crates/octo-engine/tests/sandbox_docker_test.rs` | ContainerGuard + 诊断测试 |
+### Step 3: 差异化 Suite 对比 (K2-T2)
+
+```bash
+cargo run -p octo-eval -- compare --suite context \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --output eval_output/benchmark/context
+
+cargo run -p octo-eval -- compare --suite resilience \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --output eval_output/benchmark/resilience
+
+cargo run -p octo-eval -- compare --suite reasoning \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --output eval_output/benchmark/reasoning
+```
+
+### Step 4: 一键汇总报告
+
+```bash
+# 从已有的 comparison.json 汇总
+cargo run -p octo-eval -- benchmark \
+  --input eval_output/benchmark \
+  --output eval_output/benchmark/final
+```
+
+### Step 5: 或者一键全跑
+
+```bash
+cargo run -p octo-eval -- benchmark \
+  --config crates/octo-eval/eval.benchmark.toml \
+  --suites tool_call,security,bfcl,context,resilience,reasoning \
+  --output eval_output/benchmark
+```
+
+### 评估完成后
+
+用户提供评估数据后，AI 将：
+1. K4-T1: 录制 Replay 基线
+2. K5-T1: 生成 `docs/design/EVAL_BASELINE_REPORT.md`
+3. K5-T2: 更新 `docs/design/AGENT_EVALUATION_DESIGN.md` 第六节
 
 ---
 
 ## 基线
 
-- **Tests**: 2014 passing @ `9df0039` (基线 1992，+22 新增)
+- **Tests**: 2021 passing @ `6b68deb` (基线 2014，+7 新增)
 - **评估任务**: ~297 个 (内部 167 + 外部 130)
 - **测试命令**: `cargo test --workspace -- --test-threads=1`
 - **LLM 配置**: `.env` 中 OpenRouter 端点

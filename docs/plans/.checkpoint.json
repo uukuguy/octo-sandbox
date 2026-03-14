@@ -1,86 +1,65 @@
 {
-  "plan_file": "docs/plans/2026-03-14-phase-j-sandbox-security.md",
+  "plan_file": "docs/plans/2026-03-14-phase-k-model-benchmark.md",
   "phase": "execution",
-  "created_at": "2026-03-14T20:26:00+08:00",
-  "updated_at": "2026-03-14T21:20:00+08:00",
+  "created_at": "2026-03-14T23:15:00+08:00",
+  "updated_at": "2026-03-14T23:30:00+08:00",
   "completed_tasks": [
-    "J1-T1", "J1-T2",
-    "J2-T1", "J2-T2",
-    "J3-T1", "J3-T2",
-    "J4-T1", "J4-T2", "J4-T3",
-    "J5-T1", "J5-T2", "J5-T3",
-    "J6-T1", "J6-T2",
-    "J7-T1", "J7-T2"
+    "K1-T1",
+    "K3-T1", "K3-T2", "K3-T3",
+    "K4-T2"
   ],
   "current_task": null,
-  "total_tasks": 16,
+  "total_tasks": 12,
   "task_groups": {
-    "J1": {
-      "name": "SandboxPolicy 策略引擎",
-      "tasks": ["J1-T1", "J1-T2"],
+    "K1": {
+      "name": "评估配置准备",
+      "tasks": ["K1-T1", "K1-T2"],
+      "status": "PARTIAL",
+      "parallel": false,
+      "description": "eval.benchmark.toml 创建 + 模型连通性验证（用户执行）",
+      "commit": "6b68deb"
+    },
+    "K2": {
+      "name": "分阶段对比评估",
+      "tasks": ["K2-T1", "K2-T2", "K2-T3"],
+      "status": "PENDING",
+      "parallel": false,
+      "description": "核心 Suite / 差异化 Suite / SWE-bench 对比（用户执行）"
+    },
+    "K3": {
+      "name": "报告汇总与分析",
+      "tasks": ["K3-T1", "K3-T2", "K3-T3"],
       "status": "COMPLETE",
       "parallel": false,
-      "description": "SandboxPolicy 枚举 + Router 集成 + 单元测试",
-      "commit": "4570365"
+      "description": "BenchmarkAggregator + Markdown 报告 + CLI benchmark 命令",
+      "commit": "6b68deb"
     },
-    "J2": {
-      "name": "Docker 预置镜像与语言自动检测",
-      "tasks": ["J2-T1", "J2-T2"],
-      "status": "COMPLETE",
-      "parallel": true,
-      "description": "Dockerfile.python/rust + ImageRegistry 自动选择",
-      "commit": "5553c27"
-    },
-    "J3": {
-      "name": "DockerAdapter 修复与加固",
-      "tasks": ["J3-T1", "J3-T2"],
-      "status": "COMPLETE",
-      "parallel": true,
-      "description": "生命周期修复 + ContainerGuard RAII",
-      "commit": "5553c27"
-    },
-    "J4": {
-      "name": "WASM/WASI 完整可用",
-      "tasks": ["J4-T1", "J4-T2", "J4-T3"],
-      "status": "COMPLETE",
+    "K4": {
+      "name": "Replay 基线建立",
+      "tasks": ["K4-T1", "K4-T2"],
+      "status": "PARTIAL",
       "parallel": false,
-      "description": "WASI CLI 执行器 + language 路由 + 单元测试",
-      "commit": "5553c27"
+      "description": "Trace 基线录制（评估后）+ CI 回归集成",
+      "commit": "6b68deb"
     },
-    "J5": {
-      "name": "沙箱审计日志",
-      "tasks": ["J5-T1", "J5-T2", "J5-T3"],
-      "status": "COMPLETE",
+    "K5": {
+      "name": "文档产出",
+      "tasks": ["K5-T1", "K5-T2"],
+      "status": "PENDING",
       "parallel": false,
-      "description": "SandboxAuditEvent + 查询 API",
-      "commit": "5553c27"
-    },
-    "J6": {
-      "name": "Docker 测试修复",
-      "tasks": ["J6-T1", "J6-T2"],
-      "status": "COMPLETE",
-      "parallel": false,
-      "description": "skip 机制改进 + 诊断测试",
-      "commit": "45a7342"
-    },
-    "J7": {
-      "name": "CI 集成与全量验证",
-      "tasks": ["J7-T1", "J7-T2"],
-      "status": "COMPLETE",
-      "parallel": false,
-      "description": "GitHub Actions Docker job + 2014 tests pass",
-      "commit": "45a7342"
+      "description": "EVAL_BASELINE_REPORT.md + 设计文档更新（评估数据就绪后）"
     }
   },
-  "execution_order": ["J1", "J2|J3|J4", "J5", "J6", "J7"],
-  "phase_name": "Phase J — 沙箱安全体系建设",
-  "tests_baseline": 1992,
-  "tests_current": 2014,
-  "status": "COMPLETE",
+  "execution_order": ["K1", "K2", "K3", "K4", "K5"],
+  "phase_name": "Phase K — 完整真实模型对比报告",
+  "tests_baseline": 2014,
+  "tests_current": 2021,
+  "status": "IN_PROGRESS",
+  "notes": "K1-T2/K2/K4-T1/K5 are runtime tasks requiring user execution with real LLM API calls",
   "previous_plan": {
-    "file": "docs/plans/2026-03-14-phase-i-swebench.md",
+    "file": "docs/plans/2026-03-14-phase-j-sandbox-security.md",
     "status": "COMPLETE",
-    "tasks_completed": 13,
-    "final_commit": "57ca310"
+    "tasks_completed": 16,
+    "final_commit": "bc25fbd"
   }
 }
