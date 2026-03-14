@@ -11,6 +11,7 @@ use std::sync::Arc;
 
 use anyhow::Result;
 
+use octo_eval::benchmark::BenchmarkAggregator;
 use octo_eval::comparison::{ComparisonReport, ComparisonRunner};
 use octo_eval::config::{EvalConfig, EvalTomlConfig, EngineConfig, MultiModelConfig, ModelEntry};
 use octo_eval::model::{ModelInfo, ModelTier};
@@ -42,6 +43,7 @@ fn main() -> Result<()> {
         "list-suites" => cmd_list_suites(),
         "run" => cmd_run(&args[2..]),
         "compare" => cmd_compare(&args[2..]),
+        "benchmark" => cmd_benchmark(&args[2..]),
         "help" | "--help" | "-h" => cmd_help(),
         _ => {
             eprintln!("Unknown command: {command}");
@@ -59,9 +61,12 @@ fn cmd_help() -> Result<()> {
     println!("  list-suites              List available evaluation suites");
     println!("  run --suite <NAME>       Run a single-model evaluation");
     println!("  compare --suite <NAME>   Run multi-model comparison");
+    println!("  benchmark                Aggregate multi-suite comparisons into a unified report");
     println!("  help                     Show this help\n");
     println!("OPTIONS:");
     println!("  --suite <NAME>           Suite name: tool_call, security, context, output_format, tool_boundary, reasoning, resilience, provider, memory, e2e, gaia, swe_bench, tau_bench");
+    println!("  --suites <A,B,C>         Comma-separated suite list (for benchmark command)");
+    println!("  --input <DIR>            Input directory with comparison.json files (for benchmark command)");
     println!("  --output <DIR>           Output directory (default: eval_output)");
     println!("  --format <FMT>           Output format: json, markdown, both (default: both)");
     println!("  --baseline <PATH>        Baseline report JSON for regression detection");
@@ -136,6 +141,8 @@ fn load_suite(name: &str) -> Result<Vec<Box<dyn EvalTask>>> {
 
 struct CliArgs {
     suite: String,
+    suites: Option<String>,
+    input: Option<PathBuf>,
     output: PathBuf,
     output_explicit: bool,
     format: String,
@@ -149,6 +156,8 @@ struct CliArgs {
 
 fn parse_args(args: &[String]) -> CliArgs {
     let mut suite = "tool_call".to_string();
+    let mut suites: Option<String> = None;
+    let mut input: Option<PathBuf> = None;
     let mut output = PathBuf::from("eval_output");
     let mut output_explicit = false;
     let mut format = "both".to_string();
@@ -217,6 +226,18 @@ fn parse_args(args: &[String]) -> CliArgs {
                     i += 1;
                 }
             }
+            "--suites" => {
+                if i + 1 < args.len() {
+                    suites = Some(args[i + 1].clone());
+                    i += 1;
+                }
+            }
+            "--input" => {
+                if i + 1 < args.len() {
+                    input = Some(PathBuf::from(&args[i + 1]));
+                    i += 1;
+                }
+            }
             _ => {}
         }
         i += 1;
@@ -224,6 +245,8 @@ fn parse_args(args: &[String]) -> CliArgs {
 
     CliArgs {
         suite,
+        suites,
+        input,
         output,
         output_explicit,
         format,
@@ -662,6 +685,174 @@ fn output_comparison(
         println!("Markdown comparison: {}", path.display());
 
         // Print summary to stdout
+        println!("\n{}", md);
+    }
+
+    Ok(())
+}
+
+fn cmd_benchmark(args: &[String]) -> Result<()> {
+    let cli = parse_args(args);
+
+    // Mode 1: Aggregate from existing comparison.json files in --input directory
+    if let Some(ref input_dir) = cli.input {
+        return cmd_benchmark_from_files(input_dir, &cli);
+    }
+
+    // Mode 2: Run all suites and aggregate
+    let suite_list = cli
+        .suites
+        .as_deref()
+        .unwrap_or("tool_call,security,bfcl,context,resilience,reasoning");
+    let suite_names: Vec<&str> = suite_list.split(',').map(|s| s.trim()).collect();
+
+    // Load TOML config for model definitions
+    let toml_path = cli
+        .config_path
+        .clone()
+        .unwrap_or_else(|| PathBuf::from("eval.benchmark.toml"));
+    let toml_config = EvalTomlConfig::load(&toml_path)?;
+
+    let mut models = load_models_from_env();
+    if models.is_empty() {
+        if let Some(ref tc) = toml_config {
+            models = tc.to_model_entries();
+        }
+    }
+    if models.is_empty() {
+        models = auto_detect_models();
+    }
+    if models.is_empty() {
+        anyhow::bail!(
+            "No models configured. Set OPENAI_API_KEY or provide --config with model definitions."
+        );
+    }
+
+    println!(
+        "Benchmark: {} models x {} suites\n",
+        models.len(),
+        suite_names.len()
+    );
+
+    let mut suite_comparisons: Vec<(String, ComparisonReport)> = Vec::new();
+
+    for suite_name in &suite_names {
+        let tasks = match load_suite(suite_name) {
+            Ok(t) => t,
+            Err(e) => {
+                eprintln!("WARNING: Skipping suite '{}': {}", suite_name, e);
+                continue;
+            }
+        };
+
+        println!(
+            "=== Suite: {} ({} tasks) ===\n",
+            suite_name,
+            tasks.len()
+        );
+
+        let suite_output = cli.output.join(suite_name);
+        let config = MultiModelConfig {
+            models: models.clone(),
+            output_dir: suite_output.clone(),
+            ..MultiModelConfig::default()
+        };
+
+        let rt = tokio::runtime::Runtime::new()?;
+        let report = rt.block_on(async {
+            let runner = ComparisonRunner::new(config);
+            runner.run_comparison(&tasks).await
+        })?;
+
+        // Save per-suite comparison
+        output_comparison(&report, &tasks, &suite_output, &cli.format)?;
+
+        suite_comparisons.push((suite_name.to_string(), report));
+    }
+
+    // Aggregate all suite reports
+    let suite_refs: Vec<(&str, &ComparisonReport)> = suite_comparisons
+        .iter()
+        .map(|(name, report)| (name.as_str(), report))
+        .collect();
+
+    let benchmark = BenchmarkAggregator::aggregate(suite_refs);
+    output_benchmark(&benchmark, &cli)?;
+
+    Ok(())
+}
+
+fn cmd_benchmark_from_files(input_dir: &PathBuf, cli: &CliArgs) -> Result<()> {
+    println!("Aggregating benchmark from {}\n", input_dir.display());
+
+    let mut suite_comparisons: Vec<(String, ComparisonReport)> = Vec::new();
+
+    // Scan subdirectories for comparison.json files
+    if input_dir.is_dir() {
+        let mut entries: Vec<_> = std::fs::read_dir(input_dir)?
+            .filter_map(|e| e.ok())
+            .filter(|e| e.path().is_dir())
+            .collect();
+        entries.sort_by_key(|e| e.file_name());
+
+        for entry in entries {
+            let json_path = entry.path().join("comparison.json");
+            if json_path.exists() {
+                let suite_name = entry
+                    .file_name()
+                    .to_string_lossy()
+                    .to_string();
+
+                match BenchmarkAggregator::load_comparison_json(&json_path) {
+                    Ok((models, reports)) => {
+                        let model_reports: Vec<_> =
+                            models.into_iter().zip(reports.into_iter()).collect();
+                        let comparison = ComparisonReport { model_reports };
+                        println!("  Loaded: {} ({} models)", suite_name, comparison.model_count());
+                        suite_comparisons.push((suite_name, comparison));
+                    }
+                    Err(e) => {
+                        eprintln!("  WARNING: Failed to load {}: {}", json_path.display(), e);
+                    }
+                }
+            }
+        }
+    }
+
+    if suite_comparisons.is_empty() {
+        anyhow::bail!("No comparison.json files found in {}", input_dir.display());
+    }
+
+    let suite_refs: Vec<(&str, &ComparisonReport)> = suite_comparisons
+        .iter()
+        .map(|(name, report)| (name.as_str(), report))
+        .collect();
+
+    let benchmark = BenchmarkAggregator::aggregate(suite_refs);
+    output_benchmark(&benchmark, cli)?;
+
+    Ok(())
+}
+
+fn output_benchmark(
+    benchmark: &octo_eval::benchmark::BenchmarkReport,
+    cli: &CliArgs,
+) -> Result<()> {
+    let output_dir = &cli.output;
+    std::fs::create_dir_all(output_dir)?;
+
+    if cli.format == "json" || cli.format == "both" {
+        let json = BenchmarkAggregator::to_json(benchmark);
+        let path = output_dir.join("benchmark.json");
+        std::fs::write(&path, &json)?;
+        println!("\nBenchmark JSON: {}", path.display());
+    }
+
+    if cli.format == "markdown" || cli.format == "both" {
+        let md = BenchmarkAggregator::to_markdown(benchmark);
+        let path = output_dir.join("benchmark.md");
+        std::fs::write(&path, &md)?;
+        println!("Benchmark report: {}", path.display());
         println!("\n{}", md);
     }
 

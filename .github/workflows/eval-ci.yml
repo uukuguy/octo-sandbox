@@ -67,6 +67,13 @@ jobs:
         if: hashFiles('crates/octo-eval/datasets/replay_baseline/traces/*.json') != ''
         run: cargo run -p octo-eval -- run --suite tool_call --replay crates/octo-eval/datasets/replay_baseline/ --output eval_output/replay
 
+      - name: Run benchmark regression (if baseline exists)
+        if: hashFiles('eval_output/benchmark/*/comparison.json') != ''
+        run: |
+          cargo run -p octo-eval -- benchmark \
+            --input eval_output/benchmark \
+            --output eval_output/benchmark/final
+
       - name: Upload eval artifacts
         if: always()
         uses: actions/upload-artifact@v4

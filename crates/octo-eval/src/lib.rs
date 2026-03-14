@@ -1,3 +1,4 @@
+pub mod benchmark;
 pub mod benchmarks;
 pub mod comparison;
 pub mod config;
