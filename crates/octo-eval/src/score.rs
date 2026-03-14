@@ -74,6 +74,28 @@ pub enum ScoreDetails {
         arg_match_rate: f64,
         mismatched_fields: Vec<String>,
     },
+    /// SWE-bench Docker verification result
+    SweVerify {
+        instance_id: String,
+        fail_to_pass_passed: bool,
+        pass_to_pass_passed: bool,
+        fail_to_pass_count: usize,
+        pass_to_pass_count: usize,
+        execution_time_ms: u64,
+    },
+    /// τ-bench pass^k consistency metric
+    PassK {
+        k: u32,
+        passes: u32,
+        pass_at_1: f64,
+        pass_at_k: f64,
+    },
+    /// GAIA exact-match with level metadata
+    GaiaMatch {
+        expected: String,
+        actual: String,
+        level: u32,
+    },
 }
 
 impl EvalScore {

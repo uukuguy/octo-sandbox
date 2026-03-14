@@ -24,6 +24,7 @@ use octo_eval::suites::provider::ProviderSuite;
 use octo_eval::suites::reasoning::ReasoningSuite;
 use octo_eval::suites::security::SecuritySuite;
 use octo_eval::suites::tool_boundary::ToolBoundarySuite;
+use octo_eval::benchmarks::BenchmarkRegistry;
 use octo_eval::suites::resilience::ResilienceSuite;
 use octo_eval::suites::tool_call::ToolCallSuite;
 use octo_eval::task::EvalTask;
@@ -60,7 +61,7 @@ fn cmd_help() -> Result<()> {
     println!("  compare --suite <NAME>   Run multi-model comparison");
     println!("  help                     Show this help\n");
     println!("OPTIONS:");
-    println!("  --suite <NAME>           Suite name: tool_call, security, context, output_format, tool_boundary, reasoning, resilience, provider, memory, e2e");
+    println!("  --suite <NAME>           Suite name: tool_call, security, context, output_format, tool_boundary, reasoning, resilience, provider, memory, e2e, gaia, swe_bench, tau_bench");
     println!("  --output <DIR>           Output directory (default: eval_output)");
     println!("  --format <FMT>           Output format: json, markdown, both (default: both)");
     println!("  --baseline <PATH>        Baseline report JSON for regression detection");
@@ -91,6 +92,21 @@ fn cmd_list_suites() -> Result<()> {
     println!();
     println!("  External Dataset Suites:");
     println!("    bfcl        — Berkeley Function Calling Leaderboard simple subset (10 tasks)");
+    println!();
+    println!("  External Benchmarks:");
+    let registry = BenchmarkRegistry::with_defaults();
+    for bm in registry.list() {
+        let sandbox_note = if bm.requires_sandbox() {
+            if bm.sandbox_available() {
+                " [sandbox: available]"
+            } else {
+                " [sandbox: unavailable — mock mode]"
+            }
+        } else {
+            ""
+        };
+        println!("    {:12} — {}{}", bm.name(), bm.description(), sandbox_note);
+    }
     Ok(())
 }
 
@@ -107,6 +123,12 @@ fn load_suite(name: &str) -> Result<Vec<Box<dyn EvalTask>>> {
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             let path = manifest_dir.join("datasets/bfcl_simple.jsonl");
             octo_eval::datasets::bfcl::load_bfcl_as_tasks(&path)
+        }
+        // External benchmarks — delegate to BenchmarkRegistry
+        name if BenchmarkRegistry::with_defaults().contains(name) => {
+            let registry = BenchmarkRegistry::with_defaults();
+            let bm = registry.get(name).unwrap();
+            bm.load_tasks()
         }
         _ => anyhow::bail!("Unknown suite: {name}. Use 'list-suites' to see available suites."),
     }
