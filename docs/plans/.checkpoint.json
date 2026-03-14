@@ -2,9 +2,9 @@
   "plan_file": "docs/plans/2026-03-14-phase-i-swebench.md",
   "phase": "in_progress",
   "created_at": "2026-03-14T18:55:00+08:00",
-  "updated_at": "2026-03-14T19:30:00+08:00",
-  "completed_tasks": ["I1-T1", "I1-T2"],
-  "current_task": "I2-T1",
+  "updated_at": "2026-03-14T20:15:00+08:00",
+  "completed_tasks": ["I1-T1", "I1-T2", "I2-T1", "I2-T2", "I3-T1", "I3-T2", "I3-T3", "I4-T1", "I4-T2"],
+  "current_task": "I5-T1",
   "total_tasks": 13,
   "task_groups": {
     "I1": {
@@ -18,23 +18,26 @@
     "I2": {
       "name": "GAIA Benchmark Adapter",
       "tasks": ["I2-T1", "I2-T2"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": true,
-      "description": "GAIA multi-step reasoning benchmark: 50 tasks, L1-L3, ExactMatch scoring"
+      "description": "GAIA multi-step reasoning benchmark: 50 tasks, L1-L3, ExactMatch scoring",
+      "commit": "5512f4f"
     },
     "I3": {
       "name": "SWE-bench Adapter",
       "tasks": ["I3-T1", "I3-T2", "I3-T3"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": true,
-      "description": "SWE-bench Lite: 50 tasks, Docker sandbox verification, mock fallback"
+      "description": "SWE-bench Lite: 50 tasks, Docker sandbox verification, mock fallback",
+      "commit": "5512f4f"
     },
     "I4": {
       "name": "τ-bench Adapter",
       "tasks": ["I4-T1", "I4-T2"],
-      "status": "PENDING",
+      "status": "COMPLETE",
       "parallel": true,
-      "description": "τ-bench tool-use reliability: 30 tasks, pass^k consistency metric"
+      "description": "τ-bench tool-use reliability: 30 tasks, pass^k consistency metric",
+      "commit": "5512f4f"
     },
     "I5": {
       "name": "Verification & Integration",

@@ -51,6 +51,16 @@ jobs:
       - name: Run resilience suite (mock, no LLM)
         run: cargo run -p octo-eval -- run --suite resilience --output eval_output/resilience
 
+      - name: Run GAIA benchmark (mock mode)
+        run: cargo run -p octo-eval -- run --suite gaia --output eval_output/gaia
+
+      - name: Run SWE-bench benchmark (requires Docker)
+        if: env.DOCKER_AVAILABLE == 'true'
+        run: cargo run -p octo-eval -- run --suite swe_bench --output eval_output/swe_bench
+
+      - name: Run τ-bench benchmark (mock mode)
+        run: cargo run -p octo-eval -- run --suite tau_bench --output eval_output/tau_bench
+
       - name: Run replay baseline (if traces exist)
         if: hashFiles('crates/octo-eval/datasets/replay_baseline/traces/*.json') != ''
         run: cargo run -p octo-eval -- run --suite tool_call --replay crates/octo-eval/datasets/replay_baseline/ --output eval_output/replay
