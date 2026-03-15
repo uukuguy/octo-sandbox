@@ -813,27 +813,7 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
     let output_root = if cli.output_explicit {
         cli.output.clone()
     } else {
-        let ts = {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_secs();
-            // Format as YYYYMMDD-HHMMSS using UTC offset arithmetic
-            let s = secs % (24 * 3600);
-            let days = secs / (24 * 3600);
-            let hh = s / 3600;
-            let mm = (s % 3600) / 60;
-            let ss = s % 60;
-            // Approximate date from epoch days (good enough for unique IDs)
-            let approx_year = 1970 + days / 365;
-            let approx_day_of_year = days % 365;
-            let approx_month = approx_day_of_year / 30 + 1;
-            let approx_day = approx_day_of_year % 30 + 1;
-            format!("{}{:02}{:02}-{:02}{:02}{:02}",
-                approx_year, approx_month.min(12), approx_day.min(31),
-                hh, mm, ss)
-        };
+        let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         PathBuf::from("eval_output").join("runs").join(&ts)
     };
     println!("Run directory: {}", output_root.display());
@@ -1050,18 +1030,7 @@ fn cmd_benchmark_from_files(input_dir: &PathBuf, cli: &CliArgs) -> Result<()> {
     let out_dir = if cli.output_explicit {
         cli.output.clone()
     } else {
-        let ts = {
-            use std::time::{SystemTime, UNIX_EPOCH};
-            let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
-            let s = secs % (24 * 3600);
-            let days = secs / (24 * 3600);
-            let hh = s / 3600; let mm = (s % 3600) / 60; let ss = s % 60;
-            let yr = 1970 + days / 365;
-            let doy = days % 365;
-            let mo = (doy / 30 + 1).min(12);
-            let dy = (doy % 30 + 1).min(31);
-            format!("{}{:02}{:02}-{:02}{:02}{:02}", yr, mo, dy, hh, mm, ss)
-        };
+        let ts = chrono::Local::now().format("%Y%m%d-%H%M%S").to_string();
         PathBuf::from("eval_output").join("runs").join(&ts)
     };
     output_benchmark(&benchmark, &out_dir, &cli.format)?;
