@@ -244,8 +244,15 @@ impl App {
                     Some("[Dev] Ctrl+O switch to Ops | 1-2 select task".to_string());
             }
             _ => {
-                // Forward to active screen
-                self.screens.handle_event(&self.active_tab, &event);
+                // Forward to active screen (Dev mode sends to dev sub-screens)
+                if self.view_mode == ViewMode::Dev {
+                    match self.dev_task {
+                        DevTask::Eval => self.screens.dev_eval.handle_event(&event),
+                        _ => {}
+                    }
+                } else {
+                    self.screens.handle_event(&self.active_tab, &event);
+                }
             }
         }
     }
@@ -825,5 +832,20 @@ mod tests {
         let ev = AppEvent::SwitchToDev;
         let debug = format!("{:?}", ev);
         assert!(debug.contains("SwitchToDev"));
+    }
+
+    // -- ViewMode tests --
+
+    #[test]
+    fn view_mode_default_is_dev() {
+        let mode = ViewMode::Dev;
+        assert_eq!(mode, ViewMode::Dev);
+    }
+
+    #[test]
+    fn view_mode_ops_variant_exists() {
+        let mode = ViewMode::Ops;
+        assert_eq!(mode, ViewMode::Ops);
+        assert_ne!(mode, ViewMode::Dev);
     }
 }
