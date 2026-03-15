@@ -8,8 +8,9 @@ use tracing::info;
 use tracing_subscriber::{fmt, EnvFilter};
 
 use octo_cli::commands::{
-    self, execute_ask, execute_run, generate_completions, handle_agent, handle_config, handle_mcp,
-    handle_memory, handle_session, handle_tools, run_doctor, AppState, CompletionsCommands,
+    self, execute_ask, execute_run, generate_completions, handle_agent, handle_config, handle_eval,
+    handle_mcp, handle_memory, handle_session, handle_tools, run_doctor, AppState,
+    CompletionsCommands,
 };
 use octo_cli::output;
 use octo_cli::tui;
@@ -133,11 +134,7 @@ async fn main() -> Result<()> {
             };
             commands::dashboard::run_dashboard(&opts).await?;
         }
-        Commands::Eval { action: _ } => {
-            // TODO(Ma-T5): wire eval handler
-            eprintln!("Eval commands not yet implemented. Coming in Ma-T5.");
-            std::process::exit(1);
-        }
+        Commands::Eval { action } => handle_eval(action, &state).await?,
     }
 
     Ok(())

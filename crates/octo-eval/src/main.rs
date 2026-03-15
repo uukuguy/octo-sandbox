@@ -77,6 +77,7 @@ fn cmd_help() -> Result<()> {
     println!("  --target <MODE>          Target mode: engine (default), cli, or server");
     println!("  --binary <PATH>          CLI binary path (default: target/debug/octo-cli)");
     println!("  --server-url <URL>       Server base URL (default: http://127.0.0.1:3001)");
+    println!("  --tag <NAME>            Tag this run for future reference");
     Ok(())
 }
 
@@ -158,6 +159,7 @@ struct CliArgs {
     target: String,
     binary: Option<PathBuf>,
     server_url: Option<String>,
+    tag: Option<String>,
 }
 
 fn parse_args(args: &[String]) -> CliArgs {
@@ -173,6 +175,7 @@ fn parse_args(args: &[String]) -> CliArgs {
     let mut target = "engine".to_string();
     let mut binary = None;
     let mut server_url = None;
+    let mut tag = None;
 
     let mut i = 0;
     while i < args.len() {
@@ -244,6 +247,12 @@ fn parse_args(args: &[String]) -> CliArgs {
                     i += 1;
                 }
             }
+            "--tag" => {
+                if i + 1 < args.len() {
+                    tag = Some(args[i + 1].clone());
+                    i += 1;
+                }
+            }
             _ => {}
         }
         i += 1;
@@ -262,6 +271,7 @@ fn parse_args(args: &[String]) -> CliArgs {
         target,
         binary,
         server_url,
+        tag,
     }
 }
 
@@ -323,6 +333,12 @@ fn cmd_run(args: &[String]) -> Result<()> {
         _ => {} // "engine" — default
     }
 
+    // Extract model name before config is moved into async block
+    let run_model_name = match &config.target {
+        octo_eval::config::EvalTarget::Engine(e) => e.model.clone(),
+        _ => cli.target.clone(),
+    };
+
     let rt = tokio::runtime::Runtime::new()?;
     let report = rt.block_on(async {
         if let Some(ref replay_dir) = cli.replay {
@@ -339,6 +355,13 @@ fn cmd_run(args: &[String]) -> Result<()> {
     let detailed = Reporter::generate(&report, &categories, &difficulties);
 
     output_report(&cli, &detailed)?;
+
+    // Save to RunStore
+    match save_to_run_store("run", &cli.suite, &[run_model_name], &detailed, None, cli.tag.as_deref()) {
+        Ok(run_id) => println!("Run saved: {} (eval_output/runs/{})", run_id, run_id),
+        Err(e) => eprintln!("Warning: Failed to save run: {}", e),
+    }
+
     Ok(())
 }
 
@@ -524,6 +547,30 @@ fn cmd_compare(args: &[String]) -> Result<()> {
     })?;
 
     output_comparison(&report, &tasks, &output_dir, &format)?;
+
+    // Save to RunStore — build a summary report from comparison
+    let model_names: Vec<String> = report.model_reports.iter().map(|r| r.0.name.clone()).collect();
+    let (categories, difficulties) = build_metadata(&tasks);
+    // Use first model's report as a representative
+    if let Some((_, first_report)) = report.model_reports.first() {
+        let detailed = Reporter::generate(first_report, &categories, &difficulties);
+        let comparison_json = serde_json::from_str::<serde_json::Value>(
+            &report.to_json(&categories, &difficulties),
+        )
+        .ok();
+        match save_to_run_store(
+            "compare",
+            suite_name,
+            &model_names,
+            &detailed,
+            comparison_json.as_ref(),
+            cli.tag.as_deref(),
+        ) {
+            Ok(run_id) => println!("Run saved: {} (eval_output/runs/{})", run_id, run_id),
+            Err(e) => eprintln!("Warning: Failed to save run: {}", e),
+        }
+    }
+
     Ok(())
 }
 
@@ -790,6 +837,50 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
     let benchmark = BenchmarkAggregator::aggregate(suite_refs);
     output_benchmark(&benchmark, &cli)?;
 
+    // Save to RunStore — use aggregated data
+    let model_names: Vec<String> = benchmark.models.iter().map(|m| m.info.name.clone()).collect();
+    let summary_report = octo_eval::reporter::DetailedReport {
+        summary: octo_eval::reporter::ReportSummary {
+            total: benchmark
+                .models
+                .first()
+                .map(|m| m.per_suite.values().map(|s| s.total).sum())
+                .unwrap_or(0),
+            passed: benchmark
+                .models
+                .first()
+                .map(|m| m.per_suite.values().map(|s| s.passed).sum())
+                .unwrap_or(0),
+            failed: 0,
+            pass_rate: benchmark
+                .models
+                .first()
+                .map(|m| m.overall_pass_rate)
+                .unwrap_or(0.0),
+            avg_score: benchmark
+                .models
+                .first()
+                .map(|m| m.overall_avg_score)
+                .unwrap_or(0.0),
+        },
+        by_category: HashMap::new(),
+        by_difficulty: HashMap::new(),
+        latency: octo_eval::reporter::LatencyStats::default(),
+        token_usage: octo_eval::reporter::TokenUsageStats::default(),
+        task_results: vec![],
+    };
+    match save_to_run_store(
+        "benchmark",
+        suite_list,
+        &model_names,
+        &summary_report,
+        None,
+        cli.tag.as_deref(),
+    ) {
+        Ok(run_id) => println!("Run saved: {} (eval_output/runs/{})", run_id, run_id),
+        Err(e) => eprintln!("Warning: Failed to save run: {}", e),
+    }
+
     Ok(())
 }
 
@@ -868,6 +959,77 @@ fn output_benchmark(
     }
 
     Ok(())
+}
+
+/// Save evaluation results to the versioned RunStore.
+fn save_to_run_store(
+    command: &str,
+    suite: &str,
+    models: &[String],
+    report: &octo_eval::reporter::DetailedReport,
+    comparison: Option<&serde_json::Value>,
+    tag: Option<&str>,
+) -> Result<String> {
+    use octo_eval::run_store::{RunData, RunManifest, RunStore};
+    use std::process::Command;
+
+    let store = RunStore::new(PathBuf::from("eval_output/runs"))?;
+    let run_id = store.next_run_id();
+
+    // Get git info
+    let git_commit = Command::new("git")
+        .args(["rev-parse", "--short", "HEAD"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".into());
+    let git_branch = Command::new("git")
+        .args(["branch", "--show-current"])
+        .output()
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_else(|_| "unknown".into());
+
+    // Compute config hash (simplified: hash the suite name + model list)
+    let config_str = format!("{}:{}", suite, models.join(","));
+    let config_hash = {
+        let mut h: u64 = 0;
+        for b in config_str.bytes() {
+            h = h.wrapping_mul(31).wrapping_add(b as u64);
+        }
+        let hex = format!("{:x}", h);
+        hex[..8.min(hex.len())].to_string()
+    };
+
+    let manifest = RunManifest {
+        run_id: run_id.clone(),
+        tag: tag.map(|s| s.to_string()),
+        timestamp: chrono::Local::now().to_rfc3339(),
+        command: command.to_string(),
+        suite: suite.to_string(),
+        models: models.to_vec(),
+        git_commit,
+        git_branch,
+        task_count: report.summary.total,
+        passed: report.summary.passed,
+        pass_rate: report.summary.pass_rate,
+        avg_score: report.summary.avg_score,
+        duration_ms: report.latency.total_ms,
+        total_tokens: report.token_usage.total,
+        estimated_cost: 0.0,
+        eval_config_hash: config_hash,
+        failure_summary: octo_eval::benchmark::FailureSummary::default(),
+    };
+
+    let run_data = RunData {
+        manifest,
+        report: Some(report.clone()),
+        comparison: comparison.cloned(),
+        traces: vec![],
+    };
+
+    store.save_run(&run_data)?;
+    store.update_latest_link(&run_id)?;
+
+    Ok(run_id)
 }
 
 fn build_metadata(

@@ -4509,6 +4509,7 @@ dependencies = [
  "http-body-util",
  "indicatif",
  "octo-engine",
+ "octo-eval",
  "octo-sandbox",
  "octo-types",
  "owo-colors",
