@@ -922,47 +922,72 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
     let benchmark = BenchmarkAggregator::aggregate(suite_refs);
     output_benchmark(&benchmark, &output_root, &cli.format)?;
 
-    // Save to RunStore — use aggregated data
+    // Save to RunStore with full benchmark data
     let model_names: Vec<String> = benchmark.models.iter().map(|m| m.info.name.clone()).collect();
+
+    // Aggregate totals across all models (not just first model)
+    let total_tasks: usize = benchmark.models.iter()
+        .map(|m| m.per_suite.values().map(|s| s.total).sum::<usize>())
+        .max().unwrap_or(0);
+    let total_passed: usize = benchmark.models.iter()
+        .map(|m| m.per_suite.values().map(|s| s.passed).sum::<usize>())
+        .sum::<usize>();
+    let avg_pass_rate = benchmark.models.iter().map(|m| m.overall_pass_rate).sum::<f64>()
+        / benchmark.models.len().max(1) as f64;
+    let avg_score = benchmark.models.iter().map(|m| m.overall_avg_score).sum::<f64>()
+        / benchmark.models.len().max(1) as f64;
+
+    // Build by_category from suite pass rates
+    let by_category: HashMap<String, octo_eval::reporter::CategoryStats> = benchmark.models
+        .iter()
+        .flat_map(|m| m.per_suite.iter().map(move |(suite, stats)| {
+            (suite.clone(), (stats.passed, stats.total, m.info.name.clone()))
+        }))
+        .fold(HashMap::new(), |mut acc, (suite, (passed, total, _model))| {
+            let entry = acc.entry(suite).or_insert(octo_eval::reporter::CategoryStats {
+                total: 0, passed: 0, pass_rate: 0.0, avg_score: 0.0,
+            });
+            entry.total += total;
+            entry.passed += passed;
+            entry.pass_rate = if entry.total > 0 { entry.passed as f64 / entry.total as f64 } else { 0.0 };
+            acc
+        });
+
     let summary_report = octo_eval::reporter::DetailedReport {
         summary: octo_eval::reporter::ReportSummary {
-            total: benchmark
-                .models
-                .first()
-                .map(|m| m.per_suite.values().map(|s| s.total).sum())
-                .unwrap_or(0),
-            passed: benchmark
-                .models
-                .first()
-                .map(|m| m.per_suite.values().map(|s| s.passed).sum())
-                .unwrap_or(0),
-            failed: 0,
-            pass_rate: benchmark
-                .models
-                .first()
-                .map(|m| m.overall_pass_rate)
-                .unwrap_or(0.0),
-            avg_score: benchmark
-                .models
-                .first()
-                .map(|m| m.overall_avg_score)
-                .unwrap_or(0.0),
+            total: total_tasks,
+            passed: total_passed,
+            failed: total_tasks * benchmark.models.len() - total_passed,
+            pass_rate: avg_pass_rate,
+            avg_score,
         },
-        by_category: HashMap::new(),
+        by_category,
         by_difficulty: HashMap::new(),
         latency: octo_eval::reporter::LatencyStats::default(),
         token_usage: octo_eval::reporter::TokenUsageStats::default(),
         task_results: vec![],
     };
+
+    // Serialize full benchmark report as the comparison payload stored in RunStore
+    let benchmark_json_val = serde_json::to_value(&benchmark).ok();
+
     match save_to_run_store(
         "benchmark",
         suite_list,
         &model_names,
         &summary_report,
-        None,
+        benchmark_json_val.as_ref(),
         cli.tag.as_deref(),
     ) {
-        Ok(run_id) => println!("Run saved: {} (eval_output/runs/{})", run_id, run_id),
+        Ok(run_id) => {
+            // Also copy benchmark.md into the run directory for easy access
+            let md_src = output_root.join("benchmark.md");
+            let runs_dir = PathBuf::from("eval_output/runs").join(&run_id);
+            if md_src.exists() {
+                let _ = std::fs::copy(&md_src, runs_dir.join("benchmark.md"));
+            }
+            println!("Run saved: {} (eval_output/runs/{})", run_id, run_id);
+        }
         Err(e) => eprintln!("Warning: Failed to save run: {}", e),
     }
 
@@ -1016,7 +1041,56 @@ fn cmd_benchmark_from_files(input_dir: &PathBuf, cli: &CliArgs) -> Result<()> {
         .collect();
 
     let benchmark = BenchmarkAggregator::aggregate(suite_refs);
-    output_benchmark(&benchmark, &cli.output, &cli.format)?;
+
+    // For --input mode, write benchmark report into a timestamped run dir
+    let out_dir = if cli.output_explicit {
+        cli.output.clone()
+    } else {
+        let ts = {
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let secs = SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs();
+            let s = secs % (24 * 3600);
+            let days = secs / (24 * 3600);
+            let hh = s / 3600; let mm = (s % 3600) / 60; let ss = s % 60;
+            let yr = 1970 + days / 365;
+            let doy = days % 365;
+            let mo = (doy / 30 + 1).min(12);
+            let dy = (doy % 30 + 1).min(31);
+            format!("{}{:02}{:02}-{:02}{:02}{:02}", yr, mo, dy, hh, mm, ss)
+        };
+        PathBuf::from("eval_output").join("runs").join(&ts)
+    };
+    output_benchmark(&benchmark, &out_dir, &cli.format)?;
+
+    // Save to RunStore with full benchmark JSON
+    let model_names: Vec<String> = benchmark.models.iter().map(|m| m.info.name.clone()).collect();
+    let suite_names_str = suite_comparisons.iter().map(|(n, _)| n.as_str()).collect::<Vec<_>>().join(",");
+    let benchmark_json_val = serde_json::to_value(&benchmark).ok();
+    let avg_pass = benchmark.models.iter().map(|m| m.overall_pass_rate).sum::<f64>()
+        / benchmark.models.len().max(1) as f64;
+    let avg_score = benchmark.models.iter().map(|m| m.overall_avg_score).sum::<f64>()
+        / benchmark.models.len().max(1) as f64;
+    let total_tasks = benchmark.models.first().map(|m| m.per_suite.values().map(|s| s.total).sum()).unwrap_or(0);
+    let total_passed: usize = benchmark.models.iter().map(|m| m.per_suite.values().map(|s| s.passed).sum::<usize>()).sum();
+    let summary = octo_eval::reporter::DetailedReport {
+        summary: octo_eval::reporter::ReportSummary { total: total_tasks, passed: total_passed, failed: 0, pass_rate: avg_pass, avg_score },
+        by_category: HashMap::new(),
+        by_difficulty: HashMap::new(),
+        latency: octo_eval::reporter::LatencyStats::default(),
+        token_usage: octo_eval::reporter::TokenUsageStats::default(),
+        task_results: vec![],
+    };
+    match save_to_run_store("benchmark", &suite_names_str, &model_names, &summary, benchmark_json_val.as_ref(), cli.tag.as_deref()) {
+        Ok(run_id) => {
+            let md_src = out_dir.join("benchmark.md");
+            let run_dir = PathBuf::from("eval_output/runs").join(&run_id);
+            if md_src.exists() && run_dir != out_dir {
+                let _ = std::fs::copy(&md_src, run_dir.join("benchmark.md"));
+            }
+            println!("Run saved: {} (eval_output/runs/{})", run_id, run_id);
+        }
+        Err(e) => eprintln!("Warning: Failed to save run: {}", e),
+    }
 
     Ok(())
 }
