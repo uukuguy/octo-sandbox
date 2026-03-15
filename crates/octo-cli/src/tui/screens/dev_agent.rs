@@ -11,6 +11,7 @@ use ratatui::widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap};
 use crate::commands::AppState;
 use crate::tui::event::AppEvent;
 use crate::tui::theme::TuiTheme;
+use crate::tui::widgets::TextInput;
 
 use super::Screen;
 
@@ -146,6 +147,23 @@ pub struct LlmCallInfo {
     pub duration_ms: u64,
 }
 
+/// Info about a failover attempt for display
+#[derive(Debug, Clone)]
+pub struct FailoverAttemptInfo {
+    pub instance_id: String,
+    pub duration_ms: u64,
+    pub result: String, // "ok", "failed", "rate_limited", "no_instance"
+}
+
+/// Info about a failover trace for display
+#[derive(Debug, Clone)]
+pub struct FailoverTraceInfo {
+    pub request_id: u64,
+    pub timestamp: String,
+    pub total_duration_ms: u64,
+    pub attempts: Vec<FailoverAttemptInfo>,
+}
+
 /// Info about a memory layer
 #[derive(Debug, Clone)]
 pub struct MemoryLayerInfo {
@@ -182,10 +200,16 @@ pub struct DevAgentScreen {
     providers: Vec<ProviderInfo>,
     /// Recent LLM calls
     recent_calls: Vec<LlmCallInfo>,
+    /// Recent failover traces
+    failover_traces: Vec<FailoverTraceInfo>,
     /// Memory layer info
     memory_layers: Vec<MemoryLayerInfo>,
     /// Status message for shortcut feedback
     status_msg: Option<String>,
+    /// Memory search input
+    memory_search: TextInput,
+    /// Whether memory search is active
+    memory_search_active: bool,
 }
 
 impl DevAgentScreen {
@@ -204,8 +228,11 @@ impl DevAgentScreen {
             mcp_servers: Vec::new(),
             providers: Vec::new(),
             recent_calls: Vec::new(),
+            failover_traces: Vec::new(),
             memory_layers: Vec::new(),
             status_msg: None,
+            memory_search: TextInput::new("Search memory..."),
+            memory_search_active: false,
         }
     }
 
@@ -501,23 +528,32 @@ impl DevAgentScreen {
     }
 
     fn render_provider_panel(&self, frame: &mut Frame, area: Rect, theme: &TuiTheme) {
-        if self.providers.is_empty() && self.recent_calls.is_empty() {
+        if self.providers.is_empty()
+            && self.recent_calls.is_empty()
+            && self.failover_traces.is_empty()
+        {
             frame.render_widget(
-                Paragraph::new("No providers configured.\nProviders will appear when an agent runs.")
-                    .style(theme.text_dim())
-                    .wrap(Wrap { trim: false }),
+                Paragraph::new(
+                    "No providers configured.\nProviders will appear when an agent runs.",
+                )
+                .style(theme.text_dim())
+                .wrap(Wrap { trim: false }),
                 area,
             );
             return;
         }
 
-        // Split: providers (top 50%) + recent calls (bottom 50%)
+        // Three sections: providers (35%), recent calls (30%), failover traces (35%)
         let sections = Layout::default()
             .direction(Direction::Vertical)
-            .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+            .constraints([
+                Constraint::Percentage(35),
+                Constraint::Percentage(30),
+                Constraint::Percentage(35),
+            ])
             .split(area);
 
-        // Providers
+        // Section 1: Providers
         let provider_lines: Vec<Line> = self
             .providers
             .iter()
@@ -528,19 +564,21 @@ impl DevAgentScreen {
                         theme.text_normal(),
                     ),
                     Line::styled(
-                        format!("    tokens: {}  cost: ${:.3}", p.total_tokens, p.estimated_cost),
+                        format!(
+                            "    tokens: {}  cost: ${:.3}",
+                            p.total_tokens, p.estimated_cost
+                        ),
                         theme.text_dim(),
                     ),
                 ]
             })
             .collect();
-
         frame.render_widget(
             Paragraph::new(Text::from(provider_lines)).wrap(Wrap { trim: false }),
             sections[0],
         );
 
-        // Recent calls
+        // Section 2: Recent Calls
         let call_block = Block::default()
             .title("Recent Calls")
             .title_style(theme.block_title())
@@ -562,53 +600,133 @@ impl DevAgentScreen {
                 )
             })
             .collect();
-
         frame.render_widget(
             Paragraph::new(Text::from(call_lines)).wrap(Wrap { trim: false }),
             call_inner,
         );
+
+        // Section 3: Failover Traces
+        let trace_block = Block::default()
+            .title("Failover Traces")
+            .title_style(theme.block_title())
+            .borders(Borders::TOP)
+            .border_style(theme.block_border());
+        let trace_inner = trace_block.inner(sections[2]);
+        frame.render_widget(trace_block, sections[2]);
+
+        if self.failover_traces.is_empty() {
+            frame.render_widget(
+                Paragraph::new("  No failover traces yet").style(theme.text_dim()),
+                trace_inner,
+            );
+        } else {
+            let mut trace_lines: Vec<Line> = Vec::new();
+            for trace in self.failover_traces.iter().rev().take(5) {
+                // Header line: req-ID [timestamp] total_ms
+                trace_lines.push(Line::styled(
+                    format!(
+                        "  req-{} [{}] {}ms",
+                        trace.request_id, trace.timestamp, trace.total_duration_ms
+                    ),
+                    theme.text_normal(),
+                ));
+                // Attempt lines with tree-like prefix
+                for (i, attempt) in trace.attempts.iter().enumerate() {
+                    let connector = if i == trace.attempts.len() - 1 {
+                        "\u{2514}\u{2500}"
+                    } else {
+                        "\u{251c}\u{2500}"
+                    };
+                    let (marker, style) = match attempt.result.as_str() {
+                        "ok" => ("\u{2713}", Style::default().fg(theme.success)),
+                        "failed" => ("\u{2717}", Style::default().fg(theme.error)),
+                        "rate_limited" => ("\u{26a0}", Style::default().fg(theme.warning)),
+                        _ => ("?", theme.text_dim()),
+                    };
+                    trace_lines.push(Line::styled(
+                        format!(
+                            "    {} {} {} {}ms",
+                            connector, attempt.instance_id, marker, attempt.duration_ms
+                        ),
+                        style,
+                    ));
+                }
+            }
+            frame.render_widget(
+                Paragraph::new(Text::from(trace_lines)).wrap(Wrap { trim: false }),
+                trace_inner,
+            );
+        }
     }
 
     fn render_memory_panel(&self, frame: &mut Frame, area: Rect, theme: &TuiTheme) {
+        // Split area: content + search bar (if active or has search text)
+        let show_search = self.memory_search_active || !self.memory_search.is_empty();
+
+        let (content_area, search_area) = if show_search {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(1), Constraint::Length(3)])
+                .split(area);
+            (chunks[0], Some(chunks[1]))
+        } else {
+            (area, None)
+        };
+
         if self.memory_layers.is_empty() {
             frame.render_widget(
-                Paragraph::new("No memory data available.\nMemory layers will populate during agent execution.")
-                    .style(theme.text_dim())
-                    .wrap(Wrap { trim: false }),
-                area,
+                Paragraph::new(
+                    "No memory data available.\nMemory layers will populate during agent execution.",
+                )
+                .style(theme.text_dim())
+                .wrap(Wrap { trim: false }),
+                content_area,
             );
-            return;
+        } else {
+            let search_text = self.memory_search.value().to_lowercase();
+            let mut lines: Vec<Line> = Vec::new();
+            for layer in &self.memory_layers {
+                // Filter by search text if present
+                if !search_text.is_empty() && !layer.name.to_lowercase().contains(&search_text) {
+                    continue;
+                }
+                let size_str = if layer.size_bytes >= 1_048_576 {
+                    format!("{:.1}MB", layer.size_bytes as f64 / 1_048_576.0)
+                } else if layer.size_bytes >= 1024 {
+                    format!("{:.1}KB", layer.size_bytes as f64 / 1024.0)
+                } else {
+                    format!("{}B", layer.size_bytes)
+                };
+                lines.push(Line::styled(
+                    format!(
+                        "  {}  {} entries  {}",
+                        layer.name, layer.entry_count, size_str
+                    ),
+                    theme.text_normal(),
+                ));
+            }
+
+            if !show_search {
+                lines.push(Line::raw(""));
+                lines.push(Line::styled("  [/] to search memory...", theme.text_dim()));
+            }
+
+            frame.render_widget(
+                Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false }),
+                content_area,
+            );
         }
 
-        let mut lines: Vec<Line> = Vec::new();
-        for layer in &self.memory_layers {
-            let size_str = if layer.size_bytes >= 1_048_576 {
-                format!("{:.1}MB", layer.size_bytes as f64 / 1_048_576.0)
-            } else if layer.size_bytes >= 1024 {
-                format!("{:.1}KB", layer.size_bytes as f64 / 1024.0)
+        // Render search bar
+        if let Some(search_area) = search_area {
+            let block = if self.memory_search_active {
+                theme.styled_block_active(" Search ")
             } else {
-                format!("{}B", layer.size_bytes)
+                theme.styled_block(" Search ")
             };
-            lines.push(Line::styled(
-                format!(
-                    "  {}  {} entries  {}",
-                    layer.name, layer.entry_count, size_str
-                ),
-                theme.text_normal(),
-            ));
+            self.memory_search
+                .render(frame, search_area, theme, Some(block));
         }
-
-        // Search hint
-        lines.push(Line::raw(""));
-        lines.push(Line::styled(
-            "  [/] to search memory...",
-            theme.text_dim(),
-        ));
-
-        frame.render_widget(
-            Paragraph::new(Text::from(lines)).wrap(Wrap { trim: false }),
-            area,
-        );
     }
 }
 
@@ -642,6 +760,30 @@ impl Screen for DevAgentScreen {
         }
 
         if let AppEvent::Key(key) = event {
+            // Memory search input handling
+            if self.memory_search_active {
+                match key.code {
+                    KeyCode::Enter => {
+                        // Apply search (placeholder for now)
+                        self.memory_search_active = false;
+                        self.memory_search.deactivate();
+                        self.status_msg = if self.memory_search.is_empty() {
+                            None
+                        } else {
+                            Some(format!("Memory search: {}", self.memory_search.value()))
+                        };
+                    }
+                    KeyCode::Esc => {
+                        self.memory_search_active = false;
+                        self.memory_search.clear();
+                    }
+                    _ => {
+                        self.memory_search.handle_key(key.code);
+                    }
+                }
+                return;
+            }
+
             match key.code {
                 // Navigation within focused column
                 KeyCode::Char('j') | KeyCode::Down => match self.focus {
@@ -734,8 +876,16 @@ impl Screen for DevAgentScreen {
                 }
                 // Shortcut keys
                 KeyCode::Char('/') => {
-                    self.status_msg =
-                        Some("Search (not yet implemented)".to_string());
+                    if self.focus == AgentFocus::Right
+                        && self.inspector == InspectorPanel::Memory
+                    {
+                        self.memory_search_active = true;
+                        self.memory_search.clear();
+                        self.memory_search.activate();
+                    } else {
+                        self.status_msg =
+                            Some("Press / in Memory panel to search".to_string());
+                    }
                 }
                 _ => {}
             }
@@ -1006,11 +1156,11 @@ mod tests {
     }
 
     #[test]
-    fn shortcut_slash_sets_status() {
+    fn shortcut_slash_shows_hint() {
         let mut screen = DevAgentScreen::new();
         screen.handle_event(&key(KeyCode::Char('/')));
         assert!(screen.status_msg.is_some());
-        assert!(screen.status_msg.as_ref().unwrap().contains("Search"));
+        assert!(screen.status_msg.as_ref().unwrap().contains("Memory"));
     }
 
     #[test]
@@ -1113,5 +1263,89 @@ mod tests {
         };
         assert_eq!(session.id, "sess-001");
         assert!(session.is_active);
+    }
+
+    #[test]
+    fn failover_trace_info_fields() {
+        let trace = FailoverTraceInfo {
+            request_id: 42,
+            timestamp: "14:30:05".to_string(),
+            total_duration_ms: 5120,
+            attempts: vec![
+                FailoverAttemptInfo {
+                    instance_id: "claude-opus".to_string(),
+                    duration_ms: 5000,
+                    result: "rate_limited".to_string(),
+                },
+                FailoverAttemptInfo {
+                    instance_id: "claude-sonnet".to_string(),
+                    duration_ms: 120,
+                    result: "ok".to_string(),
+                },
+            ],
+        };
+        assert_eq!(trace.request_id, 42);
+        assert_eq!(trace.attempts.len(), 2);
+        assert_eq!(trace.attempts[0].result, "rate_limited");
+        assert_eq!(trace.attempts[1].result, "ok");
+    }
+
+    #[test]
+    fn failover_attempt_info_construction() {
+        let attempt = FailoverAttemptInfo {
+            instance_id: "test-1".to_string(),
+            duration_ms: 100,
+            result: "ok".to_string(),
+        };
+        assert_eq!(attempt.instance_id, "test-1");
+        assert_eq!(attempt.duration_ms, 100);
+    }
+
+    #[test]
+    fn failover_traces_initialized_empty() {
+        let screen = DevAgentScreen::new();
+        assert!(screen.failover_traces.is_empty());
+    }
+
+    #[test]
+    fn slash_in_memory_panel_activates_search() {
+        let mut screen = DevAgentScreen::new();
+        screen.focus = AgentFocus::Right;
+        screen.inspector = InspectorPanel::Memory;
+        screen.handle_event(&key(KeyCode::Char('/')));
+        assert!(screen.memory_search_active);
+        assert!(screen.memory_search.is_active());
+    }
+
+    #[test]
+    fn slash_outside_memory_shows_hint() {
+        let mut screen = DevAgentScreen::new();
+        screen.focus = AgentFocus::Left;
+        screen.handle_event(&key(KeyCode::Char('/')));
+        assert!(!screen.memory_search_active);
+        assert!(screen.status_msg.is_some());
+        assert!(screen.status_msg.as_ref().unwrap().contains("Memory"));
+    }
+
+    #[test]
+    fn esc_in_memory_search_deactivates() {
+        let mut screen = DevAgentScreen::new();
+        screen.focus = AgentFocus::Right;
+        screen.inspector = InspectorPanel::Memory;
+        screen.handle_event(&key(KeyCode::Char('/')));
+        assert!(screen.memory_search_active);
+        screen.handle_event(&key(KeyCode::Esc));
+        assert!(!screen.memory_search_active);
+    }
+
+    #[test]
+    fn memory_search_input_captured() {
+        let mut screen = DevAgentScreen::new();
+        screen.focus = AgentFocus::Right;
+        screen.inspector = InspectorPanel::Memory;
+        screen.handle_event(&key(KeyCode::Char('/')));
+        screen.handle_event(&key(KeyCode::Char('t')));
+        screen.handle_event(&key(KeyCode::Char('e')));
+        assert_eq!(screen.memory_search.value(), "te");
     }
 }

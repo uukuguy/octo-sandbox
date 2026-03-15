@@ -18,8 +18,26 @@ use octo_eval::trace::TraceEvent;
 use crate::commands::AppState;
 use crate::tui::event::AppEvent;
 use crate::tui::theme::TuiTheme;
+use crate::tui::widgets::TextInput;
 
 use super::Screen;
+
+/// Input mode for the eval screen
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum EvalInputMode {
+    Normal,
+    Search,
+    RunSuite,
+    DiffInput,
+    Filter,
+}
+
+/// Filter target type
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterTarget {
+    Suite,
+    Tag,
+}
 
 /// Which column is focused
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,6 +89,18 @@ pub struct DevEvalScreen {
     timeline_scroll: usize,
     /// Status message for shortcut feedback
     status_msg: Option<String>,
+    /// Current input mode
+    input_mode: EvalInputMode,
+    /// Search input
+    search_input: TextInput,
+    /// Command input (for run/diff)
+    command_input: TextInput,
+    /// Active filter target
+    filter_target: Option<FilterTarget>,
+    /// Filter input
+    filter_input: TextInput,
+    /// Current applied filter text
+    active_filter: Option<String>,
 }
 
 impl DevEvalScreen {
@@ -86,6 +116,12 @@ impl DevEvalScreen {
             current_trace: None,
             timeline_scroll: 0,
             status_msg: None,
+            input_mode: EvalInputMode::Normal,
+            search_input: TextInput::new("Search runs..."),
+            command_input: TextInput::new(""),
+            filter_target: None,
+            filter_input: TextInput::new("Filter..."),
+            active_filter: None,
         }
     }
 
@@ -186,8 +222,36 @@ impl DevEvalScreen {
         self.render_right(frame, columns[2], theme);
     }
 
+    /// Return visible runs after applying the active filter.
+    fn visible_runs(&self) -> Vec<(usize, &RunManifest)> {
+        self.runs
+            .iter()
+            .enumerate()
+            .filter(|(_, m)| {
+                if let Some(ref filter) = self.active_filter {
+                    if let Some(suite_filter) = filter.strip_prefix("suite:") {
+                        return m.suite.to_lowercase().contains(&suite_filter.to_lowercase());
+                    }
+                    if let Some(tag_filter) = filter.strip_prefix("tag:") {
+                        return m
+                            .tag
+                            .as_ref()
+                            .map(|t| t.to_lowercase().contains(&tag_filter.to_lowercase()))
+                            .unwrap_or(false);
+                    }
+                }
+                true
+            })
+            .collect()
+    }
+
     fn render_left(&self, frame: &mut Frame, area: Rect, theme: &TuiTheme) {
-        let title = format!(" Runs ({}) ", self.runs.len());
+        let visible = self.visible_runs();
+        let title = if let Some(ref filter) = self.active_filter {
+            format!(" Runs ({}) [{}] ", visible.len(), filter)
+        } else {
+            format!(" Runs ({}) ", self.runs.len())
+        };
         let block = if self.focus == EvalFocus::Left {
             theme.styled_block_active(&title)
         } else {
@@ -434,20 +498,51 @@ impl Screen for DevEvalScreen {
             }
         }
 
+        // Calculate main area and optional input bar at bottom
+        let (main_area, input_area) = if self.input_mode != EvalInputMode::Normal {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(1), Constraint::Length(3)])
+                .split(area);
+            (chunks[0], Some(chunks[1]))
+        } else {
+            (area, None)
+        };
+
         // Show status message if present
         if let Some(ref msg) = self.status_msg {
             // Reserve 1 line at top for status
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Length(1), Constraint::Min(1)])
-                .split(area);
+                .split(main_area);
             frame.render_widget(
                 Paragraph::new(msg.clone()).style(theme.status_warn()),
                 chunks[0],
             );
             self.render_columns(frame, chunks[1], theme);
         } else {
-            self.render_columns(frame, area, theme);
+            self.render_columns(frame, main_area, theme);
+        }
+
+        // Render input bar when in an input mode
+        if let Some(input_area) = input_area {
+            let (label, input) = match self.input_mode {
+                EvalInputMode::Search => ("Search", &self.search_input),
+                EvalInputMode::RunSuite => ("Run Suite", &self.command_input),
+                EvalInputMode::DiffInput => ("Diff (A B)", &self.command_input),
+                EvalInputMode::Filter => {
+                    let target_label = match self.filter_target {
+                        Some(FilterTarget::Tag) => "Filter [Tag]",
+                        _ => "Filter [Suite]",
+                    };
+                    (target_label, &self.filter_input)
+                }
+                EvalInputMode::Normal => unreachable!(),
+            };
+            let title = format!(" {} ", label);
+            let block = theme.styled_block_active(&title);
+            input.render(frame, input_area, theme, Some(block));
         }
     }
 
@@ -458,6 +553,105 @@ impl Screen for DevEvalScreen {
         }
 
         if let AppEvent::Key(key) = event {
+            // When in input mode, delegate to the active TextInput first
+            match self.input_mode {
+                EvalInputMode::Search => {
+                    match key.code {
+                        KeyCode::Enter => {
+                            // Apply search filter
+                            self.input_mode = EvalInputMode::Normal;
+                            self.search_input.deactivate();
+                        }
+                        KeyCode::Esc => {
+                            self.input_mode = EvalInputMode::Normal;
+                            self.search_input.clear();
+                        }
+                        _ => {
+                            self.search_input.handle_key(key.code);
+                        }
+                    }
+                    return;
+                }
+                EvalInputMode::RunSuite => {
+                    match key.code {
+                        KeyCode::Enter => {
+                            let suite = self.command_input.value().to_string();
+                            self.status_msg =
+                                Some(format!("Running suite: {} (pending)", suite));
+                            self.input_mode = EvalInputMode::Normal;
+                            self.command_input.clear();
+                        }
+                        KeyCode::Esc => {
+                            self.input_mode = EvalInputMode::Normal;
+                            self.command_input.clear();
+                        }
+                        _ => {
+                            self.command_input.handle_key(key.code);
+                        }
+                    }
+                    return;
+                }
+                EvalInputMode::DiffInput => {
+                    match key.code {
+                        KeyCode::Enter => {
+                            let ids = self.command_input.value().to_string();
+                            self.status_msg =
+                                Some(format!("Diff: {} (pending)", ids));
+                            self.input_mode = EvalInputMode::Normal;
+                            self.command_input.clear();
+                        }
+                        KeyCode::Esc => {
+                            self.input_mode = EvalInputMode::Normal;
+                            self.command_input.clear();
+                        }
+                        _ => {
+                            self.command_input.handle_key(key.code);
+                        }
+                    }
+                    return;
+                }
+                EvalInputMode::Filter => {
+                    match key.code {
+                        KeyCode::Enter => {
+                            let value = self.filter_input.value().to_string();
+                            if !value.is_empty() {
+                                let prefix = match self.filter_target {
+                                    Some(FilterTarget::Tag) => "tag:",
+                                    _ => "suite:",
+                                };
+                                self.active_filter =
+                                    Some(format!("{}{}", prefix, value));
+                            }
+                            self.input_mode = EvalInputMode::Normal;
+                            self.filter_input.clear();
+                            self.filter_target = None;
+                        }
+                        KeyCode::Esc => {
+                            self.input_mode = EvalInputMode::Normal;
+                            self.filter_input.clear();
+                            self.filter_target = None;
+                        }
+                        KeyCode::Tab => {
+                            // Cycle filter target between Suite and Tag
+                            self.filter_target = match self.filter_target {
+                                Some(FilterTarget::Suite) | None => {
+                                    Some(FilterTarget::Tag)
+                                }
+                                Some(FilterTarget::Tag) => {
+                                    Some(FilterTarget::Suite)
+                                }
+                            };
+                        }
+                        _ => {
+                            self.filter_input.handle_key(key.code);
+                        }
+                    }
+                    return;
+                }
+                EvalInputMode::Normal => {}
+            }
+
+            // Normal mode key handling
             match key.code {
                 // Navigation within focused column
                 KeyCode::Char('j') | KeyCode::Down => match self.focus {
@@ -523,15 +717,31 @@ impl Screen for DevEvalScreen {
                     }
                     EvalFocus::Right => {}
                 },
-                // Shortcut keys (placeholder)
+                // Shortcut keys
                 KeyCode::Char('r') => {
-                    self.status_msg =
-                        Some("Run which suite? (not yet implemented)".to_string());
+                    self.input_mode = EvalInputMode::RunSuite;
+                    self.command_input.set_value("");
+                    self.command_input.activate();
                 }
-                // Note: 'd' for diff; Ctrl+D is handled at app level for view switch
+                KeyCode::Char('d') => {
+                    self.input_mode = EvalInputMode::DiffInput;
+                    self.command_input.set_value("");
+                    self.command_input.activate();
+                }
                 KeyCode::Char('/') => {
-                    self.status_msg =
-                        Some("Filter (not yet implemented)".to_string());
+                    self.input_mode = EvalInputMode::Search;
+                    self.search_input.clear();
+                    self.search_input.activate();
+                }
+                KeyCode::Char('f') => {
+                    self.input_mode = EvalInputMode::Filter;
+                    self.filter_target = Some(FilterTarget::Suite);
+                    self.filter_input.clear();
+                    self.filter_input.activate();
+                }
+                KeyCode::Char('F') => {
+                    // Clear active filter
+                    self.active_filter = None;
                 }
                 _ => {}
             }
@@ -759,29 +969,173 @@ mod tests {
     }
 
     #[test]
-    fn shortcut_r_sets_status() {
+    fn shortcut_r_enters_run_mode() {
         let mut screen = DevEvalScreen::new();
         screen.handle_event(&key(KeyCode::Char('r')));
-        assert!(screen.status_msg.is_some());
-        assert!(screen.status_msg.as_ref().unwrap().contains("suite"));
+        assert_eq!(screen.input_mode, EvalInputMode::RunSuite);
+        assert!(screen.command_input.is_active());
     }
 
     #[test]
-    fn shortcut_slash_sets_status() {
+    fn shortcut_slash_enters_search_mode() {
         let mut screen = DevEvalScreen::new();
         screen.handle_event(&key(KeyCode::Char('/')));
-        assert!(screen.status_msg.is_some());
-        assert!(screen.status_msg.as_ref().unwrap().contains("Filter"));
+        assert_eq!(screen.input_mode, EvalInputMode::Search);
+        assert!(screen.search_input.is_active());
     }
 
     #[test]
     fn status_cleared_on_next_key() {
         let mut screen = DevEvalScreen::new();
-        screen.handle_event(&key(KeyCode::Char('r')));
+        // Trigger status via run-suite Enter
+        screen.input_mode = EvalInputMode::RunSuite;
+        screen.command_input.activate();
+        screen.command_input.set_value("basic");
+        screen.handle_event(&key(KeyCode::Enter));
         assert!(screen.status_msg.is_some());
         // Next key press clears status
         screen.handle_event(&key(KeyCode::Char('j')));
         assert!(screen.status_msg.is_none());
+    }
+
+    #[test]
+    fn d_enters_diff_mode() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('d')));
+        assert_eq!(screen.input_mode, EvalInputMode::DiffInput);
+        assert!(screen.command_input.is_active());
+    }
+
+    #[test]
+    fn esc_in_search_returns_to_normal() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('/')));
+        assert_eq!(screen.input_mode, EvalInputMode::Search);
+        screen.handle_event(&key(KeyCode::Esc));
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
+    }
+
+    #[test]
+    fn esc_in_run_suite_returns_to_normal() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('r')));
+        assert_eq!(screen.input_mode, EvalInputMode::RunSuite);
+        screen.handle_event(&key(KeyCode::Esc));
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
+    }
+
+    #[test]
+    fn esc_in_diff_returns_to_normal() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('d')));
+        assert_eq!(screen.input_mode, EvalInputMode::DiffInput);
+        screen.handle_event(&key(KeyCode::Esc));
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
+    }
+
+    #[test]
+    fn enter_in_run_suite_sets_status() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('r')));
+        // Type "basic"
+        for c in "basic".chars() {
+            screen.handle_event(&key(KeyCode::Char(c)));
+        }
+        screen.handle_event(&key(KeyCode::Enter));
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
+        assert!(screen.status_msg.is_some());
+        assert!(screen.status_msg.as_ref().unwrap().contains("basic"));
+    }
+
+    #[test]
+    fn enter_in_diff_sets_status() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('d')));
+        for c in "A B".chars() {
+            screen.handle_event(&key(KeyCode::Char(c)));
+        }
+        screen.handle_event(&key(KeyCode::Enter));
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
+        assert!(screen.status_msg.as_ref().unwrap().contains("A B"));
+    }
+
+    #[test]
+    fn f_enters_filter_mode() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('f')));
+        assert_eq!(screen.input_mode, EvalInputMode::Filter);
+        assert!(screen.filter_input.is_active());
+        assert_eq!(screen.filter_target, Some(FilterTarget::Suite));
+    }
+
+    #[test]
+    fn shift_f_clears_filter() {
+        let mut screen = DevEvalScreen::new();
+        screen.active_filter = Some("suite:test".to_string());
+        screen.handle_event(&key(KeyCode::Char('F')));
+        assert!(screen.active_filter.is_none());
+    }
+
+    #[test]
+    fn filter_tab_cycles_target() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('f')));
+        assert_eq!(screen.filter_target, Some(FilterTarget::Suite));
+        screen.handle_event(&key(KeyCode::Tab));
+        assert_eq!(screen.filter_target, Some(FilterTarget::Tag));
+        screen.handle_event(&key(KeyCode::Tab));
+        assert_eq!(screen.filter_target, Some(FilterTarget::Suite));
+    }
+
+    #[test]
+    fn filter_enter_applies_suite_filter() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('f')));
+        for c in "basic".chars() {
+            screen.handle_event(&key(KeyCode::Char(c)));
+        }
+        screen.handle_event(&key(KeyCode::Enter));
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
+        assert_eq!(screen.active_filter, Some("suite:basic".to_string()));
+    }
+
+    #[test]
+    fn filter_enter_applies_tag_filter() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('f')));
+        screen.handle_event(&key(KeyCode::Tab)); // Switch to Tag
+        for c in "v1".chars() {
+            screen.handle_event(&key(KeyCode::Char(c)));
+        }
+        screen.handle_event(&key(KeyCode::Enter));
+        assert_eq!(screen.active_filter, Some("tag:v1".to_string()));
+    }
+
+    #[test]
+    fn filter_esc_cancels() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('f')));
+        for c in "test".chars() {
+            screen.handle_event(&key(KeyCode::Char(c)));
+        }
+        screen.handle_event(&key(KeyCode::Esc));
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
+        assert!(screen.active_filter.is_none());
+    }
+
+    #[test]
+    fn filter_empty_enter_no_filter() {
+        let mut screen = DevEvalScreen::new();
+        screen.handle_event(&key(KeyCode::Char('f')));
+        // Enter without typing
+        screen.handle_event(&key(KeyCode::Enter));
+        assert!(screen.active_filter.is_none());
+    }
+
+    #[test]
+    fn input_mode_default_is_normal() {
+        let screen = DevEvalScreen::new();
+        assert_eq!(screen.input_mode, EvalInputMode::Normal);
     }
 
     #[test]
