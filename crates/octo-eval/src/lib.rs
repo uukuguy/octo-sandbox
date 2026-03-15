@@ -8,6 +8,7 @@ pub mod mock_provider;
 pub mod model;
 pub mod recorder;
 pub mod reporter;
+pub mod run_store;
 pub mod runner;
 pub mod score;
 pub mod scorer;

@@ -6,7 +6,7 @@
 use clap::Parser;
 
 use commands::{
-    AgentCommands, CompletionsCommands, ConfigCommands, McpCommands, MemoryCommands,
+    AgentCommands, CompletionsCommands, ConfigCommands, EvalCommands, McpCommands, MemoryCommands,
     SessionCommands, ToolsCommands,
 };
 
@@ -124,6 +124,12 @@ pub enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigCommands,
+    },
+
+    /// Evaluation management
+    Eval {
+        #[command(subcommand)]
+        action: EvalCommands,
     },
 
     /// Run health diagnostics

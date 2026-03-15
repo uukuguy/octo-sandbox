@@ -133,6 +133,11 @@ async fn main() -> Result<()> {
             };
             commands::dashboard::run_dashboard(&opts).await?;
         }
+        Commands::Eval { action: _ } => {
+            // TODO(Ma-T5): wire eval handler
+            eprintln!("Eval commands not yet implemented. Coming in Ma-T5.");
+            std::process::exit(1);
+        }
     }
 
     Ok(())

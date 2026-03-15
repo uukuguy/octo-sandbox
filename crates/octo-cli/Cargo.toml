@@ -21,6 +21,7 @@ dashboard-tls = ["axum-server", "rcgen"]
 octo-types = { workspace = true }
 octo-engine = { workspace = true }
 octo-sandbox = { workspace = true }
+octo-eval = { path = "../octo-eval" }
 
 # Async runtime
 tokio = { workspace = true, features = ["full"] }

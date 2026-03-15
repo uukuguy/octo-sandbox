@@ -19,7 +19,7 @@ pub mod types;
 
 // Re-export types for external use
 pub use types::{
-    AgentCommands, CompletionsCommands, ConfigCommands, McpCommands, MemoryCommands,
+    AgentCommands, CompletionsCommands, ConfigCommands, EvalCommands, McpCommands, MemoryCommands,
     SessionCommands, ToolsCommands,
 };
 

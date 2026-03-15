@@ -230,3 +230,109 @@ pub enum CompletionsCommands {
         shell: clap_complete::Shell,
     },
 }
+
+/// Evaluation management subcommands
+#[derive(Subcommand)]
+pub enum EvalCommands {
+    /// List available evaluation suites
+    List,
+    /// Show/validate evaluation configuration
+    Config {
+        /// Config file path
+        #[arg(long, default_value = "eval.toml")]
+        path: String,
+    },
+    /// Run single-model evaluation
+    Run {
+        /// Suite name
+        #[arg(long)]
+        suite: String,
+        /// Tag this run for future reference
+        #[arg(long)]
+        tag: Option<String>,
+        /// Config file path
+        #[arg(long)]
+        config: Option<String>,
+        /// Target mode: engine, cli, or server
+        #[arg(long, default_value = "engine")]
+        target: String,
+    },
+    /// Run multi-model comparison
+    Compare {
+        /// Suite name
+        #[arg(long)]
+        suite: String,
+        /// Tag this run
+        #[arg(long)]
+        tag: Option<String>,
+        /// Config file path
+        #[arg(long)]
+        config: Option<String>,
+    },
+    /// Run multi-suite benchmark
+    Benchmark {
+        /// Comma-separated suite list
+        #[arg(long)]
+        suites: Option<String>,
+        /// Tag this run
+        #[arg(long)]
+        tag: Option<String>,
+        /// Config file path
+        #[arg(long)]
+        config: Option<String>,
+    },
+    /// View run report
+    Report {
+        /// Run ID (e.g., 2026-03-16-001)
+        run_id: String,
+        /// Output format: text, json, markdown
+        #[arg(long, default_value = "text")]
+        format: String,
+    },
+    /// View task trace timeline
+    Trace {
+        /// Run ID
+        run_id: String,
+        /// Task ID
+        task_id: String,
+        /// Show full trace details
+        #[arg(long)]
+        full: bool,
+    },
+    /// Failure analysis for a run
+    Diagnose {
+        /// Run ID
+        run_id: String,
+        /// Filter by failure category
+        #[arg(long)]
+        category: Option<String>,
+    },
+    /// Compare two runs
+    Diff {
+        /// First run ID (baseline)
+        run_a: String,
+        /// Second run ID (current)
+        run_b: String,
+    },
+    /// List run history
+    History {
+        /// Maximum entries to show
+        #[arg(long, default_value = "20")]
+        limit: usize,
+        /// Filter by suite name
+        #[arg(long)]
+        suite: Option<String>,
+        /// Filter runs since date (YYYY-MM-DD)
+        #[arg(long)]
+        since: Option<String>,
+    },
+    /// Watch evaluation progress (periodic re-run)
+    Watch {
+        /// Suite to evaluate
+        #[arg(long)]
+        suite: String,
+        /// Interval in seconds between runs
+        #[arg(long, default_value = "60")]
+        interval: u64,
+    },
+}
