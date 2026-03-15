@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 use crossterm::event::KeyCode;
 use ratatui::prelude::*;
-use ratatui::widgets::{Block, Borders, List, ListItem, Paragraph, Wrap};
+use ratatui::widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap};
 
 use octo_eval::recorder::EvalTrace;
 use octo_eval::reporter::TaskResultSummary;
@@ -101,6 +101,8 @@ pub struct DevEvalScreen {
     filter_input: TextInput,
     /// Current applied filter text
     active_filter: Option<String>,
+    /// Watch progress: (completed, total) tasks
+    watch_progress: Option<(usize, usize)>,
 }
 
 impl DevEvalScreen {
@@ -122,6 +124,7 @@ impl DevEvalScreen {
             filter_target: None,
             filter_input: TextInput::new("Filter..."),
             active_filter: None,
+            watch_progress: None,
         }
     }
 
@@ -509,20 +512,55 @@ impl Screen for DevEvalScreen {
             (area, None)
         };
 
+        // Reserve space for watch progress bar if active
+        let (columns_area, progress_area) = if self.watch_progress.is_some() {
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([Constraint::Min(1), Constraint::Length(2)])
+                .split(main_area);
+            (chunks[0], Some(chunks[1]))
+        } else {
+            (main_area, None)
+        };
+
         // Show status message if present
         if let Some(ref msg) = self.status_msg {
             // Reserve 1 line at top for status
             let chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([Constraint::Length(1), Constraint::Min(1)])
-                .split(main_area);
+                .split(columns_area);
             frame.render_widget(
                 Paragraph::new(msg.clone()).style(theme.status_warn()),
                 chunks[0],
             );
             self.render_columns(frame, chunks[1], theme);
         } else {
-            self.render_columns(frame, main_area, theme);
+            self.render_columns(frame, columns_area, theme);
+        }
+
+        // Render watch progress bar
+        if let (Some((completed, total)), Some(progress_area)) =
+            (self.watch_progress, progress_area)
+        {
+            let ratio = if total > 0 {
+                completed as f64 / total as f64
+            } else {
+                0.0
+            };
+            let style = if ratio >= 1.0 {
+                Style::default().fg(theme.success)
+            } else if ratio >= 0.5 {
+                Style::default().fg(theme.info)
+            } else {
+                Style::default().fg(theme.warning)
+            };
+            let gauge = Gauge::default()
+                .block(Block::default().borders(Borders::NONE))
+                .gauge_style(style)
+                .ratio(ratio.min(1.0))
+                .label(format!("Watch: {}/{} ({:.0}%)", completed, total, ratio * 100.0));
+            frame.render_widget(gauge, progress_area);
         }
 
         // Render input bar when in an input mode
@@ -1184,5 +1222,26 @@ mod tests {
         let result = truncate_str("hello world this is long", 10);
         assert!(result.len() <= 12);
         assert!(result.ends_with(".."));
+    }
+
+    #[test]
+    fn watch_progress_default_none() {
+        let screen = DevEvalScreen::new();
+        assert!(screen.watch_progress.is_none());
+    }
+
+    #[test]
+    fn watch_progress_set_and_read() {
+        let mut screen = DevEvalScreen::new();
+        screen.watch_progress = Some((5, 10));
+        assert_eq!(screen.watch_progress, Some((5, 10)));
+    }
+
+    #[test]
+    fn watch_progress_complete() {
+        let mut screen = DevEvalScreen::new();
+        screen.watch_progress = Some((10, 10));
+        let (completed, total) = screen.watch_progress.unwrap();
+        assert_eq!(completed, total);
     }
 }
