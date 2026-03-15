@@ -761,7 +761,7 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
     let suite_list = cli
         .suites
         .as_deref()
-        .unwrap_or("tool_call,security,bfcl,context,resilience,reasoning");
+        .unwrap_or("gaia,swe_bench,tau_bench,terminal_bench,bfcl,security,context,resilience");
     let suite_names: Vec<&str> = suite_list.split(',').map(|s| s.trim()).collect();
 
     // Load TOML config for model definitions

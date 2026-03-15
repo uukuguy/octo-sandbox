@@ -1156,6 +1156,7 @@ fn is_external_benchmark_file(path: &std::path::Path) -> bool {
             name.starts_with("gaia_")
                 || name.starts_with("swe_bench_")
                 || name.starts_with("tau_bench_")
+                || name.starts_with("terminal_bench")
         })
 }
 

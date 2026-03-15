@@ -115,6 +115,13 @@ pub enum ScoreDetails {
         observed: bool,
         evidence: String,
     },
+    /// Terminal-Bench command orchestration scoring
+    TerminalBench {
+        command_match_rate: f64,
+        output_match_rate: f64,
+        forbidden_found: Vec<String>,
+        level: u32,
+    },
 }
 
 impl EvalScore {

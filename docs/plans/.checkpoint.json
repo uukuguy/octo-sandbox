@@ -1,71 +1,64 @@
 {
-  "plan_file": "docs/plans/2026-03-15-phase-o-deferred-unlock.md",
-  "phase": "complete",
-  "created_at": "2026-03-15T16:17:00+08:00",
-  "updated_at": "2026-03-15T17:50:00+08:00",
-  "completed_tasks": [
-    "O-T1", "O-T2", "O-T3", "O-T4", "O-T5", "O-T6",
-    "O-T7", "O-T8", "O-T9",
-    "O-T10", "O-T11", "O-T12", "O-T13",
-    "O-T14", "O-T15"
-  ],
-  "current_task": null,
-  "total_tasks": 15,
+  "plan_file": "docs/plans/2026-03-15-phase-p-baseline-eval-r2.md",
+  "phase": "in_progress",
+  "created_at": "2026-03-15T19:30:00+08:00",
+  "updated_at": "2026-03-15T19:45:00+08:00",
+  "completed_tasks": ["P1", "P2-T1", "P2-T2", "P2-T3", "P2-T4", "P3-T1", "P3-T2", "P3-T3", "P4-T1", "P4-T2"],
+  "current_task": "P5-T1",
+  "total_tasks": 16,
   "task_groups": {
-    "G1": {
-      "name": "TUI Input Widget 抽取",
-      "tasks": ["O-T1", "O-T2", "O-T3", "O-T4", "O-T5", "O-T6"],
+    "P1": {
+      "name": "Model Matrix Update",
+      "tasks": ["P1"],
       "status": "COMPLETE",
-      "description": "TextInput widget + ChatScreen refactor + Eval dialogs/filter + Memory search + Watch progress"
+      "description": "eval.benchmark.toml updated with 6-model matrix"
     },
-    "G2": {
-      "name": "ProviderChain Failover Trace",
-      "tasks": ["O-T7", "O-T8", "O-T9"],
+    "P2": {
+      "name": "Terminal-Bench Adapter",
+      "tasks": ["P2-T1", "P2-T2", "P2-T3", "P2-T4"],
       "status": "COMPLETE",
-      "description": "FailoverTrace data structures + ChainProvider instrumentation + Provider Inspector visualization"
+      "description": "terminal_bench.rs adapter + 30 tasks JSONL + BenchmarkRegistry registration + tests"
     },
-    "G3": {
-      "name": "Session Event 广播",
-      "tasks": ["O-T10", "O-T11", "O-T12", "O-T13"],
+    "P3": {
+      "name": "Default Suite Update",
+      "tasks": ["P3-T1", "P3-T2", "P3-T3"],
       "status": "COMPLETE",
-      "description": "SessionEvent enum + EventBus + WS SessionUpdate + DevAgent event-driven refresh"
+      "description": "Default benchmark suites updated from LLM-centric to agentic benchmarks"
     },
-    "G4": {
-      "name": "Workbench 收尾",
-      "tasks": ["O-T14", "O-T15"],
+    "P4": {
+      "name": "Compile & Test",
+      "tasks": ["P4-T1", "P4-T2"],
       "status": "COMPLETE",
-      "description": "Workbench mode audit vs §6.9.2 + deferred status updates across 3 plan files"
+      "description": "cargo check + cargo test all pass (2183 tests, +5 from baseline 2178)"
+    },
+    "P5": {
+      "name": "Execute Evaluation",
+      "tasks": ["P5-T1", "P5-T2", "P5-T3"],
+      "status": "PENDING",
+      "description": "8 suites x 6 models full benchmark evaluation"
+    },
+    "P6": {
+      "name": "Report & Archive",
+      "tasks": ["P6-T1", "P6-T2", "P6-T3"],
+      "status": "PENDING",
+      "description": "Baseline report update + session guide + phase archive"
     }
   },
-  "execution_order": ["G1", "G2", "G3", "G4"],
-  "phase_name": "Phase O — Deferred 暂缓项全解锁",
-  "status": "COMPLETE",
-  "notes": "Phase O complete (15/15). All 10 deferred items across M-a/M-b/N resolved. Tests: 2126→2178 (+52). New components: TextInput widget, FailoverTrace, SessionEventBus.",
+  "execution_order": ["P1", "P2", "P3", "P4", "P5", "P6"],
+  "phase_name": "Phase P — Baseline Evaluation Round 2",
+  "status": "IN_PROGRESS",
+  "notes": "P1-P4 complete. Terminal-Bench adapter implemented (30 tasks, L1/L2/L3). Default suites changed to agentic benchmarks. Tests: 2178→2183 (+5). Ready for P5 evaluation execution.",
   "related_plans": {
-    "design": "docs/design/AGENT_CLI_DESIGN.md",
-    "phase_o": "docs/plans/2026-03-15-phase-o-deferred-unlock.md",
-    "phase_n": "docs/plans/2026-03-15-phase-n-agent-debug.md",
-    "phase_mb": "docs/plans/2026-03-15-phase-mb-tui-dual-view.md",
-    "phase_ma": "docs/plans/2026-03-15-phase-m-eval-cli.md"
+    "design": "docs/design/AGENT_EVALUATION_DESIGN.md",
+    "phase_p": "docs/plans/2026-03-15-phase-p-baseline-eval-r2.md",
+    "phase_o": "docs/plans/2026-03-15-phase-o-deferred-unlock.md"
   },
   "previous_plan": {
-    "file": "docs/plans/2026-03-15-phase-n-agent-debug.md",
+    "file": "docs/plans/2026-03-15-phase-o-deferred-unlock.md",
     "status": "COMPLETE",
-    "tasks_completed": 7,
-    "total_tasks": 7,
-    "tests_baseline": 2096,
-    "tests_final": 2126
-  },
-  "deferred_resolved": {
-    "M-a_D1": "TUI 双视图 + Eval 面板 → Phase M-b",
-    "M-a_D2": "Agent 调试面板 + Inspector → Phase N",
-    "M-a_D3": "watch 实时 TUI 进度条 → Phase O G1-T6",
-    "M-b_D1": "Eval shortcut dialogs → Phase O G1-T3",
-    "M-b_D2": "Eval filter popup → Phase O G1-T4",
-    "M-b_D3": "Dev-Agent panel → Phase N",
-    "N_D1": "Session 实时数据流 → Phase O G3-T10~T13",
-    "N_D2": "Memory 搜索交互 → Phase O G1-T5",
-    "N_D3": "Provider failover 链路可视化 → Phase O G2-T7~T9",
-    "N_D4": "完整 Workbench 模式 → Phase O G4-T14"
+    "tasks_completed": 15,
+    "total_tasks": 15,
+    "tests_baseline": 2126,
+    "tests_final": 2178
   }
 }

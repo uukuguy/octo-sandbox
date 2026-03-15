@@ -6,6 +6,7 @@
 pub mod gaia;
 pub mod swe_bench;
 pub mod tau_bench;
+pub mod terminal_bench;
 
 use std::collections::HashMap;
 use std::future::Future;
@@ -89,6 +90,7 @@ impl BenchmarkRegistry {
         reg.register(Box::new(gaia::GaiaBenchmark::new()));
         reg.register(Box::new(swe_bench::SweBenchmark::new()));
         reg.register(Box::new(tau_bench::TauBenchmark::new()));
+        reg.register(Box::new(terminal_bench::TerminalBenchmark::new()));
         reg
     }
 
