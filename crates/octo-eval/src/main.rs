@@ -26,6 +26,8 @@ use octo_eval::suites::reasoning::ReasoningSuite;
 use octo_eval::suites::security::SecuritySuite;
 use octo_eval::suites::tool_boundary::ToolBoundarySuite;
 use octo_eval::benchmarks::BenchmarkRegistry;
+use octo_eval::suites::platform_security::PlatformSecuritySuite;
+use octo_eval::suites::provider_resilience::ProviderResilienceSuite;
 use octo_eval::suites::resilience::ResilienceSuite;
 use octo_eval::suites::tool_call::ToolCallSuite;
 use octo_eval::task::EvalTask;
@@ -89,6 +91,8 @@ fn cmd_list_suites() -> Result<()> {
     println!("    reasoning     — Reasoning, planning, and task decomposition (LlmJudge)");
     println!();
     println!("    resilience    — Resilience: retry, e-stop, canary detection, error recovery (20 tasks)");
+    println!("    platform_security — Platform security: SecurityPolicy modes, autonomy, path traversal (15 tasks)");
+    println!("    provider_resilience — Provider resilience: failover, rate limit, timeout health (12 tasks)");
     println!();
     println!("  Direct API Suites (mock-based, no LLM required):");
     println!("    provider    — Provider fault tolerance & failover (10 tests)");
@@ -124,6 +128,8 @@ fn load_suite(name: &str) -> Result<Vec<Box<dyn EvalTask>>> {
         "tool_boundary" => ToolBoundarySuite::load(),
         "reasoning" => ReasoningSuite::load(),
         "resilience" => ResilienceSuite::load(),
+        "platform_security" => PlatformSecuritySuite::load(),
+        "provider_resilience" => ProviderResilienceSuite::load(),
         "bfcl" => {
             let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
             let path = manifest_dir.join("datasets/bfcl_simple.jsonl");
