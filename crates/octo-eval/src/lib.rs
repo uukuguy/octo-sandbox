@@ -4,6 +4,7 @@ pub mod comparison;
 pub mod config;
 pub mod datasets;
 pub mod failure;
+pub mod faulty_provider;
 pub mod mock_provider;
 pub mod mock_tool;
 pub mod model;

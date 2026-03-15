@@ -67,4 +67,11 @@ pub trait EvalTask: Send + Sync {
     fn llm_judge_config(&self) -> Option<LlmJudgeConfig> {
         None
     }
+
+    /// Optional fault injection config for resilience testing.
+    /// When present, the runner wraps the provider with FaultyProvider.
+    /// Returns (fail_turn, error_type) — e.g., (1, "rate_limit").
+    fn fault_config(&self) -> Option<(u32, String)> {
+        None
+    }
 }

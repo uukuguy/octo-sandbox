@@ -222,9 +222,21 @@ impl EvalRunner {
             Arc::new(base_registry)
         };
 
+        // Select provider — wrap with FaultyProvider for fault-injection resilience tasks
+        let effective_provider: Arc<dyn octo_engine::providers::Provider> =
+            if let Some((fail_turn, error_type)) = task.fault_config() {
+                Arc::new(crate::faulty_provider::FaultyProvider::from_config(
+                    self.provider.clone(),
+                    fail_turn,
+                    &error_type,
+                ))
+            } else {
+                self.provider.clone()
+            };
+
         // Build AgentLoopConfig
         let loop_config = AgentLoopConfig::builder()
-            .provider(self.provider.clone())
+            .provider(effective_provider)
             .model(engine_config.model.clone())
             .max_tokens(engine_config.max_tokens)
             .max_iterations(engine_config.max_iterations)
