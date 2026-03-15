@@ -23,4 +23,8 @@ pub enum AppEvent {
     ClearStatus,
     /// Tick event (for animations/updates)
     Tick,
+    /// Switch to Ops view mode
+    SwitchToOps,
+    /// Switch to Dev view mode
+    SwitchToDev,
 }

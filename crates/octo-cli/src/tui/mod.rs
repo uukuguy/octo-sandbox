@@ -19,6 +19,7 @@ use ratatui::Terminal;
 
 use crate::commands::AppState;
 use self::event::AppEvent;
+use self::screens::Screen;
 use self::theme::TuiTheme;
 
 /// Active tab/screen in the TUI
@@ -82,6 +83,96 @@ impl Tab {
     }
 }
 
+/// Active view mode: Ops or Dev
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ViewMode {
+    Ops,
+    Dev,
+}
+
+/// Ops view tabs — a curated subset of the full Tab set
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OpsTab {
+    Dashboard,
+    Agents,
+    Sessions,
+    Mcp,
+    Security,
+    Logs,
+}
+
+impl OpsTab {
+    pub fn all() -> &'static [OpsTab] {
+        &[
+            OpsTab::Dashboard,
+            OpsTab::Agents,
+            OpsTab::Sessions,
+            OpsTab::Mcp,
+            OpsTab::Security,
+            OpsTab::Logs,
+        ]
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            OpsTab::Dashboard => "Dashboard",
+            OpsTab::Agents => "Agents",
+            OpsTab::Sessions => "Sessions",
+            OpsTab::Mcp => "MCP",
+            OpsTab::Security => "Security",
+            OpsTab::Logs => "Logs",
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        OpsTab::all().iter().position(|t| t == self).unwrap_or(0)
+    }
+
+    pub fn from_index(idx: usize) -> Self {
+        OpsTab::all().get(idx).copied().unwrap_or(OpsTab::Dashboard)
+    }
+
+    /// Map to the corresponding full Tab for screen routing
+    fn to_tab(&self) -> Tab {
+        match self {
+            OpsTab::Dashboard => Tab::Dashboard,
+            OpsTab::Agents => Tab::Agents,
+            OpsTab::Sessions => Tab::Sessions,
+            OpsTab::Mcp => Tab::Mcp,
+            OpsTab::Security => Tab::Security,
+            OpsTab::Logs => Tab::Logs,
+        }
+    }
+}
+
+/// Dev view tasks
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DevTask {
+    Agent, // placeholder for Phase N
+    Eval,
+}
+
+impl DevTask {
+    pub fn all() -> &'static [DevTask] {
+        &[DevTask::Agent, DevTask::Eval]
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            DevTask::Agent => "Agent Debug",
+            DevTask::Eval => "Eval",
+        }
+    }
+
+    pub fn index(&self) -> usize {
+        DevTask::all().iter().position(|t| t == self).unwrap_or(0)
+    }
+
+    pub fn from_index(idx: usize) -> Self {
+        DevTask::all().get(idx).copied().unwrap_or(DevTask::Eval)
+    }
+}
+
 /// Main TUI application state
 pub struct App {
     /// Current active tab
@@ -96,6 +187,12 @@ pub struct App {
     pub screens: screens::ScreenManager,
     /// Status bar message
     pub status_message: Option<String>,
+    /// Current view mode (Ops or Dev)
+    pub view_mode: ViewMode,
+    /// Active Ops tab (when in Ops mode)
+    pub ops_tab: OpsTab,
+    /// Active Dev task (when in Dev mode)
+    pub dev_task: DevTask,
 }
 
 impl App {
@@ -107,6 +204,9 @@ impl App {
             theme,
             screens: screens::ScreenManager::new(),
             status_message: None,
+            view_mode: ViewMode::Dev,
+            ops_tab: OpsTab::Dashboard,
+            dev_task: DevTask::Eval,
         }
     }
 
@@ -133,6 +233,16 @@ impl App {
             AppEvent::ClearStatus => {
                 self.status_message = None;
             }
+            AppEvent::SwitchToOps => {
+                self.view_mode = ViewMode::Ops;
+                self.status_message =
+                    Some("[Ops] Ctrl+D switch to Dev | Tab/1-6 navigate".to_string());
+            }
+            AppEvent::SwitchToDev => {
+                self.view_mode = ViewMode::Dev;
+                self.status_message =
+                    Some("[Dev] Ctrl+O switch to Ops | 1-2 select task".to_string());
+            }
             _ => {
                 // Forward to active screen
                 self.screens.handle_event(&self.active_tab, &event);
@@ -154,18 +264,98 @@ impl App {
             ])
             .split(area);
 
-        self.render_tab_bar(frame, chunks[0]);
-
-        // Clone what we need to avoid borrow conflicts
-        let tab = self.active_tab;
-        let theme = self.theme.clone();
-        let state = self.state.clone();
-        self.screens
-            .render(&tab, frame, chunks[1], &theme, &state);
+        match self.view_mode {
+            ViewMode::Ops => {
+                self.render_ops_tab_bar(frame, chunks[0]);
+                self.render_ops_view(frame, chunks[1]);
+            }
+            ViewMode::Dev => {
+                self.render_dev_header(frame, chunks[0]);
+                self.render_dev_view(frame, chunks[1]);
+            }
+        }
 
         self.render_status_bar(frame, chunks[2]);
     }
 
+    // -- Ops view rendering --
+
+    fn render_ops_tab_bar(&self, frame: &mut Frame, area: Rect) {
+        let tabs: Vec<Line> = OpsTab::all()
+            .iter()
+            .enumerate()
+            .map(|(i, tab)| {
+                let style = if *tab == self.ops_tab {
+                    self.theme.tab_active()
+                } else {
+                    self.theme.tab_inactive()
+                };
+                let label = format!("{}:{}", i + 1, tab.label());
+                Line::from(Span::styled(label, style))
+            })
+            .collect();
+
+        let tab_bar = ratatui::widgets::Tabs::new(tabs)
+            .select(self.ops_tab.index())
+            .divider(Span::raw(" | "))
+            .highlight_style(self.theme.tab_active());
+
+        frame.render_widget(tab_bar, area);
+    }
+
+    fn render_ops_view(&mut self, frame: &mut Frame, area: Rect) {
+        let tab = self.ops_tab.to_tab();
+        let theme = self.theme.clone();
+        let state = self.state.clone();
+        self.screens.render(&tab, frame, area, &theme, &state);
+    }
+
+    // -- Dev view rendering --
+
+    fn render_dev_header(&self, frame: &mut Frame, area: Rect) {
+        let spans: Vec<Span> = DevTask::all()
+            .iter()
+            .enumerate()
+            .flat_map(|(i, task)| {
+                let style = if *task == self.dev_task {
+                    self.theme.tab_active()
+                } else {
+                    self.theme.tab_inactive()
+                };
+                let label = format!("{}:{}", i + 1, task.label());
+                let mut items = vec![Span::styled(label, style)];
+                if i + 1 < DevTask::all().len() {
+                    items.push(Span::styled("  ", self.theme.text_dim()));
+                }
+                items
+            })
+            .collect();
+
+        let header = ratatui::widgets::Paragraph::new(Line::from(spans));
+        frame.render_widget(header, area);
+    }
+
+    fn render_dev_view(&mut self, frame: &mut Frame, area: Rect) {
+        match self.dev_task {
+            DevTask::Agent => {
+                let block = self.theme.styled_block(" Agent Debug ");
+                let placeholder = ratatui::widgets::Paragraph::new(
+                    "Agent debug panel - coming in Phase N",
+                )
+                .block(block);
+                frame.render_widget(placeholder, area);
+            }
+            DevTask::Eval => {
+                let theme = self.theme.clone();
+                let state = self.state.clone();
+                self.screens.dev_eval.render(frame, area, &theme, &state);
+            }
+        }
+    }
+
+    // -- Legacy tab bar (kept for reference but no longer used in dual-view) --
+
+    #[allow(dead_code)]
     fn render_tab_bar(&self, frame: &mut Frame, area: Rect) {
         let tabs: Vec<Line> = Tab::all()
             .iter()
@@ -188,10 +378,15 @@ impl App {
     }
 
     fn render_status_bar(&self, frame: &mut Frame, area: Rect) {
-        let msg = self
-            .status_message
-            .as_deref()
-            .unwrap_or("Press ? for help  |  Tab/Shift+Tab to navigate  |  q to quit");
+        let default_msg = match self.view_mode {
+            ViewMode::Ops => {
+                "[Ops] Ctrl+D switch to Dev | Tab/Shift+Tab navigate | 1-6 select tab | q quit"
+            }
+            ViewMode::Dev => {
+                "[Dev] Ctrl+O switch to Ops | 1-2 select task | q quit"
+            }
+        };
+        let msg = self.status_message.as_deref().unwrap_or(default_msg);
         let status = Line::from(Span::styled(msg, self.theme.text_dim()));
         frame.render_widget(ratatui::widgets::Paragraph::new(status), area);
     }
@@ -239,16 +434,54 @@ fn run_event_loop(
                     (KeyCode::Char('c'), KeyModifiers::CONTROL) => {
                         app.handle_event(AppEvent::Quit);
                     }
-                    (KeyCode::Tab, KeyModifiers::NONE) => {
-                        app.handle_event(AppEvent::NextTab);
+                    // View mode switching
+                    (KeyCode::Char('o'), KeyModifiers::CONTROL) => {
+                        app.handle_event(AppEvent::SwitchToOps);
                     }
-                    (KeyCode::BackTab, KeyModifiers::SHIFT) => {
-                        app.handle_event(AppEvent::PrevTab);
+                    (KeyCode::Char('d'), KeyModifiers::CONTROL) => {
+                        app.handle_event(AppEvent::SwitchToDev);
                     }
+                    // Tab/Shift+Tab navigation (mode-aware)
+                    (KeyCode::Tab, KeyModifiers::NONE) => match app.view_mode {
+                        ViewMode::Ops => {
+                            let tabs = OpsTab::all();
+                            let idx = app.ops_tab.index();
+                            app.ops_tab = OpsTab::from_index((idx + 1) % tabs.len());
+                        }
+                        ViewMode::Dev => {
+                            let tasks = DevTask::all();
+                            let idx = app.dev_task.index();
+                            app.dev_task = DevTask::from_index((idx + 1) % tasks.len());
+                        }
+                    },
+                    (KeyCode::BackTab, KeyModifiers::SHIFT) => match app.view_mode {
+                        ViewMode::Ops => {
+                            let tabs = OpsTab::all();
+                            let idx = app.ops_tab.index();
+                            app.ops_tab =
+                                OpsTab::from_index((idx + tabs.len() - 1) % tabs.len());
+                        }
+                        ViewMode::Dev => {
+                            let tasks = DevTask::all();
+                            let idx = app.dev_task.index();
+                            app.dev_task =
+                                DevTask::from_index((idx + tasks.len() - 1) % tasks.len());
+                        }
+                    },
+                    // Digit keys (mode-aware)
                     (KeyCode::Char(c), KeyModifiers::NONE) if c.is_ascii_digit() => {
-                        let idx = c.to_digit(10).unwrap_or(0) as usize;
-                        if idx > 0 && idx <= Tab::all().len() {
-                            app.handle_event(AppEvent::SelectTab(Tab::from_index(idx - 1)));
+                        let digit = c.to_digit(10).unwrap_or(0) as usize;
+                        match app.view_mode {
+                            ViewMode::Ops => {
+                                if digit > 0 && digit <= OpsTab::all().len() {
+                                    app.ops_tab = OpsTab::from_index(digit - 1);
+                                }
+                            }
+                            ViewMode::Dev => {
+                                if digit > 0 && digit <= DevTask::all().len() {
+                                    app.dev_task = DevTask::from_index(digit - 1);
+                                }
+                            }
                         }
                     }
                     _ => {
@@ -451,5 +684,146 @@ mod tests {
                 assert_eq!(tab.index(), idx - 1);
             }
         }
+    }
+
+    // -- ViewMode tests --
+
+    #[test]
+    fn view_mode_equality() {
+        assert_eq!(ViewMode::Ops, ViewMode::Ops);
+        assert_eq!(ViewMode::Dev, ViewMode::Dev);
+        assert_ne!(ViewMode::Ops, ViewMode::Dev);
+    }
+
+    #[test]
+    fn view_mode_debug_format() {
+        assert_eq!(format!("{:?}", ViewMode::Ops), "Ops");
+        assert_eq!(format!("{:?}", ViewMode::Dev), "Dev");
+    }
+
+    #[test]
+    fn view_mode_clone_copy() {
+        let mode = ViewMode::Ops;
+        let copied = mode;
+        assert_eq!(mode, copied);
+    }
+
+    // -- OpsTab tests --
+
+    #[test]
+    fn ops_tab_all_returns_6_tabs() {
+        assert_eq!(OpsTab::all().len(), 6);
+    }
+
+    #[test]
+    fn ops_tab_index_roundtrip() {
+        for tab in OpsTab::all() {
+            assert_eq!(OpsTab::from_index(tab.index()), *tab);
+        }
+    }
+
+    #[test]
+    fn ops_tab_from_index_out_of_bounds_returns_dashboard() {
+        assert_eq!(OpsTab::from_index(999), OpsTab::Dashboard);
+    }
+
+    #[test]
+    fn ops_tab_labels_are_nonempty() {
+        for tab in OpsTab::all() {
+            assert!(!tab.label().is_empty());
+        }
+    }
+
+    #[test]
+    fn ops_tab_mcp_label_is_uppercase() {
+        assert_eq!(OpsTab::Mcp.label(), "MCP");
+    }
+
+    #[test]
+    fn ops_tab_indices_are_sequential() {
+        for (i, tab) in OpsTab::all().iter().enumerate() {
+            assert_eq!(tab.index(), i);
+        }
+    }
+
+    #[test]
+    fn ops_tab_to_tab_maps_correctly() {
+        assert_eq!(OpsTab::Dashboard.to_tab(), Tab::Dashboard);
+        assert_eq!(OpsTab::Agents.to_tab(), Tab::Agents);
+        assert_eq!(OpsTab::Sessions.to_tab(), Tab::Sessions);
+        assert_eq!(OpsTab::Mcp.to_tab(), Tab::Mcp);
+        assert_eq!(OpsTab::Security.to_tab(), Tab::Security);
+        assert_eq!(OpsTab::Logs.to_tab(), Tab::Logs);
+    }
+
+    #[test]
+    fn ops_tab_next_wraps_around() {
+        let tabs = OpsTab::all();
+        let idx = tabs.len() - 1; // last (Logs)
+        let next = OpsTab::from_index((idx + 1) % tabs.len());
+        assert_eq!(next, OpsTab::Dashboard);
+    }
+
+    #[test]
+    fn ops_tab_prev_wraps_around() {
+        let tabs = OpsTab::all();
+        let idx = 0; // first (Dashboard)
+        let prev = OpsTab::from_index((idx + tabs.len() - 1) % tabs.len());
+        assert_eq!(prev, OpsTab::Logs);
+    }
+
+    // -- DevTask tests --
+
+    #[test]
+    fn dev_task_all_returns_2_tasks() {
+        assert_eq!(DevTask::all().len(), 2);
+    }
+
+    #[test]
+    fn dev_task_index_roundtrip() {
+        for task in DevTask::all() {
+            assert_eq!(DevTask::from_index(task.index()), *task);
+        }
+    }
+
+    #[test]
+    fn dev_task_from_index_out_of_bounds() {
+        assert_eq!(DevTask::from_index(999), DevTask::Eval);
+    }
+
+    #[test]
+    fn dev_task_labels_are_nonempty() {
+        for task in DevTask::all() {
+            assert!(!task.label().is_empty());
+        }
+    }
+
+    #[test]
+    fn dev_task_agent_label() {
+        assert_eq!(DevTask::Agent.label(), "Agent Debug");
+    }
+
+    #[test]
+    fn dev_task_next_wraps_around() {
+        let tasks = DevTask::all();
+        let idx = tasks.len() - 1;
+        let next = DevTask::from_index((idx + 1) % tasks.len());
+        assert_eq!(next, DevTask::Agent);
+    }
+
+    // -- AppEvent switch variants --
+
+    #[test]
+    fn app_event_switch_to_ops_debug() {
+        let ev = AppEvent::SwitchToOps;
+        let debug = format!("{:?}", ev);
+        assert!(debug.contains("SwitchToOps"));
+    }
+
+    #[test]
+    fn app_event_switch_to_dev_debug() {
+        let ev = AppEvent::SwitchToDev;
+        let debug = format!("{:?}", ev);
+        assert!(debug.contains("SwitchToDev"));
     }
 }

@@ -3,6 +3,7 @@
 pub mod agents;
 pub mod chat;
 pub mod dashboard;
+pub mod dev_eval;
 pub mod dual_chat;
 pub mod logs;
 pub mod mcp;
@@ -47,6 +48,7 @@ pub struct ScreenManager {
     pub security: security::SecurityScreen,
     pub settings: settings::SettingsScreen,
     pub logs: logs::LogsScreen,
+    pub dev_eval: dev_eval::DevEvalScreen,
 }
 
 impl ScreenManager {
@@ -64,6 +66,7 @@ impl ScreenManager {
             security: security::SecurityScreen::new(),
             settings: settings::SettingsScreen::new(),
             logs: logs::LogsScreen::new(),
+            dev_eval: dev_eval::DevEvalScreen::new(),
         }
     }
 
