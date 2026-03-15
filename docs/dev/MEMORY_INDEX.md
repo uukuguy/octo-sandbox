@@ -7,6 +7,13 @@
 
 ## [Active Work]
 
+- 12:30 | Phase L COMPLETE (18/18 tasks) — eval whitebox + enterprise dataset @ f28ad6c
+  - L1: TraceEvent (10 variants) + collect_events full capture + EvalTrace.timeline + UTF-8 fix
+  - L2: FailureClass (14 variants) + FailureClassifier + failure_class + FailureSummary
+  - L3: EvalScore.dimensions multi-dim scoring (5 scorers updated)
+  - L4: PlatformBehaviorScorer + EventSequenceScorer + 2 new datasets (27 tasks) + CLI
+  - L5: Dataset cleanup + design doc finalized + baseline report updated
+  - Tests: 2021→2050 (+29), Eval tasks: 167→194 (+27)
 - 17:00 | Phase G COMPLETE (9/9 tasks) — all deferred items resolved @ ca5c898
   - G1: 6 Rust E2E fixtures + language-agnostic e2e.rs, 14 total fixtures
   - G2: Server HTTP eval mode (3 REST endpoints, EvalTarget::Server, run_task_server, CLI --target server)
