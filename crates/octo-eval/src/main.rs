@@ -980,11 +980,15 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
         cli.tag.as_deref(),
     ) {
         Ok(run_id) => {
-            // Also copy benchmark.md into the run directory for easy access
-            let md_src = output_root.join("benchmark.md");
+            // Copy benchmark.md and benchmark.json into the canonical run directory
             let runs_dir = PathBuf::from("eval_output/runs").join(&run_id);
-            if md_src.exists() {
-                let _ = std::fs::copy(&md_src, runs_dir.join("benchmark.md"));
+            if runs_dir != output_root {
+                for filename in &["benchmark.md", "benchmark.json"] {
+                    let src = output_root.join(filename);
+                    if src.exists() {
+                        let _ = std::fs::copy(&src, runs_dir.join(filename));
+                    }
+                }
             }
             println!("Run saved: {} (eval_output/runs/{})", run_id, run_id);
         }
