@@ -1,5 +1,96 @@
 # octo-sandbox 工作日志
 
+## Phase O — Deferred 暂缓项全解锁 (2026-03-15)
+
+### 完成内容
+
+Phase O 目标：解决 Phase M-a/M-b/N 累积的全部 10 个暂缓项。15/15 任务完成。
+
+**G1: TUI Input Widget 抽取** (O-T1~T6)
+- 抽取 `TextInput` 可复用组件 (`tui/widgets/text_input.rs`)
+- ChatScreen 重构使用 TextInput widget
+- Eval shortcut dialogs (M-b_D1)、filter popup (M-b_D2)
+- Memory 搜索交互 (N_D2)
+- Watch 实时进度条 with Gauge (M-a_D3)
+
+**G2: ProviderChain Failover Trace** (O-T7~T9)
+- FailoverTrace 数据结构 (ring buffer) 在 `providers/chain.rs`
+- ChainProvider complete()/stream() 方法插桩记录 failover 轨迹
+- Provider Inspector 可视化 (N_D3)
+
+**G3: Session Event 广播** (O-T10~T13)
+- SessionEvent enum + EventBus (`session/events.rs`)
+- WS SessionUpdate 消息推送
+- DevAgent TUI event-driven refresh (N_D1)
+
+**G4: Workbench 收尾** (O-T14~T15)
+- Workbench 模式审计 vs 设计文档 §6.9.2 (N_D4)
+- 3 个计划文档中所有 deferred 状态更新为已完成
+
+### 测试结果
+
+- **2178 tests pass**（基线 2126，+52 新增）
+- 0 failures, 0 remaining deferred items
+- 5 commits merged
+
+### 暂缓项解决矩阵
+
+| 暂缓项 | 来源 | 解决任务 |
+|--------|------|----------|
+| M-a_D3: watch 实时进度条 | Phase M-a | G1-T6 |
+| M-b_D1: Eval shortcut dialogs | Phase M-b | G1-T3 |
+| M-b_D2: Eval filter popup | Phase M-b | G1-T4 |
+| N_D1: Session 实时数据流 | Phase N | G3-T10~T13 |
+| N_D2: Memory 搜索交互 | Phase N | G1-T5 |
+| N_D3: Provider failover 可视化 | Phase N | G2-T7~T9 |
+| N_D4: 完整 Workbench 模式 | Phase N | G4-T14 |
+
+---
+
+## Phase N — Agent Debug Panel (2026-03-15)
+
+### 完成内容
+
+- DevAgentScreen 全功能调试面板 (`tui/screens/dev_agent.rs`)
+- AgentFocus 枚举、InspectorPanel、DevAgentScreen 结构
+- 7/7 任务完成，+30 tests (2096→2126)
+
+---
+
+## Phase M-b — TUI Dual-View + Eval Panel (2026-03-15)
+
+### 完成内容
+
+- TUI 双视图模式 (ViewMode::Ops / ViewMode::Dev)
+- DevEvalScreen 评估面板 (`tui/screens/dev_eval.rs`)
+- OpsTab / DevTask 枚举，TUI 事件系统
+- 8/8 任务完成，+38 tests (2058→2096)
+
+---
+
+## Phase M-a — Eval Management CLI Unification (2026-03-15)
+
+### 完成内容
+
+- RunStore 持久化 + EvalCommands (11 个子命令)
+- handle_eval 路由统一
+- 12/12 任务完成，+8 tests (2050→2058)
+
+---
+
+## Phase L — Eval Whitebox + Enterprise Dataset (2026-03-15)
+
+### 完成内容
+
+- L1: TraceEvent (10 variants) + EvalTrace.timeline + UTF-8 修复
+- L2: FailureClass (14 variants) + FailureClassifier
+- L3: EvalScore.dimensions 多维化 + ToolCallScorer/BehaviorCheckScorer
+- L4: PlatformBehaviorScorer + EventSequenceScorer + 27 新评估任务
+- L5: 数据集标注 + 设计文档最终化
+- 18/18 任务完成，+29 tests (2021→2050)
+
+---
+
 ## Phase K — 完整真实模型对比报告 (2026-03-14)
 
 ### 完成内容（代码任务）
