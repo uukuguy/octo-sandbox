@@ -1,7 +1,7 @@
 # 评估管理 CLI + 开发调试 TUI 设计
 
 > Phase M-a / M-b / N 整体规划
-> 状态：Phase M-a 已实施（CLI 命令 + RunStore），Phase M-b 已实施（TUI 双视图 + Eval 三列面板），Phase N 待实施
+> 状态：Phase M-a 已实施（CLI 命令 + RunStore），Phase M-b 已实施（TUI 双视图 + Eval 三列面板），Phase N 已实施（Agent 调试面板）
 > 日期：2026-03-15
 
 ---

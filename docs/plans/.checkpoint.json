@@ -1,50 +1,54 @@
 {
-  "plan_file": "docs/plans/2026-03-15-phase-mb-tui-dual-view.md",
+  "plan_file": "docs/plans/2026-03-15-phase-n-agent-debug.md",
   "phase": "complete",
-  "created_at": "2026-03-15T15:00:00+08:00",
-  "updated_at": "2026-03-15T15:30:00+08:00",
+  "created_at": "2026-03-15T15:35:00+08:00",
+  "updated_at": "2026-03-15T15:45:00+08:00",
   "completed_tasks": [
-    "Mb-T1", "Mb-T2", "Mb-T3", "Mb-T4", "Mb-T5",
-    "Mb-T6", "Mb-T7", "Mb-T8"
+    "N-T1", "N-T2", "N-T3", "N-T4", "N-T5", "N-T6", "N-T7"
   ],
   "current_task": null,
-  "total_tasks": 8,
+  "total_tasks": 7,
   "task_groups": {
     "G1": {
-      "name": "双视图基础",
-      "tasks": ["Mb-T1", "Mb-T2", "Mb-T3"],
+      "name": "三列布局骨架",
+      "tasks": ["N-T1"],
       "status": "COMPLETE",
-      "description": "ViewMode Ops/Dev + OpsTab 6-tab + DevTask selector + DevEvalScreen placeholder"
+      "description": "DevAgentScreen three-column skeleton with AgentFocus, InspectorPanel enums"
     },
     "G2": {
-      "name": "Eval 三列面板",
-      "tasks": ["Mb-T4", "Mb-T5", "Mb-T6"],
+      "name": "Sessions + Conversation",
+      "tasks": ["N-T2", "N-T3"],
       "status": "COMPLETE",
-      "description": "Left: Run History | Center: Task Results + Failures | Right: Timeline + Score"
+      "description": "Session list with context bar + conversation timeline with tool call status"
     },
     "G3": {
-      "name": "交互 + 测试",
-      "tasks": ["Mb-T7", "Mb-T8"],
+      "name": "Inspector 4 子面板",
+      "tasks": ["N-T4", "N-T5", "N-T6"],
       "status": "COMPLETE",
-      "description": "Three-column linked interaction + shortcuts + unit tests"
+      "description": "Skill + MCP + Provider + Memory inspector sub-panels with S/M/P/R switching"
+    },
+    "G4": {
+      "name": "交互 + 测试 + 集成",
+      "tasks": ["N-T7"],
+      "status": "COMPLETE",
+      "description": "Linked interaction, Esc back-nav, event routing, 30 unit tests"
     }
   },
-  "execution_order": ["G1", "G2", "G3"],
-  "phase_name": "Phase M-b — TUI 双视图 + Eval 面板",
+  "execution_order": ["G1", "G2", "G3", "G4"],
+  "phase_name": "Phase N — Agent 调试面板",
   "status": "COMPLETE",
-  "notes": "Phase M-b complete (8/8). Tests: 2058→2096 (+38). Next: Phase N (Agent debug panel).",
+  "notes": "Phase N complete (7/7). Tests: 2096→2126 (+30). Dev-Agent panel fully integrated into dual-view TUI.",
   "related_plans": {
     "design": "docs/design/EVAL_CLI_TUI_DESIGN.md",
-    "phase_ma": "docs/plans/2026-03-15-phase-m-eval-cli.md",
     "phase_mb": "docs/plans/2026-03-15-phase-mb-tui-dual-view.md",
     "phase_n": "docs/plans/2026-03-15-phase-n-agent-debug.md"
   },
   "previous_plan": {
-    "file": "docs/plans/2026-03-15-phase-m-eval-cli.md",
+    "file": "docs/plans/2026-03-15-phase-mb-tui-dual-view.md",
     "status": "COMPLETE",
-    "tasks_completed": 12,
-    "total_tasks": 12,
-    "tests_baseline": 2050,
-    "tests_final": 2058
+    "tasks_completed": 8,
+    "total_tasks": 8,
+    "tests_baseline": 2058,
+    "tests_final": 2096
   }
 }
