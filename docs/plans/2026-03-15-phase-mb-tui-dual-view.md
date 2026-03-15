@@ -523,6 +523,6 @@ Tasks 1-3 are sequential (each builds on previous). Tasks 4-6 are sequential (co
 
 | ID | 内容 | 前置条件 | 状态 |
 |----|------|---------|------|
-| D1 | Eval shortcut dialogs (run/diff/tag input) | TUI input widget | ⏳ |
-| D2 | Eval filter popup (suite/date/tag) | TUI input widget | ⏳ |
-| D3 | Dev-Agent panel (Phase N) | M-b complete | ⏳ |
+| D1 | Eval shortcut dialogs (run/diff/tag input) | TUI input widget | ✅ 已补 (Phase O G1-T3) |
+| D2 | Eval filter popup (suite/date/tag) | TUI input widget | ✅ 已补 (Phase O G1-T4) |
+| D3 | Dev-Agent panel (Phase N) | M-b complete | ✅ 已补 (Phase N) |

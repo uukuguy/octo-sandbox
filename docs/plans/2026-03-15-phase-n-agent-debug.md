@@ -582,7 +582,7 @@ Tasks 1-3 are sequential (each builds on previous). Tasks 4-6 are sequential (su
 
 | ID | 内容 | 前置条件 | 状态 |
 |----|------|---------|------|
-| D1 | Session 实时数据流（WebSocket 推送会话更新） | octo-server WS 集成 | ⏳ |
-| D2 | Memory 搜索交互（/键触发搜索输入框） | TUI input widget | ⏳ |
-| D3 | Provider failover 链路可视化（链式图） | ProviderChain 暴露状态 API | ⏳ |
-| D4 | 落地 AGENT_CLI_DESIGN.md §6.9.2 完整 Workbench 模式 | Phase N complete + octo-workbench 集成 | ⏳ |
+| D1 | Session 实时数据流（WebSocket 推送会话更新） | octo-server WS 集成 | ✅ 已补 (Phase O G3-T10~T13) |
+| D2 | Memory 搜索交互（/键触发搜索输入框） | TUI input widget | ✅ 已补 (Phase O G1-T5) |
+| D3 | Provider failover 链路可视化（链式图） | ProviderChain 暴露状态 API | ✅ 已补 (Phase O G2-T7~T9) |
+| D4 | 落地 AGENT_CLI_DESIGN.md §6.9.2 完整 Workbench 模式 | Phase N complete + octo-workbench 集成 | ✅ 已补 (Phase O G4-T14) |

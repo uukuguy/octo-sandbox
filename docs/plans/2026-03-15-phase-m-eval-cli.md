@@ -341,6 +341,6 @@ Group 1 和 Group 2 可部分并行（T1 和 T4 无依赖）。
 
 | ID | 内容 | 前置条件 | 状态 |
 |----|------|---------|------|
-| D1 | TUI 双视图架构 + Eval 面板 | Phase M-b | ⏳ |
-| D2 | TUI Agent 调试面板 + Inspector 子面板 | Phase N | ⏳ |
-| D3 | watch 实时 TUI 进度条 | M-b TUI 框架 | ⏳ |
+| D1 | TUI 双视图架构 + Eval 面板 | Phase M-b | ✅ 已补 (Phase M-b) |
+| D2 | TUI Agent 调试面板 + Inspector 子面板 | Phase N | ✅ 已补 (Phase N) |
+| D3 | watch 实时 TUI 进度条 | M-b TUI 框架 | ✅ 已补 (Phase O G1-T6) |
