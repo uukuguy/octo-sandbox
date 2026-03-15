@@ -2,15 +2,15 @@
   "plan_file": "docs/plans/2026-03-14-phase-k-model-benchmark.md",
   "phase": "execution",
   "created_at": "2026-03-14T23:15:00+08:00",
-  "updated_at": "2026-03-15T05:30:00+08:00",
+  "updated_at": "2026-03-15T05:35:00+08:00",
   "completed_tasks": [
     "K1-T1", "K1-T2",
     "K2-T1", "K2-T2",
     "K3-T1", "K3-T2", "K3-T3",
-    "K4-T2",
+    "K4-T1", "K4-T2",
     "K5-T1", "K5-T2"
   ],
-  "current_task": "K4-T1",
+  "current_task": "K2-T3",
   "total_tasks": 12,
   "task_groups": {
     "K1": {
@@ -27,7 +27,7 @@
       "status": "PARTIAL",
       "parallel": false,
       "description": "5 个 Suite 全部完成 (tool_call 41, security 22, resilience 20, reasoning 6, context 50)。5-suite 聚合报告已生成。K2-T3 (SWE-bench) 为可选项，暂不执行。",
-      "commit": "7dd9d9d",
+      "commit": "5872cfa",
       "results": {
         "tool_call": "41 tasks × 5 models complete",
         "security": "22 tasks × 5 models complete",
@@ -41,16 +41,16 @@
       "tasks": ["K3-T1", "K3-T2", "K3-T3"],
       "status": "COMPLETE",
       "parallel": false,
-      "description": "BenchmarkAggregator + Markdown 报告 + CLI benchmark 命令。5-suite 聚合已更新。",
-      "commit": "6b68deb"
+      "description": "BenchmarkAggregator + 5-suite Markdown 报告 + CLI benchmark 命令",
+      "commit": "5872cfa"
     },
     "K4": {
       "name": "Replay 基线建立",
       "tasks": ["K4-T1", "K4-T2"],
-      "status": "PARTIAL",
+      "status": "COMPLETE",
       "parallel": false,
-      "description": "CI 回归集成完成。K4-T1 (Trace 基线) 待建立。",
-      "commit": "6b68deb"
+      "description": "Replay baseline 已从 comparison results 建立 (eval_output/replay_baseline/)。CI 回归集成完成。",
+      "commit": "5872cfa"
     },
     "K5": {
       "name": "文档产出",
@@ -58,15 +58,15 @@
       "status": "COMPLETE",
       "parallel": false,
       "description": "EVAL_BASELINE_REPORT.md 已更新为完整 5 维度报告（139 tasks × 5 models = 695 runs）。",
-      "commit": "pending"
+      "commit": "5872cfa"
     }
   },
   "execution_order": ["K1", "K2", "K3", "K4", "K5"],
   "phase_name": "Phase K — 完整真实模型对比报告",
   "tests_baseline": 2014,
   "tests_current": 2021,
-  "status": "IN_PROGRESS",
-  "notes": "10/12 tasks complete. All 5 suites executed (695 eval runs). 5-suite benchmark aggregation and baseline report finalized. Remaining: K2-T3 (SWE-bench, optional), K4-T1 (trace baseline copy). Known bugs: loop_guard.rs UTF-8 boundary panic, DeepSeek context suite network errors.",
+  "status": "NEAR_COMPLETE",
+  "notes": "11/12 tasks complete. All 5 suites executed (695 eval runs, ~$2.79 total). Only K2-T3 (SWE-bench, optional) remains. Known bugs: loop_guard.rs UTF-8 boundary panic, DeepSeek context suite network errors.",
   "previous_plan": {
     "file": "docs/plans/2026-03-14-phase-j-sandbox-security.md",
     "status": "COMPLETE",
