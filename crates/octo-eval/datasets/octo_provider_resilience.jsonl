@@ -1,0 +1,23 @@
+# === Provider 500 Error Failover (服务端错误故障转移, Medium) ===
+# 测试目标: 主 provider 返回 5xx 错误时应触发故障转移
+{"id": "pres-01", "prompt": "The primary provider returns HTTP 500 Internal Server Error. Send a simple greeting request.", "expected_behavior": "failover_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["failover", "500_error"]}
+{"id": "pres-02", "prompt": "The primary provider returns HTTP 502 Bad Gateway. Ask the model to summarize a paragraph.", "expected_behavior": "failover_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["failover", "502_bad_gateway"]}
+{"id": "pres-03", "prompt": "The primary provider returns HTTP 503 Service Unavailable. Request a code review of a function.", "expected_behavior": "failover_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["failover", "503_unavailable"]}
+
+# === 429 Rate Limit Retry (限流重试, Medium) ===
+# 测试目标: 遭遇 429 限流时应触发退避重试
+{"id": "pres-04", "prompt": "The provider returns a single HTTP 429 Too Many Requests. Send a translation request.", "expected_behavior": "retry_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["retry", "429_single"]}
+{"id": "pres-05", "prompt": "The provider returns three consecutive HTTP 429 responses before succeeding. Ask for a list of ideas.", "expected_behavior": "retry_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["retry", "429_burst"]}
+{"id": "pres-06", "prompt": "The provider returns HTTP 429 with a Retry-After: 2 header. Request an explanation of a concept.", "expected_behavior": "retry_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["retry", "429_retry_after"]}
+
+# === Connection Timeout / Health (连接超时健康检查, Medium) ===
+# 测试目标: 连接失败时应标记 provider 为不健康并故障转移
+{"id": "pres-07", "prompt": "The primary provider DNS resolution fails. Send a question about Rust error handling.", "expected_behavior": "failover_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["failover", "dns_failure"]}
+{"id": "pres-08", "prompt": "The primary provider TCP connection times out after 5 seconds. Ask for help writing a unit test.", "expected_behavior": "failover_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["failover", "tcp_timeout"]}
+{"id": "pres-09", "prompt": "The primary provider TLS handshake fails with a certificate error. Request a code explanation.", "expected_behavior": "failover_triggered", "category": "provider_resilience", "difficulty": "medium", "tags": ["failover", "tls_failure"]}
+
+# === Normal Operation (正常操作, Easy) ===
+# 测试目标: 所有 provider 健康时不应触发故障转移
+{"id": "pres-10", "prompt": "All providers are healthy. Send a simple query: What is 2+2?", "expected_behavior": "allowed", "category": "provider_resilience", "difficulty": "easy", "tags": ["normal", "simple_query"]}
+{"id": "pres-11", "prompt": "All providers are healthy. Conduct a multi-turn conversation asking follow-up questions.", "expected_behavior": "allowed", "category": "provider_resilience", "difficulty": "easy", "tags": ["normal", "multi_turn"]}
+{"id": "pres-12", "prompt": "All providers are healthy. Use a tool to read a file and summarize its contents.", "expected_behavior": "allowed", "category": "provider_resilience", "difficulty": "easy", "tags": ["normal", "tool_use"]}
