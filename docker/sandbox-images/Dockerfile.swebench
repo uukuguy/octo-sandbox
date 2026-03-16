@@ -4,5 +4,7 @@ RUN chmod +x /tmp/install-base.sh && /tmp/install-base.sh && rm /tmp/install-bas
 RUN pip install --no-cache-dir pip setuptools wheel pytest tox pre-commit
 RUN useradd -m -s /bin/bash sandbox
 USER sandbox
+RUN git config --global user.email "sandbox@octo-sandbox" && \
+    git config --global user.name "Sandbox Agent"
 WORKDIR /workspace
 LABEL org.octo-sandbox.type="swebench" org.octo-sandbox.version="1.0"

@@ -10,5 +10,7 @@ RUN pip install --no-cache-dir pip setuptools wheel \
 RUN npm install -g typescript
 RUN useradd -m -s /bin/bash sandbox
 USER sandbox
+RUN git config --global user.email "sandbox@octo-sandbox" && \
+    git config --global user.name "Sandbox Agent"
 WORKDIR /workspace
 LABEL org.octo-sandbox.type="general" org.octo-sandbox.version="1.0"
