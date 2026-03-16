@@ -234,6 +234,18 @@ impl EvalRunner {
                 self.provider.clone()
             };
 
+        // Create an isolated per-task working directory under /tmp so that Agent
+        // file operations don't pollute the workspace.
+        let task_workdir = std::env::temp_dir()
+            .join("octo-eval")
+            .join(&task_id);
+        let _ = std::fs::create_dir_all(&task_workdir);
+        let tool_ctx = octo_types::ToolContext {
+            sandbox_id: octo_types::SandboxId::default(),
+            working_dir: task_workdir.clone(),
+            path_validator: None,
+        };
+
         // Build AgentLoopConfig
         let loop_config = AgentLoopConfig::builder()
             .provider(effective_provider)
@@ -241,6 +253,7 @@ impl EvalRunner {
             .max_tokens(engine_config.max_tokens)
             .max_iterations(engine_config.max_iterations)
             .tools(tool_registry)
+            .tool_ctx(tool_ctx)
             .build();
 
         // Create the initial user message from the task prompt
