@@ -1,64 +1,51 @@
 {
-  "plan_file": "docs/plans/2026-03-15-phase-p-baseline-eval-r2.md",
-  "phase": "in_progress",
-  "created_at": "2026-03-15T19:30:00+08:00",
-  "updated_at": "2026-03-16T01:15:00+08:00",
-  "completed_tasks": ["P1", "P2-T1", "P2-T2", "P2-T3", "P2-T4", "P3-T1", "P3-T2", "P3-T3", "P4-T1", "P4-T2", "P5-T1", "P5-T2", "P5-T3"],
-  "current_task": "P6-T1",
-  "total_tasks": 16,
+  "plan_file": "docs/plans/2026-03-16-phase-q2-standard-benchmark.md",
+  "phase": "planning_complete",
+  "created_at": "2026-03-16T17:30:00+08:00",
+  "updated_at": "2026-03-16T18:30:00+08:00",
+  "completed_tasks": ["Q1-bugfix", "Q2-design-and-planning"],
+  "current_task": "G1-T1",
+  "total_tasks": 15,
   "task_groups": {
-    "P1": {
-      "name": "Model Matrix Update",
-      "tasks": ["P1"],
+    "Q1": {
+      "name": "Fix TaskRecord Scoring Bug",
+      "tasks": ["Q1-bugfix"],
       "status": "COMPLETE",
-      "description": "eval.benchmark.toml updated with 6-model matrix"
+      "description": "Fixed TaskRecord::from_task() to preserve scoring_data. Commit: 0e2ac3e"
     },
-    "P2": {
-      "name": "Terminal-Bench Adapter",
-      "tasks": ["P2-T1", "P2-T2", "P2-T3", "P2-T4"],
+    "Q2": {
+      "name": "Design & Planning",
+      "tasks": ["Q2-design-and-planning"],
       "status": "COMPLETE",
-      "description": "terminal_bench.rs adapter + 30 tasks JSONL + BenchmarkRegistry registration + tests"
+      "description": "Completed GAIA/SWE-bench standard verification design. Docs: STANDARD_BENCHMARK_DESIGN.md + phase-q2-standard-benchmark.md"
     },
-    "P3": {
-      "name": "Default Suite Update",
-      "tasks": ["P3-T1", "P3-T2", "P3-T3"],
-      "status": "COMPLETE",
-      "description": "Default benchmark suites updated from LLM-centric to agentic benchmarks"
-    },
-    "P4": {
-      "name": "Compile & Test",
-      "tasks": ["P4-T1", "P4-T2"],
-      "status": "COMPLETE",
-      "description": "cargo check + cargo test all pass (2183 tests, +5 from baseline 2178)"
-    },
-    "P5": {
-      "name": "Execute Evaluation",
-      "tasks": ["P5-T1", "P5-T2", "P5-T3"],
-      "status": "COMPLETE",
-      "description": "8 suites x 6 models x 10 tasks/suite — run saved to eval_output/runs/2026-03-16-001. FaultyProvider validated, SWE-bench 4-component scorer validated."
-    },
-    "P6": {
-      "name": "Report & Archive",
-      "tasks": ["P6-T1", "P6-T2", "P6-T3"],
+    "G1": {
+      "name": "Docker Standard Images",
+      "tasks": ["T1-base-scripts", "T2-dockerfiles", "T3-build-makefile", "T4-imageregistry"],
       "status": "PENDING",
-      "description": "Baseline report update + session guide + phase archive"
+      "description": "6 Docker images (python, rust:1.92, nodejs, bash, general, swebench) + install-base.sh + ImageRegistry upgrade"
+    },
+    "G2": {
+      "name": "GAIA Standardization",
+      "tasks": ["T5-exact-match", "T6-sampling-config", "T7-websearch-verify", "T8-gaia-baseline"],
+      "status": "PENDING",
+      "description": "GAIA scorer exact match, stratified sampling, web_search validation, baseline run"
+    },
+    "G3": {
+      "name": "SWE-bench Standardization",
+      "tasks": ["T9-official-dataset", "T10-harness-scorer", "T11-docker-runner", "T12-agent-prompt", "T13-swebench-baseline"],
+      "status": "PENDING",
+      "description": "Official SWE-bench Lite dataset, swebench harness scorer, Docker agent execution, baseline"
+    },
+    "G4": {
+      "name": "Config & Baseline Report",
+      "tasks": ["T14-toml-config", "T15-baseline-report"],
+      "status": "PENDING",
+      "description": "Unified benchmark TOML config, baseline report with SOTA comparison"
     }
   },
-  "execution_order": ["P1", "P2", "P3", "P4", "P5", "P6"],
-  "phase_name": "Phase P — Baseline Evaluation Round 2",
+  "phase_name": "Phase Q — GAIA & SWE-bench Standard Testing",
   "status": "IN_PROGRESS",
-  "notes": "P1-P5 complete. P5 benchmark run saved as eval_output/runs/2026-03-16-001. Best model: Claude-Sonnet-4.6 (56.2%). Best cost-effectiveness: Mistral-Small-3.2 (33.2x). swe_bench 0% across all models — needs improved scoring analysis. resilience low (0-20%) — FaultyProvider confirmed working in b671a52. Run P6 report and archive.",
-  "related_plans": {
-    "design": "docs/design/AGENT_EVALUATION_DESIGN.md",
-    "phase_p": "docs/plans/2026-03-15-phase-p-baseline-eval-r2.md",
-    "phase_o": "docs/plans/2026-03-15-phase-o-deferred-unlock.md"
-  },
-  "previous_plan": {
-    "file": "docs/plans/2026-03-15-phase-o-deferred-unlock.md",
-    "status": "COMPLETE",
-    "tasks_completed": 15,
-    "total_tasks": 15,
-    "tests_baseline": 2126,
-    "tests_final": 2178
-  }
+  "execution_mode": null,
+  "notes": "Q1 (bug fix) + Q2 (design) complete. Design doc: docs/design/STANDARD_BENCHMARK_DESIGN.md. Plan: docs/plans/2026-03-16-phase-q2-standard-benchmark.md. 15 tasks across 4 groups (G1-G4). Ready for execution."
 }

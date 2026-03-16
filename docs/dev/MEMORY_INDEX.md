@@ -7,6 +7,20 @@
 
 ## [Active Work]
 
+- 18:30 | Phase Q — GAIA & SWE-bench Standard Testing — Q1+Q2 complete, plan ready
+  - Q1: Fixed CRITICAL TaskRecord scoring bug (0e2ac3e)
+  - Q2: Design + plan complete for standard benchmark verification
+  - Design doc: `docs/design/STANDARD_BENCHMARK_DESIGN.md`
+  - Plan: `docs/plans/2026-03-16-phase-q2-standard-benchmark.md` (15 tasks, G1-G4)
+  - Key decisions:
+    - GAIA: exact match scorer, 165 tasks from official HF dataset, DDG real search
+    - SWE-bench: official Lite 300 tasks, swebench harness scorer (no fallback), Docker eval
+    - Docker: 方案B — 官方语言镜像 + install-base.sh 公共包 (6 images)
+    - SOTA reference: GAIA top=92.36%, SWE-bench Verified top=79.2%
+  - Next: G1 (Docker images) → G2 (GAIA) → G3 (SWE-bench) → G4 (config+report)
+- 17:20 | Phase P benchmark run 2026-03-16-007 COMPLETE (888 tasks, 4 models × 8 suites) — scores INVALID (see fix above)
+  - Fixed: unified run dir, relative symlink, incremental tasks_progress.json, eval-progress Makefile target, added MiniMax-M2.1
+  - Commit: b0ba059
 - 17:50 | Phase O COMPLETE (15/15 tasks) — Deferred 暂缓项全解锁 @ 4307e0d
   - G1: TextInput widget + ChatScreen refactor + Eval dialogs/filter/search + Watch progress
   - G2: FailoverTrace data + ChainProvider instrumentation + Provider Inspector viz
