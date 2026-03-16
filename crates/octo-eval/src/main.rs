@@ -778,7 +778,7 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
     let toml_path = cli
         .config_path
         .clone()
-        .unwrap_or_else(|| PathBuf::from("config/eval/eval.benchmark.toml"));
+        .unwrap_or_else(|| PathBuf::from("config/eval/benchmark.toml"));
     let toml_config = EvalTomlConfig::load(&toml_path)?;
 
     let mut models = load_models_from_env();

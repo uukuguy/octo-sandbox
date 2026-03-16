@@ -120,8 +120,8 @@ clean-all: clean clean-web
 # 注意: 所有命令从 workspace 根目录运行，输出写入 eval_output/
 # ============================================================
 
-EVAL_CONFIG     ?= config/eval/eval.benchmark.toml
-EVAL_MINI_CONFIG ?= config/eval/eval.benchmark.mini.toml
+EVAL_CONFIG     ?= config/eval/benchmark.toml
+EVAL_MINI_CONFIG ?= config/eval/benchmark.toml
 EVAL_SUITE      ?= tool_call
 EVAL_MAX_TASKS  ?= 0
 EVAL_FORMAT     ?= both
@@ -140,7 +140,7 @@ eval-run:
 	  --format $(EVAL_FORMAT)
 
 # 多模型对比单个 suite
-# 用法: make eval-compare EVAL_SUITE=security EVAL_CONFIG=crates/octo-eval/eval.benchmark.3model.toml
+# 用法: make eval-compare EVAL_SUITE=security EVAL_CONFIG=config/eval/benchmark.toml
 eval-compare:
 	cargo run -p octo-eval -- compare --suite $(EVAL_SUITE) \
 	  --config $(EVAL_CONFIG) \
@@ -148,7 +148,7 @@ eval-compare:
 	  --format $(EVAL_FORMAT)
 
 # 完整 benchmark（全部 suite × 全部模型，并发）
-# 用法: make eval-benchmark EVAL_CONFIG=crates/octo-eval/eval.benchmark.toml
+# 用法: make eval-benchmark EVAL_CONFIG=config/eval/benchmark.toml
 eval-benchmark:
 	cargo run -p octo-eval -- benchmark \
 	  --config $(EVAL_CONFIG) \
