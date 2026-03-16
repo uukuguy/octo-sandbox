@@ -133,6 +133,16 @@ impl EvalTask for TauBenchTask {
         }
     }
 
+    fn scoring_data(&self) -> serde_json::Value {
+        let expected_tools: Vec<&str> = self.record.expected_actions.iter()
+            .map(|a| a.tool.as_str()).collect();
+        serde_json::json!({
+            "benchmark": "tau_bench",
+            "expected_tools": expected_tools,
+            "domain": self.record.domain,
+        })
+    }
+
     fn metadata(&self) -> TaskMetadata {
         let difficulty = match self.record.expected_actions.len() {
             0..=2 => Difficulty::Easy,

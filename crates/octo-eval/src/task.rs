@@ -74,4 +74,11 @@ pub trait EvalTask: Send + Sync {
     fn fault_config(&self) -> Option<(u32, String)> {
         None
     }
+
+    /// Serializable scoring data for benchmark tasks.
+    /// TaskRecord uses this to preserve domain-specific scoring logic
+    /// when tasks are cloned across thread boundaries.
+    fn scoring_data(&self) -> serde_json::Value {
+        serde_json::Value::Null
+    }
 }

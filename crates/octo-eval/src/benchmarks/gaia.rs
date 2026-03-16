@@ -134,6 +134,14 @@ impl EvalTask for GaiaTask {
         }
     }
 
+    fn scoring_data(&self) -> serde_json::Value {
+        serde_json::json!({
+            "benchmark": "gaia",
+            "final_answer": self.record.final_answer,
+            "level": self.record.level,
+        })
+    }
+
     fn metadata(&self) -> TaskMetadata {
         TaskMetadata {
             category: format!("gaia-L{}", self.record.level),

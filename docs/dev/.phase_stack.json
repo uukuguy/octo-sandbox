@@ -1,16 +1,23 @@
 {
   "active_phases": [
     {
-      "name": "Phase P — Baseline Evaluation Round 2",
-      "started_at": "2026-03-15T18:40:00+08:00",
+      "name": "Phase Q — GAIA & SWE-bench Standard Testing",
+      "started_at": "2026-03-16T17:30:00+08:00",
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "62%",
-      "last_updated": "2026-03-15T19:45:00+08:00"
+      "progress": "0%"
     }
   ],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase P — Baseline Evaluation Round 2",
+      "completed_at": "2026-03-16T17:00:00+08:00",
+      "progress": "100%",
+      "tests": 2189,
+      "commit": "b0ba059",
+      "tasks": "16/16"
+    },
     {
       "name": "Phase O — Deferred 暂缓项全解锁",
       "completed_at": "2026-03-15T17:50:00+08:00",
@@ -98,52 +105,6 @@
       "tests": 1774,
       "commit": "675155d",
       "tasks": "37/37"
-    },
-    {
-      "name": "Wave 6 — Production Hardening",
-      "completed_at": "2026-03-11T17:30:00+08:00",
-      "progress": "100%",
-      "tests": 1594,
-      "commit": "763ab56"
-    },
-    {
-      "name": "Wave 5 — Consensus Persistence + Offline Sync + TLS",
-      "completed_at": "2026-03-11T16:30:00+08:00",
-      "progress": "100%",
-      "tests": 1548,
-      "commit": "d95e468"
-    },
-    {
-      "name": "Wave 4 — Byzantine Consensus + Singleton Agent",
-      "completed_at": "2026-03-11T14:00:00+08:00",
-      "progress": "100%",
-      "tests": 1501,
-      "commit": "6d41b7a"
-    },
-    {
-      "name": "Deferred 项完成 (Wave 1+2)",
-      "completed_at": "2026-03-11T12:00:00+08:00",
-      "progress": "100%"
-    },
-    {
-      "name": "Octo-Cli 设计与实现",
-      "completed_at": "2026-03-11T09:30:00+08:00",
-      "progress": "100%"
-    },
-    {
-      "name": "Harness 实现",
-      "completed_at": "2026-03-10T09:05:00+08:00",
-      "progress": "100%"
-    },
-    {
-      "name": "pre-harness-refactor",
-      "completed_at": "2026-03-09T17:02:00+08:00",
-      "progress": "100%"
-    },
-    {
-      "name": "octo-platform Phase 1",
-      "completed_at": "2026-03-09T13:12:00+08:00",
-      "progress": "100%"
     }
   ]
 }

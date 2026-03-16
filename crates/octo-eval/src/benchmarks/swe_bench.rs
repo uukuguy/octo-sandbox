@@ -188,6 +188,15 @@ impl EvalTask for SweBenchTask {
         }
     }
 
+    fn scoring_data(&self) -> serde_json::Value {
+        serde_json::json!({
+            "benchmark": "swe_bench",
+            "instance_id": self.record.instance_id,
+            "repo": self.record.repo,
+            "problem_statement": self.record.problem_statement,
+        })
+    }
+
     fn metadata(&self) -> TaskMetadata {
         TaskMetadata {
             category: format!("swe-bench:{}", self.record.repo),

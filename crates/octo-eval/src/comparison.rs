@@ -285,7 +285,7 @@ impl TaskRecord {
             prompt: task.prompt().to_string(),
             tools: task.available_tools(),
             allowlist: task.tool_allowlist(),
-            scoring_data: serde_json::Value::Null,
+            scoring_data: task.scoring_data(),
             category: meta.category,
             difficulty_label: format!("{:?}", meta.difficulty),
             expected_steps: meta.expected_steps,
@@ -302,17 +302,132 @@ impl EvalTask for TaskRecord {
 
     fn score(&self, output: &crate::task::AgentOutput) -> crate::score::EvalScore {
         use crate::score::{EvalScore, ScoreDetails};
-        // Check output contains any non-empty content as a basic pass signal
-        let actual = output.messages.last()
-            .map(|m| m.text_content())
-            .unwrap_or_default();
-        let passed = !actual.trim().is_empty() && !output.tool_calls.is_empty();
-        EvalScore {
-            passed,
-            score: if passed { 1.0 } else { 0.0 },
-            details: ScoreDetails::Custom { message: actual.chars().take(200).collect() },
-            dimensions: std::collections::HashMap::new(),
-            failure_class: None,
+
+        // Dispatch to benchmark-specific scoring when scoring_data is present
+        let benchmark = self.scoring_data.get("benchmark").and_then(|v| v.as_str());
+        match benchmark {
+            Some("gaia") => {
+                let expected = self.scoring_data.get("final_answer")
+                    .and_then(|v| v.as_str()).unwrap_or("");
+                let level = self.scoring_data.get("level")
+                    .and_then(|v| v.as_u64()).unwrap_or(1) as u32;
+                let actual = output.messages.last()
+                    .map(|m| m.text_content()).unwrap_or_default();
+                let normalized_expected = expected.trim().to_lowercase();
+                let normalized_actual = actual.trim().to_lowercase();
+                let passed = !normalized_expected.is_empty()
+                    && normalized_actual.contains(&normalized_expected);
+                EvalScore {
+                    passed,
+                    score: if passed { 1.0 } else { 0.0 },
+                    details: ScoreDetails::GaiaMatch {
+                        expected: expected.to_string(),
+                        actual,
+                        level,
+                    },
+                    dimensions: HashMap::new(),
+                    failure_class: None,
+                }
+            }
+            Some("swe_bench") => {
+                let instance_id = self.scoring_data.get("instance_id")
+                    .and_then(|v| v.as_str()).unwrap_or("").to_string();
+                let repo = self.scoring_data.get("repo")
+                    .and_then(|v| v.as_str()).unwrap_or("");
+                let problem_statement = self.scoring_data.get("problem_statement")
+                    .and_then(|v| v.as_str()).unwrap_or("");
+                let text = output.messages.last()
+                    .map(|m| m.text_content()).unwrap_or_default();
+                let all_text: String = {
+                    let mut s = text;
+                    for tc in &output.tool_calls {
+                        s.push('\n');
+                        s.push_str(&tc.output);
+                    }
+                    s
+                };
+                let has_diff_header = all_text.contains("diff --git")
+                    || (all_text.contains("--- a/") && all_text.contains("+++ b/"));
+                let repo_basename = repo.split('/').next_back().unwrap_or("");
+                let references_repo = all_text.to_lowercase().contains(&repo.to_lowercase())
+                    || (!repo_basename.is_empty() && all_text.to_lowercase().contains(&repo_basename.to_lowercase()));
+                let explored_code = output.tool_calls.iter().any(|tc| {
+                    tc.name == "file_read" || tc.name == "bash" || tc.name == "file_write"
+                });
+                let problem_keywords: Vec<&str> = problem_statement
+                    .split_whitespace().filter(|w| w.len() > 5).take(5).collect();
+                let addresses_problem = problem_keywords.iter().any(|kw| {
+                    all_text.to_lowercase().contains(&kw.to_lowercase())
+                });
+                let mut score = 0.0f64;
+                if has_diff_header { score += 0.4; }
+                if explored_code { score += 0.2; }
+                if references_repo { score += 0.2; }
+                if addresses_problem { score += 0.2; }
+                let passed = score >= 0.6;
+                EvalScore {
+                    passed,
+                    score,
+                    details: ScoreDetails::SweVerify {
+                        instance_id,
+                        fail_to_pass_passed: passed,
+                        pass_to_pass_passed: false,
+                        fail_to_pass_count: if passed { 1 } else { 0 },
+                        pass_to_pass_count: 0,
+                        execution_time_ms: 0,
+                    },
+                    dimensions: HashMap::new(),
+                    failure_class: None,
+                }
+            }
+            Some("tau_bench") => {
+                let expected_tools: Vec<String> = self.scoring_data.get("expected_tools")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                    .unwrap_or_default();
+                let actual_tools: Vec<&str> = output.tool_calls.iter()
+                    .map(|tc| tc.name.as_str()).collect();
+                let mut matched = 0usize;
+                let mut actual_idx = 0;
+                for expected in &expected_tools {
+                    while actual_idx < actual_tools.len() {
+                        if actual_tools[actual_idx] == expected.as_str() {
+                            matched += 1;
+                            actual_idx += 1;
+                            break;
+                        }
+                        actual_idx += 1;
+                    }
+                }
+                let total = expected_tools.len();
+                let match_rate = if total > 0 { matched as f64 / total as f64 } else { 1.0 };
+                let passed = matched == total;
+                EvalScore {
+                    passed,
+                    score: match_rate,
+                    details: ScoreDetails::PassK {
+                        k: 1,
+                        passes: if passed { 1 } else { 0 },
+                        pass_at_1: if passed { 1.0 } else { 0.0 },
+                        pass_at_k: if passed { 1.0 } else { 0.0 },
+                    },
+                    dimensions: HashMap::new(),
+                    failure_class: None,
+                }
+            }
+            _ => {
+                // Fallback: generic scoring for internal suites
+                let actual = output.messages.last()
+                    .map(|m| m.text_content()).unwrap_or_default();
+                let passed = !actual.trim().is_empty() && !output.tool_calls.is_empty();
+                EvalScore {
+                    passed,
+                    score: if passed { 1.0 } else { 0.0 },
+                    details: ScoreDetails::Custom { message: actual.chars().take(200).collect() },
+                    dimensions: HashMap::new(),
+                    failure_class: None,
+                }
+            }
         }
     }
 
@@ -564,5 +679,178 @@ mod tests {
 
         let md = report.to_markdown(&HashMap::new(), &HashMap::new());
         assert!(md.contains("# Multi-Model Comparison Report"));
+    }
+
+    #[test]
+    fn test_task_record_gaia_scoring_dispatch() {
+        use crate::benchmarks::gaia::{GaiaRecord, GaiaTask};
+        use crate::task::AgentOutput;
+
+        let record = GaiaRecord {
+            task_id: "gaia-test-001".into(),
+            question: "What is 2+2?".into(),
+            final_answer: "4".into(),
+            level: 1,
+            annotator_metadata: None,
+            file_name: None,
+        };
+        let task = GaiaTask::new(record);
+
+        // Wrap in TaskRecord (as benchmark mode does)
+        let tr = TaskRecord::from_task(&task);
+        assert_eq!(tr.scoring_data.get("benchmark").unwrap(), "gaia");
+        assert_eq!(tr.scoring_data.get("final_answer").unwrap(), "4");
+
+        // Pass case: answer contains expected
+        let output_pass = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("The answer is 4.")],
+            ..Default::default()
+        };
+        let score_pass = tr.score(&output_pass);
+        assert!(score_pass.passed, "TaskRecord should pass when answer contains '4'");
+        assert!(matches!(score_pass.details, crate::score::ScoreDetails::GaiaMatch { .. }));
+
+        // Fail case: wrong answer
+        let output_fail = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("I don't know")],
+            ..Default::default()
+        };
+        let score_fail = tr.score(&output_fail);
+        assert!(!score_fail.passed, "TaskRecord should fail when answer doesn't contain '4'");
+
+        // Fail case: "(no response)" placeholder
+        let output_noresp = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("(no response)")],
+            ..Default::default()
+        };
+        let score_noresp = tr.score(&output_noresp);
+        assert!(!score_noresp.passed, "TaskRecord should fail for '(no response)'");
+    }
+
+    #[test]
+    fn test_task_record_swe_bench_scoring_dispatch() {
+        use crate::benchmarks::swe_bench::{SweBenchRecord, SweBenchTask};
+        use crate::task::{AgentOutput, ToolCallRecord};
+
+        let record = SweBenchRecord {
+            instance_id: "django__django-16527".into(),
+            repo: "django/django".into(),
+            base_commit: String::new(),
+            patch: String::new(),
+            test_patch: String::new(),
+            problem_statement: "Fix issue with QuerySet filtering on related fields".into(),
+            hints_text: String::new(),
+            fail_to_pass: "[]".into(),
+            pass_to_pass: "[]".into(),
+        };
+        let task = SweBenchTask::new(record);
+        let tr = TaskRecord::from_task(&task);
+        assert_eq!(tr.scoring_data.get("benchmark").unwrap(), "swe_bench");
+
+        // Pass case: has diff + explored code + references repo + addresses problem
+        let output_pass = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant(
+                "Here is the fix:\ndiff --git a/django/db/models/query.py b/django/db/models/query.py\n--- a/django/db/models/query.py\n+++ b/django/db/models/query.py\n@@ -1,3 +1,4 @@\n+# Fix filtering\n"
+            )],
+            tool_calls: vec![ToolCallRecord {
+                name: "bash".into(),
+                input: serde_json::json!({}),
+                output: "filtering on related fields".into(),
+                is_error: false,
+                duration_ms: 100,
+            }],
+            ..Default::default()
+        };
+        let score_pass = tr.score(&output_pass);
+        assert!(score_pass.passed, "TaskRecord should pass SWE-bench with diff + signals");
+        assert!(matches!(score_pass.details, crate::score::ScoreDetails::SweVerify { .. }));
+
+        // Fail case: no diff
+        let output_fail = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("I can't fix this")],
+            ..Default::default()
+        };
+        let score_fail = tr.score(&output_fail);
+        assert!(!score_fail.passed, "TaskRecord should fail SWE-bench without diff");
+    }
+
+    #[test]
+    fn test_task_record_tau_bench_scoring_dispatch() {
+        use crate::task::{AgentOutput, ToolCallRecord};
+
+        let tr = TaskRecord {
+            id: "tau-test-001".into(),
+            prompt: "Help the customer".into(),
+            tools: None,
+            allowlist: None,
+            scoring_data: serde_json::json!({
+                "benchmark": "tau_bench",
+                "expected_tools": ["search_order", "cancel_order"],
+                "domain": "retail",
+            }),
+            category: "tau-bench:retail".into(),
+            difficulty_label: "Medium".into(),
+            expected_steps: Some(2),
+            tags: vec!["external".into(), "tau_bench".into()],
+        };
+
+        // Pass case: all expected tools called in order
+        let output_pass = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("Done")],
+            tool_calls: vec![
+                ToolCallRecord { name: "search_order".into(), input: serde_json::json!({}), output: "found".into(), is_error: false, duration_ms: 50 },
+                ToolCallRecord { name: "cancel_order".into(), input: serde_json::json!({}), output: "cancelled".into(), is_error: false, duration_ms: 50 },
+            ],
+            ..Default::default()
+        };
+        let score_pass = tr.score(&output_pass);
+        assert!(score_pass.passed, "TaskRecord should pass tau_bench when all tools matched");
+        assert!(matches!(score_pass.details, crate::score::ScoreDetails::PassK { .. }));
+
+        // Fail case: missing expected tool
+        let output_fail = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("Done")],
+            tool_calls: vec![
+                ToolCallRecord { name: "search_order".into(), input: serde_json::json!({}), output: "found".into(), is_error: false, duration_ms: 50 },
+            ],
+            ..Default::default()
+        };
+        let score_fail = tr.score(&output_fail);
+        assert!(!score_fail.passed, "TaskRecord should fail tau_bench when tools missing");
+    }
+
+    #[test]
+    fn test_task_record_fallback_generic_scoring() {
+        use crate::task::{AgentOutput, ToolCallRecord};
+
+        // TaskRecord with no scoring_data (internal suites) uses generic scoring
+        let tr = TaskRecord {
+            id: "internal-001".into(),
+            prompt: "test".into(),
+            tools: None,
+            allowlist: None,
+            scoring_data: serde_json::Value::Null,
+            category: "tool_call".into(),
+            difficulty_label: "Easy".into(),
+            expected_steps: None,
+            tags: vec![],
+        };
+
+        // Pass: has text + has tool calls
+        let output_pass = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("result")],
+            tool_calls: vec![
+                ToolCallRecord { name: "bash".into(), input: serde_json::json!({}), output: "ok".into(), is_error: false, duration_ms: 10 },
+            ],
+            ..Default::default()
+        };
+        assert!(tr.score(&output_pass).passed);
+
+        // Fail: no tool calls
+        let output_fail = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant("just text")],
+            ..Default::default()
+        };
+        assert!(!tr.score(&output_fail).passed);
     }
 }
