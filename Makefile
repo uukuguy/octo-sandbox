@@ -1,5 +1,7 @@
 .PHONY: dev build check test clean fmt lint server web all install setup \
-        verify verify-runtime verify-api verify-api-mcp
+        verify verify-runtime verify-api verify-api-mcp \
+        eval-list eval-run eval-compare eval-benchmark eval-benchmark-mini \
+        eval-history eval-report eval-trace eval-diagnose eval-diff
 
 # ============================================================
 # 主要命令
@@ -110,6 +112,84 @@ clean-web:
 
 # 清理全部
 clean-all: clean clean-web
+
+# ============================================================
+# 评估命令 (octo-eval)
+# 注意: 所有命令从 workspace 根目录运行，输出写入 eval_output/
+# ============================================================
+
+EVAL_CONFIG     ?= crates/octo-eval/eval.benchmark.toml
+EVAL_MINI_CONFIG ?= crates/octo-eval/eval.benchmark.mini.toml
+EVAL_SUITE      ?= tool_call
+EVAL_MAX_TASKS  ?= 0
+EVAL_FORMAT     ?= both
+EVAL_RUN_ID     ?=
+EVAL_TASK_ID    ?=
+
+# 列出可用 suite
+eval-list:
+	cargo run -p octo-eval -- list-suites
+
+# 运行单个 suite（单模型）
+# 用法: make eval-run EVAL_SUITE=resilience
+eval-run:
+	cargo run -p octo-eval -- run --suite $(EVAL_SUITE) \
+	  $(if $(filter-out 0,$(EVAL_MAX_TASKS)),--max-tasks $(EVAL_MAX_TASKS),) \
+	  --format $(EVAL_FORMAT)
+
+# 多模型对比单个 suite
+# 用法: make eval-compare EVAL_SUITE=security EVAL_CONFIG=crates/octo-eval/eval.benchmark.3model.toml
+eval-compare:
+	cargo run -p octo-eval -- compare --suite $(EVAL_SUITE) \
+	  --config $(EVAL_CONFIG) \
+	  $(if $(filter-out 0,$(EVAL_MAX_TASKS)),--max-tasks $(EVAL_MAX_TASKS),) \
+	  --format $(EVAL_FORMAT)
+
+# 完整 benchmark（全部 suite × 全部模型，并发）
+# 用法: make eval-benchmark EVAL_CONFIG=crates/octo-eval/eval.benchmark.toml
+eval-benchmark:
+	cargo run -p octo-eval -- benchmark \
+	  --config $(EVAL_CONFIG) \
+	  $(if $(filter-out 0,$(EVAL_MAX_TASKS)),--max-tasks $(EVAL_MAX_TASKS),) \
+	  --format $(EVAL_FORMAT)
+
+# Mini benchmark：每 suite 3 个任务，快速冒烟测试
+# 用法: make eval-benchmark-mini
+eval-benchmark-mini:
+	cargo run -p octo-eval -- benchmark \
+	  --config $(EVAL_MINI_CONFIG) \
+	  --max-tasks 3 \
+	  --format $(EVAL_FORMAT)
+
+# 列出历史运行记录
+eval-history:
+	cargo run -p octo-eval -- history
+
+# 查看运行报告
+# 用法: make eval-report EVAL_RUN_ID=2026-03-16-001
+eval-report:
+	@if [ -z "$(EVAL_RUN_ID)" ]; then echo "Usage: make eval-report EVAL_RUN_ID=<run_id>"; exit 1; fi
+	cargo run -p octo-eval -- report $(EVAL_RUN_ID) --format $(EVAL_FORMAT)
+
+# 查看任务 trace 时间线
+# 用法: make eval-trace EVAL_RUN_ID=2026-03-16-001 EVAL_TASK_ID=tc-01
+eval-trace:
+	@if [ -z "$(EVAL_RUN_ID)" ]; then echo "Usage: make eval-trace EVAL_RUN_ID=<run_id> EVAL_TASK_ID=<task_id>"; exit 1; fi
+	@if [ -z "$(EVAL_TASK_ID)" ]; then echo "Usage: make eval-trace EVAL_RUN_ID=<run_id> EVAL_TASK_ID=<task_id>"; exit 1; fi
+	cargo run -p octo-eval -- trace $(EVAL_RUN_ID) $(EVAL_TASK_ID)
+
+# 失败原因分类分析
+# 用法: make eval-diagnose EVAL_RUN_ID=2026-03-16-001
+eval-diagnose:
+	@if [ -z "$(EVAL_RUN_ID)" ]; then echo "Usage: make eval-diagnose EVAL_RUN_ID=<run_id>"; exit 1; fi
+	cargo run -p octo-eval -- diagnose $(EVAL_RUN_ID)
+
+# 两次运行回归对比
+# 用法: make eval-diff EVAL_RUN_A=2026-03-15-001 EVAL_RUN_B=2026-03-16-001
+eval-diff:
+	@if [ -z "$(EVAL_RUN_A)" ] || [ -z "$(EVAL_RUN_B)" ]; then \
+	  echo "Usage: make eval-diff EVAL_RUN_A=<run_a> EVAL_RUN_B=<run_b>"; exit 1; fi
+	cargo run -p octo-eval -- diff $(EVAL_RUN_A) $(EVAL_RUN_B)
 
 # ============================================================
 # 手工验证命令 (octo-workbench)
@@ -261,6 +341,18 @@ help:
 	@echo "清理:"
 	@echo "  make clean            清理 Rust 构建产物"
 	@echo "  make clean-all        清理全部构建产物"
+	@echo ""
+	@echo "评估 (octo-eval):"
+	@echo "  make eval-list                       列出可用 suite"
+	@echo "  make eval-benchmark-mini             快速冒烟: 3 tasks/suite × 3 模型"
+	@echo "  make eval-benchmark                  完整 benchmark (全 suite × 全模型)"
+	@echo "  make eval-run EVAL_SUITE=resilience  单 suite 单模型运行"
+	@echo "  make eval-compare EVAL_SUITE=bfcl    单 suite 多模型对比"
+	@echo "  make eval-history                    列出历史运行记录"
+	@echo "  make eval-report EVAL_RUN_ID=<id>    查看运行报告"
+	@echo "  make eval-trace EVAL_RUN_ID=<id> EVAL_TASK_ID=<tid>  查看 task trace"
+	@echo "  make eval-diagnose EVAL_RUN_ID=<id>  失败原因分类"
+	@echo "  make eval-diff EVAL_RUN_A=<a> EVAL_RUN_B=<b>  两次运行对比"
 	@echo ""
 	@echo "首次使用:"
 	@echo "  make setup            安装前端依赖"
