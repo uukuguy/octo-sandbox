@@ -282,6 +282,7 @@ impl EvalTask for SweBenchTask {
             "benchmark": "swe_bench",
             "instance_id": self.record.instance_id,
             "repo": self.record.repo,
+            "base_commit": self.record.base_commit,
             "problem_statement": self.record.problem_statement,
         })
     }

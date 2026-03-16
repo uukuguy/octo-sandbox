@@ -187,9 +187,10 @@ impl EvalRunner {
                 return self.run_task_server(task, server_config).await
             }
             EvalTarget::Engine(_) => {
-                // For SWE-bench tasks, prefer Docker execution mode
+                // SWE-bench tasks use engine fallback (LLM agent loop with tools)
+                // rather than Docker direct execution, which only runs prompt as bash.
                 if Self::is_swe_bench_task(task) {
-                    return self.run_task_docker(task).await;
+                    return self.run_task_engine_fallback(task).await;
                 }
             }
         }
@@ -849,6 +850,30 @@ impl EvalRunner {
             .join("octo-eval")
             .join(&task_id);
         let _ = std::fs::create_dir_all(&task_workdir);
+
+        // For SWE-bench tasks: clone the target repo and checkout base_commit
+        if Self::is_swe_bench_task(task) {
+            let scoring = task.scoring_data();
+            let repo = scoring.get("repo").and_then(|v| v.as_str()).unwrap_or("");
+            let base_commit = scoring.get("base_commit").and_then(|v| v.as_str()).unwrap_or("");
+            if !repo.is_empty() && !task_workdir.join(".git").exists() {
+                let repo_url = format!("https://github.com/{}.git", repo);
+                info!(task_id = %task_id, repo = %repo, "Cloning SWE-bench repo");
+                let clone_result = std::process::Command::new("git")
+                    .args(["clone", "--depth", "50", &repo_url, "."])
+                    .current_dir(&task_workdir)
+                    .output();
+                if let Ok(output) = clone_result {
+                    if output.status.success() && !base_commit.is_empty() {
+                        let _ = std::process::Command::new("git")
+                            .args(["checkout", base_commit])
+                            .current_dir(&task_workdir)
+                            .output();
+                    }
+                }
+            }
+        }
+
         let tool_ctx = octo_types::ToolContext {
             sandbox_id: octo_types::SandboxId::default(),
             working_dir: task_workdir,
@@ -889,6 +914,26 @@ impl EvalRunner {
                 });
             }
         };
+
+        // For SWE-bench tasks: capture git diff from the working directory
+        // Agent modifies files via bash/file_write tools, so we need to extract the patch
+        let mut output = output;
+        if Self::is_swe_bench_task(task) {
+            let workdir = std::env::temp_dir()
+                .join("octo-eval")
+                .join(&task_id);
+            if let Ok(diff_output) = std::process::Command::new("git")
+                .args(["diff"])
+                .current_dir(&workdir)
+                .output()
+            {
+                let patch = String::from_utf8_lossy(&diff_output.stdout);
+                if !patch.trim().is_empty() {
+                    let patch_msg = format!("\n\n```diff\n{}\n```\n", patch.trim());
+                    output.messages.push(ChatMessage::assistant(&patch_msg));
+                }
+            }
+        }
 
         let duration_ms = start.elapsed().as_millis() as u64;
         let score = task.score(&output);

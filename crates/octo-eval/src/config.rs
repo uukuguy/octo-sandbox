@@ -179,6 +179,7 @@ pub struct TomlDefaultSection {
     pub concurrency: Option<usize>,
     pub record_traces: Option<bool>,
     pub output_dir: Option<String>,
+    pub max_iterations: Option<u32>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -225,6 +226,7 @@ impl EvalTomlConfig {
 
     /// Convert TOML model entries to ModelEntry list (resolving API keys from env).
     pub fn to_model_entries(&self) -> Vec<ModelEntry> {
+        let default_max_iterations = self.default.max_iterations;
         self.models
             .iter()
             .map(|m| {
@@ -253,12 +255,16 @@ impl EvalTomlConfig {
                     .clone()
                     .or_else(|| std::env::var("OPENAI_BASE_URL").ok());
 
+                let max_iterations = default_max_iterations
+                    .unwrap_or(EngineConfig::default().max_iterations);
+
                 ModelEntry {
                     engine: EngineConfig {
                         provider_name: m.provider.clone(),
                         api_key,
                         base_url,
                         model: m.model.clone(),
+                        max_iterations,
                         ..EngineConfig::default()
                     },
                     info: ModelInfo {

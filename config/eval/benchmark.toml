@@ -4,6 +4,7 @@
 [default]
 timeout_secs = 300
 record_traces = true
+max_iterations = 30
 
 # === Standard Model Set (5 models, all via OpenRouter) ===
 
@@ -36,6 +37,12 @@ name = "GLM-4.7-Flash"
 provider = "openai"
 model = "z-ai/glm-4.7-flash"
 tier = "economy"
+
+[[models]]
+name = "Claude-Sonnet-4.6"
+provider = "openai"
+model = "anthropic/claude-sonnet-4-6"
+tier = "flagship"
 
 # === GAIA ===
 [gaia]
