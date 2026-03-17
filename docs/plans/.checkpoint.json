@@ -2,7 +2,7 @@
   "plan_file": "docs/plans/2026-03-16-phase-q2-standard-benchmark.md",
   "phase": "execution",
   "created_at": "2026-03-16T17:30:00+08:00",
-  "updated_at": "2026-03-17T15:50:00+08:00",
+  "updated_at": "2026-03-17T18:30:00+08:00",
   "completed_tasks": [
     "Q1-bugfix",
     "Q2-design-and-planning",
@@ -65,5 +65,5 @@
   "phase_name": "Phase Q — GAIA & SWE-bench Standard Testing",
   "status": "COMPLETE",
   "execution_mode": "subagent-driven-development",
-  "notes": "Phase Q 15/15 tasks COMPLETE. Key results: SWE-bench 3.3% (harness verified, 4 models identical), GAIA DDG 18.3% → Tavily 32.5% (+77%). Deep analysis: 13/30 GAIA tasks in agent blind spot (OCR/video/precision calc). Dataset filtering strategy defined: exclude .png/.jpg/.mp3/video tasks → 165→139 effective tasks. Report: docs/design/EVAL_STANDARD_BENCHMARK_REPORT.md. Runs: 007 (SWE-bench), 008 (GAIA-DDG), 009 (GAIA-Tavily)."
+  "notes": "Phase Q 15/15 tasks COMPLETE. Post-phase fixes: (1) committed remaining Phase Q code changes (61f7920), (2) cleaned 43 temp files from source tree, (3) fixed eval runner workdir isolation — added EvalTask::attached_files() trait, GAIA prompts use relative paths, runner copies attachments to /tmp/octo-eval/{task_id}/, run_task_cli sets current_dir (9795754). Tests: 28/28 octo-eval pass."
 }
