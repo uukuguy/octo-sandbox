@@ -102,7 +102,8 @@ impl SweBenchTask {
                 .collect::<Vec<_>>()
                 .join("\n");
             if !patch.is_empty() {
-                return Some(patch);
+                // Ensure patch ends with newline (required by `git apply`/`patch`)
+                return Some(format!("{}\n", patch));
             }
         }
 
@@ -132,7 +133,7 @@ impl SweBenchTask {
                 }
             }
             if !patch_lines.is_empty() {
-                return Some(patch_lines.join("\n"));
+                return Some(format!("{}\n", patch_lines.join("\n")));
             }
         }
 
@@ -393,6 +394,36 @@ impl ExternalBenchmark for SweBenchmark {
 
 /// SWE-bench harness integration for official verification.
 /// This runs the official swebench Python package to verify patches.
+/// SWE-bench harness configuration
+#[derive(Debug, Clone)]
+pub struct SweBenchHarnessConfig {
+    /// Python binary that has `swebench` installed (e.g. "/tmp/swebench-env/bin/python3")
+    pub python_bin: String,
+    /// HuggingFace dataset name (e.g. "princeton-nlp/SWE-bench_Lite")
+    pub dataset_name: String,
+    /// Max Docker workers for parallel evaluation
+    pub max_workers: usize,
+    /// Cache level: "none", "base", "env", "instance"
+    pub cache_level: String,
+    /// Run ID for organizing harness output
+    pub run_id: String,
+    /// Report output directory
+    pub report_dir: PathBuf,
+}
+
+impl Default for SweBenchHarnessConfig {
+    fn default() -> Self {
+        Self {
+            python_bin: "/tmp/swebench-env/bin/python3".into(),
+            dataset_name: "princeton-nlp/SWE-bench_Lite".into(),
+            max_workers: 4,
+            cache_level: "env".into(),
+            run_id: "octo-eval".into(),
+            report_dir: PathBuf::from("."),
+        }
+    }
+}
+
 pub struct SweBenchHarness;
 
 impl SweBenchHarness {
@@ -416,42 +447,126 @@ impl SweBenchHarness {
     }
 
     /// Run the official swebench harness verification.
-    /// Requires: pip install swebench
     /// Returns: Map of instance_id -> resolved (true/false)
     pub fn run_evaluation(
+        config: &SweBenchHarnessConfig,
         predictions_path: &std::path::Path,
-        dataset_name: &str,
-        max_workers: usize,
     ) -> anyhow::Result<HashMap<String, bool>> {
         use std::process::Command;
 
-        let output = Command::new("python3")
+        tracing::info!(
+            python = %config.python_bin,
+            dataset = %config.dataset_name,
+            predictions = %predictions_path.display(),
+            max_workers = config.max_workers,
+            "Starting SWE-bench harness evaluation"
+        );
+
+        let output = Command::new(&config.python_bin)
             .args([
                 "-m",
                 "swebench.harness.run_evaluation",
                 "--dataset_name",
-                dataset_name,
+                &config.dataset_name,
                 "--predictions_path",
                 &predictions_path.to_string_lossy(),
                 "--max_workers",
-                &max_workers.to_string(),
+                &config.max_workers.to_string(),
                 "--run_id",
-                "octo-eval",
+                &config.run_id,
+                "--cache_level",
+                &config.cache_level,
+                "--report_dir",
+                &config.report_dir.to_string_lossy(),
             ])
             .output()?;
 
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            anyhow::bail!("swebench harness failed: {}", stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        tracing::info!("Harness stdout: {}", stdout);
+        if !stderr.is_empty() {
+            tracing::warn!("Harness stderr: {}", stderr);
         }
 
-        // Parse harness output — the harness writes results to a JSON file
-        // For now, return empty map; actual parsing depends on harness output format
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        tracing::info!("Harness output: {}", stdout);
+        if !output.status.success() {
+            anyhow::bail!("swebench harness failed (exit {}): {}", output.status, stderr);
+        }
 
-        // TODO: Parse actual harness results from output directory
-        Ok(HashMap::new())
+        // Parse results from harness log directory.
+        // swebench writes per-instance report files at:
+        //   logs/run_evaluation/<run_id>/<model_name>/<instance_id>/report.json
+        // (relative to CWD, regardless of report_dir setting)
+        // Each report.json contains: { "<instance_id>": { "resolved": true/false, ... } }
+        let log_dir = PathBuf::from("logs")
+            .join("run_evaluation")
+            .join(&config.run_id);
+
+        let mut results = HashMap::new();
+
+        if log_dir.exists() {
+            Self::parse_report_dir(&log_dir, &mut results)?;
+        } else {
+            tracing::warn!(
+                "No harness report directory found at {}",
+                log_dir.display()
+            );
+        }
+
+        tracing::info!(
+            resolved = results.values().filter(|v| **v).count(),
+            total = results.len(),
+            "SWE-bench harness evaluation complete"
+        );
+
+        Ok(results)
+    }
+
+    /// Parse report.json files from the harness log directory tree.
+    /// Directory structure: <log_dir>/<model_name>/<instance_id>/report.json
+    fn parse_report_dir(
+        log_dir: &std::path::Path,
+        results: &mut HashMap<String, bool>,
+    ) -> anyhow::Result<()> {
+        // Walk: log_dir / model_name_dir / instance_id_dir / report.json
+        for model_entry in std::fs::read_dir(log_dir)? {
+            let model_entry = model_entry?;
+            if !model_entry.file_type()?.is_dir() {
+                continue;
+            }
+            for instance_entry in std::fs::read_dir(model_entry.path())? {
+                let instance_entry = instance_entry?;
+                if !instance_entry.file_type()?.is_dir() {
+                    continue;
+                }
+                let report_path = instance_entry.path().join("report.json");
+                if report_path.exists() {
+                    match std::fs::read_to_string(&report_path) {
+                        Ok(content) => {
+                            if let Ok(report) = serde_json::from_str::<
+                                HashMap<String, serde_json::Value>,
+                            >(&content)
+                            {
+                                for (instance_id, val) in report {
+                                    let resolved = val
+                                        .get("resolved")
+                                        .and_then(|v| v.as_bool())
+                                        .unwrap_or(false);
+                                    results.insert(instance_id, resolved);
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            tracing::warn!(
+                                path = %report_path.display(),
+                                error = %e,
+                                "Failed to read harness report"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
     }
 }
 

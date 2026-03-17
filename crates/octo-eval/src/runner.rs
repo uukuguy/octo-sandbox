@@ -12,6 +12,7 @@ use octo_engine::agent::{run_agent_loop, AgentEvent, AgentLoopConfig};
 use octo_engine::providers::{create_provider, Provider};
 use octo_types::ChatMessage;
 
+use crate::benchmarks::swe_bench::{SweBenchHarness, SweBenchHarnessConfig, SweBenchTask};
 use crate::config::{CliConfig, EvalConfig, EvalTarget, ServerConfig};
 use crate::mock_tool::EvalMockTool;
 use crate::model::ModelInfo;
@@ -124,6 +125,7 @@ pub struct EvalRunner {
     config: EvalConfig,
     provider: Arc<dyn Provider>,
     recorder: Option<EvalRecorder>,
+    swe_bench_harness: Option<SweBenchHarnessConfig>,
 }
 
 impl EvalRunner {
@@ -138,6 +140,7 @@ impl EvalRunner {
             config,
             provider,
             recorder,
+            swe_bench_harness: None,
         })
     }
 
@@ -152,7 +155,14 @@ impl EvalRunner {
             config,
             provider,
             recorder,
+            swe_bench_harness: None,
         }
+    }
+
+    /// Set SWE-bench harness configuration for post-suite verification.
+    pub fn with_swe_bench_harness(mut self, config: SweBenchHarnessConfig) -> Self {
+        self.swe_bench_harness = Some(config);
+        self
     }
 
     /// Returns a reference to the runner configuration.
@@ -851,22 +861,57 @@ impl EvalRunner {
             .join(&task_id);
         let _ = std::fs::create_dir_all(&task_workdir);
 
-        // For SWE-bench tasks: clone the target repo and checkout base_commit
+        // For SWE-bench tasks: set up repo at base_commit in working directory.
+        // Uses a shared cache to avoid re-cloning the same repo for each task.
         if Self::is_swe_bench_task(task) {
             let scoring = task.scoring_data();
             let repo = scoring.get("repo").and_then(|v| v.as_str()).unwrap_or("");
             let base_commit = scoring.get("base_commit").and_then(|v| v.as_str()).unwrap_or("");
             if !repo.is_empty() && !task_workdir.join(".git").exists() {
-                let repo_url = format!("https://github.com/{}.git", repo);
-                info!(task_id = %task_id, repo = %repo, "Cloning SWE-bench repo");
-                let clone_result = std::process::Command::new("git")
-                    .args(["clone", "--depth", "50", &repo_url, "."])
-                    .current_dir(&task_workdir)
-                    .output();
-                if let Ok(output) = clone_result {
-                    if output.status.success() && !base_commit.is_empty() {
+                let repo_slug = repo.replace('/', "__");
+                let cache_dir = std::env::temp_dir()
+                    .join("octo-eval")
+                    .join("repo-cache")
+                    .join(&repo_slug);
+
+                // Clone to cache if not already present
+                if !cache_dir.join(".git").exists() {
+                    let _ = std::fs::create_dir_all(&cache_dir);
+                    let repo_url = format!("https://github.com/{}.git", repo);
+                    info!(task_id = %task_id, repo = %repo, "Cloning SWE-bench repo to cache");
+                    let _ = std::process::Command::new("git")
+                        .args(["clone", &repo_url, "."])
+                        .current_dir(&cache_dir)
+                        .output();
+                }
+
+                // Copy cached repo to task workdir, then checkout base_commit
+                if cache_dir.join(".git").exists() {
+                    info!(task_id = %task_id, "Copying cached repo to task workdir");
+                    let _ = std::process::Command::new("cp")
+                        .args(["-a", cache_dir.to_str().unwrap_or("."), task_workdir.to_str().unwrap_or(".")])
+                        .output();
+                    // cp -a copies as child dir, fix path
+                    let copied = task_workdir.join(&repo_slug);
+                    if copied.join(".git").exists() {
+                        // Move contents from copied subdir to task_workdir
+                        let _ = std::process::Command::new("bash")
+                            .args(["-c", &format!(
+                                "shopt -s dotglob && mv {}/* {}/",
+                                copied.display(), task_workdir.display()
+                            )])
+                            .output();
+                        let _ = std::fs::remove_dir_all(&copied);
+                    }
+                    if !base_commit.is_empty() && task_workdir.join(".git").exists() {
+                        info!(task_id = %task_id, commit = %base_commit, "Checking out base commit");
                         let _ = std::process::Command::new("git")
-                            .args(["checkout", base_commit])
+                            .args(["checkout", "-f", base_commit])
+                            .current_dir(&task_workdir)
+                            .output();
+                        // Clean any untracked files
+                        let _ = std::process::Command::new("git")
+                            .args(["clean", "-fd"])
                             .current_dir(&task_workdir)
                             .output();
                     }
@@ -951,13 +996,23 @@ impl EvalRunner {
         let total = tasks.len();
         let concurrency = self.config.concurrency.max(1);
 
-        let results = if concurrency <= 1 {
+        let mut results = if concurrency <= 1 {
             // Sequential mode (default, preserves ordering)
             self.run_suite_sequential(tasks).await?
         } else {
             // Concurrent mode
             self.run_suite_concurrent(tasks, concurrency).await?
         };
+
+        // Post-suite: run SWE-bench harness verification if configured and tasks have patches
+        let has_swe_bench_tasks = tasks.iter().any(|t| Self::is_swe_bench_task(t.as_ref()));
+        if has_swe_bench_tasks {
+            if let Some(ref harness_config) = self.swe_bench_harness {
+                self.verify_swe_bench_results(&mut results, harness_config);
+            } else {
+                eprintln!("SWE-bench tasks detected but no harness config — scores are patch-presence only (0.5 = has patch, not verified)");
+            }
+        }
 
         eprintln!(
             "Suite complete: {}/{} passed",
@@ -984,6 +1039,113 @@ impl EvalRunner {
         }
 
         Ok(EvalReport::from_results(results))
+    }
+
+    /// Post-suite: collect patches from SWE-bench results, run official harness, update scores.
+    fn verify_swe_bench_results(
+        &self,
+        results: &mut [TaskResult],
+        harness_config: &SweBenchHarnessConfig,
+    ) {
+        // 1. Collect (instance_id, patch) from results that have patches
+        let mut predictions: Vec<(String, String)> = Vec::new();
+        for r in results.iter() {
+            let has_patch = r.score.dimensions.get("has_patch").copied().unwrap_or(0.0);
+            if has_patch > 0.0 {
+                // Extract the patch from the agent output
+                let mut all_text = String::new();
+                for msg in &r.output.messages {
+                    all_text.push_str(&msg.text_content());
+                    all_text.push('\n');
+                }
+                for tc in &r.output.tool_calls {
+                    all_text.push_str(&tc.output);
+                    all_text.push('\n');
+                }
+                if let Some(patch) = SweBenchTask::extract_patch(&all_text) {
+                    predictions.push((r.task_id.clone(), patch));
+                }
+            }
+        }
+
+        if predictions.is_empty() {
+            eprintln!("SWE-bench: no tasks produced patches — skipping harness verification");
+            return;
+        }
+
+        eprintln!(
+            "SWE-bench: running harness verification on {}/{} tasks with patches...",
+            predictions.len(),
+            results.len()
+        );
+
+        // 2. Write predictions to JSONL
+        let predictions_dir = self.config.output_dir.join("swe_bench_predictions");
+        let _ = std::fs::create_dir_all(&predictions_dir);
+        let predictions_path = predictions_dir.join("predictions.jsonl");
+        let model_name = match &self.config.target {
+            EvalTarget::Engine(c) => c.model.clone(),
+            _ => "unknown".to_string(),
+        };
+        if let Err(e) = SweBenchHarness::write_predictions(&predictions, &model_name, &predictions_path) {
+            warn!(error = %e, "Failed to write SWE-bench predictions");
+            return;
+        }
+
+        // 3. Run harness
+        match SweBenchHarness::run_evaluation(harness_config, &predictions_path) {
+            Ok(harness_results) => {
+                // 4. Update scores based on harness results
+                let prediction_ids: std::collections::HashSet<String> =
+                    predictions.iter().map(|(id, _)| id.clone()).collect();
+                let mut resolved_count = 0;
+                let mut apply_failed = 0;
+                for r in results.iter_mut() {
+                    let had_patch = prediction_ids.contains(&r.task_id);
+                    if let Some(&resolved) = harness_results.get(&r.task_id) {
+                        if resolved {
+                            resolved_count += 1;
+                            r.score.passed = true;
+                            r.score.score = 1.0;
+                            if let ScoreDetails::SweVerify {
+                                ref mut fail_to_pass_passed,
+                                ref mut pass_to_pass_passed,
+                                ..
+                            } = r.score.details
+                            {
+                                *fail_to_pass_passed = true;
+                                *pass_to_pass_passed = true;
+                            }
+                        } else {
+                            // Harness ran but patch didn't resolve the issue
+                            r.score.passed = false;
+                            r.score.score = 0.25;
+                        }
+                        r.score.dimensions.insert("harness_verified".into(), 1.0);
+                        r.score.dimensions.insert("resolved".into(), if resolved { 1.0 } else { 0.0 });
+                    } else if had_patch {
+                        // Had patch but harness didn't produce a result
+                        // (patch apply failed or Docker error)
+                        apply_failed += 1;
+                        r.score.passed = false;
+                        r.score.score = 0.1; // minimal credit: attempted but patch invalid
+                        r.score.dimensions.insert("harness_verified".into(), 0.0);
+                        r.score.dimensions.insert("patch_apply_failed".into(), 1.0);
+                    }
+                }
+                eprintln!(
+                    "SWE-bench harness: {}/{} resolved, {} patch-apply-failed ({} tasks had patches)",
+                    resolved_count,
+                    harness_results.len(),
+                    apply_failed,
+                    predictions.len()
+                );
+            }
+            Err(e) => {
+                warn!(error = %e, "SWE-bench harness verification failed — keeping patch-presence scores");
+                eprintln!("SWE-bench harness error: {} — scores are patch-presence only", e);
+            }
+        }
     }
 
     /// Sequential task execution (concurrency = 1)
@@ -1077,6 +1239,7 @@ impl EvalRunner {
                     config,
                     provider,
                     recorder,
+                    swe_bench_harness: None,
                 };
 
                 match runner.run_task(task.as_ref()).await {

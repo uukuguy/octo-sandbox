@@ -2,7 +2,7 @@
   "plan_file": "docs/plans/2026-03-16-phase-q2-standard-benchmark.md",
   "phase": "execution",
   "created_at": "2026-03-16T17:30:00+08:00",
-  "updated_at": "2026-03-16T21:45:00+08:00",
+  "updated_at": "2026-03-17T15:50:00+08:00",
   "completed_tasks": [
     "Q1-bugfix",
     "Q2-design-and-planning",
@@ -12,13 +12,17 @@
     "T4-imageregistry",
     "T5-exact-match",
     "T6-sampling-config",
+    "T7-websearch-verify",
+    "T8-gaia-baseline",
     "T9-official-dataset",
     "T10-harness-scorer",
     "T11-docker-runner",
     "T12-agent-prompt",
-    "T14-toml-config"
+    "T13-swebench-baseline",
+    "T14-toml-config",
+    "T15-baseline-report"
   ],
-  "current_task": "T7-websearch-verify",
+  "current_task": null,
   "total_tasks": 15,
   "task_groups": {
     "Q1": {
@@ -37,29 +41,29 @@
       "name": "Docker Standard Images",
       "tasks": ["T1-base-scripts", "T2-dockerfiles", "T3-build-makefile", "T4-imageregistry"],
       "status": "COMPLETE",
-      "description": "6 Docker images + install-base.sh + ImageRegistry upgraded to octo-sandbox/*:1.0."
+      "description": "6 Docker images built + verified. Git config added. Commit: 62a27b0"
     },
     "G2": {
       "name": "GAIA Standardization",
       "tasks": ["T5-exact-match", "T6-sampling-config", "T7-websearch-verify", "T8-gaia-baseline"],
-      "status": "IN_PROGRESS",
-      "description": "T5 (exact match) + T6 (stratified sampling) done. T7 (web_search DDG verify) + T8 (GAIA baseline run) require runtime."
+      "status": "COMPLETE",
+      "description": "T5-T7 done. T8 GAIA baseline complete: R1 (DDG) 18.3% avg, R2 (Tavily) 32.5% avg. Best: MiniMax-M2.1 43.3%. Run IDs: 2026-03-17-008 (R1), 2026-03-17-009 (R2)."
     },
     "G3": {
       "name": "SWE-bench Standardization",
       "tasks": ["T9-official-dataset", "T10-harness-scorer", "T11-docker-runner", "T12-agent-prompt", "T13-swebench-baseline"],
-      "status": "IN_PROGRESS",
-      "description": "T9 (300 official dataset) + T10 (harness scorer) + T11 (Docker runner) + T12 (agent prompt) done. T13 (baseline run) requires Docker + LLM."
+      "status": "COMPLETE",
+      "description": "T9-T12 infrastructure + T13 baseline complete. Full harness verification via swebench 4.1.0 Docker. 4 models x 30 tasks, 3.3% resolved (astropy-14995 only). 87% patch apply failures. Run ID: 2026-03-17-007."
     },
     "G4": {
       "name": "Config & Baseline Report",
       "tasks": ["T14-toml-config", "T15-baseline-report"],
-      "status": "IN_PROGRESS",
-      "description": "T14 (unified benchmark.toml) done. T15 (baseline report) requires runtime results from T8/T13."
+      "status": "COMPLETE",
+      "description": "T14 benchmark.toml unified. T15 standard benchmark report written: docs/design/EVAL_STANDARD_BENCHMARK_REPORT.md — includes GAIA deep analysis (per-model profiles, tool usage patterns, failure taxonomy) and dataset filtering strategy."
     }
   },
   "phase_name": "Phase Q — GAIA & SWE-bench Standard Testing",
-  "status": "IN_PROGRESS",
+  "status": "COMPLETE",
   "execution_mode": "subagent-driven-development",
-  "notes": "13/15 code tasks complete. 2203 tests pass (0 fail). Remaining runtime tasks: T7 (web_search DDG verify — needs network), T8 (GAIA baseline — needs LLM API), T13 (SWE-bench baseline — needs Docker + LLM), T15 (baseline report — needs T8/T13 results). Commits: 9b6100d, f4b93d3, 151860a, c154c55, 41798ca."
+  "notes": "Phase Q 15/15 tasks COMPLETE. Key results: SWE-bench 3.3% (harness verified, 4 models identical), GAIA DDG 18.3% → Tavily 32.5% (+77%). Deep analysis: 13/30 GAIA tasks in agent blind spot (OCR/video/precision calc). Dataset filtering strategy defined: exclude .png/.jpg/.mp3/video tasks → 165→139 effective tasks. Report: docs/design/EVAL_STANDARD_BENCHMARK_REPORT.md. Runs: 007 (SWE-bench), 008 (GAIA-DDG), 009 (GAIA-Tavily)."
 }

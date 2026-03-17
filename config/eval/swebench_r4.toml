@@ -1,0 +1,49 @@
+# SWE-bench R4 evaluation — 4 models x 30 tasks with harness verification
+# Usage: cargo run -p octo-eval -- benchmark --config config/eval/swebench_r4.toml --suites swe_bench --max-tasks 30
+
+[default]
+timeout_secs = 600
+record_traces = true
+max_iterations = 30
+
+[[models]]
+name = "Qwen3.5-9B"
+provider = "openai"
+model = "qwen/qwen3.5-9b"
+tier = "economy"
+
+[[models]]
+name = "Qwen3.5-27B"
+provider = "openai"
+model = "qwen/qwen3.5-27b"
+tier = "standard"
+
+[[models]]
+name = "Qwen3-Coder-Next"
+provider = "openai"
+model = "qwen/qwen3-coder-next"
+tier = "high"
+
+[[models]]
+name = "MiniMax-M2.1"
+provider = "openai"
+model = "minimax/minimax-m2.1"
+tier = "standard"
+
+[swe_bench]
+dataset = "crates/octo-eval/datasets/swe_bench_lite.jsonl"
+scorer = "swebench_harness"
+docker_required = true
+
+[swe_bench.sampling]
+quick = 10
+standard = 30
+full = 300
+default = "standard"
+
+[swe_bench.harness]
+dataset_name = "/Users/sujiangwen/sandbox/LLM/speechless.ai/Autonomous-Agents/octo-sandbox/crates/octo-eval/datasets/swe_bench_lite.jsonl"
+max_workers = 4
+cache_level = "env"
+namespace = ""
+python_bin = "/tmp/swebench-env/bin/python3"

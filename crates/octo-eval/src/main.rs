@@ -851,6 +851,21 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
     let mut cell_handles: Vec<std::thread::JoinHandle<(String, usize, anyhow::Result<(ModelInfo, EvalReport)>)>> =
         Vec::with_capacity(suite_names.len() * models.len());
 
+    // Build SWE-bench harness config from TOML (if present)
+    let swe_bench_harness_base: Option<octo_eval::benchmarks::swe_bench::SweBenchHarnessConfig> =
+        toml_config.as_ref()
+            .and_then(|tc| tc.swe_bench.as_ref())
+            .and_then(|sb| sb.harness.as_ref())
+            .map(|h| octo_eval::benchmarks::swe_bench::SweBenchHarnessConfig {
+                python_bin: h.python_bin.clone()
+                    .unwrap_or_else(|| "/tmp/swebench-env/bin/python3".into()),
+                dataset_name: h.dataset_name.clone()
+                    .unwrap_or_else(|| "princeton-nlp/SWE-bench_Lite".into()),
+                max_workers: h.max_workers.unwrap_or(4),
+                cache_level: h.cache_level.clone().unwrap_or_else(|| "env".into()),
+                ..Default::default()
+            });
+
     for suite_name in &suite_names {
         let records = suite_task_records.remove(suite_name.as_ref() as &str).unwrap_or_default();
         let records = std::sync::Arc::new(records);
@@ -860,6 +875,7 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
             let records_clone = records.clone();
             let entry_clone = entry.clone();
             let output_root_clone = output_root.clone();
+            let harness_config = swe_bench_harness_base.clone();
             let handle = std::thread::spawn(move || -> (String, usize, anyhow::Result<(ModelInfo, EvalReport)>) {
                 let result = (|| -> anyhow::Result<(ModelInfo, EvalReport)> {
                     let model_slug = entry_clone.info.name.to_lowercase().replace([' ', '/', '.'], "_");
@@ -887,7 +903,16 @@ fn cmd_benchmark(args: &[String]) -> Result<()> {
                         .collect();
 
                     let report = rt.block_on(async {
-                        let runner = EvalRunner::new(eval_config)?;
+                        let mut runner = EvalRunner::new(eval_config)?;
+                        // Attach SWE-bench harness config for swe_bench suite
+                        if suite_owned == "swe_bench" {
+                            if let Some(mut hc) = harness_config {
+                                // Per-model run_id and report_dir for isolation
+                                hc.run_id = format!("octo-eval-{}", model_slug);
+                                hc.report_dir = cell_output.clone();
+                                runner = runner.with_swe_bench_harness(hc);
+                            }
+                        }
                         runner.run_suite(&boxed_tasks).await
                     })?;
                     let report = report.with_model(entry_clone.info.clone());

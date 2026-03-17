@@ -171,6 +171,31 @@ pub struct EvalTomlConfig {
     pub default: TomlDefaultSection,
     #[serde(default)]
     pub models: Vec<TomlModelEntry>,
+    #[serde(default)]
+    pub swe_bench: Option<TomlSweBenchSection>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TomlSweBenchSection {
+    #[serde(default)]
+    pub dataset: Option<String>,
+    #[serde(default)]
+    pub scorer: Option<String>,
+    #[serde(default)]
+    pub docker_required: Option<bool>,
+    #[serde(default)]
+    pub harness: Option<TomlSweBenchHarness>,
+    #[serde(default)]
+    pub sampling: Option<toml::Value>,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TomlSweBenchHarness {
+    pub dataset_name: Option<String>,
+    pub max_workers: Option<usize>,
+    pub cache_level: Option<String>,
+    pub namespace: Option<String>,
+    pub python_bin: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
