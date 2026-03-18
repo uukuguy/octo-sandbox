@@ -145,6 +145,9 @@ pub struct EngineConfig {
     pub model: String,
     pub max_tokens: u32,
     pub max_iterations: u32,
+    /// Optional path to an agent manifest YAML for persona injection
+    #[serde(default)]
+    pub agent_manifest: Option<String>,
 }
 
 impl Default for EngineConfig {
@@ -158,6 +161,7 @@ impl Default for EngineConfig {
             model: "mock".into(),
             max_tokens: 4096,
             max_iterations: 10,
+            agent_manifest: None,
         }
     }
 }
@@ -205,6 +209,8 @@ pub struct TomlDefaultSection {
     pub record_traces: Option<bool>,
     pub output_dir: Option<String>,
     pub max_iterations: Option<u32>,
+    /// Path to agent manifest YAML for persona injection
+    pub agent_manifest: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -252,6 +258,7 @@ impl EvalTomlConfig {
     /// Convert TOML model entries to ModelEntry list (resolving API keys from env).
     pub fn to_model_entries(&self) -> Vec<ModelEntry> {
         let default_max_iterations = self.default.max_iterations;
+        let default_agent_manifest = self.default.agent_manifest.clone();
         self.models
             .iter()
             .map(|m| {
@@ -290,6 +297,7 @@ impl EvalTomlConfig {
                         base_url,
                         model: m.model.clone(),
                         max_iterations,
+                        agent_manifest: default_agent_manifest.clone(),
                         ..EngineConfig::default()
                     },
                     info: ModelInfo {
@@ -608,5 +616,34 @@ tier = "T3"
         assert_eq!(entries[0].info.tier, ModelTier::Free);
         assert_eq!(entries[1].info.tier, ModelTier::Economy);
         assert_eq!(entries[2].info.tier, ModelTier::HighPerformance);
+    }
+
+    #[test]
+    fn test_toml_agent_manifest_propagation() {
+        let toml_str = r#"
+[default]
+agent_manifest = "config/agents/gaia_solver.yaml"
+
+[[models]]
+name = "TestModel"
+provider = "openai"
+model = "gpt-4o"
+"#;
+        let config: EvalTomlConfig = toml::from_str(toml_str).unwrap();
+        assert_eq!(
+            config.default.agent_manifest,
+            Some("config/agents/gaia_solver.yaml".into())
+        );
+        let entries = config.to_model_entries();
+        assert_eq!(
+            entries[0].engine.agent_manifest,
+            Some("config/agents/gaia_solver.yaml".into())
+        );
+    }
+
+    #[test]
+    fn test_engine_config_default_no_manifest() {
+        let config = EngineConfig::default();
+        assert!(config.agent_manifest.is_none());
     }
 }

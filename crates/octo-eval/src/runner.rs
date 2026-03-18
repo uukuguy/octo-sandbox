@@ -272,14 +272,27 @@ impl EvalRunner {
         };
 
         // Build AgentLoopConfig
-        let loop_config = AgentLoopConfig::builder()
+        let mut builder = AgentLoopConfig::builder()
             .provider(effective_provider)
             .model(engine_config.model.clone())
             .max_tokens(engine_config.max_tokens)
             .max_iterations(engine_config.max_iterations)
             .tools(tool_registry)
-            .tool_ctx(tool_ctx)
-            .build();
+            .tool_ctx(tool_ctx);
+
+        // Inject agent manifest if configured (e.g. gaia_solver.yaml)
+        if let Some(ref manifest_path) = engine_config.agent_manifest {
+            match Self::load_agent_manifest(manifest_path) {
+                Ok(manifest) => {
+                    builder = builder.manifest(manifest);
+                }
+                Err(e) => {
+                    warn!("Failed to load agent manifest '{}': {}", manifest_path, e);
+                }
+            }
+        }
+
+        let loop_config = builder.build();
 
         // Create the initial user message from the task prompt
         let messages = vec![ChatMessage::user(task.prompt())];
@@ -715,6 +728,29 @@ impl EvalRunner {
             score,
             duration_ms,
         })
+    }
+
+    /// Load an AgentManifest from a YAML file path.
+    /// Supports both absolute paths and paths relative to the workspace config directory.
+    fn load_agent_manifest(path: &str) -> Result<octo_engine::agent::entry::AgentManifest> {
+        let file_path = std::path::Path::new(path);
+        let content = if file_path.is_absolute() && file_path.exists() {
+            std::fs::read_to_string(file_path)?
+        } else {
+            // Try relative to CARGO_MANIFEST_DIR (octo-eval) then workspace root
+            let eval_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"));
+            let candidates = [
+                eval_dir.join(path),
+                eval_dir.join("../../").join(path),
+            ];
+            let found = candidates.iter().find(|p| p.exists());
+            match found {
+                Some(p) => std::fs::read_to_string(p)?,
+                None => anyhow::bail!("Agent manifest not found: {}", path),
+            }
+        };
+        let manifest: octo_engine::agent::entry::AgentManifest = serde_yaml::from_str(&content)?;
+        Ok(manifest)
     }
 
     /// Check if a task is a SWE-bench task that should use Docker mode.

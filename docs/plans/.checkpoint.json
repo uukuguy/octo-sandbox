@@ -1,28 +1,28 @@
 {
   "plan_file": "docs/plans/2026-03-18-phase-s-agent-capability-boost.md",
-  "phase": "design",
+  "phase": "execution",
   "created_at": "2026-03-18T14:55:00+08:00",
-  "updated_at": "2026-03-18T14:55:00+08:00",
-  "completed_tasks": [],
-  "current_task": null,
+  "updated_at": "2026-03-18T16:50:00+08:00",
+  "completed_tasks": ["T1", "T4", "T5", "T7", "T8"],
+  "current_task": "T2",
   "total_tasks": 13,
   "task_groups": {
     "G1": {
       "name": "ReAct 提示工程",
       "tasks": ["T1", "T2", "T3"],
-      "status": "PENDING",
+      "status": "IN_PROGRESS",
       "description": "System Prompt ReAct 指导 + GAIA Agent Manifest + 效果评估"
     },
     "G2": {
       "name": "Web 搜索增强",
       "tasks": ["T4", "T5", "T6"],
-      "status": "PENDING",
+      "status": "IN_PROGRESS",
       "description": "Tavily advanced + Web Fetch 内容提取 + 效果评估"
     },
     "G3": {
       "name": "文件解析能力",
       "tasks": ["T7", "T8", "T9"],
-      "status": "PENDING",
+      "status": "IN_PROGRESS",
       "description": "Bash allowlist 扩展 + File Read 二进制支持 + 效果评估"
     },
     "G4": {
@@ -39,7 +39,7 @@
     }
   },
   "phase_name": "Phase S — Agent 能力第一轮提升",
-  "status": "DESIGN_COMPLETE",
+  "status": "EXECUTING",
   "execution_mode": "subagent-driven-development",
   "roadmap_file": "docs/plans/ROADMAP_POST_PHASE_R.md",
   "baseline": {
@@ -48,5 +48,7 @@
     "tests": 2210,
     "target_gaia": 0.50
   },
-  "notes": "Phase S 计划完成。基于代码调研（web_search/web_fetch/file_read/system_prompt/agent_loop/bash），4个改进方向+子集评估验证。"
+  "batch1_commit": "93e4a6e",
+  "new_tests": 30,
+  "notes": "Batch 1 (T1+T4+T5+T7+T8) complete. 30 new tests. Next: T2 (GAIA agent manifest)."
 }
