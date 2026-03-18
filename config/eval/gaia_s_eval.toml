@@ -1,0 +1,18 @@
+# Phase S evaluation config — measures agent capability improvements
+# Usage: cargo run -p octo-eval -- benchmark --config config/eval/gaia_s_eval.toml --suite gaia_core
+#
+# This config uses the GAIA solver agent manifest for ReAct-style persona injection.
+# Compare results with R3 baseline (run 011) to measure improvement.
+
+[default]
+timeout_secs = 300
+record_traces = true
+max_iterations = 30
+agent_manifest = "config/agents/gaia_solver.yaml"
+
+# Use the best-performing model from R3 for controlled comparison
+[[models]]
+name = "MiniMax-M2.1"
+provider = "openai"
+model = "minimax/minimax-m2.1"
+tier = "standard"
