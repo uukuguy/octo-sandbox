@@ -40,7 +40,9 @@ impl Default for ExecPolicy {
             safe_bins: vec![
                 "ls", "cat", "head", "tail", "grep", "find", "echo", "pwd", "wc", "sort", "uniq",
                 "cut", "awk", "sed", "tr", "diff", "git", "cargo", "npm", "python3", "python",
-                "node", "touch", "mkdir",
+                "node", "touch", "mkdir", "unzip", "file", "xxd", "pdftotext", "pip3", "pip",
+                "tar", "gzip", "gunzip", "zcat", "strings", "basename", "dirname", "realpath",
+                "sha256sum", "md5sum", "base64", "date", "env", "which", "xargs", "tee",
             ]
             .into_iter()
             .map(String::from)
@@ -350,5 +352,101 @@ impl Tool for BashTool {
 
     fn approval(&self) -> ApprovalRequirement {
         ApprovalRequirement::Always
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_default_allowlist_original_commands() {
+        let policy = ExecPolicy::default();
+        // Original commands
+        for cmd in &["ls", "cat", "grep", "git", "python3", "node", "cargo", "npm"] {
+            assert!(policy.is_allowed(cmd), "{cmd} should be allowed");
+        }
+    }
+
+    #[test]
+    fn test_default_allowlist_new_file_commands() {
+        let policy = ExecPolicy::default();
+        // Newly added file handling commands
+        for cmd in &["unzip", "file", "xxd", "pdftotext", "pip3", "pip"] {
+            assert!(policy.is_allowed(cmd), "{cmd} should be allowed");
+        }
+    }
+
+    #[test]
+    fn test_default_allowlist_new_utility_commands() {
+        let policy = ExecPolicy::default();
+        // Newly added utility commands
+        for cmd in &["tar", "gzip", "gunzip", "zcat", "strings", "basename", "dirname",
+                      "realpath", "sha256sum", "md5sum", "base64", "date", "env", "which",
+                      "xargs", "tee"] {
+            assert!(policy.is_allowed(cmd), "{cmd} should be allowed");
+        }
+    }
+
+    #[test]
+    fn test_blocked_commands_still_blocked() {
+        let policy = ExecPolicy::default();
+        // Commands not in allowlist should be blocked
+        assert!(!policy.is_allowed("rm"));
+        assert!(!policy.is_allowed("chmod"));
+        assert!(!policy.is_allowed("chown"));
+        assert!(!policy.is_allowed("kill"));
+        assert!(!policy.is_allowed("dd"));
+        assert!(!policy.is_allowed("curl"));
+    }
+
+    #[test]
+    fn test_metacharacters_still_blocked() {
+        let policy = ExecPolicy::default();
+        assert!(!policy.is_allowed("ls; rm -rf /"));
+        assert!(!policy.is_allowed("ls | cat"));
+        assert!(!policy.is_allowed("ls && rm -rf /"));
+        assert!(!policy.is_allowed("echo $(whoami)"));
+        assert!(!policy.is_allowed("cat `whoami`"));
+        assert!(!policy.is_allowed("ls > /etc/passwd"));
+    }
+
+    #[test]
+    fn test_command_with_args() {
+        let policy = ExecPolicy::default();
+        assert!(policy.is_allowed("python3 -c 'import openpyxl'"));
+        assert!(policy.is_allowed("unzip -l archive.zip"));
+        assert!(policy.is_allowed("file document.pdf"));
+        assert!(policy.is_allowed("pdftotext input.pdf -"));
+        assert!(policy.is_allowed("pip3 install openpyxl"));
+    }
+
+    #[test]
+    fn test_deny_mode() {
+        let policy = ExecPolicy {
+            mode: ExecSecurityMode::Deny,
+            ..Default::default()
+        };
+        assert!(!policy.is_allowed("ls"));
+        assert!(!policy.is_allowed("cat"));
+    }
+
+    #[test]
+    fn test_full_mode() {
+        let policy = ExecPolicy {
+            mode: ExecSecurityMode::Full,
+            ..Default::default()
+        };
+        assert!(policy.is_allowed("rm -rf /"));
+        assert!(policy.is_allowed("curl http://evil.com"));
+    }
+
+    #[test]
+    fn test_bash_tool_metadata() {
+        let tool = BashTool::new();
+        assert_eq!(tool.name(), "bash");
+        assert_eq!(tool.source(), ToolSource::BuiltIn);
+        assert_eq!(tool.risk_level(), RiskLevel::Destructive);
+        assert_eq!(tool.approval(), ApprovalRequirement::Always);
     }
 }

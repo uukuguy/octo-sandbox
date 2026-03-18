@@ -113,6 +113,9 @@ impl WebSearchTool {
             "query": query,
             "max_results": max_results,
             "include_answer": true,
+            "search_depth": "advanced",
+            "include_raw_content": false,
+            "topic": "general",
         });
 
         let response = self
@@ -136,10 +139,10 @@ impl WebSearchTool {
 
         let mut output = String::new();
 
-        // Include direct answer if available
+        // Include direct answer prominently if available
         if let Some(answer) = data["answer"].as_str() {
             if !answer.is_empty() {
-                output.push_str(&format!("Direct Answer: {answer}\n\n"));
+                output.push_str(&format!("## Direct Answer\n{answer}\n\n---\n\n"));
             }
         }
 
@@ -148,11 +151,15 @@ impl WebSearchTool {
             if results.is_empty() && output.is_empty() {
                 return Ok(ToolOutput::success("No search results found.".to_string()));
             }
+            if !results.is_empty() {
+                output.push_str("## Search Results\n\n");
+            }
             for (i, r) in results.iter().enumerate() {
                 let title = r["title"].as_str().unwrap_or("(no title)");
                 let url = r["url"].as_str().unwrap_or("");
                 let content = r["content"].as_str().unwrap_or("");
-                output.push_str(&format!("{}. {}\n   URL: {}\n   {}\n\n", i + 1, title, url, content));
+                let score = r["score"].as_f64().map(|s| format!(" (relevance: {:.2})", s)).unwrap_or_default();
+                output.push_str(&format!("{}. **{}**{}\n   URL: {}\n   {}\n\n", i + 1, title, score, url, content));
             }
         } else if output.is_empty() {
             return Ok(ToolOutput::success("No search results found.".to_string()));

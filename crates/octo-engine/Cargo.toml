@@ -47,12 +47,16 @@ ed25519-dalek = { version = "2", features = ["rand_core"] }
 keyring = { version = "3", optional = true }
 regex = "1"
 lru = "0.12"
+calamine = { version = "0.26", optional = true }
+pdf-extract = { version = "0.7", optional = true }
+zip = { version = "2", optional = true, default-features = false, features = ["deflate"] }
 hnsw_rs = { workspace = true, optional = true }
 tiktoken-rs = { version = "0.6", optional = true }
 rcgen = { version = "0.13", optional = true }
 
 [features]
-default = ["sandbox-wasm", "sandbox-docker", "tiktoken"]
+default = ["sandbox-wasm", "sandbox-docker", "tiktoken", "file-parsing"]
+file-parsing = ["dep:calamine", "dep:pdf-extract", "dep:zip"]
 sandbox-wasm = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:base64"]
 sandbox-docker = ["dep:bollard", "dep:base64"]
 keyring = ["dep:keyring"]

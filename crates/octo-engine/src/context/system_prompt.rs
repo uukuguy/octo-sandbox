@@ -25,6 +25,24 @@ You have access to tools for executing commands, reading and writing files, sear
 - Use tools to verify your work
 - Do not introduce security vulnerabilities
 - Prefer editing existing files over creating new ones
+
+## Problem-Solving Strategy
+- Before taking action, reason step-by-step about what information you need and which tools to use
+- When a task requires multiple steps, plan your approach first, then execute one step at a time
+- Before giving your final answer, verify it by cross-checking with available evidence
+- If a tool call fails or returns unexpected results, analyze the error and try an alternative approach
+
+## Search Strategy
+- Formulate precise, specific search queries rather than vague ones
+- If a web search returns no relevant results, reformulate your query with different keywords or more specific terms
+- Use web_fetch to read full page content when search snippets are insufficient
+- Cross-reference information from multiple sources when accuracy is critical
+
+## File Handling
+- For binary files (xlsx, xls, pdf, docx, zip), use the file_read tool which supports common formats
+- For formats not directly supported, use bash with python3 and appropriate libraries (e.g., openpyxl, pdfplumber)
+- Use bash with commands like unzip, file, or pdftotext for quick file inspection
+- Always check the file type before attempting to read it
 "#;
 
 const OUTPUT_GUIDELINES: &str = r#"## Output Format
@@ -472,6 +490,28 @@ mod tests {
         let result = builder.build();
 
         assert!(result.contains(CORE_INSTRUCTIONS));
+    }
+
+    #[test]
+    fn test_react_instructions_present() {
+        let builder = SystemPromptBuilder::new();
+        let result = builder.build();
+
+        // ReAct problem-solving strategy
+        assert!(result.contains("Problem-Solving Strategy"));
+        assert!(result.contains("reason step-by-step"));
+        assert!(result.contains("plan your approach first"));
+        assert!(result.contains("verify it by cross-checking"));
+
+        // Search strategy
+        assert!(result.contains("Search Strategy"));
+        assert!(result.contains("reformulate your query"));
+        assert!(result.contains("web_fetch"));
+
+        // File handling
+        assert!(result.contains("File Handling"));
+        assert!(result.contains("binary files"));
+        assert!(result.contains("python3"));
     }
 
     #[test]
