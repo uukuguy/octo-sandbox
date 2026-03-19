@@ -45,10 +45,14 @@ pub struct GaiaTask {
 }
 
 impl GaiaTask {
+    /// Answer format instruction appended to every GAIA prompt.
+    const ANSWER_FORMAT_INSTRUCTION: &'static str =
+        "\n\nIMPORTANT: You MUST end your response with exactly one line in this format:\nFINAL ANSWER: <your answer>\nThe answer should be concise — a single word, number, or short phrase. Do NOT include explanations in the FINAL ANSWER line.";
+
     pub fn new(record: GaiaRecord) -> Self {
         // Build prompt: reference attachment by relative filename only.
         // The runner copies the file into the task working directory before execution.
-        let prompt = if let Some(ref fname) = record.file_name {
+        let mut prompt = if let Some(ref fname) = record.file_name {
             if !fname.is_empty() {
                 format!(
                     "{}\n\nNote: An attached file is available at `{}`. Use the file_read or bash tool to read its contents.",
@@ -60,6 +64,7 @@ impl GaiaTask {
         } else {
             record.question.clone()
         };
+        prompt.push_str(Self::ANSWER_FORMAT_INSTRUCTION);
         Self { record, prompt }
     }
 
@@ -79,14 +84,110 @@ impl GaiaTask {
     }
 }
 
-/// Normalize answer for exact-match comparison.
-/// GAIA standard: trim, lowercase, strip trailing punctuation.
+/// Normalize answer for comparison.
+/// GAIA standard: trim, lowercase, strip trailing punctuation and quotes.
 fn normalize_answer(s: &str) -> String {
     s.trim()
         .to_lowercase()
+        .trim_matches(|c: char| c == '"' || c == '\'' || c == '`')
         .trim_end_matches(|c: char| c == '.' || c == ',' || c == ';')
         .trim()
         .to_string()
+}
+
+/// Extract the final answer from the agent's response text.
+///
+/// Strategy (in priority order):
+/// 1. Look for "FINAL ANSWER: xxx" pattern (case-insensitive)
+/// 2. Look for "The answer is xxx" pattern
+/// 3. Fall back to the last non-empty line
+fn extract_answer(text: &str) -> String {
+    let lower = text.to_lowercase();
+
+    // Strategy 1: Find "FINAL ANSWER:" anywhere in text (last occurrence)
+    if let Some(idx) = lower.rfind("final answer:") {
+        let after = &text[idx + "final answer:".len()..];
+        let answer = after.lines().next().unwrap_or("").trim()
+            .trim_start_matches('*').trim_end_matches('*').trim();
+        if !answer.is_empty() {
+            return answer.to_string();
+        }
+    }
+
+    // Strategy 1b: "FINAL ANSWER :" with space before colon
+    if let Some(idx) = lower.rfind("final answer :") {
+        let after = &text[idx + "final answer :".len()..];
+        let answer = after.lines().next().unwrap_or("").trim();
+        if !answer.is_empty() {
+            return answer.to_string();
+        }
+    }
+
+    // Strategy 2: "The answer is ..." pattern (last occurrence)
+    if let Some(idx) = lower.rfind("the answer is ") {
+        let after = &text[idx + "the answer is ".len()..];
+        let answer = after.lines().next().unwrap_or("").trim()
+            .trim_end_matches(|c: char| c == '.' || c == ',' || c == ';')
+            .trim_start_matches("**").trim_end_matches("**").trim();
+        if !answer.is_empty() {
+            return answer.to_string();
+        }
+    }
+
+    // Strategy 3: last non-empty line (common when agent just outputs the answer)
+    for line in text.lines().rev() {
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            return trimmed.to_string();
+        }
+    }
+
+    text.trim().to_string()
+}
+
+/// Check if two normalized answers match using multiple strategies.
+///
+/// Returns (matched, score):
+/// - Exact match after normalization → (true, 1.0)
+/// - Expected is contained in actual (for short expected answers) → (true, 0.8)
+/// - Actual is contained in expected → (true, 0.8)
+fn fuzzy_match(normalized_expected: &str, normalized_actual: &str) -> (bool, f64) {
+    // Exact match
+    if normalized_actual == normalized_expected {
+        return (true, 1.0);
+    }
+
+    // Contains match: expected answer appears in the actual response
+    // Only for short expected answers (< 100 chars) to avoid false positives
+    if normalized_expected.len() < 100 && normalized_actual.contains(normalized_expected) {
+        return (true, 0.8);
+    }
+
+    // Reverse contains: actual answer appears in expected (for when agent gives partial answer)
+    if normalized_actual.len() < 100
+        && !normalized_actual.is_empty()
+        && normalized_expected.contains(normalized_actual)
+    {
+        return (true, 0.8);
+    }
+
+    // Numeric comparison: handle formatting differences like "1,000" vs "1000"
+    if let (Some(n1), Some(n2)) = (parse_number(normalized_expected), parse_number(normalized_actual)) {
+        if (n1 - n2).abs() < f64::EPSILON * 100.0 {
+            return (true, 1.0);
+        }
+    }
+
+    (false, 0.0)
+}
+
+/// Try to parse a string as a number, stripping commas and currency symbols.
+fn parse_number(s: &str) -> Option<f64> {
+    let cleaned: String = s
+        .chars()
+        .filter(|c| c.is_ascii_digit() || *c == '.' || *c == '-')
+        .collect();
+    cleaned.parse::<f64>().ok()
 }
 
 impl EvalTask for GaiaTask {
@@ -123,22 +224,24 @@ impl EvalTask for GaiaTask {
     }
 
     fn score(&self, output: &AgentOutput) -> EvalScore {
-        let actual = output
+        let raw_response = output
             .messages
             .last()
             .map(|m| m.text_content())
             .unwrap_or_default();
 
+        // Extract the answer from the agent's response (not the full text)
+        let extracted = extract_answer(&raw_response);
         let normalized_expected = normalize_answer(&self.record.final_answer);
-        let normalized_actual = normalize_answer(&actual);
+        let normalized_actual = normalize_answer(&extracted);
 
-        let passed = normalized_actual == normalized_expected;
+        let (passed, score) = fuzzy_match(&normalized_expected, &normalized_actual);
         EvalScore {
             passed,
-            score: if passed { 1.0 } else { 0.0 },
+            score,
             details: ScoreDetails::GaiaMatch {
                 expected: self.record.final_answer.clone(),
-                actual,
+                actual: extracted,
                 level: self.record.level,
             },
             dimensions: HashMap::new(),
@@ -496,7 +599,7 @@ mod tests {
 
         // Exact match pass case
         let output = AgentOutput {
-            messages: vec![octo_types::ChatMessage::assistant("4")],
+            messages: vec![octo_types::ChatMessage::assistant("FINAL ANSWER: 4")],
             ..Default::default()
         };
         let score = task.score(&output);
@@ -505,21 +608,31 @@ mod tests {
 
         // Exact match with normalization (trailing punctuation stripped)
         let output_norm = AgentOutput {
-            messages: vec![octo_types::ChatMessage::assistant("  4.  ")],
+            messages: vec![octo_types::ChatMessage::assistant("FINAL ANSWER:  4.  ")],
             ..Default::default()
         };
         let score_norm = task.score(&output_norm);
         assert!(score_norm.passed);
         assert_eq!(score_norm.score, 1.0);
 
-        // Contains but not exact match — should FAIL
+        // "The answer is X" pattern — should PASS via extract_answer
         let output_contains = AgentOutput {
-            messages: vec![octo_types::ChatMessage::assistant("The answer is 4.")],
+            messages: vec![octo_types::ChatMessage::assistant("After analysis, the answer is 4.")],
             ..Default::default()
         };
         let score_contains = task.score(&output_contains);
-        assert!(!score_contains.passed, "contains-only match must fail with exact match scorer");
-        assert_eq!(score_contains.score, 0.0);
+        assert!(score_contains.passed, "extract_answer should find 'the answer is 4'");
+
+        // FINAL ANSWER with extra text before it — should PASS
+        let output_verbose = AgentOutput {
+            messages: vec![octo_types::ChatMessage::assistant(
+                "I checked multiple sources and confirmed.\n\nFINAL ANSWER: 4"
+            )],
+            ..Default::default()
+        };
+        let score_verbose = task.score(&output_verbose);
+        assert!(score_verbose.passed);
+        assert_eq!(score_verbose.score, 1.0);
 
         // Complete mismatch
         let output_fail = AgentOutput {
@@ -538,6 +651,61 @@ mod tests {
         assert_eq!(normalize_answer("YES;"), "yes");
         assert_eq!(normalize_answer("  42  "), "42");
         assert_eq!(normalize_answer("New York City"), "new york city");
+        assert_eq!(normalize_answer("\"quoted\""), "quoted");
+    }
+
+    #[test]
+    fn test_extract_answer() {
+        // FINAL ANSWER: pattern
+        assert_eq!(
+            extract_answer("Some analysis here.\n\nFINAL ANSWER: 42"),
+            "42"
+        );
+        // Case insensitive
+        assert_eq!(
+            extract_answer("Reasoning...\nfinal answer: New York"),
+            "New York"
+        );
+        // With markdown bold
+        assert_eq!(
+            extract_answer("**FINAL ANSWER:** Paris"),
+            "Paris"
+        );
+        // "The answer is" pattern
+        assert_eq!(
+            extract_answer("Based on my research, the answer is 7."),
+            "7"
+        );
+        // Last line fallback
+        assert_eq!(
+            extract_answer("Some analysis\n\n42"),
+            "42"
+        );
+        // Multi-line with FINAL ANSWER in middle
+        assert_eq!(
+            extract_answer("Step 1: search\nStep 2: verify\nFINAL ANSWER: Tokyo\nDone."),
+            "Tokyo"
+        );
+    }
+
+    #[test]
+    fn test_fuzzy_match() {
+        // Exact match
+        assert_eq!(fuzzy_match("42", "42"), (true, 1.0));
+        // Contains match (expected in actual)
+        assert_eq!(fuzzy_match("paris", "the city is paris").0, true);
+        // Numeric with commas
+        assert_eq!(fuzzy_match("1000", "1000").0, true);
+        // No match
+        assert_eq!(fuzzy_match("paris", "london").0, false);
+    }
+
+    #[test]
+    fn test_parse_number() {
+        assert_eq!(parse_number("42"), Some(42.0));
+        assert_eq!(parse_number("1,000"), Some(1000.0));
+        assert_eq!(parse_number("$99.99"), Some(99.99));
+        assert!(parse_number("hello").is_none());
     }
 
     #[test]

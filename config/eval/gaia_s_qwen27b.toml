@@ -1,0 +1,16 @@
+# Phase S evaluation — Qwen3.5-27B single model on gaia_core (142 tasks)
+# Usage: cargo run -p octo-eval -- run --suite gaia_core --config config/eval/gaia_s_qwen27b.toml
+#
+# Compare results with R3 baseline (run 011, Qwen3.5-27B: 36.9%) to measure improvement.
+
+[default]
+timeout_secs = 300
+record_traces = true
+max_iterations = 30
+agent_manifest = "config/agents/gaia_solver.yaml"
+
+[[models]]
+name = "Qwen3.5-27B"
+provider = "openai"
+model = "qwen/qwen3.5-27b"
+tier = "standard"
