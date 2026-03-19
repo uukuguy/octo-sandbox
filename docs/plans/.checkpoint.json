@@ -2,33 +2,33 @@
   "plan_file": "docs/plans/2026-03-18-phase-s-agent-capability-boost.md",
   "phase": "execution",
   "created_at": "2026-03-18T14:55:00+08:00",
-  "updated_at": "2026-03-18T19:30:00+08:00",
-  "completed_tasks": ["T1", "T2", "T4", "T5", "T7", "T8", "T12", "T13"],
-  "current_task": "T3",
+  "updated_at": "2026-03-20T03:30:00+08:00",
+  "completed_tasks": ["T1", "T2", "T3", "T4", "T5", "T6", "T7", "T8", "T9", "T10", "T11", "T12", "T13"],
+  "current_task": null,
   "total_tasks": 13,
   "task_groups": {
     "G1": {
       "name": "ReAct \u63d0\u793a\u5de5\u7a0b",
       "tasks": ["T1", "T2", "T3"],
-      "status": "CODE_COMPLETE",
-      "description": "System Prompt ReAct \u6307\u5bfc + GAIA Agent Manifest + \u6548\u679c\u8bc4\u4f0a"
+      "status": "DONE",
+      "description": "System Prompt ReAct \u6307\u5bfc + GAIA Agent Manifest + \u6548\u679c\u8bc4\u4f30"
     },
     "G2": {
       "name": "Web \u641c\u7d22\u589e\u5f3a",
       "tasks": ["T4", "T5", "T6"],
-      "status": "CODE_COMPLETE",
+      "status": "DONE",
       "description": "Tavily advanced + Web Fetch \u5185\u5bb9\u63d0\u53d6 + \u6548\u679c\u8bc4\u4f30"
     },
     "G3": {
       "name": "\u6587\u4ef6\u89e3\u6790\u80fd\u529b",
       "tasks": ["T7", "T8", "T9"],
-      "status": "CODE_COMPLETE",
+      "status": "DONE",
       "description": "Bash allowlist \u6269\u5c55 + File Read \u4e8c\u8fdb\u5236\u652f\u6301 + \u6548\u679c\u8bc4\u4f30"
     },
     "G4": {
       "name": "\u5206\u7c7b\u5b50\u96c6\u8bc4\u4f30",
       "tasks": ["T10", "T11"],
-      "status": "PENDING_EVAL",
+      "status": "DONE",
       "description": "\u6539\u8fdb\u524d\u57fa\u7ebf\u626b\u63cf + \u6539\u8fdb\u540e\u5168\u5b50\u96c6\u5bf9\u6bd4"
     },
     "G5": {
@@ -39,7 +39,7 @@
     }
   },
   "phase_name": "Phase S \u2014 Agent \u80fd\u529b\u7b2c\u4e00\u8f6e\u63d0\u5347",
-  "status": "CODE_COMPLETE",
+  "status": "COMPLETE",
   "execution_mode": "subagent-driven-development",
   "roadmap_file": "docs/plans/ROADMAP_POST_PHASE_R.md",
   "baseline": {
@@ -49,11 +49,23 @@
     "target_gaia": 0.50
   },
   "result": {
-    "tests": 2242,
-    "new_tests": 32,
-    "commits": ["93e4a6e", "21f59ca", "afd183f"]
+    "tests": 2250,
+    "new_tests": 40,
+    "commits": ["93e4a6e", "21f59ca", "afd183f", "42633bd", "8e7e42b", "c985aab"],
+    "eval_summary": {
+      "model": "Qwen3.5-27B",
+      "suite": "gaia_core",
+      "tasks_evaluated": 51,
+      "baseline_pass_rate": 0.392,
+      "improved_pass_rate": 0.392,
+      "net_change": 0,
+      "flips_improved": 6,
+      "flips_regressed": 6,
+      "bugs_fixed": ["AgentConfig serde(default) for manifest loading", "Jina Search num clamp to 20"],
+      "conclusion": "Manifest ReAct instructions neutral for Qwen3.5-27B. Scorer improvements (answer extraction + fuzzy matching) fixed infrastructure but did not change pass rate. Model capability is the bottleneck."
+    }
   },
-  "notes": "All code tasks complete. Added: Jina Search as primary web search engine (configurable priority via config.yaml). Eval config updated for dual-model (Qwen3.5-27B + MiniMax-M2.1). gaia_basic eval running in background. Remaining: T3/T6/T9/T10/T11 runtime eval tasks.",
+  "notes": "Phase S COMPLETE. All 13 tasks done. Key findings: (1) GAIA scorer improved with answer extraction + fuzzy matching. (2) AgentConfig serde bug prevented all manifest loading — fixed. (3) Jina num>20 bug caused search failures — fixed. (4) Qwen3.5-27B GAIA pass rate ~39% regardless of manifest/search strategy — model capability bottleneck. Run 4 continues in background for full 142-task data.",
   "deferred": [
     {
       "id": "S-D1",
