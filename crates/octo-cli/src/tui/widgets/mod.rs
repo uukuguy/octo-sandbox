@@ -6,3 +6,4 @@ pub mod progress;
 pub mod input;
 pub mod status_bar;
 pub mod conversation;
+pub mod toast;
