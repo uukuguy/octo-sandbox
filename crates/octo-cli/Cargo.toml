@@ -60,7 +60,7 @@ dialoguer = "0.11"
 termimad = "0.31"
 indicatif = "0.17"
 owo-colors = "4"
-crossterm = "0.28"
+crossterm = { version = "0.28", features = ["event-stream"] }
 ratatui = { workspace = true }
 
 # Database

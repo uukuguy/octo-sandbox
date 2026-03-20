@@ -2,6 +2,7 @@
 
 pub mod backend;
 pub mod event;
+pub mod event_handler;
 pub mod formatters;
 pub mod managers;
 pub mod screens;
