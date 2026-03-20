@@ -6,8 +6,9 @@
       "plan_file": "docs/plans/2026-03-20-phase-t-tui-opendev-integration.md",
       "design_file": "docs/design/TUI_OPENDEV_INTEGRATION_DESIGN.md",
       "branch": "feat/tui-opendev-integration",
-      "progress": "design complete, awaiting execution",
-      "tasks": "0/24",
+      "progress": "T1 complete, ready for T2 (conversation-centric UI)",
+      "tasks": "10/24",
+      "last_updated": "2026-03-20T14:30:00+08:00",
       "tests": 2250
     }
   ],
