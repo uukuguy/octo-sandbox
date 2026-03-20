@@ -2,9 +2,9 @@
   "plan_file": "docs/plans/2026-03-20-phase-t-tui-opendev-integration.md",
   "phase": "execution",
   "created_at": "2026-03-20T12:50:00+08:00",
-  "updated_at": "2026-03-20T14:30:00+08:00",
-  "completed_tasks": ["T1-1", "T1-2", "T1-3", "T1-4", "T1-5", "T1-6", "T1-7", "T1-8", "T1-9", "T1-10"],
-  "current_task": "T2-1",
+  "updated_at": "2026-03-20T15:10:00+08:00",
+  "completed_tasks": ["T1-1", "T1-2", "T1-3", "T1-4", "T1-5", "T1-6", "T1-7", "T1-8", "T1-9", "T1-10", "T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-7", "T2-8"],
+  "current_task": "T3-1",
   "total_tasks": 24,
   "task_groups": {
     "T1": {
@@ -16,8 +16,8 @@
     "T2": {
       "name": "对话中心主界面",
       "tasks": ["T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-6", "T2-7", "T2-8"],
-      "status": "PENDING",
-      "description": "TuiState, render, event loop, engine 对接, approval, autocomplete"
+      "status": "COMPLETE",
+      "description": "TuiState, render, event loop, engine 对接, approval, legacy cleanup"
     },
     "T3": {
       "name": "调试浮层 + 完善",
@@ -43,13 +43,19 @@
     "完整特性：无 mock/stub，全部真实 engine 数据",
     "回退策略：feature branch 开发，每 Task 一个 commit"
   ],
-  "notes": "T1 COMPLETE (1d66ee7): All 10 infrastructure tasks done. Ported formatters (markdown, wrap, path_shortener, style_tokens, tool_registry, bash_formatter, file_formatter, diff), managers (spinner, message_history, display_ledger, interrupt), widgets (spinner, progress, input, status_bar, conversation, toast), event system (AppEvent + EventHandler). 459 octo-cli tests passing. Full workspace compiles clean. Next: T2-1 define TuiApp state structure.",
+  "notes": "T2 COMPLETE (6c5ac02): All 7/8 tasks done (T2-6 autocomplete deferred). Created TuiState (app_state.rs), render layout (render.rs), key handler (key_handler.rs), approval dialog, TUI entry point (run_tui_conversation), event loop with AgentEvent handler, and deleted legacy 12-Tab architecture (screens/, backend.rs, 6065 lines removed). 2205 workspace tests pass (delta: -45 from deleted legacy tests). Next: T3-1 debug overlays.",
   "deferred": [
     {
       "id": "S-D1",
       "description": "Agent Skills 系统是否符合标准规范 — 专题研究",
       "added_at": "2026-03-18",
       "precondition": "Phase S 完成后"
+    },
+    {
+      "id": "T2-D1",
+      "description": "T2-6 Autocomplete — 输入补全功能",
+      "added_at": "2026-03-20",
+      "precondition": "T3 完成后可选实现"
     }
   ],
   "previous_phase": {
