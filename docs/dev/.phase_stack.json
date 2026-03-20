@@ -1,5 +1,16 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase T — TUI OpenDev 整合",
+      "started_at": "2026-03-20T12:50:00+08:00",
+      "plan_file": "docs/plans/2026-03-20-phase-t-tui-opendev-integration.md",
+      "design_file": "docs/design/TUI_OPENDEV_INTEGRATION_DESIGN.md",
+      "branch": "feat/tui-opendev-integration",
+      "progress": "design complete, awaiting execution",
+      "tasks": "0/24",
+      "tests": 2250
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
     {

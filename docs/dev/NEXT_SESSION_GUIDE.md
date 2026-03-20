@@ -1,8 +1,8 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-20 06:40 GMT+8
+**最后更新**: 2026-03-20 12:50 GMT+8
 **当前分支**: `main`
-**当前状态**: Phase S COMPLETE + CLI/Server 可用性修复完成
+**当前状态**: Phase S COMPLETE + CLI/Server 可用性修复完成 + Phase T 计划已完成
 
 ---
 
@@ -52,11 +52,30 @@ Wave 1-10: Core Engine + CLI            → COMPLETE @ 675155d
 
 ## 下一步建议
 
+### 最高优先级：Phase T — TUI OpenDev 整合
+
+将 opendev TUI 完整特性整合进 octo-cli，重建对话中心界面。
+
+- **计划**: `docs/plans/2026-03-20-phase-t-tui-opendev-integration.md` (24 tasks, 3 phases)
+- **设计**: `docs/design/TUI_OPENDEV_INTEGRATION_DESIGN.md`
+- **分支**: `feat/tui-opendev-integration`
+- **核心决策**:
+  - 类型统一：直接使用 octo-types，零适配层
+  - 布局：对话中心 + 浮层调试，废弃 12-Tab
+  - 对接：与 REPL 共用 AgentExecutorHandle
+  - 完整特性：无 mock/stub
+
+**启动命令**:
+```bash
+git checkout -b feat/tui-opendev-integration
+# 然后按计划文档的 T1-1 开始
+```
+
+### 其他方向
+
 1. **S-D1 Agent Skills 规范研究** — Phase S 遗留专题
-2. **前端集成** — 将 TUI 新功能同步到 web/ 前端
-3. **更强模型评估** — 使用 Claude/GPT-4o 级模型跑 GAIA 对比
-4. **Agent 工具链增强** — 更多工具、更好的搜索策略
-5. **多 agent 协作** — dual agent mode 完善
+2. **更强模型评估** — 使用 Claude/GPT-4o 级模型跑 GAIA 对比
+3. **Agent 工具链增强** — 更多工具、更好的搜索策略
 
 ---
 

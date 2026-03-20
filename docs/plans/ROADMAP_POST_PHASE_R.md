@@ -89,12 +89,19 @@
 
 ### 类别 C：平台与基础设施（产品化方向）
 
-#### S8: octo-cli 交互模式
-- **目标**: 实现 `octo chat` 交互模式，用户直接对话 agent
-- **关键文件**: `crates/octo-cli/src/repl/`, `crates/octo-cli/src/commands/`
-- **预期收益**: 提升用户体验
-- **工作量**: Medium (2-3 天)
-- **依赖**: 无
+#### ~~S8: octo-cli 交互模式~~ → **Phase T: TUI OpenDev 整合**（已升级）
+- **目标**: 将 opendev TUI 完整特性整合进 octo-cli，重建对话中心界面，直接对接 octo-engine
+- **计划**: `docs/plans/2026-03-20-phase-t-tui-opendev-integration.md`
+- **设计**: `docs/design/TUI_OPENDEV_INTEGRATION_DESIGN.md`
+- **关键决策**:
+  - 类型统一：直接使用 octo-types + AgentEvent，零适配层
+  - 布局：对话中心 + 浮层调试，废弃 12-Tab 多屏
+  - 对接：与 CLI REPL 共用 AgentExecutorHandle
+  - 完整特性：无 mock/stub，全部真实 engine 数据
+- **分支**: `feat/tui-opendev-integration`
+- **工作量**: 24 tasks, 7-10 天
+- **依赖**: 无（独立分支开发）
+- **状态**: 待实施
 
 #### S9: MCP 工具集成
 - **目标**: 在评估中通过 MCP 接入外部工具服务器，扩展 agent 能力
