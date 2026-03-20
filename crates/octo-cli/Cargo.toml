@@ -72,6 +72,12 @@ rustyline = { version = "17", features = ["with-file-history"] }
 # XDG paths
 directories = "6"
 
+# Home directory detection (for path shortener)
+dirs = "6"
+
+# Unicode character width calculation
+unicode-width = "0.2"
+
 # Web server (for embedded dashboard)
 axum = { workspace = true }
 tower = { workspace = true }
