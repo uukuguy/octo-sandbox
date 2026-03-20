@@ -110,9 +110,9 @@ mod tests {
         let mut buf = Buffer::empty(Rect::new(0, 0, 80, 24));
         let widget = WelcomePanel::new("test-model");
         widget.render(Rect::new(0, 0, 80, 24), &mut buf);
-        // Check that the logo appears somewhere in the buffer
+        // Check that the subtitle appears somewhere in the buffer
         let content = buf.content().iter().map(|c| c.symbol()).collect::<String>();
-        assert!(content.contains("Octo"));
+        assert!(content.contains("Conversation-Centric AI Agent"));
     }
 
     #[test]
