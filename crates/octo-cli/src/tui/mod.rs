@@ -1,5 +1,6 @@
 //! Full-screen TUI mode based on Ratatui 0.29
 
+pub mod app_state;
 pub mod backend;
 pub mod event;
 pub mod event_handler;
