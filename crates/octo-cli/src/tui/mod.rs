@@ -6,6 +6,7 @@ pub mod event;
 pub mod event_handler;
 pub mod formatters;
 pub mod managers;
+pub mod render;
 pub mod screens;
 pub mod theme;
 pub mod widgets;
