@@ -3,6 +3,23 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "CLI+Server Usability Fixes",
+      "completed_at": "2026-03-20T06:40:00+08:00",
+      "progress": "100%",
+      "tests": 2250,
+      "commit": "b4ebcbe",
+      "tasks": "13 fixes (7 CLI + 6 server)"
+    },
+    {
+      "name": "Phase S — Agent Capability Boost",
+      "completed_at": "2026-03-19T18:00:00+08:00",
+      "progress": "100%",
+      "tests": 2250,
+      "commit": "68ad13e",
+      "tasks": "13/13",
+      "results": "Qwen3.5-27B 39.2% (net zero vs baseline), model capability is bottleneck"
+    },
+    {
       "name": "Phase R — GAIA Filtered Evaluation + Category Subsets",
       "completed_at": "2026-03-18T02:30:00+08:00",
       "progress": "100%",

@@ -1,5 +1,58 @@
 # octo-sandbox 工作日志
 
+## CLI+Server Usability Fixes (2026-03-20)
+
+### 完成内容
+
+Phase S 评估完成后，对 CLI 和 Server 进行全面可用性修复。
+
+**CLI 修复**
+- clap `-c` 短选项冲突：`Run::resume` 从 `-c` 改为 `-C`
+- REPL Ctrl+C 退出：双击 Ctrl+C 退出模式
+- `ProviderConfig::default()` 读取 `LLM_PROVIDER`/`OPENAI_*`/`ANTHROPIC_*` 环境变量
+- UTF-8 `truncate()` 中文截断 panic：使用 `floor_char_boundary()`
+- 默认日志级别 warn（非 verbose 模式忽略 `.env` 中的 `RUST_LOG`）
+- Makefile 新增 CLI 命令入口：`cli-run`, `cli-ask`, `cli-tui` 等 8 个
+
+**Server 修复**
+- Ctrl+C 无法退出：force-exit guard（5s 超时 + 第二次 Ctrl+C 立即退出）
+  - 根因：axum graceful shutdown 等待 WebSocket 连接关闭
+- 默认日志 `debug` → `info`，用 `OCTO_LOG` 替代 `RUST_LOG` 避免 `.env` 覆盖
+- SSE chunk 日志噪音：`debug!` → `trace!`（openai.rs）
+- `working_dir` 默认 `/tmp/octo-sandbox` → `current_dir()`（web agent 看不到项目文件）
+- MCP shutdown 超时 30s → 3s
+- Makefile server 目标加 `exec` 确保信号正确传递
+
+**警告清理**
+- `#[allow(dead_code)]` 处理 6 处 dead code 警告
+
+### 技术变更
+
+| 文件 | 变更 |
+|------|------|
+| `Makefile` | CLI 命令入口 + server exec |
+| `octo-cli/src/lib.rs` | `-c` → `-C` |
+| `octo-cli/src/main.rs` | 日志级别 warn |
+| `octo-cli/src/repl/mod.rs` | 双击 Ctrl+C |
+| `octo-cli/src/ui/streaming.rs` | UTF-8 safe truncate |
+| `octo-engine/src/providers/config.rs` | env var 读取 |
+| `octo-engine/src/providers/openai.rs` | SSE trace! |
+| `octo-engine/src/agent/runtime.rs` | current_dir() |
+| `octo-server/src/main.rs` | OCTO_LOG + force-exit |
+| `octo-server/src/config.rs` | 日志 info |
+
+### 测试结果
+
+- `cargo check` 零警告（octo-engine, octo-eval, octo-cli, octo-server）
+- UTF-8 truncate 测试 5/5 通过
+- Server SIGINT 退出测试通过
+
+### 提交
+
+- `b4ebcbe` fix(cli+server): CLI usability fixes and server hardening
+
+---
+
 ## Phase O — Deferred 暂缓项全解锁 (2026-03-15)
 
 ### 完成内容
