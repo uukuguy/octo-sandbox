@@ -1,10 +1,10 @@
 {
   "plan_file": "docs/plans/2026-03-20-phase-t-tui-opendev-integration.md",
-  "phase": "execution",
+  "phase": "complete",
   "created_at": "2026-03-20T12:50:00+08:00",
-  "updated_at": "2026-03-20T15:10:00+08:00",
-  "completed_tasks": ["T1-1", "T1-2", "T1-3", "T1-4", "T1-5", "T1-6", "T1-7", "T1-8", "T1-9", "T1-10", "T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-7", "T2-8"],
-  "current_task": "T3-1",
+  "updated_at": "2026-03-20T15:50:00+08:00",
+  "completed_tasks": ["T1-1", "T1-2", "T1-3", "T1-4", "T1-5", "T1-6", "T1-7", "T1-8", "T1-9", "T1-10", "T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-6", "T2-7", "T2-8", "T3-1", "T3-2", "T3-3", "T3-4", "T3-5", "T3-6"],
+  "current_task": null,
   "total_tasks": 24,
   "task_groups": {
     "T1": {
@@ -17,17 +17,17 @@
       "name": "对话中心主界面",
       "tasks": ["T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-6", "T2-7", "T2-8"],
       "status": "COMPLETE",
-      "description": "TuiState, render, event loop, engine 对接, approval, legacy cleanup"
+      "description": "TuiState, render, event loop, engine 对接, approval, autocomplete, legacy cleanup"
     },
     "T3": {
       "name": "调试浮层 + 完善",
       "tasks": ["T3-1", "T3-2", "T3-3", "T3-4", "T3-5", "T3-6"],
-      "status": "PENDING",
-      "description": "Ctrl+D/E/A overlays, welcome, thinking, theme"
+      "status": "COMPLETE",
+      "description": "Ctrl+D/E/A overlays, welcome panel, thinking/progress rendering, theme validation, full test suite"
     }
   },
   "phase_name": "Phase T — TUI OpenDev 整合",
-  "status": "EXECUTING",
+  "status": "COMPLETE",
   "execution_mode": "ruflo-sequential",
   "design_file": "docs/design/TUI_OPENDEV_INTEGRATION_DESIGN.md",
   "roadmap_file": "docs/plans/ROADMAP_POST_PHASE_R.md",
@@ -36,6 +36,11 @@
     "tests": 2250,
     "commit": "7e72656"
   },
+  "final": {
+    "tests": 2259,
+    "commit": "22a13ed",
+    "delta": "+9 tests"
+  },
   "key_decisions": [
     "类型统一：直接使用 octo-types + AgentEvent，零适配层",
     "布局：对话中心 + 浮层调试，废弃 12-Tab 多屏",
@@ -43,19 +48,13 @@
     "完整特性：无 mock/stub，全部真实 engine 数据",
     "回退策略：feature branch 开发，每 Task 一个 commit"
   ],
-  "notes": "T2 COMPLETE (6c5ac02): All 7/8 tasks done (T2-6 autocomplete deferred). Created TuiState (app_state.rs), render layout (render.rs), key handler (key_handler.rs), approval dialog, TUI entry point (run_tui_conversation), event loop with AgentEvent handler, and deleted legacy 12-Tab architecture (screens/, backend.rs, 6065 lines removed). 2205 workspace tests pass (delta: -45 from deleted legacy tests). Next: T3-1 debug overlays.",
+  "notes": "Phase T COMPLETE (22a13ed): All 24/24 tasks done. T2-D1 autocomplete resolved (e6c5f0d). T3 overlays (agent_debug, eval, session_picker), welcome panel, thinking/progress verified, theme validated, 2259 workspace tests pass. Commits: e6c5f0d (T2-D1), 0050e07 (T3-1/2/3), c10d52b (T3-4/5), 22a13ed (T3-6).",
   "deferred": [
     {
       "id": "S-D1",
       "description": "Agent Skills 系统是否符合标准规范 — 专题研究",
       "added_at": "2026-03-18",
       "precondition": "Phase S 完成后"
-    },
-    {
-      "id": "T2-D1",
-      "description": "T2-6 Autocomplete — 输入补全功能",
-      "added_at": "2026-03-20",
-      "precondition": "T3 完成后可选实现"
     }
   ],
   "previous_phase": {
