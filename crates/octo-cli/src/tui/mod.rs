@@ -10,6 +10,7 @@ pub mod event_handler;
 pub mod formatters;
 pub mod key_handler;
 pub mod managers;
+pub mod overlays;
 pub mod render;
 pub mod theme;
 pub mod widgets;

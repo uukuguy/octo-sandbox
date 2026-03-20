@@ -39,6 +39,11 @@ pub fn render(state: &TuiState, frame: &mut Frame) {
     render_status_bar(state, frame, chunks[3]);
 
     // Overlays (rendered on top)
+    if state.overlay != OverlayMode::None {
+        super::overlays::render_overlay(state, frame, area);
+    }
+
+    // Approval dialog (highest priority overlay)
     if let Some(ref approval) = state.pending_approval {
         render_approval_dialog(approval, frame, area);
     }
