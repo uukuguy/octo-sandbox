@@ -78,6 +78,9 @@ dirs = "6"
 # Unicode character width calculation
 unicode-width = "0.2"
 
+# Gitignore-aware file traversal (for autocomplete)
+ignore = "0.4"
+
 # Web server (for embedded dashboard)
 axum = { workspace = true }
 tower = { workspace = true }

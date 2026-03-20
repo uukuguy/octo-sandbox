@@ -4,6 +4,7 @@
 //! Overlays (approval dialog, debug panels) render on top.
 
 pub mod app_state;
+pub mod autocomplete;
 pub mod event;
 pub mod event_handler;
 pub mod formatters;
