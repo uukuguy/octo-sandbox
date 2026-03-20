@@ -5,3 +5,8 @@ pub mod style_tokens;
 pub mod markdown;
 pub mod wrap;
 pub mod path_shortener;
+pub mod base;
+pub mod tool_registry;
+pub mod bash_formatter;
+pub mod file_formatter;
+pub mod diff;
