@@ -22,7 +22,7 @@ fn test_builtin_skills_sync_to_disk() {
     sync_builtin_skills(dir.path()).unwrap();
 
     let names = builtin_skill_names();
-    assert!(names.len() >= 5, "Expected at least 5 builtin skills, got {}", names.len());
+    assert!(names.len() >= 2, "Expected at least 2 embedded fallback skills, got {}", names.len());
 
     for name in &names {
         let skill_dir = dir.path().join(name);
@@ -54,30 +54,23 @@ fn test_builtin_skills_execution_modes() {
     let dir = tempfile::tempdir().unwrap();
     sync_builtin_skills(dir.path()).unwrap();
 
-    // filesystem and web-search should be Playbook
-    for name in &["filesystem", "web-search"] {
-        let skill_file = dir.path().join(name).join("SKILL.md");
-        let skill = SkillLoader::parse_skill(&skill_file).unwrap();
-        assert_eq!(
-            skill.execution_mode,
-            ExecutionMode::Playbook,
-            "Skill '{}' should be Playbook mode",
-            name
-        );
-        assert!(skill.allowed_tools.is_some(), "Playbook skill '{}' should have allowed_tools", name);
-    }
+    // filesystem — only SKILL.md, no extra files → Knowledge (auto-inferred)
+    let skill_file = dir.path().join("filesystem").join("SKILL.md");
+    let skill = SkillLoader::parse_skill(&skill_file).unwrap();
+    assert_eq!(
+        skill.execution_mode,
+        ExecutionMode::Knowledge,
+        "Seeded filesystem (SKILL.md only) should be Knowledge mode"
+    );
 
-    // code-review, code-debugger, readme-writer should be Knowledge
-    for name in &["code-review", "code-debugger", "readme-writer"] {
-        let skill_file = dir.path().join(name).join("SKILL.md");
-        let skill = SkillLoader::parse_skill(&skill_file).unwrap();
-        assert_eq!(
-            skill.execution_mode,
-            ExecutionMode::Knowledge,
-            "Skill '{}' should be Knowledge mode",
-            name
-        );
-    }
+    // web-search — only SKILL.md in seeded fallback → Knowledge
+    let skill_file = dir.path().join("web-search").join("SKILL.md");
+    let skill = SkillLoader::parse_skill(&skill_file).unwrap();
+    assert_eq!(
+        skill.execution_mode,
+        ExecutionMode::Knowledge,
+        "Seeded web-search (SKILL.md only) should be Knowledge mode"
+    );
 }
 
 // ── SkillSelector Pipeline ──────────────────────────────────────────

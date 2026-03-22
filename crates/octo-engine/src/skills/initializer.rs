@@ -1,12 +1,11 @@
-//! Builtin Skills Initializer — syncs embedded skills to `.octo/skills/` on startup.
+//! Builtin Skills Initializer — seeds embedded skills to `.octo/skills/` on startup.
 //!
-//! Compares SHA256 of embedded SKILL.md with on-disk version.
-//! Only overwrites when the content differs (version update).
+//! Only writes a builtin skill when the skill directory does NOT exist on disk.
+//! If a user has placed or modified a skill in `.octo/skills/`, it is never overwritten.
 
 use std::path::Path;
 
 use anyhow::Result;
-use sha2::{Digest, Sha256};
 use tracing::{debug, info};
 
 /// Embedded builtin skill: name and SKILL.md content.
@@ -15,7 +14,9 @@ struct BuiltinSkill {
     content: &'static str,
 }
 
-/// All builtin skills compiled into the binary.
+/// Minimal builtin skills compiled into the binary as fallback.
+/// Only seeded when `.octo/skills/` doesn't have them yet.
+/// The full set of skills lives in `.octo/skills/` (git tracked, user-managed).
 const BUILTIN_SKILLS: &[BuiltinSkill] = &[
     BuiltinSkill {
         name: "filesystem",
@@ -25,63 +26,36 @@ const BUILTIN_SKILLS: &[BuiltinSkill] = &[
         name: "web-search",
         content: include_str!("../../builtin/skills/web-search/SKILL.md"),
     },
-    BuiltinSkill {
-        name: "code-review",
-        content: include_str!("../../builtin/skills/code-review/SKILL.md"),
-    },
-    BuiltinSkill {
-        name: "code-debugger",
-        content: include_str!("../../builtin/skills/code-debugger/SKILL.md"),
-    },
-    BuiltinSkill {
-        name: "readme-writer",
-        content: include_str!("../../builtin/skills/readme-writer/SKILL.md"),
-    },
 ];
 
-/// Sync builtin skills to the target directory.
+/// Seed builtin skills to the target directory (fallback for fresh projects).
 ///
 /// For each builtin skill:
-/// 1. Create `<target_dir>/<name>/SKILL.md` if missing
-/// 2. If it exists, compare SHA256 — overwrite only if content changed
+/// - If `<target_dir>/<name>/` does NOT exist → create it and write SKILL.md
+/// - If it already exists → skip entirely (never overwrite user files)
 ///
-/// Returns the number of skills synced (created or updated).
+/// Returns the number of skills seeded.
 pub fn sync_builtin_skills(target_dir: &Path) -> Result<usize> {
     let mut synced = 0;
 
     for skill in BUILTIN_SKILLS {
         let skill_dir = target_dir.join(skill.name);
-        let skill_file = skill_dir.join("SKILL.md");
 
-        if skill_file.exists() {
-            // Compare SHA256
-            let existing = std::fs::read_to_string(&skill_file)?;
-            let existing_hash = sha256_hex(&existing);
-            let builtin_hash = sha256_hex(skill.content);
-
-            if existing_hash == builtin_hash {
-                debug!(name = skill.name, "Builtin skill unchanged, skipping");
-                continue;
-            }
-
-            info!(
-                name = skill.name,
-                "Builtin skill updated, overwriting"
-            );
-        } else {
-            info!(name = skill.name, "Installing builtin skill");
+        if skill_dir.exists() {
+            debug!(name = skill.name, "Skill directory exists, skipping");
+            continue;
         }
 
-        // Create directory and write file
+        info!(name = skill.name, "Seeding builtin skill");
         std::fs::create_dir_all(&skill_dir)?;
-        std::fs::write(&skill_file, skill.content)?;
+        std::fs::write(skill_dir.join("SKILL.md"), skill.content)?;
         synced += 1;
     }
 
     if synced > 0 {
-        info!(count = synced, "Builtin skills synced");
+        info!(count = synced, "Builtin skills seeded");
     } else {
-        debug!("All builtin skills up to date");
+        debug!("All builtin skills already present on disk");
     }
 
     Ok(synced)
@@ -92,19 +66,13 @@ pub fn builtin_skill_names() -> Vec<&'static str> {
     BUILTIN_SKILLS.iter().map(|s| s.name).collect()
 }
 
-fn sha256_hex(content: &str) -> String {
-    let mut hasher = Sha256::new();
-    hasher.update(content.as_bytes());
-    format!("{:x}", hasher.finalize())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_builtin_skills_count() {
-        assert_eq!(BUILTIN_SKILLS.len(), 5);
+        assert_eq!(BUILTIN_SKILLS.len(), 2);
     }
 
     #[test]
@@ -112,16 +80,13 @@ mod tests {
         let names = builtin_skill_names();
         assert!(names.contains(&"filesystem"));
         assert!(names.contains(&"web-search"));
-        assert!(names.contains(&"code-review"));
-        assert!(names.contains(&"code-debugger"));
-        assert!(names.contains(&"readme-writer"));
     }
 
     #[test]
     fn test_sync_to_empty_dir() {
         let dir = tempfile::tempdir().unwrap();
         let count = sync_builtin_skills(dir.path()).unwrap();
-        assert_eq!(count, 5);
+        assert_eq!(count, 2);
 
         // Verify files exist
         for skill in BUILTIN_SKILLS {
@@ -136,7 +101,7 @@ mod tests {
 
         // First sync
         let count1 = sync_builtin_skills(dir.path()).unwrap();
-        assert_eq!(count1, 5);
+        assert_eq!(count1, 2);
 
         // Second sync — should be no-op
         let count2 = sync_builtin_skills(dir.path()).unwrap();
@@ -144,7 +109,7 @@ mod tests {
     }
 
     #[test]
-    fn test_sync_detects_changes() {
+    fn test_sync_does_not_overwrite_user_files() {
         let dir = tempfile::tempdir().unwrap();
 
         // First sync
@@ -152,10 +117,14 @@ mod tests {
 
         // Modify one file
         let path = dir.path().join("filesystem").join("SKILL.md");
-        std::fs::write(&path, "modified content").unwrap();
+        std::fs::write(&path, "user modified content").unwrap();
 
-        // Second sync — should update the modified one
+        // Second sync — should NOT overwrite (directory exists)
         let count = sync_builtin_skills(dir.path()).unwrap();
-        assert_eq!(count, 1);
+        assert_eq!(count, 0);
+
+        // Verify user's modification is preserved
+        let content = std::fs::read_to_string(&path).unwrap();
+        assert_eq!(content, "user modified content");
     }
 }
