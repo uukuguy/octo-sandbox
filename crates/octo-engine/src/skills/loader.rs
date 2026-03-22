@@ -282,8 +282,26 @@ impl SkillLoader {
         let substituted_body = body.replace("${baseDir}", &base_dir_str);
 
         skill.body = substituted_body;
-        skill.base_dir = base_dir;
+        skill.base_dir = base_dir.clone();
         skill.source_path = path.to_path_buf();
+
+        // Auto-infer ExecutionMode if not explicitly set in frontmatter:
+        // If the skill directory contains files besides SKILL.md (e.g., scripts/),
+        // it's a Playbook skill. Otherwise, it's Knowledge.
+        if skill.execution_mode == octo_types::skill::ExecutionMode::Knowledge {
+            let has_extra_files = std::fs::read_dir(&base_dir)
+                .map(|entries| {
+                    entries.flatten().any(|e| {
+                        let name = e.file_name();
+                        let name_str = name.to_string_lossy();
+                        name_str != "SKILL.md" && !name_str.starts_with('.')
+                    })
+                })
+                .unwrap_or(false);
+            if has_extra_files {
+                skill.execution_mode = octo_types::skill::ExecutionMode::Playbook;
+            }
+        }
 
         Ok(skill)
     }

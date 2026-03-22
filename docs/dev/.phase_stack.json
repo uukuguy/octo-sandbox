@@ -3,6 +3,14 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase V — Agent Skills 完整实现",
+      "completed_at": "2026-03-22T21:45:00+08:00",
+      "progress": "100%",
+      "tests": 2370,
+      "commit": null,
+      "tasks": "11/12 (V1-3 deferred)"
+    },
+    {
       "name": "Phase U — TUI Production Hardening + Post-Polish",
       "completed_at": "2026-03-22T19:41:00+08:00",
       "progress": "100%",

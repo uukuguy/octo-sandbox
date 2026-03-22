@@ -23,6 +23,7 @@ fn make_skill(name: &str) -> SkillDefinition {
         dependencies: vec![],
         tags: vec![],
         denied_tools: None,
+        execution_mode: Default::default(),
         source_type: SkillSourceType::ProjectLocal,
     }
 }

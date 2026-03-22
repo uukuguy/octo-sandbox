@@ -25,6 +25,7 @@ fn test_skill() -> SkillDefinition {
         dependencies: vec![],
         tags: vec![],
         denied_tools: None,
+        execution_mode: Default::default(),
         source_type: SkillSourceType::ProjectLocal,
     }
 }

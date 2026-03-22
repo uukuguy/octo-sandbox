@@ -147,6 +147,57 @@ async fn run_agent_loop_inner(
     // Per-tool rate limiter (sliding 60-second window).
     let mut rate_limiter = ToolRateLimiter::new();
 
+    // --- SkillSelector: auto-select skill from user message ---
+    if config.active_skill.is_none() {
+        if let Some(ref skills) = config.skills {
+            if !skills.is_empty() {
+                // Extract last user message for trigger matching
+                let user_msg = messages
+                    .iter()
+                    .rev()
+                    .find(|m| m.role == MessageRole::User)
+                    .and_then(|m| {
+                        m.content.iter().find_map(|c| {
+                            if let ContentBlock::Text { text } = c {
+                                Some(text.as_str())
+                            } else {
+                                None
+                            }
+                        })
+                    })
+                    .unwrap_or("");
+
+                if !user_msg.is_empty() {
+                    let trust_mgr = crate::skills::TrustManager::default();
+                    let selector = crate::skills::SkillSelector::new(8000, trust_mgr);
+                    let selected = selector.select(skills, user_msg);
+
+                    // Pick the highest-scoring non-always skill (always skills are already in the index)
+                    if let Some(best) = selected.iter().find(|s| s.score > 0 && s.score < 1000) {
+                        if let Some(skill) = skills.iter().find(|s| s.name == best.name) {
+                            debug!(skill_name = %skill.name, score = best.score, "SkillSelector: auto-activated skill");
+                            config.active_skill = Some(skill.clone());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Model Override: replace model when active skill specifies one ---
+    if let Some(ref active_skill) = config.active_skill {
+        if let Some(ref skill_model) = active_skill.model {
+            if !skill_model.is_empty() {
+                debug!(
+                    skill = %active_skill.name,
+                    model = %skill_model,
+                    "Model override from active skill"
+                );
+                config.model = skill_model.clone();
+            }
+        }
+    }
+
     // --- Zone A: Build system prompt ---
     let mut system_prompt = {
         let mut builder = SystemPromptBuilder::new();

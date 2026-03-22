@@ -22,6 +22,7 @@ fn make_skill(name: &str, deps: Vec<&str>) -> SkillDefinition {
         triggers: vec![],
         dependencies: deps.into_iter().map(String::from).collect(),
         tags: vec![],
+        execution_mode: Default::default(),
         source_type: SkillSourceType::default(),
     }
 }

@@ -199,10 +199,17 @@ impl SystemPromptBuilder {
         if !invocable.is_empty() {
             let mut section = String::from(
                 "## Available Skills\nThe following skills are available. \
-                 You can invoke them when relevant:",
+                 Use `execute_skill` to run them:",
             );
             for skill in &invocable {
-                section.push_str(&format!("\n- **{}**: {}", skill.name, skill.description));
+                let mode = match skill.execution_mode {
+                    octo_types::skill::ExecutionMode::Knowledge => "knowledge",
+                    octo_types::skill::ExecutionMode::Playbook => "playbook",
+                };
+                section.push_str(&format!(
+                    "\n- **{}** ({}): {}",
+                    skill.name, mode, skill.description
+                ));
             }
             self.skill_index_section = Some(section);
         }
@@ -542,6 +549,7 @@ mod tests {
             dependencies: vec![],
             tags: vec![],
             denied_tools: None,
+            execution_mode: Default::default(),
             source_type: Default::default(),
         }
     }
@@ -558,8 +566,8 @@ mod tests {
         let result = builder.build();
 
         assert!(result.contains("## Available Skills"));
-        assert!(result.contains("- **code-review**: Reviews code"));
-        assert!(result.contains("- **deploy**: Deploys app"));
+        assert!(result.contains("- **code-review** (knowledge): Reviews code"));
+        assert!(result.contains("- **deploy** (knowledge): Deploys app"));
         assert!(!result.contains("internal-only"));
     }
 

@@ -7,7 +7,7 @@ use clap::Parser;
 
 use commands::{
     AgentCommands, CompletionsCommands, ConfigCommands, EvalCommands, McpCommands, MemoryCommands,
-    SessionCommands, ToolsCommands,
+    SessionCommands, SkillCommands, ToolsCommands,
 };
 
 pub mod commands;
@@ -124,6 +124,12 @@ pub enum Commands {
     Config {
         #[command(subcommand)]
         action: ConfigCommands,
+    },
+
+    /// Manage skills
+    Skill {
+        #[command(subcommand)]
+        action: SkillCommands,
     },
 
     /// Evaluation management

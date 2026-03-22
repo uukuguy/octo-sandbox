@@ -1,102 +1,78 @@
 {
-  "plan_file": "docs/plans/2026-03-22-phase-u-tui-production-hardening.md",
+  "plan_file": ".claude/plans/cryptic-sauteeing-harp.md",
   "phase": "complete",
-  "created_at": "2026-03-22T10:32:00+08:00",
-  "updated_at": "2026-03-22T19:41:00+08:00",
-  "completed_tasks": ["U1-1", "U1-2", "U1-3", "U2-1", "U2-2", "U2-3", "U3-1", "U3-2", "U3-3", "U4-1"],
+  "created_at": "2026-03-22T20:30:00+08:00",
+  "updated_at": "2026-03-22T21:45:00+08:00",
+  "completed_tasks": ["V1-1", "V1-2", "V2-1", "V2-2", "V2-3", "V3-1", "V3-2", "V3-3", "V4-1", "V4-2", "V4-3"],
   "current_task": null,
-  "total_tasks": 10,
+  "total_tasks": 12,
   "task_groups": {
     "G1": {
-      "name": "基础设施",
-      "tasks": ["U1-1", "U1-2", "U1-3"],
+      "name": "基础设施修复 + 激活",
+      "tasks": ["V1-1", "V1-2"],
       "status": "COMPLETE",
-      "description": "Approval Gate 接线, Event Batch Drain (已有), Scroll 加速"
+      "description": "ExecutionMode enum, config enable, auto-inference, old skills cleanup, SkillSelector wiring, Model Override"
     },
     "G2": {
-      "name": "渲染优化",
-      "tasks": ["U2-1", "U2-2", "U2-3"],
+      "name": "execute_skill Tool + SubAgent Executor",
+      "tasks": ["V2-1", "V2-2", "V2-3"],
       "status": "COMPLETE",
-      "description": "Per-message 缓存, Formatter 注册表, Tool Collapse"
+      "description": "ExecuteSkillTool (KNOWLEDGE body injection, PLAYBOOK SubAgent spawn), SkillExecutionResult handling"
     },
     "G3": {
-      "name": "增强 Widgets",
-      "tasks": ["U3-1", "U3-2", "U3-3"],
+      "name": "内置 Skills + 自动同步",
+      "tasks": ["V3-1", "V3-2", "V3-3"],
       "status": "COMPLETE",
-      "description": "StatusBar 重设计, Todo Panel, InputWidget 改进"
+      "description": "5 builtin skills (filesystem, web-search, code-review, code-debugger, readme-writer), SHA256 sync, system prompt injection"
     },
     "G4": {
-      "name": "品牌完善",
-      "tasks": ["U4-1"],
+      "name": "CLI + TUI + 端到端验证",
+      "tasks": ["V4-1", "V4-2", "V4-3"],
       "status": "COMPLETE",
-      "description": "Welcome Panel ASCII Art + 呼吸动画"
+      "description": "CLI skill subcommands, TUI skill autocomplete, 15 e2e tests"
     }
   },
-  "phase_name": "Phase U — TUI Production Hardening",
+  "phase_name": "Phase V — Agent Skills 完整实现",
   "status": "COMPLETE",
-  "execution_mode": "subagent-driven-development",
+  "execution_mode": "direct",
   "design_file": null,
   "roadmap_file": null,
   "branch": "main",
   "baseline": {
-    "tests": 2259,
-    "commit": "74f4781"
+    "tests": 2329,
+    "commit": "d698f05"
   },
   "final": {
-    "tests": 2329,
-    "octo_cli_tests": 456,
-    "commit": "77c2297"
-  },
-  "post_phase_polish": {
-    "commits": [
-      "6e21f58 feat(tui): real-time tool folding, status bar brand/elapsed, ESC cancel preserves messages",
-      "f87b5d5 fix(tui): refresh git branch and dirty count every ~5 seconds",
-      "77c2297 feat(tui): auto-scroll to tool call when expanding, scroll to bottom when closing"
-    ],
-    "features": [
-      "Real-time tool result folding (ToolStart/ToolResult inline messages)",
-      "Status bar: brand, session elapsed, git status-based coloring",
-      "ESC cancel preserves partial streaming text as message",
-      "Periodic git refresh (~5s via tick counter)",
-      "Auto-scroll to tool call on Ctrl+O expand, scroll to bottom on close",
-      "System messages hidden from conversation area",
-      "Activity indicator row (thinking/streaming status + task tokens)",
-      "Welcome panel gradient animation"
-    ],
-    "octo_cli_tests": 456
+    "tests": 2370,
+    "commit": null
   },
   "key_decisions": [
-    "ApprovalGate: Arc<Mutex<HashMap>> oneshot 通道，TUI 调用 gate.respond()",
-    "Per-message cache: Vec<(u64, Vec<Line>)> 按消息位置索引，content hash 失效",
-    "ToolFormatter: Vec<Box<dyn ToolFormatter>> 顺序匹配 + GenericFormatter 兜底",
-    "Scroll: 3 级加速 (3/6/12 lines)，200ms 方向窗口",
-    "Tool Collapse: CC 风格，默认折叠，Ctrl+O 最近 / Alt+O 全局",
-    "Event Batch: while try_next() drain loop before render (Phase T 已实现)",
-    "Real-time tool folding: ToolStart flushes streaming text, ToolResult inserts inline messages",
-    "ESC cancel: cancelled flag prevents Completed from overwriting preserved messages",
-    "Git refresh: tick counter 83 ≈ 5s, refresh_git_info() runs git rev-parse + git status --porcelain",
-    "Scroll-to-tool: count messages after expanded tool × 2 lines estimate",
-    "StatusBar: brand + model + tokens + elapsed + context% (row 1), dir + git (row 2)",
-    "Activity indicator: separate 1-row widget between conversation and input"
+    "KNOWLEDGE skills: body injected into system prompt, Agent follows instructions",
+    "PLAYBOOK skills: SubAgent spawned via SubAgentManager with isolated context + constrained tools",
+    "ExecutionMode auto-inference: extra files in skill dir → Playbook",
+    "SkillSelector: 4-phase pipeline (Gate→Score→Budget→Attenuate) wired into harness before Zone A",
+    "Model Override: active_skill.model replaces config.model before LLM call",
+    "Builtin skills embedded via include_str!() with SHA256 sync on startup",
+    "SlashCommand type changed to String for dynamic skill name support in TUI autocomplete"
   ],
-  "notes": "Phase U COMPLETE + post-phase polish. 10/10 tasks + 3 polish commits. Merged feat/tui-opendev-integration → main. 2329 workspace tests, 456 octo-cli tests. Latest commit 77c2297.",
   "deferred": [
+    {
+      "id": "V1-3",
+      "description": "Dependency graph topo-sort wiring — no builtin skills use dependencies currently",
+      "added_at": "2026-03-22",
+      "precondition": "When skills with inter-dependencies are added"
+    },
     {
       "id": "U-D1",
       "description": "Agent Debug Panel 重设计 — 信息整合到 StatusBar 后 Debug 面板需深入调整",
       "added_at": "2026-03-22",
       "precondition": "Phase U G3 StatusBar 完成后"
-    },
-    {
-      "id": "S-D1",
-      "description": "Agent Skills 系统是否符合标准规范 — 专题研究",
-      "added_at": "2026-03-18",
-      "precondition": "Phase S 完成后"
     }
   ],
+  "notes": "Phase V COMPLETE. 11/12 tasks (V1-3 deferred). Skills system activated from dead code to running. 5 builtin skills, SkillSelector auto-select, Model Override, SubAgent-based Playbook execution, CLI commands, TUI autocomplete, 15 e2e tests. Tests: 2329→2370 (+41).",
   "previous_phase": {
-    "name": "Phase T — TUI OpenDev 整合",
+    "name": "Phase U — TUI Production Hardening",
     "status": "COMPLETE",
-    "commit": "74464b9"
+    "commit": "77c2297"
   }
 }

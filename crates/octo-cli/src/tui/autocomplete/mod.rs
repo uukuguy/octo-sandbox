@@ -17,34 +17,60 @@ use strategies::CompletionStrategy;
 /// A slash command known to the autocomplete engine.
 #[derive(Debug, Clone)]
 pub struct SlashCommand {
+    pub name: String,
+    pub description: String,
+}
+
+impl SlashCommand {
+    pub const fn from_static(name: &'static str, description: &'static str) -> SlashCommandStatic {
+        SlashCommandStatic { name, description }
+    }
+}
+
+/// A compile-time slash command (used for built-in commands).
+pub struct SlashCommandStatic {
     pub name: &'static str,
     pub description: &'static str,
 }
 
+impl SlashCommandStatic {
+    fn to_owned(&self) -> SlashCommand {
+        SlashCommand {
+            name: self.name.to_string(),
+            description: self.description.to_string(),
+        }
+    }
+}
+
 /// Built-in slash commands available in octo-cli.
-pub static BUILTIN_COMMANDS: &[SlashCommand] = &[
-    SlashCommand { name: "help", description: "Show available commands" },
-    SlashCommand { name: "exit", description: "Exit the session" },
-    SlashCommand { name: "quit", description: "Exit the session" },
-    SlashCommand { name: "clear", description: "Clear conversation history" },
-    SlashCommand { name: "compact", description: "Compact conversation context" },
-    SlashCommand { name: "cost", description: "Show token usage and costs" },
-    SlashCommand { name: "model", description: "Switch the LLM model" },
-    SlashCommand { name: "mode", description: "Switch between plan/normal mode" },
-    SlashCommand { name: "save", description: "Save current session" },
-    SlashCommand { name: "undo", description: "Undo last action" },
-    SlashCommand { name: "theme", description: "Change color theme" },
-    SlashCommand { name: "switch", description: "Switch agent slot" },
-    SlashCommand { name: "memory", description: "Memory operations" },
-    SlashCommand { name: "agents", description: "List available agents" },
-    SlashCommand { name: "delegate", description: "Delegate to another agent" },
-    SlashCommand { name: "collab", description: "Collaborative multi-agent mode" },
-    SlashCommand { name: "debug", description: "Toggle debug panel" },
-    SlashCommand { name: "eval", description: "Toggle eval panel" },
-    SlashCommand { name: "sessions", description: "Toggle session picker" },
-    SlashCommand { name: "todo", description: "Toggle todo/plan panel" },
-    SlashCommand { name: "mouse", description: "Toggle mouse capture (off = select text to copy)" },
+static BUILTIN_COMMANDS_STATIC: &[SlashCommandStatic] = &[
+    SlashCommandStatic { name: "help", description: "Show available commands" },
+    SlashCommandStatic { name: "exit", description: "Exit the session" },
+    SlashCommandStatic { name: "quit", description: "Exit the session" },
+    SlashCommandStatic { name: "clear", description: "Clear conversation history" },
+    SlashCommandStatic { name: "compact", description: "Compact conversation context" },
+    SlashCommandStatic { name: "cost", description: "Show token usage and costs" },
+    SlashCommandStatic { name: "model", description: "Switch the LLM model" },
+    SlashCommandStatic { name: "mode", description: "Switch between plan/normal mode" },
+    SlashCommandStatic { name: "save", description: "Save current session" },
+    SlashCommandStatic { name: "undo", description: "Undo last action" },
+    SlashCommandStatic { name: "theme", description: "Change color theme" },
+    SlashCommandStatic { name: "switch", description: "Switch agent slot" },
+    SlashCommandStatic { name: "memory", description: "Memory operations" },
+    SlashCommandStatic { name: "agents", description: "List available agents" },
+    SlashCommandStatic { name: "delegate", description: "Delegate to another agent" },
+    SlashCommandStatic { name: "collab", description: "Collaborative multi-agent mode" },
+    SlashCommandStatic { name: "debug", description: "Toggle debug panel" },
+    SlashCommandStatic { name: "eval", description: "Toggle eval panel" },
+    SlashCommandStatic { name: "sessions", description: "Toggle session picker" },
+    SlashCommandStatic { name: "todo", description: "Toggle todo/plan panel" },
+    SlashCommandStatic { name: "mouse", description: "Toggle mouse capture (off = select text to copy)" },
 ];
+
+/// Get all built-in commands as owned `SlashCommand`s.
+pub fn builtin_commands() -> Vec<SlashCommand> {
+    BUILTIN_COMMANDS_STATIC.iter().map(|s| s.to_owned()).collect()
+}
 
 // ── Completion item ────────────────────────────────────────────────
 

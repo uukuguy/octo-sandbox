@@ -231,6 +231,31 @@ pub enum CompletionsCommands {
     },
 }
 
+/// Skill management subcommands
+#[derive(Subcommand)]
+pub enum SkillCommands {
+    /// List all loaded skills
+    List,
+    /// Show skill details
+    Show {
+        /// Skill name
+        #[arg(value_name = "NAME")]
+        name: String,
+    },
+    /// Create a new skill scaffold
+    Create {
+        /// Skill name
+        #[arg(value_name = "NAME")]
+        name: String,
+    },
+    /// Validate a skill definition
+    Validate {
+        /// Path to SKILL.md or skill directory
+        #[arg(value_name = "PATH")]
+        path: String,
+    },
+}
+
 /// Evaluation management subcommands
 #[derive(Subcommand)]
 pub enum EvalCommands {

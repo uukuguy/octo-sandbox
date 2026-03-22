@@ -23,7 +23,10 @@ use crate::providers::ProviderConfig;
 use crate::providers::{create_provider, Provider, ProviderChain, ProviderChainConfig};
 use crate::security::SecurityPolicy;
 use crate::session::{SessionStore, SqliteSessionStore};
-use crate::skills::{register_skills_as_tools, SkillLoader, SkillRegistry, SkillTool};
+use crate::skills::{
+    register_skills_as_tools, sync_builtin_skills, ExecuteSkillTool, SkillLoader, SkillRegistry,
+    SkillTool,
+};
 use crate::tools::recorder::ToolExecutionRecorder;
 use crate::tools::{default_tools, register_kg_tools, register_memory_tools, ToolRegistry};
 
@@ -192,16 +195,28 @@ impl AgentRuntime {
 
         // 8. Create and load SkillRegistry
         let skill_registry = Arc::new(SkillRegistry::new());
-        // Load skills from config directories
+        // Sync builtin skills to project .octo/skills/ before loading
         if !config.skills_dirs.is_empty() {
-            let home_dir = std::env::var("HOME").map(PathBuf::from).ok();
+            // Sync builtins to the first configured skills dir (project-level)
             let project_dir = std::env::current_dir().ok();
+            if let Some(ref pdir) = project_dir {
+                let target = pdir.join(".octo").join("skills");
+                if let Err(e) = std::fs::create_dir_all(&target) {
+                    tracing::warn!("Failed to create skills dir: {}", e);
+                } else if let Err(e) = sync_builtin_skills(&target) {
+                    tracing::warn!("Failed to sync builtin skills: {}", e);
+                }
+            }
+
+            let home_dir = std::env::var("HOME").map(PathBuf::from).ok();
             let skill_loader = SkillLoader::new(project_dir.as_deref(), home_dir.as_deref());
             if let Err(e) = skill_registry.load_from(&skill_loader) {
                 tracing::warn!("Failed to load skills: {}", e);
             }
             // Register user-invocable skills as tools via bridge
             register_skills_as_tools(&skill_loader, &mut tools);
+            // Register execute_skill tool
+            tools.register(ExecuteSkillTool::new(skill_registry.clone()));
             // Start hot-reload watcher
             if let Err(e) = skill_registry.start_watching(skill_loader) {
                 tracing::warn!("Failed to start skill watcher: {}", e);

@@ -34,6 +34,12 @@ impl SkillRegistry {
         Ok(())
     }
 
+    /// Register a single skill into the registry.
+    pub fn register(&self, skill: SkillDefinition) {
+        let mut skills = self.skills.write().unwrap_or_else(|e| e.into_inner());
+        skills.insert(skill.name.clone(), skill);
+    }
+
     /// Reload all skills (for hot-reload).
     pub fn reload(&self, loader: &SkillLoader) -> Result<()> {
         let loaded = loader.load_all()?;

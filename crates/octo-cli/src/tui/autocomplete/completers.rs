@@ -3,7 +3,7 @@
 use std::path::PathBuf;
 
 use super::file_finder::FileFinder;
-use super::{CompletionItem, CompletionKind, SlashCommand, BUILTIN_COMMANDS};
+use super::{builtin_commands, CompletionItem, CompletionKind, SlashCommand};
 
 // ── Completer trait ────────────────────────────────────────────────
 
@@ -16,12 +16,14 @@ pub trait Completer {
 
 /// Completes slash commands from a registry.
 pub struct CommandCompleter {
+    builtin_commands: Vec<SlashCommand>,
     extra_commands: Vec<SlashCommand>,
 }
 
 impl CommandCompleter {
     pub fn new(extra: Option<&[SlashCommand]>) -> Self {
         Self {
+            builtin_commands: builtin_commands(),
             extra_commands: extra.map(|e| e.to_vec()).unwrap_or_default(),
         }
     }
@@ -33,7 +35,7 @@ impl CommandCompleter {
     }
 
     fn all_commands(&self) -> impl Iterator<Item = &SlashCommand> {
-        BUILTIN_COMMANDS.iter().chain(self.extra_commands.iter())
+        self.builtin_commands.iter().chain(self.extra_commands.iter())
     }
 
     /// Provide argument completions for a specific slash command.
@@ -193,7 +195,7 @@ mod tests {
     fn test_command_completer_empty_query() {
         let c = CommandCompleter::new(None);
         let results = c.complete("");
-        assert_eq!(results.len(), BUILTIN_COMMANDS.len());
+        assert_eq!(results.len(), builtin_commands().len());
     }
 
     #[test]

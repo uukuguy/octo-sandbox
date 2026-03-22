@@ -73,6 +73,22 @@ pub async fn run_tui_conversation(state: &AppState) -> Result<()> {
         tui_state.approval_gate = Some(gate.clone());
     }
 
+    // Inject user-invocable skills as slash commands for autocomplete
+    if let Some(registry) = state.agent_runtime.skill_registry() {
+        let skill_commands: Vec<autocomplete::SlashCommand> = registry
+            .list_all()
+            .into_iter()
+            .filter(|s| s.user_invocable)
+            .map(|s| autocomplete::SlashCommand {
+                name: s.name.clone(),
+                description: format!("[skill] {}", s.description),
+            })
+            .collect();
+        if !skill_commands.is_empty() {
+            tui_state.autocomplete.add_commands(&skill_commands);
+        }
+    }
+
     // Get terminal size
     if let Ok(size) = crossterm::terminal::size() {
         tui_state.terminal_width = size.0;

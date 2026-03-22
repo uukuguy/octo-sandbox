@@ -2,6 +2,20 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+/// Execution mode for a skill.
+///
+/// - `Knowledge`: Instructions injected into the agent's system prompt (no SubAgent).
+/// - `Playbook`: Executed via a SubAgent with isolated context and tool constraints.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ExecutionMode {
+    /// Instructions are injected into the agent context. Agent follows them directly.
+    #[default]
+    Knowledge,
+    /// Executed by a SubAgent with isolated context.
+    Playbook,
+}
+
 /// Trust level for skill execution (IronClaw Trust Attenuation).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -64,6 +78,10 @@ pub struct SkillDefinition {
     /// Used for lazy loading - initially false, set to true when activated.
     #[serde(skip)]
     pub body_loaded: bool,
+
+    /// Execution mode: Knowledge (inject body) or Playbook (SubAgent execution).
+    #[serde(default, rename = "execution-mode")]
+    pub execution_mode: ExecutionMode,
 
     /// Model override for this skill.
     #[serde(default)]

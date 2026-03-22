@@ -30,8 +30,8 @@
 #   servers_dir: None   # Optional MCP servers directory
 
 # Skills configuration
-# skills:
-#   dirs: []            # List of skills directories
+skills:
+  dirs: [".octo/skills"]  # List of skills directories
 
 # Working directory for sandbox (optional)
 # working_dir: "./data/sandbox"   # Optional working directory

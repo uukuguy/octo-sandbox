@@ -26,6 +26,7 @@ fn make_skill(
         triggers: vec![],
         dependencies: vec![],
         tags: vec![],
+        execution_mode: Default::default(),
         source_type: SkillSourceType::default(),
     }
 }
