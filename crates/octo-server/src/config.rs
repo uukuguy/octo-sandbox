@@ -154,43 +154,124 @@ pub struct ToolsConfig {
     pub web_search_priority: Vec<String>,
 }
 
-impl Config {
-    /// Load configuration with priority: config.yaml < CLI args < .env
-    ///
-    /// Priority (lowest to highest):
-    /// 1. config.yaml - base configuration file
-    /// 2. CLI arguments - e.g., --port 4000
-    /// 3. Environment variables (.env) - highest priority for overrides
-    pub fn load(
-        config_path: Option<&PathBuf>,
-        cli_port: Option<u16>,
-        cli_host: Option<&str>,
-    ) -> Self {
-        // Step 1: Load from config.yaml (lowest priority)
-        // If no explicit path given, look for config.yaml in current directory
-        let yaml_path = config_path
-            .map(|p| p.as_path())
-            .unwrap_or_else(|| Path::new("config.yaml"));
+/// Credentials file structure (`~/.octo/credentials.yaml`)
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct CredentialsFile {
+    #[serde(default)]
+    pub providers: std::collections::HashMap<String, ProviderCredential>,
+}
 
-        let mut config = if yaml_path.exists() {
-            if let Ok(content) = std::fs::read_to_string(yaml_path) {
-                match serde_yaml::from_str::<Config>(&content) {
-                    Ok(cfg) => Some(cfg),
-                    Err(e) => {
-                        tracing::warn!("Failed to parse config.yaml: {}, using defaults", e);
-                        None
-                    }
-                }
-            } else {
-                None
-            }
-        } else {
-            tracing::debug!("Config file {:?} not found, using defaults", yaml_path);
+/// Per-provider credential entry
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct ProviderCredential {
+    pub api_key: Option<String>,
+    pub base_url: Option<String>,
+}
+
+/// Load a YAML config file, returning None if missing or invalid.
+fn load_yaml_config(path: &Path) -> Option<Config> {
+    if !path.exists() {
+        return None;
+    }
+    let content = std::fs::read_to_string(path).ok()?;
+    match serde_yaml::from_str::<Config>(&content) {
+        Ok(cfg) => Some(cfg),
+        Err(e) => {
+            tracing::warn!("Failed to parse {}: {}", path.display(), e);
             None
         }
-        .unwrap_or_default();
+    }
+}
 
-        // Step 2: CLI arguments override config.yaml
+/// Recursively merge two YAML Values. overlay wins for scalars/sequences.
+fn merge_yaml_values(base: serde_yaml::Value, overlay: serde_yaml::Value) -> serde_yaml::Value {
+    use serde_yaml::Value;
+    match (base, overlay) {
+        (Value::Mapping(mut base_map), Value::Mapping(overlay_map)) => {
+            for (key, overlay_v) in overlay_map {
+                let merged = if let Some(base_v) = base_map.remove(&key) {
+                    merge_yaml_values(base_v, overlay_v)
+                } else {
+                    overlay_v
+                };
+                base_map.insert(key, merged);
+            }
+            Value::Mapping(base_map)
+        }
+        (_base, overlay) => overlay,
+    }
+}
+
+/// Merge two configs: `overlay` fields override `base` fields.
+fn merge_configs(base: Config, overlay: Config) -> Config {
+    let base_val = serde_yaml::to_value(&base).unwrap_or(serde_yaml::Value::Null);
+    let overlay_val = serde_yaml::to_value(&overlay).unwrap_or(serde_yaml::Value::Null);
+    let merged = merge_yaml_values(base_val, overlay_val);
+    serde_yaml::from_value(merged).unwrap_or(base)
+}
+
+impl Config {
+    /// Load configuration with layered priority.
+    ///
+    /// Priority (lowest to highest):
+    /// 1. Code defaults (impl Default)
+    /// 2. Global config: `~/.octo/config.yaml`
+    /// 3. Project config: `$PWD/.octo/config.yaml`
+    /// 4. Project local config: `$PWD/.octo/config.local.yaml`
+    /// 5. Legacy fallback: `$PWD/config.yaml` (if no .octo configs found)
+    /// 6. CLI arguments: --port, --host
+    /// 7. Environment variables: OCTO_*, ANTHROPIC_*, OPENAI_*
+    ///
+    /// When `explicit_config` is provided (--config flag), it replaces
+    /// steps 2-5 entirely (only that file + CLI + env apply).
+    pub fn load(
+        explicit_config: Option<&PathBuf>,
+        cli_port: Option<u16>,
+        cli_host: Option<&str>,
+        octo_root: &octo_engine::OctoRoot,
+    ) -> Self {
+        let mut config = if let Some(path) = explicit_config {
+            // Explicit --config: use only this file, skip auto-discovery
+            load_yaml_config(path).unwrap_or_default()
+        } else {
+            // Auto-discovery: merge global → project → local
+            let mut cfg = Config::default();
+
+            // Layer 1: Global config
+            if let Some(global) = load_yaml_config(&octo_root.global_config()) {
+                tracing::debug!("Loaded global config: {}", octo_root.global_config().display());
+                cfg = merge_configs(cfg, global);
+            }
+
+            // Layer 2: Project config
+            if let Some(project) = load_yaml_config(&octo_root.project_config()) {
+                tracing::debug!("Loaded project config: {}", octo_root.project_config().display());
+                cfg = merge_configs(cfg, project);
+            }
+
+            // Layer 3: Project local config
+            if let Some(local) = load_yaml_config(&octo_root.project_local_config()) {
+                tracing::debug!("Loaded local config: {}", octo_root.project_local_config().display());
+                cfg = merge_configs(cfg, local);
+            }
+
+            // Legacy fallback: $PWD/config.yaml (if no project config was found)
+            let legacy_path = octo_root.working_dir().join("config.yaml");
+            if !octo_root.project_config().exists() && legacy_path.exists() {
+                tracing::warn!(
+                    "Found config.yaml at project root (legacy location). \
+                     Please move it to .octo/config.yaml: \
+                     mv config.yaml .octo/config.yaml"
+                );
+                if let Some(legacy) = load_yaml_config(&legacy_path) {
+                    cfg = merge_configs(cfg, legacy);
+                }
+            }
+
+            cfg
+        };
+
+        // CLI arguments override
         if let Some(port) = cli_port {
             config.server.port = port;
         }
@@ -198,7 +279,30 @@ impl Config {
             config.server.host = host.to_string();
         }
 
-        // Step 3: Environment variables have highest priority (override everything)
+        // Credentials file: between config merge and env overrides
+        // Priority: env vars > credentials.yaml > config.yaml
+        let cred_path = octo_root.credentials_path();
+        if cred_path.exists() {
+            if let Ok(content) = std::fs::read_to_string(&cred_path) {
+                match serde_yaml::from_str::<CredentialsFile>(&content) {
+                    Ok(creds) => {
+                        let provider_name = config.provider.name.clone();
+                        if let Some(cred) = creds.providers.get(&provider_name) {
+                            if config.provider.api_key.is_none() {
+                                config.provider.api_key = cred.api_key.clone();
+                            }
+                            if config.provider.base_url.is_none() {
+                                config.provider.base_url = cred.base_url.clone();
+                            }
+                        }
+                        tracing::debug!("Loaded credentials from {}", cred_path.display());
+                    }
+                    Err(e) => tracing::warn!("Failed to parse credentials: {}", e),
+                }
+            }
+        }
+
+        // Environment variables have highest priority (override everything)
         // Server
         if let Ok(host) = std::env::var("OCTO_HOST") {
             config.server.host = host;

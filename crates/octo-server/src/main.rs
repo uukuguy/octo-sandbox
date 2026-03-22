@@ -67,8 +67,19 @@ async fn main() -> Result<()> {
     // Load .env FIRST (before config loading)
     dotenvy::dotenv_override().ok();
 
-    // Load configuration: config.yaml < CLI args < .env
-    let cfg = config::Config::load(config_path.as_ref(), cli_port, cli_host);
+    // Discover OctoRoot for unified path management (needed by Config::load)
+    let octo_root = octo_engine::OctoRoot::discover()
+        .unwrap_or_else(|e| {
+            eprintln!("Warning: Failed to discover OctoRoot: {}, using defaults", e);
+            let wd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            octo_engine::OctoRoot::with_working_dir(&wd).expect("OctoRoot fallback failed")
+        });
+    if let Err(e) = octo_root.ensure_dirs() {
+        eprintln!("Warning: Failed to ensure OctoRoot directories: {}", e);
+    }
+
+    // Load configuration with layered merge: global → project → local → env
+    let cfg = config::Config::load(config_path.as_ref(), cli_port, cli_host, &octo_root);
 
     // Apply logging config: OCTO_LOG > config.yaml > fallback info
     // Note: RUST_LOG from .env is intentionally ignored to avoid SSE debug noise.
@@ -95,17 +106,6 @@ async fn main() -> Result<()> {
         api_key_count = cfg.auth.api_keys.as_ref().map(|k| k.len()).unwrap_or(0),
         "Auth configuration loaded"
     );
-
-    // Discover OctoRoot for unified path management
-    let octo_root = octo_engine::OctoRoot::discover()
-        .unwrap_or_else(|e| {
-            tracing::warn!("Failed to discover OctoRoot: {}, using defaults", e);
-            let wd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
-            octo_engine::OctoRoot::with_working_dir(&wd).expect("OctoRoot fallback failed")
-        });
-    if let Err(e) = octo_root.ensure_dirs() {
-        tracing::warn!("Failed to ensure OctoRoot directories: {}", e);
-    }
 
     // Database: SQLite with WAL mode
     // If config has non-empty path, use it; otherwise resolve from OctoRoot
@@ -294,7 +294,7 @@ async fn main() -> Result<()> {
                 .tls
                 .self_signed_dir
                 .clone()
-                .unwrap_or_else(|| PathBuf::from("./data/tls"));
+                .unwrap_or_else(|| octo_root.tls_dir());
             tracing::info!("Generating self-signed TLS certificate in {:?}", tls_dir);
             octo_engine::tls::generate_self_signed_cert("localhost", &tls_dir)?
         } else {
