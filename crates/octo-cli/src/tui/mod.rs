@@ -145,6 +145,12 @@ async fn run_conversation_loop(
                         let h = state.terminal_height;
                         state.welcome_state.tick(w, h);
                     }
+                    // Refresh git info every ~5 seconds
+                    state.git_refresh_counter += 1;
+                    if state.git_refresh_counter >= 83 {
+                        state.git_refresh_counter = 0;
+                        state.refresh_git_info();
+                    }
                 }
                 event::AppEvent::Agent(agent_event) => {
                     handle_agent_event(state, agent_event);

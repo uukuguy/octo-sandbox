@@ -181,6 +181,8 @@ pub struct TuiState {
     pub git_dirty_count: usize,
     /// When the TUI session started (for elapsed time display).
     pub session_start_time: Instant,
+    /// Counter for periodic git info refresh (ticks between refreshes).
+    pub git_refresh_counter: u32,
 
     // ── Plan steps (rendered inline in conversation) ──
     /// Plan steps from dual-mode agent (rendered as inline messages).
@@ -289,6 +291,7 @@ impl TuiState {
                 }),
             context_usage_pct: 0.0,
             session_start_time: Instant::now(),
+            git_refresh_counter: 0,
             git_dirty_count: std::process::Command::new("git")
                 .args(["status", "--porcelain"])
                 .output()
@@ -511,6 +514,38 @@ impl TuiState {
     pub fn invalidate_cache(&mut self) {
         self.message_generation += 1;
         self.dirty = true;
+    }
+
+    /// Refresh git branch and dirty count from the filesystem.
+    pub fn refresh_git_info(&mut self) {
+        self.git_branch = std::process::Command::new("git")
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .output()
+            .ok()
+            .and_then(|o| {
+                if o.status.success() {
+                    String::from_utf8(o.stdout)
+                        .ok()
+                        .map(|s| s.trim().to_string())
+                } else {
+                    None
+                }
+            });
+        self.git_dirty_count = std::process::Command::new("git")
+            .args(["status", "--porcelain"])
+            .output()
+            .ok()
+            .map(|o| {
+                if o.status.success() {
+                    String::from_utf8_lossy(&o.stdout)
+                        .lines()
+                        .filter(|l| !l.is_empty())
+                        .count()
+                } else {
+                    0
+                }
+            })
+            .unwrap_or(0);
     }
 
     /// Check if a tool result is collapsed.
