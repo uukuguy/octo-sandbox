@@ -185,32 +185,14 @@ impl OctoRoot {
         Ok(())
     }
 
-    /// Resolve database path with backward compatibility.
+    /// Resolve database path.
     ///
-    /// Priority:
-    /// 1. `OCTO_DB_PATH` environment variable
-    /// 2. `./data/octo.db` if it exists (server legacy)
-    /// 3. `./octo.db` if it exists (CLI legacy)
-    /// 4. New default: `~/.octo/projects/<key>/octo.db`
+    /// Always uses `~/.octo/projects/<key>/octo.db`.
+    /// `OCTO_DB_PATH` env var can override for testing.
     pub fn resolve_db_path(&self) -> PathBuf {
-        // 1. Environment variable override
         if let Ok(env_path) = std::env::var("OCTO_DB_PATH") {
             return PathBuf::from(env_path);
         }
-
-        // 2. Legacy server path
-        let legacy_server = self.working_dir.join("data").join("octo.db");
-        if legacy_server.exists() {
-            return legacy_server;
-        }
-
-        // 3. Legacy CLI path
-        let legacy_cli = self.working_dir.join("octo.db");
-        if legacy_cli.exists() {
-            return legacy_cli;
-        }
-
-        // 4. New default
         self.db_path()
     }
 }
@@ -328,42 +310,6 @@ mod tests {
         // Restore
         std::env::remove_var("OCTO_GLOBAL_ROOT");
         std::env::remove_var("OCTO_PROJECT_ROOT");
-    }
-
-    #[test]
-    fn test_resolve_db_path_legacy_cli() {
-        let tmp = tempfile::tempdir().unwrap();
-        let working = tmp.path().join("work");
-        std::fs::create_dir_all(&working).unwrap();
-
-        // Create legacy CLI db
-        std::fs::write(working.join("octo.db"), b"").unwrap();
-
-        std::env::set_var("OCTO_GLOBAL_ROOT", tmp.path().join("global"));
-        std::env::remove_var("OCTO_DB_PATH");
-
-        let root = OctoRoot::with_working_dir(&working).unwrap();
-        assert_eq!(root.resolve_db_path(), working.join("octo.db"));
-
-        std::env::remove_var("OCTO_GLOBAL_ROOT");
-    }
-
-    #[test]
-    fn test_resolve_db_path_legacy_server() {
-        let tmp = tempfile::tempdir().unwrap();
-        let working = tmp.path().join("work");
-        std::fs::create_dir_all(working.join("data")).unwrap();
-
-        // Create legacy server db
-        std::fs::write(working.join("data").join("octo.db"), b"").unwrap();
-
-        std::env::set_var("OCTO_GLOBAL_ROOT", tmp.path().join("global"));
-        std::env::remove_var("OCTO_DB_PATH");
-
-        let root = OctoRoot::with_working_dir(&working).unwrap();
-        assert_eq!(root.resolve_db_path(), working.join("data").join("octo.db"));
-
-        std::env::remove_var("OCTO_GLOBAL_ROOT");
     }
 
     #[test]
