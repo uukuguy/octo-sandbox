@@ -1,36 +1,36 @@
 {
   "plan_file": "docs/plans/2026-03-23-phase-aa-deployment-config.md",
-  "phase": "design",
+  "phase": "execution",
   "created_at": "2026-03-23T04:50:00+08:00",
-  "updated_at": "2026-03-23T05:30:00+08:00",
-  "completed_tasks": [],
+  "updated_at": "2026-03-23T05:40:00+08:00",
+  "completed_tasks": ["AA-T1", "AA-T2b", "AA-T2", "AA-T3", "AA-T4", "AA-T5"],
   "current_task": null,
   "total_tasks": 6,
   "task_groups": {
     "G1": {
       "name": "OctoRoot Path Extensions",
       "tasks": ["AA-T1"],
-      "status": "PENDING"
+      "status": "DONE"
     },
     "G2": {
       "name": "Layered Config Loading",
       "tasks": ["AA-T2b", "AA-T2"],
-      "status": "PENDING"
+      "status": "DONE"
     },
     "G3": {
       "name": "Credentials Loading",
       "tasks": ["AA-T3"],
-      "status": "PENDING"
+      "status": "DONE"
     },
     "G4": {
       "name": "Hardcoded Path Fixes + CLI Enhancement",
       "tasks": ["AA-T4", "AA-T5"],
-      "status": "PENDING"
+      "status": "DONE"
     }
   },
   "phase_name": "Phase AA — Octo 部署配置架构",
-  "status": "DESIGN_COMPLETE",
-  "execution_mode": null,
+  "status": "COMPLETE",
+  "execution_mode": "executing-plans",
   "design_file": "docs/design/DEPLOYMENT_CONFIG_DESIGN.md",
   "guide_file": "docs/design/DEPLOYMENT_CONFIG_GUIDE.md",
   "branch": "main",
@@ -38,6 +38,15 @@
     "tests": 2383,
     "commit": "3ab7bca"
   },
+  "final": {
+    "tests": 2388,
+    "commit": "a1384e8"
+  },
+  "commits": [
+    "7a8c416 feat(root): add path methods for local config, credentials, tls, mcp, eval",
+    "5887161 feat(config): layered config loading with credentials + OctoRoot integration",
+    "a1384e8 feat(cli): enhance config show/paths with layered source display"
+  ],
   "deferred": [
     {
       "id": "AA-D1",
@@ -68,7 +77,6 @@
     "Legacy $PWD/config.yaml fallback with deprecation warning",
     "No XDG support — OCTO_GLOBAL_ROOT env var covers the need"
   ],
-  "notes": "Design phase complete. 3 documents produced: design doc, deployment guide, implementation plan. Research: 8 CLI tools compared. Resolves W-D2 deferred.",
   "previous_phase": {
     "name": "Phase Z — Landmine Scan & Fix",
     "status": "COMPLETE",

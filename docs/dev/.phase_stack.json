@@ -1,15 +1,15 @@
 {
-  "active_phases": [
-    {
-      "name": "Phase AA — Octo 部署配置架构",
-      "started_at": "2026-03-23T04:50:00+08:00",
-      "checkpoint": "docs/plans/.checkpoint.json",
-      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "0%"
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase AA — Octo 部署配置架构",
+      "completed_at": "2026-03-23T05:40:00+08:00",
+      "progress": "100%",
+      "tests": 2388,
+      "commit": "a1384e8",
+      "tasks": "6/6"
+    },
     {
       "name": "Phase Z — Landmine Scan & Fix",
       "completed_at": "2026-03-23T04:30:00+08:00",
