@@ -1,39 +1,35 @@
 {
   "plan_file": null,
-  "phase": "post-polish",
-  "created_at": "2026-03-23T01:36:00+08:00",
-  "updated_at": "2026-03-23T03:00:00+08:00",
-  "completed_tasks": ["X-T1", "X-T2", "X-T3", "X-T4"],
-  "current_task": null,
-  "total_tasks": 4,
+  "phase": "in-progress",
+  "created_at": "2026-03-23T02:44:00+08:00",
+  "updated_at": "2026-03-23T03:30:00+08:00",
+  "completed_tasks": [],
+  "current_task": "SubAgent wiring for ExecuteSkillTool — compile pass, awaiting test",
+  "total_tasks": 1,
   "task_groups": {
-    "X": {
-      "name": "TUI 运行状态增强",
-      "tasks": ["X-T1", "X-T2", "X-T3", "X-T4"],
-      "status": "COMPLETE",
-      "description": "ClearHistory 后端同步, Error/SecurityBlocked/EmergencyStopped 对话区显示, 活动指示器 3 行 + rounds/tools 计数, 完成摘要, CC 风格 git 状态"
+    "Y": {
+      "name": "Playbook Skill SubAgent Wiring",
+      "tasks": ["Y-T1"],
+      "status": "IN_PROGRESS",
+      "description": "Wire SubAgentManager into ExecuteSkillTool so PLAYBOOK skills (docx etc.) can spawn SubAgent in TUI/CLI"
     }
   },
-  "phase_name": "Post-Phase X — TUI + OctoRoot Polish",
-  "status": "COMPLETE",
+  "phase_name": "Phase Y — Playbook Skill SubAgent Wiring",
+  "status": "IN_PROGRESS",
   "execution_mode": "direct",
   "design_file": null,
   "roadmap_file": null,
   "branch": "main",
   "baseline": {
     "tests": 2387,
-    "commit": "4d045db"
+    "commit": "839b08f"
   },
-  "final": {
-    "tests": 2387,
-    "commit": "a5f4b0e"
-  },
+  "final": null,
   "key_decisions": [
-    "Activity indicator: removed top/bottom borders, single content row (height 3→1)",
-    "Status bar: added empty bottom row for visual spacing (height 3→4)",
-    "Completion summaries preserved across rounds — extracted before final_messages replace, re-inserted before last user message",
-    "OctoRoot legacy db fallbacks removed — unified to ~/.octo/projects/<key>/octo.db, OCTO_DB_PATH kept for testing",
-    "Ctrl+O scroll: deferred to render phase via scroll_to_tool, uses ConversationWidget::scroll_offset_for_tool() for precise positioning"
+    "Introduced SubAgentContext struct to avoid circular dependency (AgentLoopConfig contains tools, tools contain ExecuteSkillTool which needs config)",
+    "SubAgentContext holds provider/tools/model/user_id/sandbox_id/tool_ctx — all fields ExecuteSkillTool.execute_playbook() needs",
+    "executor.rs creates SubAgentManager(max_concurrent=4, max_depth=3) per turn and injects into tools snapshot",
+    "Removed 2 pre-existing broken legacy db tests from test_octo_root.rs"
   ],
   "deferred": [
     {
@@ -61,10 +57,10 @@
       "precondition": "Phase U G3 StatusBar complete"
     }
   ],
-  "notes": "Post-Phase X polish complete. 5 commits after Phase X: (1) activity indicator borders removed (1 row), (2) status bar bottom padding added, (3) completion summaries preserved across rounds, (4) OctoRoot legacy fallbacks removed — unified db path, (5) Ctrl+O precise scroll positioning via scroll_offset_for_tool(). Tests: 2387 workspace (unchanged).",
+  "notes": "ExecuteSkillTool now receives SubAgentContext (provider, tools, model, etc.) via executor.rs per-turn injection. Fixes 'no SubAgent manager configured' error for PLAYBOOK skills like docx. Compile pass confirmed. Full test run pending.",
   "previous_phase": {
-    "name": "Phase X — TUI 运行状态增强",
+    "name": "Post-Phase X — TUI + OctoRoot Polish",
     "status": "COMPLETE",
-    "commit": "d4489f4"
+    "commit": "839b08f"
   }
 }

@@ -231,6 +231,7 @@ mod tests {
             denied_tools: None,
             execution_mode: Default::default(),
             source_type: octo_types::skill::SkillSourceType::ProjectLocal,
+            max_rounds: 0,
         }
     }
 }

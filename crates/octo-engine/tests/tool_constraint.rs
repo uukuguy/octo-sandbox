@@ -28,6 +28,7 @@ fn make_skill(
         tags: vec![],
         execution_mode: Default::default(),
         source_type: SkillSourceType::default(),
+        max_rounds: 0,
     }
 }
 

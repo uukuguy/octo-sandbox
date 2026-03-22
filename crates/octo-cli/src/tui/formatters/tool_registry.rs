@@ -157,6 +157,15 @@ static TOOL_REGISTRY: &[ToolDisplayEntry] = &[
         primary_arg_keys: &["question", "message"],
         result_format: ResultFormat::Generic,
     },
+    // Skill execution
+    ToolDisplayEntry {
+        names: &["execute_skill"],
+        category: ToolCategory::Agent,
+        verb: "Execute Skill",
+        label: "skill",
+        primary_arg_keys: &["skill_name"],
+        result_format: ResultFormat::Generic,
+    },
     // Batch
     ToolDisplayEntry {
         names: &["batch_tool"],

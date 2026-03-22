@@ -589,6 +589,7 @@ impl AgentRuntime {
             self.safety_pipeline.clone(),
             self.canary_token.clone(),
             self.approval_gate.clone(),
+            self.skill_registry.clone(),
         );
 
         // Spawn 持久化主循环

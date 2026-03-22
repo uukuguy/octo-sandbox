@@ -24,6 +24,7 @@ fn make_skill(name: &str, deps: Vec<&str>) -> SkillDefinition {
         tags: vec![],
         execution_mode: Default::default(),
         source_type: SkillSourceType::default(),
+        max_rounds: 0,
     }
 }
 

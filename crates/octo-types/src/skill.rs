@@ -87,6 +87,10 @@ pub struct SkillDefinition {
     #[serde(default)]
     pub model: Option<String>,
 
+    /// Maximum rounds for playbook SubAgent execution (0 = use default 30).
+    #[serde(default, rename = "max-rounds")]
+    pub max_rounds: u32,
+
     /// Run in isolated context.
     #[serde(default, rename = "context-fork")]
     pub context_fork: bool,

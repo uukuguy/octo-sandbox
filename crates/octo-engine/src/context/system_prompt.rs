@@ -551,6 +551,7 @@ mod tests {
             denied_tools: None,
             execution_mode: Default::default(),
             source_type: Default::default(),
+            max_rounds: 0,
         }
     }
 

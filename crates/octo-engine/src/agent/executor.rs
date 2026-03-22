@@ -8,9 +8,11 @@ use tracing::info;
 use octo_types::{ChatMessage, PathValidator, SandboxId, SessionId, ToolContext, UserId};
 
 use crate::agent::{AgentConfig, AgentEvent, AgentLoopConfig};
+use crate::agent::subagent::SubAgentManager;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
+use crate::skills::{ExecuteSkillTool, SkillRegistry, SubAgentContext};
 use crate::tools::ToolRegistry;
 
 use super::entry::AgentManifest;
@@ -101,6 +103,8 @@ pub struct AgentExecutor {
     canary_token: Option<String>,
     // Shared approval gate for interactive tool approval (T7)
     approval_gate: Option<crate::tools::approval::ApprovalGate>,
+    // Skill registry for SubAgent-backed playbook skill execution
+    skill_registry: Option<Arc<SkillRegistry>>,
 }
 
 impl AgentExecutor {
@@ -127,6 +131,7 @@ impl AgentExecutor {
         safety_pipeline: Option<Arc<crate::security::SafetyPipeline>>,
         canary_token: Option<String>,
         approval_gate: Option<crate::tools::approval::ApprovalGate>,
+        skill_registry: Option<Arc<SkillRegistry>>,
     ) -> Self {
         Self {
             session_id,
@@ -152,6 +157,7 @@ impl AgentExecutor {
             canary_token,
             approval_gate,
             turn_gate: super::turn_gate::TurnGate::new(),
+            skill_registry,
         }
     }
 
@@ -171,20 +177,50 @@ impl AgentExecutor {
                     // 追加用户消息到持久化历史
                     self.history.push(ChatMessage::user(content));
 
+                    let model = self
+                        .model
+                        .clone()
+                        .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
+
                     // 从共享 ToolRegistry 生成快照（每 round 新建，实现 MCP 热插拔）
+                    // 同时为 execute_skill 工具注入 SubAgent 执行上下文
                     let tools_snapshot = {
                         let guard = self.tools.lock().unwrap_or_else(|e| e.into_inner());
                         let mut registry = ToolRegistry::new();
                         for (name, tool) in guard.iter() {
                             registry.register_arc(name.clone(), tool);
                         }
+                        // Replace execute_skill with SubAgent-wired version
+                        if let Some(ref skill_reg) = self.skill_registry {
+                            if registry.get("execute_skill").is_some() {
+                                let subagent_ctx = SubAgentContext {
+                                    manager: Arc::new(SubAgentManager::new(4, 3)),
+                                    provider: self.provider.clone(),
+                                    tools: Arc::new({
+                                        // Snapshot parent tools for SubAgent
+                                        let mut parent = ToolRegistry::new();
+                                        for (n, t) in guard.iter() {
+                                            parent.register_arc(n.clone(), t);
+                                        }
+                                        parent
+                                    }),
+                                    model: model.clone(),
+                                    user_id: self.user_id.clone(),
+                                    sandbox_id: self.sandbox_id.clone(),
+                                    tool_ctx: Some(ToolContext {
+                                        sandbox_id: self.sandbox_id.clone(),
+                                        working_dir: self.working_dir.clone(),
+                                        path_validator: self.path_validator.clone(),
+                                    }),
+                                };
+                                registry.register(
+                                    ExecuteSkillTool::new(skill_reg.clone())
+                                        .with_subagent_ctx(subagent_ctx),
+                                );
+                            }
+                        }
                         Arc::new(registry)
                     };
-
-                    let model = self
-                        .model
-                        .clone()
-                        .unwrap_or_else(|| "claude-sonnet-4-6".to_string());
 
                     // Resolve manifest from system_prompt if set
                     let manifest = self.system_prompt.as_ref().map(|prompt| AgentManifest {

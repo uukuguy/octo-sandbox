@@ -21,7 +21,7 @@ pub mod trust;
 pub use catalog::{CatalogEntry, CatalogQuery, SkillCatalog};
 pub use constraint::{ConstraintResult, ToolConstraintEnforcer};
 pub use dependency::{DependencyError, SkillDependencyGraph};
-pub use execute_tool::ExecuteSkillTool;
+pub use execute_tool::{ExecuteSkillTool, SubAgentContext};
 pub use index::{SkillLoader, SkillMetadata};
 pub use initializer::{builtin_skill_names, sync_builtin_skills};
 pub use manager::{SkillIndexEntry, SkillManager};

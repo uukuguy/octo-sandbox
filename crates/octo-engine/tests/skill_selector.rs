@@ -25,6 +25,7 @@ fn make_skill(name: &str) -> SkillDefinition {
         denied_tools: None,
         execution_mode: Default::default(),
         source_type: SkillSourceType::ProjectLocal,
+        max_rounds: 0,
     }
 }
 

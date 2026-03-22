@@ -17,9 +17,23 @@ use crate::agent::events::AgentEvent;
 use crate::agent::harness::run_agent_loop;
 use crate::agent::loop_config::AgentLoopConfig;
 use crate::agent::subagent::SubAgentManager;
+use crate::providers::Provider;
 use crate::skills::constraint::ToolConstraintEnforcer;
 use crate::skills::registry::SkillRegistry;
 use crate::tools::traits::Tool;
+use crate::tools::ToolRegistry;
+
+/// Context needed to spawn SubAgent for playbook skill execution.
+/// Avoids circular dependency with AgentLoopConfig (which contains tools).
+pub struct SubAgentContext {
+    pub manager: Arc<SubAgentManager>,
+    pub provider: Arc<dyn Provider>,
+    pub tools: Arc<ToolRegistry>,
+    pub model: String,
+    pub user_id: octo_types::UserId,
+    pub sandbox_id: octo_types::SandboxId,
+    pub tool_ctx: Option<octo_types::ToolContext>,
+}
 
 /// Tool that executes a skill by name.
 ///
@@ -28,26 +42,20 @@ use crate::tools::traits::Tool;
 ///   with a constrained tool set.
 pub struct ExecuteSkillTool {
     skill_registry: Arc<SkillRegistry>,
-    subagent_manager: Option<Arc<SubAgentManager>>,
-    parent_config: Option<Arc<AgentLoopConfig>>,
+    subagent_ctx: Option<SubAgentContext>,
 }
 
 impl ExecuteSkillTool {
     pub fn new(skill_registry: Arc<SkillRegistry>) -> Self {
         Self {
             skill_registry,
-            subagent_manager: None,
-            parent_config: None,
+            subagent_ctx: None,
         }
     }
 
-    pub fn with_subagent(
-        mut self,
-        manager: Arc<SubAgentManager>,
-        config: Arc<AgentLoopConfig>,
-    ) -> Self {
-        self.subagent_manager = Some(manager);
-        self.parent_config = Some(config);
+    /// Configure SubAgent execution context for playbook skills.
+    pub fn with_subagent_ctx(mut self, ctx: SubAgentContext) -> Self {
+        self.subagent_ctx = Some(ctx);
         self
     }
 }
@@ -153,25 +161,17 @@ impl ExecuteSkillTool {
         skill: &octo_types::SkillDefinition,
         request: &str,
     ) -> Result<ToolOutput> {
-        let manager = match &self.subagent_manager {
-            Some(m) => m,
+        let ctx = match &self.subagent_ctx {
+            Some(c) => c,
             None => {
                 return Ok(ToolOutput::error(
                     "Cannot execute playbook skill: no SubAgent manager configured",
                 ));
             }
         };
-        let parent_config = match &self.parent_config {
-            Some(c) => c,
-            None => {
-                return Ok(ToolOutput::error(
-                    "Cannot execute playbook skill: no parent config available",
-                ));
-            }
-        };
 
         // Check recursion depth
-        let child_mgr = match manager.child() {
+        let child_mgr = match ctx.manager.child() {
             Ok(mgr) => Arc::new(mgr),
             Err(e) => {
                 return Ok(ToolOutput::error(format!(
@@ -182,7 +182,7 @@ impl ExecuteSkillTool {
         };
 
         // Check concurrent limit
-        if !manager.can_spawn().await {
+        if !ctx.manager.can_spawn().await {
             return Ok(ToolOutput::error(
                 "Maximum concurrent sub-agents reached",
             ));
@@ -192,7 +192,8 @@ impl ExecuteSkillTool {
         let subagent_id = format!("skill-{}-{}", skill.name, uuid::Uuid::new_v4());
 
         // Register in manager
-        if let Err(e) = manager
+        if let Err(e) = ctx
+            .manager
             .register(subagent_id.clone(), format!("Skill: {}", skill.name))
             .await
         {
@@ -203,18 +204,14 @@ impl ExecuteSkillTool {
         }
 
         // Build filtered tool registry based on skill's allowed_tools
-        let tools = if let Some(ref parent_tools) = parent_config.tools {
-            if skill.allowed_tools.is_some() {
-                let enforcer =
-                    ToolConstraintEnforcer::from_active_skills(&[skill.clone()]);
-                let all_names: Vec<String> = parent_tools.names();
-                let filtered = enforcer.filter_tools(&all_names);
-                Some(Arc::new(parent_tools.snapshot_filtered(&filtered)))
-            } else {
-                Some(parent_tools.clone())
-            }
+        let tools = if skill.allowed_tools.is_some() {
+            let enforcer =
+                ToolConstraintEnforcer::from_active_skills(&[skill.clone()]);
+            let all_names: Vec<String> = ctx.tools.names();
+            let filtered = enforcer.filter_tools(&all_names);
+            Some(Arc::new(ctx.tools.snapshot_filtered(&filtered)))
         } else {
-            None
+            Some(ctx.tools.clone())
         };
 
         // Build system prompt from skill body
@@ -231,15 +228,15 @@ impl ExecuteSkillTool {
 
         // Build child config
         let child_config = AgentLoopConfig {
-            max_iterations: 10,
-            provider: parent_config.provider.clone(),
+            max_iterations: if skill.max_rounds > 0 { skill.max_rounds } else { 30 },
+            provider: Some(ctx.provider.clone()),
             tools,
             memory: None, // Isolated — no shared memory
-            model: parent_config.model.clone(),
+            model: ctx.model.clone(),
             session_id: octo_types::SessionId::from_string(subagent_id.clone()),
-            user_id: parent_config.user_id.clone(),
-            sandbox_id: parent_config.sandbox_id.clone(),
-            tool_ctx: parent_config.tool_ctx.clone(),
+            user_id: ctx.user_id.clone(),
+            sandbox_id: ctx.sandbox_id.clone(),
+            tool_ctx: ctx.tool_ctx.clone(),
             manifest: Some(crate::agent::entry::AgentManifest {
                 name: format!("skill-{}", skill.name),
                 tags: vec![],
@@ -284,7 +281,7 @@ impl ExecuteSkillTool {
                         .unwrap_or_default();
                 }
                 AgentEvent::Error { message } => {
-                    let _ = manager.fail(&subagent_id, message.clone()).await;
+                    let _ = ctx.manager.fail(&subagent_id, message.clone()).await;
                     return Ok(ToolOutput::error(format!(
                         "Skill '{}' execution failed: {}",
                         skill.name, message
@@ -295,7 +292,8 @@ impl ExecuteSkillTool {
         }
 
         if final_output.is_empty() {
-            let _ = manager
+            let _ = ctx
+                .manager
                 .fail(&subagent_id, "No output produced".to_string())
                 .await;
             Ok(ToolOutput::error(format!(
@@ -303,7 +301,8 @@ impl ExecuteSkillTool {
                 skill.name
             )))
         } else {
-            let _ = manager
+            let _ = ctx
+                .manager
                 .complete(&subagent_id, Some(final_output.clone()))
                 .await;
             Ok(ToolOutput::success(format!(
