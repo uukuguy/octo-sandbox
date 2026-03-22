@@ -141,6 +141,7 @@ Command-line interface for local agent interaction. See [ADR-045](docs/adr/ADR-0
 | `octo eval diagnose <RUN_ID>` | Failure classification analysis |
 | `octo eval diff <RUN_A> <RUN_B>` | Compare two runs (regression) |
 | `octo eval watch --suite <NAME>` | Periodic evaluation re-run |
+| `octo init` | Initialize Octo project in current directory |
 | `octo root show` | Show all resolved OctoRoot paths |
 | `octo root init` | Initialize OctoRoot directories |
 

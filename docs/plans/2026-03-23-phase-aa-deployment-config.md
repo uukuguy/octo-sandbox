@@ -744,6 +744,6 @@ git commit -m "refactor(server): reorder init — OctoRoot before Config::load()
 | ID | Description | Precondition |
 |----|-------------|-------------|
 | AA-D1 | `octo auth login/status/logout` commands | UX design for interactive credential setup |
-| AA-D2 | `octo init` command — project template creation | After config loading stabilizes |
+| AA-D2 | `octo init` command — project template creation | After config loading stabilizes | ✅ 已补 @ e85383a |
 | AA-D3 | XDG Base Directory support (`$XDG_CONFIG_HOME/octo/`) | Low priority, OCTO_GLOBAL_ROOT already covers |
 | AA-D4 | Config file watcher (hot-reload) | Future enhancement |
