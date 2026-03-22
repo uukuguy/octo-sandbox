@@ -4,6 +4,8 @@
 //! conversation history, streaming buffer, active tool executions,
 //! input buffer, scroll position, and metrics.
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::time::Instant;
 
 use octo_engine::agent::AgentExecutorHandle;
@@ -135,6 +137,11 @@ pub struct TuiState {
     // ── Approval ──
     /// Gate for responding to tool approval requests from the engine.
     pub approval_gate: Option<ApprovalGate>,
+
+    // ── Per-message cache ──
+    /// Cached rendered lines per message: (content_hash, rendered_lines).
+    /// Indexed by message position in `self.messages`.
+    pub per_message_cache: Vec<(u64, Vec<Line<'static>>)>,
 }
 
 impl TuiState {
@@ -201,89 +208,142 @@ impl TuiState {
             scroll_last_time: None,
             scroll_accel: 0,
             approval_gate: None,
+            per_message_cache: Vec::new(),
         }
     }
 
-    /// Rebuild cached lines from the current messages and streaming buffer.
-    ///
-    /// Called when `message_generation` has advanced past `lines_generation`.
-    pub fn rebuild_cached_lines(&mut self) {
+    /// Compute a content hash for a single message (for per-message cache invalidation).
+    fn hash_message(msg: &ChatMessage) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        format!("{:?}", msg.role).hash(&mut hasher);
+        for block in &msg.content {
+            match block {
+                ContentBlock::Text { text } => text.hash(&mut hasher),
+                ContentBlock::ToolUse { id, name, input, .. } => {
+                    id.hash(&mut hasher);
+                    name.hash(&mut hasher);
+                    input.to_string().hash(&mut hasher);
+                }
+                ContentBlock::ToolResult {
+                    tool_use_id,
+                    content,
+                    is_error,
+                    ..
+                } => {
+                    tool_use_id.hash(&mut hasher);
+                    content.hash(&mut hasher);
+                    is_error.hash(&mut hasher);
+                }
+                _ => {}
+            }
+        }
+        hasher.finish()
+    }
+
+    /// Render a single message into styled lines (used by per-message cache).
+    fn render_single_message(msg: &ChatMessage) -> Vec<Line<'static>> {
         use super::formatters::markdown::MarkdownRenderer;
 
         let mut lines: Vec<Line<'static>> = Vec::new();
 
-        for msg in &self.messages {
-            // Role header
-            let role_label = match msg.role {
-                MessageRole::User => "You",
-                MessageRole::Assistant => "Assistant",
-                MessageRole::System => "System",
-            };
-            let role_style = match msg.role {
-                MessageRole::User => ratatui::style::Style::default()
-                    .fg(ratatui::style::Color::Cyan)
-                    .add_modifier(ratatui::style::Modifier::BOLD),
-                MessageRole::Assistant => ratatui::style::Style::default()
-                    .fg(ratatui::style::Color::Green)
-                    .add_modifier(ratatui::style::Modifier::BOLD),
-                MessageRole::System => ratatui::style::Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(ratatui::style::Modifier::BOLD),
-            };
-            lines.push(Line::from(ratatui::text::Span::styled(
-                format!("─── {} ───", role_label),
-                role_style,
-            )));
+        // Role header
+        let role_label = match msg.role {
+            MessageRole::User => "You",
+            MessageRole::Assistant => "Assistant",
+            MessageRole::System => "System",
+        };
+        let role_style = match msg.role {
+            MessageRole::User => ratatui::style::Style::default()
+                .fg(ratatui::style::Color::Cyan)
+                .add_modifier(ratatui::style::Modifier::BOLD),
+            MessageRole::Assistant => ratatui::style::Style::default()
+                .fg(ratatui::style::Color::Green)
+                .add_modifier(ratatui::style::Modifier::BOLD),
+            MessageRole::System => ratatui::style::Style::default()
+                .fg(ratatui::style::Color::Yellow)
+                .add_modifier(ratatui::style::Modifier::BOLD),
+        };
+        lines.push(Line::from(ratatui::text::Span::styled(
+            format!("─── {} ───", role_label),
+            role_style,
+        )));
 
-            // Content blocks
-            for block in &msg.content {
-                match block {
-                    ContentBlock::Text { text } => {
-                        let md_lines = MarkdownRenderer::render(text);
-                        lines.extend(md_lines);
-                    }
-                    ContentBlock::ToolUse { name, input, .. } => {
+        // Content blocks
+        for block in &msg.content {
+            match block {
+                ContentBlock::Text { text } => {
+                    let md_lines = MarkdownRenderer::render(text);
+                    lines.extend(md_lines);
+                }
+                ContentBlock::ToolUse { name, input, .. } => {
+                    lines.push(Line::from(ratatui::text::Span::styled(
+                        format!("⚙ Tool: {}", name),
+                        ratatui::style::Style::default().fg(ratatui::style::Color::Magenta),
+                    )));
+                    let input_str = input.to_string();
+                    let summary: String = input_str.chars().take(80).collect();
+                    if !summary.is_empty() {
                         lines.push(Line::from(ratatui::text::Span::styled(
-                            format!("⚙ Tool: {}", name),
+                            format!("  {}", summary),
                             ratatui::style::Style::default()
-                                .fg(ratatui::style::Color::Magenta),
+                                .fg(ratatui::style::Color::DarkGray),
                         )));
-                        // Show first line of input as summary
-                        let input_str = input.to_string();
-                        let summary: String = input_str.chars().take(80).collect();
-                        if !summary.is_empty() {
-                            lines.push(Line::from(ratatui::text::Span::styled(
-                                format!("  {}", summary),
-                                ratatui::style::Style::default()
-                                    .fg(ratatui::style::Color::DarkGray),
-                            )));
-                        }
                     }
-                    ContentBlock::ToolResult {
-                        content, is_error, ..
-                    } => {
-                        let style = if *is_error {
-                            ratatui::style::Style::default().fg(ratatui::style::Color::Red)
-                        } else {
-                            ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray)
-                        };
-                        // Truncate long tool results
-                        let display: String = content.lines().take(10).collect::<Vec<_>>().join("\n");
-                        for line in display.lines() {
-                            lines.push(Line::from(ratatui::text::Span::styled(
-                                format!("  {}", line),
-                                style,
-                            )));
-                        }
+                }
+                ContentBlock::ToolResult {
+                    content, is_error, ..
+                } => {
+                    let style = if *is_error {
+                        ratatui::style::Style::default().fg(ratatui::style::Color::Red)
+                    } else {
+                        ratatui::style::Style::default().fg(ratatui::style::Color::DarkGray)
+                    };
+                    let display: String =
+                        content.lines().take(10).collect::<Vec<_>>().join("\n");
+                    for line in display.lines() {
+                        lines.push(Line::from(ratatui::text::Span::styled(
+                            format!("  {}", line),
+                            style,
+                        )));
                     }
-                    _ => {} // Image, Document — future
+                }
+                _ => {}
+            }
+        }
+
+        lines.push(Line::from("")); // spacing
+        lines
+    }
+
+    /// Rebuild cached lines from the current messages and streaming buffer.
+    ///
+    /// Uses per-message caching: only re-renders messages whose content hash
+    /// has changed. Streaming and thinking text are always re-rendered.
+    pub fn rebuild_cached_lines(&mut self) {
+        use super::formatters::markdown::MarkdownRenderer;
+
+        let mut lines: Vec<Line<'static>> = Vec::new();
+        let mut new_cache = Vec::with_capacity(self.messages.len());
+
+        for (i, msg) in self.messages.iter().enumerate() {
+            let hash = Self::hash_message(msg);
+
+            // Cache hit: reuse previously rendered lines
+            if let Some((cached_hash, cached_lines)) = self.per_message_cache.get(i) {
+                if *cached_hash == hash {
+                    lines.extend(cached_lines.iter().cloned());
+                    new_cache.push((hash, cached_lines.clone()));
+                    continue;
                 }
             }
 
-            lines.push(Line::from("")); // spacing between messages
+            // Cache miss: render this message
+            let rendered = Self::render_single_message(msg);
+            lines.extend(rendered.iter().cloned());
+            new_cache.push((hash, rendered));
         }
 
-        // Append streaming text (if any)
+        // Streaming text — always re-render (not cached)
         if !self.streaming_text.is_empty() {
             lines.push(Line::from(ratatui::text::Span::styled(
                 "─── Assistant ───",
@@ -295,7 +355,7 @@ impl TuiState {
             lines.extend(md_lines);
         }
 
-        // Append thinking text (if any)
+        // Thinking text — always re-render (not cached)
         if !self.thinking_text.is_empty() {
             lines.push(Line::from(ratatui::text::Span::styled(
                 "💭 Thinking...",
@@ -313,14 +373,22 @@ impl TuiState {
             }
         }
 
+        self.per_message_cache = new_cache;
         self.cached_lines = lines;
         self.lines_generation = self.message_generation;
     }
 
     /// Mark content as changed, triggering a cache rebuild on next render.
+    /// Per-message cache entries are preserved — only changed messages re-render.
     pub fn invalidate_cache(&mut self) {
         self.message_generation += 1;
         self.dirty = true;
+    }
+
+    /// Invalidate all caches including per-message cache (e.g., on terminal resize).
+    pub fn invalidate_all_cache(&mut self) {
+        self.per_message_cache.clear();
+        self.invalidate_cache();
     }
 
     /// Auto-scroll to bottom unless user has manually scrolled up.
@@ -460,6 +528,86 @@ mod tests {
         assert_eq!(OverlayMode::None, OverlayMode::None);
         assert_ne!(OverlayMode::None, OverlayMode::AgentDebug);
         assert_ne!(OverlayMode::Eval, OverlayMode::SessionPicker);
+    }
+
+    #[test]
+    fn per_message_cache_reuse() {
+        let handle = make_test_handle();
+        let mut state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "test-model".to_string(),
+        );
+        state.messages.push(ChatMessage::user("Hello"));
+        state.messages.push(ChatMessage::assistant("Hi"));
+        state.message_generation = 1;
+        state.rebuild_cached_lines();
+        assert_eq!(state.per_message_cache.len(), 2);
+
+        // Second rebuild without changes — should reuse cache (same hashes)
+        let old_hashes: Vec<u64> = state.per_message_cache.iter().map(|(h, _)| *h).collect();
+        state.message_generation = 2;
+        state.rebuild_cached_lines();
+        let new_hashes: Vec<u64> = state.per_message_cache.iter().map(|(h, _)| *h).collect();
+        assert_eq!(old_hashes, new_hashes);
+    }
+
+    #[test]
+    fn per_message_cache_invalidates_on_change() {
+        let handle = make_test_handle();
+        let mut state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "test-model".to_string(),
+        );
+        state.messages.push(ChatMessage::user("Hello"));
+        state.message_generation = 1;
+        state.rebuild_cached_lines();
+        let old_hash = state.per_message_cache[0].0;
+
+        // Modify the message — cache should miss
+        state.messages[0] = ChatMessage::user("Goodbye");
+        state.message_generation = 2;
+        state.rebuild_cached_lines();
+        let new_hash = state.per_message_cache[0].0;
+        assert_ne!(old_hash, new_hash);
+    }
+
+    #[test]
+    fn per_message_cache_grows_with_new_messages() {
+        let handle = make_test_handle();
+        let mut state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "test-model".to_string(),
+        );
+        state.messages.push(ChatMessage::user("Hello"));
+        state.message_generation = 1;
+        state.rebuild_cached_lines();
+        assert_eq!(state.per_message_cache.len(), 1);
+
+        // Add a second message
+        state.messages.push(ChatMessage::assistant("Hi"));
+        state.message_generation = 2;
+        state.rebuild_cached_lines();
+        assert_eq!(state.per_message_cache.len(), 2);
+    }
+
+    #[test]
+    fn invalidate_all_cache_clears_per_message() {
+        let handle = make_test_handle();
+        let mut state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "test-model".to_string(),
+        );
+        state.messages.push(ChatMessage::user("Hello"));
+        state.message_generation = 1;
+        state.rebuild_cached_lines();
+        assert!(!state.per_message_cache.is_empty());
+
+        state.invalidate_all_cache();
+        assert!(state.per_message_cache.is_empty());
     }
 
     #[test]
