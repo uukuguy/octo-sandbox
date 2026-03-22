@@ -1,5 +1,54 @@
 # octo-sandbox 工作日志
 
+## Phase AA — Octo 部署配置架构 (2026-03-23)
+
+### 完成内容
+
+实现分层配置加载系统，支持 global → project → local → env 多层配置合并，解决部署配置的灵活性和安全性需求。
+
+**G1 OctoRoot 路径扩展 (AA-T1)**
+- 新增 6 个路径方法：project_local_config, credentials_path, tls_dir, global_mcp_dir, project_mcp_dir, eval_config
+- 5 个单元测试
+
+**G2 分层配置加载 (AA-T2, AA-T2b)**
+- Config::load() 重写为 7 层优先级：defaults → global → project → local → CLI → credentials → env
+- 递归 YAML 字段级浅合并 (merge_yaml_values)
+- --config 显式标志跳过自动发现
+- 旧版 $PWD/config.yaml 兼容回退 + 迁移警告
+- Server main.rs 重排序：OctoRoot 在 Config::load 之前发现
+
+**G3 凭据加载 (AA-T3)**
+- CredentialsFile 结构体从 ~/.octo/credentials.yaml 加载
+- 在 config merge 和 env overrides 之间注入
+- 优先级：env > credentials.yaml > config.yaml
+
+**G4 硬编码路径修复 + CLI 增强 (AA-T4, AA-T5)**
+- ./data/tls 和 ./data/certs → OctoRoot::tls_dir()
+- `octo config show` 显示分层配置源链
+- `octo config paths` 列出所有配置文件位置
+
+**AA-D2 补齐：octo init 命令 (e85383a)**
+- 创建 .octo/ 项目目录结构
+- 生成 config.yaml, config.local.yaml, .gitignore, credentials.yaml(mode 600)
+- 6 个单元测试
+
+### 技术变更
+- `crates/octo-engine/src/root.rs` — 新增路径访问器
+- `crates/octo-server/src/config.rs` — 分层配置加载 + 凭据注入
+- `crates/octo-server/src/main.rs` — OctoRoot 前置 + TLS 路径修复
+- `crates/octo-cli/src/commands/init.rs` — 新建 octo init 命令
+- `crates/octo-cli/src/commands/config.rs` — 增强 show/paths 显示
+
+### 测试结果
+- 基线: 2383 → 最终: 2394 (+11)，0 失败
+
+### 遗留暂缓项
+- AA-D1: `octo auth login/status/logout` CLI 命令（需 UX 设计）
+- AA-D3: XDG Base Directory 支持（低优先级）
+- AA-D4: Config 热重载（未来增强）
+
+---
+
 ## Phase U — TUI Production Hardening + Post-Polish (2026-03-22)
 
 ### 完成内容
