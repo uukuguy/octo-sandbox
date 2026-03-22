@@ -153,6 +153,36 @@ impl OctoRoot {
         vec![self.project_skills_dir(), self.global_skills_dir()]
     }
 
+    /// Project-local override config (git-ignored): `$PWD/.octo/config.local.yaml`.
+    pub fn project_local_config(&self) -> PathBuf {
+        self.project_root.join("config.local.yaml")
+    }
+
+    /// Global credentials file: `~/.octo/credentials.yaml`.
+    pub fn credentials_path(&self) -> PathBuf {
+        self.global_root.join("credentials.yaml")
+    }
+
+    /// Global TLS directory: `~/.octo/tls/`.
+    pub fn tls_dir(&self) -> PathBuf {
+        self.global_root.join("tls")
+    }
+
+    /// Global MCP directory: `~/.octo/mcp/`.
+    pub fn global_mcp_dir(&self) -> PathBuf {
+        self.global_root.join("mcp")
+    }
+
+    /// Project MCP directory: `$PWD/.octo/mcp/`.
+    pub fn project_mcp_dir(&self) -> PathBuf {
+        self.project_root.join("mcp")
+    }
+
+    /// Project eval config: `$PWD/.octo/eval.toml`.
+    pub fn eval_config(&self) -> PathBuf {
+        self.project_root.join("eval.toml")
+    }
+
     // ── Directory management ────────────────────────────────────────
 
     /// Create all necessary directories and write meta.json.
@@ -346,6 +376,71 @@ mod tests {
         assert_eq!(root.resolve_db_path(), expected);
 
         std::env::remove_var("OCTO_GLOBAL_ROOT");
+    }
+
+    #[test]
+    fn test_project_local_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("OCTO_GLOBAL_ROOT", tmp.path().join("global"));
+        std::env::set_var("OCTO_PROJECT_ROOT", tmp.path().join("project"));
+        let root = OctoRoot::with_working_dir(tmp.path()).unwrap();
+        assert_eq!(
+            root.project_local_config(),
+            tmp.path().join("project").join("config.local.yaml")
+        );
+        std::env::remove_var("OCTO_GLOBAL_ROOT");
+        std::env::remove_var("OCTO_PROJECT_ROOT");
+    }
+
+    #[test]
+    fn test_credentials_path() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("OCTO_GLOBAL_ROOT", tmp.path().join("global"));
+        let root = OctoRoot::with_working_dir(tmp.path()).unwrap();
+        assert_eq!(
+            root.credentials_path(),
+            tmp.path().join("global").join("credentials.yaml")
+        );
+        std::env::remove_var("OCTO_GLOBAL_ROOT");
+    }
+
+    #[test]
+    fn test_tls_dir() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("OCTO_GLOBAL_ROOT", tmp.path().join("global"));
+        let root = OctoRoot::with_working_dir(tmp.path()).unwrap();
+        assert_eq!(root.tls_dir(), tmp.path().join("global").join("tls"));
+        std::env::remove_var("OCTO_GLOBAL_ROOT");
+    }
+
+    #[test]
+    fn test_mcp_dirs() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("OCTO_GLOBAL_ROOT", tmp.path().join("global"));
+        std::env::set_var("OCTO_PROJECT_ROOT", tmp.path().join("project"));
+        let root = OctoRoot::with_working_dir(tmp.path()).unwrap();
+        assert_eq!(
+            root.global_mcp_dir(),
+            tmp.path().join("global").join("mcp")
+        );
+        assert_eq!(
+            root.project_mcp_dir(),
+            tmp.path().join("project").join("mcp")
+        );
+        std::env::remove_var("OCTO_GLOBAL_ROOT");
+        std::env::remove_var("OCTO_PROJECT_ROOT");
+    }
+
+    #[test]
+    fn test_eval_config() {
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("OCTO_PROJECT_ROOT", tmp.path().join("project"));
+        let root = OctoRoot::with_working_dir(tmp.path()).unwrap();
+        assert_eq!(
+            root.eval_config(),
+            tmp.path().join("project").join("eval.toml")
+        );
+        std::env::remove_var("OCTO_PROJECT_ROOT");
     }
 
     #[test]
