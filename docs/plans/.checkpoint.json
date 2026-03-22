@@ -1,20 +1,20 @@
 {
   "plan_file": null,
   "phase": "complete",
-  "created_at": "2026-03-23T02:44:00+08:00",
-  "updated_at": "2026-03-23T03:45:00+08:00",
-  "completed_tasks": ["Y-T1"],
+  "created_at": "2026-03-23T03:45:00+08:00",
+  "updated_at": "2026-03-23T04:30:00+08:00",
+  "completed_tasks": ["Z-T1", "Z-T2"],
   "current_task": null,
-  "total_tasks": 1,
+  "total_tasks": 2,
   "task_groups": {
-    "Y": {
-      "name": "Playbook Skill SubAgent Wiring",
-      "tasks": ["Y-T1"],
+    "Z": {
+      "name": "Landmine Scan & Fix",
+      "tasks": ["Z-T1", "Z-T2"],
       "status": "COMPLETE",
-      "description": "Wire SubAgentManager into ExecuteSkillTool so PLAYBOOK skills (docx etc.) can spawn SubAgent in TUI/CLI"
+      "description": "Find and fix components that are implemented but not wired through production code paths"
     }
   },
-  "phase_name": "Phase Y — Playbook Skill SubAgent Wiring",
+  "phase_name": "Phase Z — Landmine Scan & Fix",
   "status": "COMPLETE",
   "execution_mode": "direct",
   "design_file": null,
@@ -22,19 +22,18 @@
   "branch": "main",
   "baseline": {
     "tests": 2387,
-    "commit": "839b08f"
+    "commit": "039c75c"
   },
   "final": {
-    "tests": 2387,
-    "commit": "c0f92b4"
+    "tests": 2383,
+    "commit": "81fa923"
   },
   "key_decisions": [
-    "Introduced SubAgentContext struct to avoid circular dependency (AgentLoopConfig contains tools, tools contain ExecuteSkillTool which needs config)",
-    "SubAgentContext holds provider/tools/model/user_id/sandbox_id/tool_ctx — all fields ExecuteSkillTool.execute_playbook() needs",
-    "executor.rs creates SubAgentManager(max_concurrent=4, max_depth=3) per turn and injects into tools snapshot",
-    "Removed 2 pre-existing broken legacy db tests from test_octo_root.rs",
-    "SubAgent max_iterations raised from 10 to 30 (configurable per skill via max-rounds field)",
-    "Added execute_skill to TUI tool registry to display skill name in UI"
+    "ToolExecutionRecorder: added to AgentExecutor, threaded from Runtime, wired recording calls in harness (record_start + record_complete/record_failed per tool execution)",
+    "ContextBudgetManager/ContextPruner/LoopGuard: explicitly passed to AgentLoopConfig instead of relying on ..Default::default() fallback",
+    "CredentialResolver + Vault: initialized in AgentRuntime with optional OCTO_VAULT_PASSWORD env var for AES-GCM encrypted vault",
+    "InMemoryWorkingMemory confirmed as correct design choice — SqliteWorkingMemory shares one table, would cause cross-session data pollution",
+    "Enhanced deferred-scan skill with Landmine Scan (Step 0-B): 4 scan patterns for ..Default::default() field swallowing, None for real components, InMemory/Noop in production, unused .with_xxx() builders"
   ],
   "deferred": [
     {
@@ -60,12 +59,18 @@
       "description": "Agent Debug Panel redesign",
       "added_at": "2026-03-22",
       "precondition": "Phase U G3 StatusBar complete"
+    },
+    {
+      "id": "Z-D1",
+      "description": "CredentialResolver integration into provider config — resolve API keys from Vault instead of raw env vars",
+      "added_at": "2026-03-23",
+      "precondition": "When secret management UX is designed (master password source: keyring/config/interactive)"
     }
   ],
-  "notes": "Phase Y complete. SubAgentContext wiring enables PLAYBOOK skill execution (docx, pptx, etc.) in TUI/CLI. max_rounds configurable per skill. TUI now shows skill name in tool call display.",
+  "notes": "Phase Z complete. 5 landmines fixed: ToolExecutionRecorder wired to harness, budget/pruner/loop_guard explicitly passed, CredentialResolver+Vault initialized in Runtime. deferred-scan skill enhanced with Landmine Scan capability.",
   "previous_phase": {
-    "name": "Post-Phase X — TUI + OctoRoot Polish",
+    "name": "Phase Y — Playbook Skill SubAgent Wiring",
     "status": "COMPLETE",
-    "commit": "839b08f"
+    "commit": "c0f92b4"
   }
 }

@@ -3,6 +3,22 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase Z — Landmine Scan & Fix",
+      "completed_at": "2026-03-23T04:30:00+08:00",
+      "progress": "100%",
+      "tests": 2383,
+      "commit": "81fa923",
+      "tasks": "2/2"
+    },
+    {
+      "name": "Phase Y — Playbook Skill SubAgent Wiring",
+      "completed_at": "2026-03-23T03:45:00+08:00",
+      "progress": "100%",
+      "tests": 2387,
+      "commit": "c0f92b4",
+      "tasks": "1/1"
+    },
+    {
       "name": "Phase X — TUI 运行状态增强",
       "completed_at": "2026-03-23T02:30:00+08:00",
       "progress": "100%",
