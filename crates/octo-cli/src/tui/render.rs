@@ -13,10 +13,10 @@ pub fn render(state: &TuiState, frame: &mut Frame) {
     let area = frame.area();
 
     // Dynamic panel heights
-    let progress_height = if state.active_tools.is_empty() {
-        0
+    let todo_height = if state.todo_visible && !state.plan_steps.is_empty() {
+        (state.plan_steps.len() as u16 + 2).min(10) // header + steps + progress bar
     } else {
-        (state.active_tools.len() as u16 + 2).min(8)
+        0
     };
     let input_lines = state.input_buffer.lines().count().max(1).min(8) as u16;
     let status_height = 1u16;
@@ -24,16 +24,16 @@ pub fn render(state: &TuiState, frame: &mut Frame) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Min(5),                 // conversation area
-            Constraint::Length(progress_height), // progress panel (hidden when empty)
+            Constraint::Min(5),              // conversation area
+            Constraint::Length(todo_height),  // todo panel (hidden when empty/invisible)
             Constraint::Length(input_lines + 2), // input area (+border)
             Constraint::Length(status_height),   // status bar
         ])
         .split(area);
 
     render_conversation(state, frame, chunks[0]);
-    if progress_height > 0 {
-        render_progress(state, frame, chunks[1]);
+    if todo_height > 0 {
+        render_todo_panel(state, frame, chunks[1]);
     }
     render_input(state, frame, chunks[2]);
     render_status_bar(state, frame, chunks[3]);
@@ -106,46 +106,10 @@ fn render_conversation(state: &TuiState, frame: &mut Frame, area: Rect) {
     frame.render_widget(conversation, area);
 }
 
-/// Render the progress panel showing active tool executions.
-fn render_progress(state: &TuiState, frame: &mut Frame, area: Rect) {
-    let block = Block::default()
-        .title(" Active Tools ")
-        .borders(Borders::TOP)
-        .border_style(Style::default().fg(Color::DarkGray));
-
-    let inner = block.inner(area);
-    frame.render_widget(block, area);
-
-    let spinner_char = super::widgets::spinner::SPINNER_FRAMES
-        [(std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as usize / 100)
-            % super::widgets::spinner::SPINNER_FRAMES.len()];
-
-    let lines: Vec<Line> = state
-        .active_tools
-        .iter()
-        .map(|tool| {
-            Line::from(vec![
-                Span::styled(
-                    format!("{} ", spinner_char),
-                    Style::default().fg(Color::Yellow),
-                ),
-                Span::styled(
-                    tool.name.clone(),
-                    Style::default().fg(Color::Magenta),
-                ),
-                Span::styled(
-                    format!(" ({}s)", tool.elapsed_secs()),
-                    Style::default().fg(Color::DarkGray),
-                ),
-            ])
-        })
-        .collect();
-
-    let para = Paragraph::new(lines);
-    frame.render_widget(para, inner);
+/// Render the todo panel showing plan steps from dual-mode agent.
+fn render_todo_panel(state: &TuiState, frame: &mut Frame, area: Rect) {
+    let widget = super::widgets::todo_panel::TodoPanelWidget::new(&state.plan_steps);
+    frame.render_widget(widget, area);
 }
 
 /// Render the input area using the ported OpenDev InputWidget.

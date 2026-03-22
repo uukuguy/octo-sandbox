@@ -70,6 +70,10 @@ pub enum AgentEvent {
         progress: octo_types::ToolProgress,
     },
     Completed(AgentLoopResult),
+    /// Plan steps updated (from dual-mode agent).
+    PlanUpdate {
+        steps: Vec<super::dual::PlanStep>,
+    },
     /// The agent loop was halted by an emergency stop (E-Stop).
     EmergencyStopped(Option<String>),
 }

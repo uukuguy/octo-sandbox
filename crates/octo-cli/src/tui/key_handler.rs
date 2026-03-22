@@ -92,6 +92,12 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             }
         }
 
+        // ── Ctrl+P: toggle todo panel visibility ──
+        (KeyModifiers::CONTROL, KeyCode::Char('p')) => {
+            state.todo_visible = !state.todo_visible;
+            state.dirty = true;
+        }
+
         // ── Alt+O: toggle global tool collapse default ──
         (KeyModifiers::ALT, KeyCode::Char('o')) => {
             state.tools_default_collapsed = !state.tools_default_collapsed;
@@ -730,6 +736,16 @@ mod tests {
         // Direction change → reset to level 0
         let amount = compute_scroll_amount(&mut state, false);
         assert_eq!(amount, 3);
+    }
+
+    #[tokio::test]
+    async fn test_ctrl_p_toggles_todo_panel() {
+        let mut state = make_test_state();
+        assert!(!state.todo_visible);
+        handle_key(&mut state, make_ctrl_key('p')).await;
+        assert!(state.todo_visible);
+        handle_key(&mut state, make_ctrl_key('p')).await;
+        assert!(!state.todo_visible);
     }
 
     #[test]

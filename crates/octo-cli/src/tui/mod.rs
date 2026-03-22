@@ -287,6 +287,13 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.streaming_text.clear();
             state.invalidate_cache();
         }
+        AgentEvent::PlanUpdate { steps } => {
+            state.plan_steps = steps;
+            if !state.plan_steps.is_empty() && !state.todo_visible {
+                state.todo_visible = true; // auto-show on first plan
+            }
+            state.dirty = true;
+        }
         AgentEvent::TokenBudgetUpdate { budget } => {
             state.context_usage_pct = budget.usage_percent as f64;
             state.dirty = true;
