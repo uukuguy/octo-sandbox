@@ -27,7 +27,10 @@ pub struct StatusBarWidget<'a> {
     model: &'a str,
     working_dir: &'a str,
     git_branch: Option<&'a str>,
-    git_dirty_count: usize,
+    git_staged: usize,
+    git_modified: usize,
+    git_untracked: usize,
+    git_unpushed: usize,
     context_usage_pct: f64,
     session_elapsed: Option<std::time::Duration>,
     input_tokens: u64,
@@ -40,6 +43,8 @@ pub struct ActivityIndicatorWidget {
     task_elapsed: Option<std::time::Duration>,
     task_input_tokens: u64,
     task_output_tokens: u64,
+    task_tool_calls: u32,
+    task_rounds: u32,
 }
 
 impl ActivityIndicatorWidget {
@@ -54,7 +59,15 @@ impl ActivityIndicatorWidget {
             task_elapsed,
             task_input_tokens,
             task_output_tokens,
+            task_tool_calls: 0,
+            task_rounds: 0,
         }
+    }
+
+    pub fn tool_calls(mut self, tool_calls: u32, rounds: u32) -> Self {
+        self.task_tool_calls = tool_calls;
+        self.task_rounds = rounds;
+        self
     }
 }
 
@@ -107,6 +120,15 @@ impl Widget for ActivityIndicatorWidget {
             spans.push(Span::styled("  ", Style::default()));
         }
 
+        // Rounds and tool calls
+        if self.task_rounds > 0 || self.task_tool_calls > 0 {
+            spans.push(Span::styled(
+                format!("{}r {}t", self.task_rounds, self.task_tool_calls),
+                Style::default().fg(style_tokens::SUBTLE),
+            ));
+            spans.push(Span::styled("  ", Style::default()));
+        }
+
         // Task tokens
         if self.task_input_tokens > 0 || self.task_output_tokens > 0 {
             let ti = StatusBarWidget::format_tokens(self.task_input_tokens);
@@ -117,8 +139,16 @@ impl Widget for ActivityIndicatorWidget {
             ));
         }
 
-        let line = Line::from(spans);
-        buf.set_line(area.left(), area.top(), &line, area.width);
+        // 3-row layout: top border, content (middle), bottom border
+        let border: String = "\u{2500}".repeat(area.width as usize);
+        buf.set_string(area.left(), area.top(), &border, Style::default().fg(style_tokens::BORDER));
+        if area.height >= 2 {
+            let content_line = Line::from(spans);
+            buf.set_line(area.left(), area.top() + 1, &content_line, area.width);
+        }
+        if area.height >= 3 {
+            buf.set_string(area.left(), area.top() + 2, &border, Style::default().fg(style_tokens::BORDER));
+        }
     }
 }
 
@@ -128,7 +158,10 @@ impl<'a> StatusBarWidget<'a> {
             model,
             working_dir,
             git_branch,
-            git_dirty_count: 0,
+            git_staged: 0,
+            git_modified: 0,
+            git_untracked: 0,
+            git_unpushed: 0,
             context_usage_pct: 0.0,
             session_elapsed: None,
             input_tokens: 0,
@@ -136,8 +169,11 @@ impl<'a> StatusBarWidget<'a> {
         }
     }
 
-    pub fn git_dirty_count(mut self, count: usize) -> Self {
-        self.git_dirty_count = count;
+    pub fn git_status(mut self, staged: usize, modified: usize, untracked: usize, unpushed: usize) -> Self {
+        self.git_staged = staged;
+        self.git_modified = modified;
+        self.git_untracked = untracked;
+        self.git_unpushed = unpushed;
         self
     }
 
@@ -157,7 +193,7 @@ impl<'a> StatusBarWidget<'a> {
         self
     }
 
-    fn format_tokens(n: u64) -> String {
+    pub fn format_tokens(n: u64) -> String {
         if n >= 1_000_000 {
             format!("{:.1}M", n as f64 / 1_000_000.0)
         } else if n >= 1_000 {
@@ -282,22 +318,41 @@ impl Widget for StatusBarWidget<'_> {
                 Style::default().fg(style_tokens::SUBTLE),
             ));
 
-            // Git info: ⏇ branch ?N — green=clean, bright yellow=dirty
+            // Git info: ⏇ branch +S ~M ?U ↑N — CC-style
             if let Some(branch) = self.git_branch {
                 spans.push(sep.clone());
-                let git_color = if self.git_dirty_count > 0 {
+                let has_changes = self.git_staged + self.git_modified + self.git_untracked > 0;
+                let branch_color = if has_changes {
                     ratatui::style::Color::Rgb(255, 255, 100) // bright yellow — dirty
                 } else {
                     style_tokens::GREEN_LIGHT // green — clean
                 };
                 spans.push(Span::styled(
                     format!("\u{23C7} {}", branch),
-                    Style::default().fg(git_color),
+                    Style::default().fg(branch_color),
                 ));
-                if self.git_dirty_count > 0 {
+                if self.git_staged > 0 {
                     spans.push(Span::styled(
-                        format!(" ?{}", self.git_dirty_count),
+                        format!(" +{}", self.git_staged),
+                        Style::default().fg(style_tokens::GREEN_LIGHT),
+                    ));
+                }
+                if self.git_modified > 0 {
+                    spans.push(Span::styled(
+                        format!(" ~{}", self.git_modified),
                         Style::default().fg(ratatui::style::Color::Rgb(255, 255, 100)),
+                    ));
+                }
+                if self.git_untracked > 0 {
+                    spans.push(Span::styled(
+                        format!(" ?{}", self.git_untracked),
+                        Style::default().fg(style_tokens::SUBTLE),
+                    ));
+                }
+                if self.git_unpushed > 0 {
+                    spans.push(Span::styled(
+                        format!(" \u{2191}{}", self.git_unpushed),
+                        Style::default().fg(style_tokens::AMBER),
                     ));
                 }
             }
@@ -410,7 +465,7 @@ mod tests {
 
     #[test]
     fn test_activity_indicator_streaming() {
-        let area = Rect::new(0, 0, 120, 1);
+        let area = Rect::new(0, 0, 120, 3);
         let mut buf = Buffer::empty(area);
 
         let widget = ActivityIndicatorWidget::new(
@@ -418,17 +473,19 @@ mod tests {
             Some(std::time::Duration::from_secs(5)),
             100,
             50,
-        );
+        )
+        .tool_calls(3, 2);
         widget.render(area, &mut buf);
 
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
         assert!(content.contains("Streaming"), "Should show Streaming label");
         assert!(content.contains("5s"), "Should show elapsed time");
+        assert!(content.contains("2r 3t"), "Should show rounds and tool calls");
     }
 
     #[test]
     fn test_activity_indicator_thinking() {
-        let area = Rect::new(0, 0, 120, 1);
+        let area = Rect::new(0, 0, 120, 3);
         let mut buf = Buffer::empty(area);
 
         let widget = ActivityIndicatorWidget::new(
@@ -446,7 +503,7 @@ mod tests {
 
     #[test]
     fn test_activity_indicator_idle_renders_nothing() {
-        let area = Rect::new(0, 0, 120, 1);
+        let area = Rect::new(0, 0, 120, 3);
         let mut buf = Buffer::empty(area);
 
         let widget = ActivityIndicatorWidget::new(
@@ -506,25 +563,15 @@ mod tests {
         let mut buf = Buffer::empty(area);
 
         let widget = StatusBarWidget::new("model", ".", Some("main"))
-            .git_dirty_count(3);
+            .git_status(1, 2, 3, 0);
         widget.render(area, &mut buf);
 
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
         assert!(content.contains("\u{23C7}"), "Should use \u{23C7} (U+23C7) git symbol");
         assert!(content.contains("main"), "Should show branch name");
-        assert!(content.contains("?3"), "Should show dirty count");
-
-        // Verify dirty branch uses bright yellow color
-        for cell in buf.content() {
-            if cell.symbol() == "m" {
-                // Check the git branch area cells
-                if cell.fg == ratatui::style::Color::Rgb(255, 255, 100) {
-                    return; // Found bright yellow — test passes
-                }
-            }
-        }
-        // If git branch area found at all, verify color
-        // (git info is on row 2, which requires height >= 3)
+        assert!(content.contains("+1"), "Should show staged count");
+        assert!(content.contains("~2"), "Should show modified count");
+        assert!(content.contains("?3"), "Should show untracked count");
     }
 
     #[test]

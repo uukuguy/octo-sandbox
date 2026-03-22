@@ -101,6 +101,7 @@ The heart of the system. All agent intelligence lives here.
 | `metrics/` | MetricsRegistry — Counter, Gauge, Histogram |
 | `metering/` | Token usage metering and snapshots |
 | `logging/` | Structured logging initialization (pretty/JSON) |
+| `root/` | OctoRoot — unified directory management (global/project paths, DB resolution) |
 
 ### `octo-server` — Workbench API Server (binary)
 
@@ -140,6 +141,8 @@ Command-line interface for local agent interaction. See [ADR-045](docs/adr/ADR-0
 | `octo eval diagnose <RUN_ID>` | Failure classification analysis |
 | `octo eval diff <RUN_A> <RUN_B>` | Compare two runs (regression) |
 | `octo eval watch --suite <NAME>` | Periodic evaluation re-run |
+| `octo root show` | Show all resolved OctoRoot paths |
+| `octo root init` | Initialize OctoRoot directories |
 
 ### `octo-platform-server` — Platform Server (binary, WIP)
 
@@ -222,7 +225,11 @@ OPENAI_API_KEY=sk-xxxxx             # OpenAI API key (if using openai provider)
 # Server
 OCTO_HOST=127.0.0.1                 # Server host (default: 127.0.0.1)
 OCTO_PORT=3001                      # Server port (default: 3001)
-OCTO_DB_PATH=./data/octo.db        # Database path
+OCTO_DB_PATH=./data/octo.db        # Database path (overrides OctoRoot resolution)
+
+# OctoRoot path overrides
+OCTO_GLOBAL_ROOT=~/.octo            # Global root directory (default: ~/.octo)
+OCTO_PROJECT_ROOT=$PWD/.octo        # Project root directory (default: $PWD/.octo)
 
 # Provider
 LLM_PROVIDER=anthropic              # Provider: anthropic (default) or openai

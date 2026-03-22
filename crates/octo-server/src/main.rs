@@ -96,8 +96,24 @@ async fn main() -> Result<()> {
         "Auth configuration loaded"
     );
 
-    // Database: SQLite with WAL mode (use config, with env override already applied)
-    let db_path = cfg.database.path.clone();
+    // Discover OctoRoot for unified path management
+    let octo_root = octo_engine::OctoRoot::discover()
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to discover OctoRoot: {}, using defaults", e);
+            let wd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+            octo_engine::OctoRoot::with_working_dir(&wd).expect("OctoRoot fallback failed")
+        });
+    if let Err(e) = octo_root.ensure_dirs() {
+        tracing::warn!("Failed to ensure OctoRoot directories: {}", e);
+    }
+
+    // Database: SQLite with WAL mode
+    // If config has non-empty path, use it; otherwise resolve from OctoRoot
+    let db_path = if cfg.database.path.is_empty() {
+        octo_root.resolve_db_path().to_string_lossy().to_string()
+    } else {
+        cfg.database.path.clone()
+    };
 
     // Agent system: catalog + supervisor
     // AgentStore uses a synchronous rusqlite connection (separate from the async tokio-rusqlite conn)
@@ -121,7 +137,8 @@ async fn main() -> Result<()> {
         cfg.provider_chain.clone(),
         cfg.working_dir.clone().map(PathBuf::from),
         cfg.enable_event_bus,
-    );
+    )
+    .with_octo_root(octo_root);
 
     // Initialize provider chain if configured (before creating AgentRuntime)
     // Note: instances need to be added separately after AgentRuntime creation

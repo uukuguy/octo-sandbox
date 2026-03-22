@@ -7,7 +7,7 @@ use clap::Parser;
 
 use commands::{
     AgentCommands, CompletionsCommands, ConfigCommands, EvalCommands, McpCommands, MemoryCommands,
-    SessionCommands, SkillCommands, ToolsCommands,
+    RootCommands, SessionCommands, SkillCommands, ToolsCommands,
 };
 
 pub mod commands;
@@ -130,6 +130,12 @@ pub enum Commands {
     Skill {
         #[command(subcommand)]
         action: SkillCommands,
+    },
+
+    /// Show/manage OctoRoot paths
+    Root {
+        #[command(subcommand)]
+        action: RootCommands,
     },
 
     /// Evaluation management

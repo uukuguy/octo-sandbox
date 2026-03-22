@@ -312,6 +312,7 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
                     content: vec![tool_result_block],
                 });
             }
+            state.task_tool_calls += 1;
             state.invalidate_cache();
         }
         AgentEvent::ToolProgress {
@@ -335,6 +336,9 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.dirty = true;
         }
         AgentEvent::Completed(result) => {
+            // Capture elapsed before clearing task_start_time
+            let task_elapsed = state.task_start_time.map(|t| t.elapsed());
+
             state.total_input_tokens += result.input_tokens;
             state.total_output_tokens += result.output_tokens;
             state.task_input_tokens += result.input_tokens;
@@ -343,6 +347,7 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.is_thinking = false;
             state.thinking_text.clear();
             state.active_tools.clear();
+            state.task_start_time = None;
 
             // Replace messages with final_messages from agent loop if available.
             // These include full tool call/result content blocks (collapsed in UI).
@@ -357,34 +362,85 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
                 let final_text = std::mem::take(&mut state.streaming_text);
                 state.messages.push(ChatMessage::assistant(&final_text));
             }
+
+            // Append completion summary as a system-like message
+            if result.tool_calls > 0 || result.rounds > 1 {
+                use widgets::status_bar::StatusBarWidget;
+                let elapsed_str = task_elapsed
+                    .map(|d| StatusBarWidget::format_elapsed(d))
+                    .unwrap_or_default();
+                let ti = StatusBarWidget::format_tokens(result.input_tokens);
+                let to = StatusBarWidget::format_tokens(result.output_tokens);
+                let summary = format!(
+                    "\u{2500} {elapsed_str} | {rounds}r {tools}t | \u{25B8}{ti} \u{25BE}{to}",
+                    rounds = result.rounds,
+                    tools = result.tool_calls,
+                );
+                state.messages.push(ChatMessage {
+                    role: MessageRole::Assistant,
+                    content: vec![ContentBlock::Text { text: summary }],
+                });
+            }
+
             state.invalidate_cache();
         }
         AgentEvent::Done => {
             state.is_streaming = false;
             state.is_thinking = false;
             state.thinking_text.clear();
+            state.task_start_time = None;
             state.invalidate_cache();
         }
-        AgentEvent::Error { message: _ } => {
+        AgentEvent::Error { message } => {
+            // Flush any partial streaming text first
+            if !state.streaming_text.is_empty() {
+                let partial = std::mem::take(&mut state.streaming_text);
+                state.messages.push(ChatMessage::assistant(&partial));
+            }
+            // Show error in conversation area as a visible message
+            state.messages.push(ChatMessage {
+                role: MessageRole::Assistant,
+                content: vec![ContentBlock::Text {
+                    text: format!("[Error] {}", message),
+                }],
+            });
             state.is_streaming = false;
             state.is_thinking = false;
             state.thinking_text.clear();
             state.active_tools.clear();
+            state.task_start_time = None;
+            state.invalidate_cache();
+            state.auto_scroll();
+        }
+        AgentEvent::SecurityBlocked { reason } => {
+            state.messages.push(ChatMessage {
+                role: MessageRole::Assistant,
+                content: vec![ContentBlock::Text {
+                    text: format!("[Security] {}", reason),
+                }],
+            });
+            state.invalidate_cache();
+            state.auto_scroll();
+        }
+        AgentEvent::EmergencyStopped(reason) => {
             if !state.streaming_text.is_empty() {
-                state.streaming_text.clear();
+                let partial = std::mem::take(&mut state.streaming_text);
+                state.messages.push(ChatMessage::assistant(&partial));
             }
-            state.invalidate_cache();
-        }
-        AgentEvent::SecurityBlocked { reason: _ } => {
-            state.invalidate_cache();
-        }
-        AgentEvent::EmergencyStopped(_reason) => {
+            state.messages.push(ChatMessage {
+                role: MessageRole::Assistant,
+                content: vec![ContentBlock::Text {
+                    text: format!("[Emergency Stop] {}", reason.as_deref().unwrap_or("unknown")),
+                }],
+            });
             state.is_streaming = false;
             state.is_thinking = false;
             state.thinking_text.clear();
             state.active_tools.clear();
             state.streaming_text.clear();
+            state.task_start_time = None;
             state.invalidate_cache();
+            state.auto_scroll();
         }
         AgentEvent::PlanUpdate { steps } => {
             state.plan_steps = steps;
@@ -405,8 +461,12 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.task_output_tokens = output_tokens;
             state.dirty = true;
         }
+        AgentEvent::IterationStart { .. } => {
+            state.task_rounds += 1;
+            state.dirty = true;
+        }
         _ => {
-            // IterationStart, MemoryFlushed, ToolExecution, Typing
+            // MemoryFlushed, ToolExecution, Typing
             state.dirty = true;
         }
     }

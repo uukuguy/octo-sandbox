@@ -177,8 +177,11 @@ pub struct TuiState {
     pub git_branch: Option<String>,
     /// Context window usage percentage (0.0–100.0).
     pub context_usage_pct: f64,
-    /// Number of dirty (modified/untracked) files in git.
-    pub git_dirty_count: usize,
+    /// Detailed git status counts.
+    pub git_staged: usize,
+    pub git_modified: usize,
+    pub git_untracked: usize,
+    pub git_unpushed: usize,
     /// When the TUI session started (for elapsed time display).
     pub session_start_time: Instant,
     /// Counter for periodic git info refresh (ticks between refreshes).
@@ -195,6 +198,10 @@ pub struct TuiState {
     pub task_input_tokens: u64,
     /// Output tokens for the current task only.
     pub task_output_tokens: u64,
+    /// Tool calls in the current task.
+    pub task_tool_calls: u32,
+    /// Rounds (LLM calls) in the current task.
+    pub task_rounds: u32,
 
     // ── Autocomplete ──
     /// Autocomplete engine for slash commands and file mentions.
@@ -210,7 +217,9 @@ impl TuiState {
         let history_path = crate::repl::history::history_dir().join("tui_history.txt");
         let message_history = MessageHistory::with_file(100, history_path);
 
-        Self::with_history(session_id, handle, model_name, interrupt, message_history)
+        let mut state = Self::with_history(session_id, handle, model_name, interrupt, message_history);
+        state.refresh_git_info();
+        state
     }
 
     /// Create TuiState with in-memory-only history (for tests).
@@ -276,41 +285,20 @@ impl TuiState {
             working_dir: std::env::current_dir()
                 .map(|p| p.display().to_string())
                 .unwrap_or_else(|_| ".".to_string()),
-            git_branch: std::process::Command::new("git")
-                .args(["rev-parse", "--abbrev-ref", "HEAD"])
-                .output()
-                .ok()
-                .and_then(|o| {
-                    if o.status.success() {
-                        String::from_utf8(o.stdout)
-                            .ok()
-                            .map(|s| s.trim().to_string())
-                    } else {
-                        None
-                    }
-                }),
+            git_branch: None,
             context_usage_pct: 0.0,
             session_start_time: Instant::now(),
             git_refresh_counter: 0,
-            git_dirty_count: std::process::Command::new("git")
-                .args(["status", "--porcelain"])
-                .output()
-                .ok()
-                .map(|o| {
-                    if o.status.success() {
-                        String::from_utf8_lossy(&o.stdout)
-                            .lines()
-                            .filter(|l| !l.is_empty())
-                            .count()
-                    } else {
-                        0
-                    }
-                })
-                .unwrap_or(0),
+            git_staged: 0,
+            git_modified: 0,
+            git_untracked: 0,
+            git_unpushed: 0,
             plan_steps: Vec::new(),
             task_start_time: None,
             task_input_tokens: 0,
             task_output_tokens: 0,
+            task_tool_calls: 0,
+            task_rounds: 0,
             autocomplete: super::autocomplete::AutocompleteEngine::new(
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
             ),
@@ -516,7 +504,7 @@ impl TuiState {
         self.dirty = true;
     }
 
-    /// Refresh git branch and dirty count from the filesystem.
+    /// Refresh git branch, detailed status counts, and unpushed commits.
     pub fn refresh_git_info(&mut self) {
         self.git_branch = std::process::Command::new("git")
             .args(["rev-parse", "--abbrev-ref", "HEAD"])
@@ -531,18 +519,50 @@ impl TuiState {
                     None
                 }
             });
-        self.git_dirty_count = std::process::Command::new("git")
+
+        // Parse `git status --porcelain` for staged/modified/untracked
+        let (mut staged, mut modified, mut untracked) = (0usize, 0usize, 0usize);
+        if let Ok(o) = std::process::Command::new("git")
             .args(["status", "--porcelain"])
             .output()
+        {
+            if o.status.success() {
+                for line in String::from_utf8_lossy(&o.stdout).lines() {
+                    if line.len() < 2 {
+                        continue;
+                    }
+                    let bytes = line.as_bytes();
+                    let x = bytes[0]; // index (staged) status
+                    let y = bytes[1]; // worktree status
+                    if x == b'?' {
+                        untracked += 1;
+                    } else {
+                        if x != b' ' && x != b'?' {
+                            staged += 1;
+                        }
+                        if y != b' ' && y != b'?' {
+                            modified += 1;
+                        }
+                    }
+                }
+            }
+        }
+        self.git_staged = staged;
+        self.git_modified = modified;
+        self.git_untracked = untracked;
+
+        // Count unpushed commits: `git rev-list @{u}..HEAD --count`
+        self.git_unpushed = std::process::Command::new("git")
+            .args(["rev-list", "@{u}..HEAD", "--count"])
+            .output()
             .ok()
-            .map(|o| {
+            .and_then(|o| {
                 if o.status.success() {
-                    String::from_utf8_lossy(&o.stdout)
-                        .lines()
-                        .filter(|l| !l.is_empty())
-                        .count()
+                    String::from_utf8(o.stdout)
+                        .ok()
+                        .and_then(|s| s.trim().parse::<usize>().ok())
                 } else {
-                    0
+                    None
                 }
             })
             .unwrap_or(0);

@@ -46,6 +46,7 @@ rand = "0.8"
 ed25519-dalek = { version = "2", features = ["rand_core"] }
 keyring = { version = "3", optional = true }
 regex = "1"
+dirs = { workspace = true }
 lru = "0.12"
 calamine = { version = "0.26", optional = true }
 pdf-extract = { version = "0.7", optional = true }

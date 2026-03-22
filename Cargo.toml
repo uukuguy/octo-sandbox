@@ -57,6 +57,7 @@ notify-debouncer-mini = "0.5"
 rmcp = { version = "1", features = ["client", "server", "transport-child-process", "transport-streamable-http-client-reqwest"] }
 toml = "0.8"
 hnsw_rs = "0.3"
+dirs = "6"
 # TUI framework
 ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
 # Internal crates

@@ -11,6 +11,7 @@ pub mod memory;
 pub mod metering;
 pub mod metrics;
 pub mod providers;
+pub mod root;
 pub mod sandbox;
 pub mod scheduler;
 pub mod secret;
@@ -80,5 +81,6 @@ pub use session::{
 };
 pub use skill_runtime::{RuntimeType, SkillContext, SkillRuntime, ToolInfo};
 pub use skills::{SkillLoader, SkillRegistry, SkillTool};
+pub use root::OctoRoot;
 pub use tools::recorder::ToolExecutionRecorder;
 pub use tools::{default_tools, default_tools_with_search_priority, register_memory_tools, Tool, ToolRegistry};

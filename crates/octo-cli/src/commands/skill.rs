@@ -13,7 +13,7 @@ pub async fn handle_skill(action: SkillCommands, state: &AppState) -> Result<()>
     match action {
         SkillCommands::List => list_skills(state).await,
         SkillCommands::Show { name } => show_skill(name, state).await,
-        SkillCommands::Create { name } => create_skill(name).await,
+        SkillCommands::Create { name } => create_skill(name, state).await,
         SkillCommands::Validate { path } => validate_skill(path).await,
     }
 }
@@ -183,8 +183,8 @@ async fn show_skill(name: String, state: &AppState) -> Result<()> {
     Ok(())
 }
 
-async fn create_skill(name: String) -> Result<()> {
-    let skill_dir = std::path::Path::new(".octo/skills").join(&name);
+async fn create_skill(name: String, state: &AppState) -> Result<()> {
+    let skill_dir = state.octo_root.project_skills_dir().join(&name);
     if skill_dir.exists() {
         eprintln!("Skill directory already exists: {}", skill_dir.display());
         return Ok(());

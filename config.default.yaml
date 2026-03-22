@@ -18,8 +18,13 @@
 #   model: None         # Optional model override
 
 # Database configuration
+# When path is empty, OctoRoot resolves it automatically:
+#   1. OCTO_DB_PATH env var
+#   2. ./data/octo.db (if exists, legacy server)
+#   3. ./octo.db (if exists, legacy CLI)
+#   4. ~/.octo/projects/<project_key>/octo.db (new default)
 # database:
-#   path: ./data/octo.db  # SQLite database path
+#   path: ""  # Empty = auto-resolve via OctoRoot
 
 # Logging configuration
 # logging:
@@ -30,8 +35,12 @@
 #   servers_dir: None   # Optional MCP servers directory
 
 # Skills configuration
-skills:
-  dirs: [".octo/skills"]  # List of skills directories
+# Skills configuration
+# When OctoRoot is active, skills are auto-loaded from:
+#   1. $PWD/.octo/skills/ (project-level)
+#   2. ~/.octo/skills/ (global)
+# skills:
+#   dirs: []  # Auto-resolved by OctoRoot when empty
 
 # Working directory for sandbox (optional)
 # working_dir: "./data/sandbox"   # Optional working directory

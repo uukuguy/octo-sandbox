@@ -157,8 +157,8 @@ impl SecurityPolicy {
     pub fn check_path(&self, path: &Path) -> Result<(), String> {
         // Expand home directory
         let expanded = if path.starts_with("~") {
-            if let Ok(home) = std::env::var("HOME") {
-                PathBuf::from(home).join(path.strip_prefix("~").unwrap_or(path))
+            if let Some(home) = dirs::home_dir() {
+                home.join(path.strip_prefix("~").unwrap_or(path))
             } else {
                 path.to_path_buf()
             }
@@ -194,10 +194,10 @@ impl SecurityPolicy {
         }
 
         // Check forbidden paths using Path::starts_with() instead of String::contains()
-        let home_dir = std::env::var("HOME").unwrap_or_default();
+        let home_dir = dirs::home_dir().unwrap_or_default();
         for forbidden in &self.forbidden_paths {
             let forbidden_path = if forbidden.starts_with("~") {
-                PathBuf::from(&home_dir).join(
+                home_dir.join(
                     forbidden
                         .strip_prefix("~/")
                         .unwrap_or(forbidden.strip_prefix("~").unwrap_or(forbidden)),

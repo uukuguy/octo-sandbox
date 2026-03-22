@@ -32,3 +32,10 @@ pub fn config_dir() -> PathBuf {
         .map(|dirs| dirs.config_dir().to_path_buf())
         .unwrap_or_else(|| PathBuf::from("."))
 }
+
+/// Get the history file path for a specific OctoRoot project.
+pub fn history_file_path_for(root: &octo_engine::OctoRoot) -> PathBuf {
+    let dir = root.history_dir();
+    std::fs::create_dir_all(&dir).ok();
+    dir.join("history.txt")
+}

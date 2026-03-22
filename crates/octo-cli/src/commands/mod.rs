@@ -12,6 +12,7 @@ pub mod doctor;
 pub mod eval_cmd;
 pub mod mcp;
 pub mod memory;
+pub mod root;
 pub mod run;
 pub mod session;
 pub mod skill;
@@ -22,7 +23,7 @@ pub mod types;
 // Re-export types for external use
 pub use types::{
     AgentCommands, CompletionsCommands, ConfigCommands, EvalCommands, McpCommands, MemoryCommands,
-    SessionCommands, SkillCommands, ToolsCommands,
+    RootCommands, SessionCommands, SkillCommands, ToolsCommands,
 };
 
 // Re-export handler functions
@@ -34,6 +35,7 @@ pub use doctor::run_doctor;
 pub use eval_cmd::handle_eval;
 pub use mcp::handle_mcp;
 pub use memory::handle_memory;
+pub use root::handle_root;
 pub use run::execute_run;
 pub use session::handle_session;
 pub use skill::handle_skill;

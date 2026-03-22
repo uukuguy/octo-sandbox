@@ -256,6 +256,15 @@ pub enum SkillCommands {
     },
 }
 
+/// Root path management subcommands
+#[derive(Subcommand)]
+pub enum RootCommands {
+    /// Show all resolved paths
+    Show,
+    /// Initialize directories (ensure all exist)
+    Init,
+}
+
 /// Evaluation management subcommands
 #[derive(Subcommand)]
 pub enum EvalCommands {

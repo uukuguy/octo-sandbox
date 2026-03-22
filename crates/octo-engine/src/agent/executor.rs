@@ -28,6 +28,8 @@ pub enum AgentMessage {
     },
     /// 外部请求取消当前正在运行的 round
     Cancel,
+    /// 清空对话历史（/clear 命令）
+    ClearHistory,
 }
 
 /// AgentExecutor 的对外句柄（可 clone，廉价）
@@ -262,6 +264,14 @@ impl AgentExecutor {
                 AgentMessage::Cancel => {
                     self.cancel_token.cancel();
                     info!(session_id = %self.session_id.as_str(), "AgentExecutor: cancel requested");
+                }
+                AgentMessage::ClearHistory => {
+                    self.history.clear();
+                    // Persist empty history to SessionStore
+                    if let Some(ref store) = self.session_store {
+                        store.set_messages(&self.session_id, vec![]).await;
+                    }
+                    info!(session_id = %self.session_id.as_str(), "AgentExecutor: history cleared");
                 }
             }
         }

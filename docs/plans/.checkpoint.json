@@ -1,61 +1,56 @@
 {
-  "plan_file": ".claude/plans/cryptic-sauteeing-harp.md",
-  "phase": "complete",
-  "created_at": "2026-03-22T20:30:00+08:00",
-  "updated_at": "2026-03-22T23:00:00+08:00",
-  "completed_tasks": ["V1-1", "V1-2", "V2-1", "V2-2", "V2-3", "V3-1", "V3-2", "V3-3", "V4-1", "V4-2", "V4-3"],
+  "plan_file": null,
+  "phase": "in-progress",
+  "created_at": "2026-03-23T01:36:00+08:00",
+  "updated_at": "2026-03-23T02:30:00+08:00",
+  "completed_tasks": ["X-T1", "X-T2", "X-T3", "X-T4"],
   "current_task": null,
-  "total_tasks": 12,
+  "total_tasks": 4,
   "task_groups": {
-    "G1": {
-      "name": "基础设施修复 + 激活",
-      "tasks": ["V1-1", "V1-2"],
+    "X": {
+      "name": "TUI 运行状态增强",
+      "tasks": ["X-T1", "X-T2", "X-T3", "X-T4"],
       "status": "COMPLETE",
-      "description": "ExecutionMode enum, config enable, auto-inference, old skills cleanup, SkillSelector wiring, Model Override"
-    },
-    "G2": {
-      "name": "execute_skill Tool + SubAgent Executor",
-      "tasks": ["V2-1", "V2-2", "V2-3"],
-      "status": "COMPLETE",
-      "description": "ExecuteSkillTool (KNOWLEDGE body injection, PLAYBOOK SubAgent spawn), SkillExecutionResult handling"
-    },
-    "G3": {
-      "name": "内置 Skills + 自动同步",
-      "tasks": ["V3-1", "V3-2", "V3-3"],
-      "status": "COMPLETE",
-      "description": "9 Memento-Skills originals in .octo/skills/ (git tracked), 2 fallback in builtin/, system prompt injection"
-    },
-    "G4": {
-      "name": "CLI + TUI + 端到端验证",
-      "tasks": ["V4-1", "V4-2", "V4-3"],
-      "status": "COMPLETE",
-      "description": "CLI skill subcommands, TUI skill autocomplete, 15 e2e tests"
+      "description": "ClearHistory 后端同步, Error/SecurityBlocked/EmergencyStopped 对话区显示, 活动指示器 3 行 + rounds/tools 计数, 完成摘要, CC 风格 git 状态"
     }
   },
-  "phase_name": "Phase V — Agent Skills 完整实现",
+  "phase_name": "Phase X — TUI 运行状态增强",
   "status": "COMPLETE",
   "execution_mode": "direct",
   "design_file": null,
   "roadmap_file": null,
   "branch": "main",
   "baseline": {
-    "tests": 2329,
-    "commit": "d698f05"
+    "tests": 2387,
+    "commit": "4d045db"
   },
   "final": {
-    "tests": 2370,
-    "commit": "19d3f30"
+    "tests": 2387,
+    "commit": null
   },
   "key_decisions": [
-    "KNOWLEDGE skills: body injected into system prompt, Agent follows instructions",
-    "PLAYBOOK skills: SubAgent spawned via SubAgentManager with isolated context + constrained tools",
-    "ExecutionMode auto-inference: extra files in skill dir → Playbook",
-    "SkillSelector: 4-phase pipeline (Gate→Score→Budget→Attenuate) wired into harness before Zone A",
-    "Model Override: active_skill.model replaces config.model before LLM call",
-    "Skills live in .octo/skills/ (git tracked, user-managed); include_str!() only as fallback for 2 core skills",
-    "SlashCommand type changed to String for dynamic skill name support in TUI autocomplete"
+    "AgentMessage::ClearHistory variant — /clear now clears backend history + session store",
+    "All error/security/emergency events render as visible messages in conversation area",
+    "task_start_time cleared on all terminal events (Completed/Done/Error/EmergencyStopped)",
+    "ActivityIndicator expanded to 3 rows (border-content-border) for visual prominence",
+    "Completion summary: elapsed | rounds r tools t | input output — only when tool_calls>0 or rounds>1",
+    "Git status CC-style: +staged ~modified ?untracked ↑unpushed",
+    "git_dirty_count replaced with git_staged/git_modified/git_untracked/git_unpushed",
+    "refresh_git_info() parses porcelain XY codes + rev-list @{u}..HEAD for unpushed count"
   ],
   "deferred": [
+    {
+      "id": "W-D1",
+      "description": "octo root migrate — auto-migrate legacy DB locations to new OctoRoot layout",
+      "added_at": "2026-03-23",
+      "precondition": "When users need automated migration from legacy paths"
+    },
+    {
+      "id": "W-D2",
+      "description": "Global + project config.yaml merging (CLI/Server side)",
+      "added_at": "2026-03-23",
+      "precondition": "When multi-project config management is needed"
+    },
     {
       "id": "V1-3",
       "description": "Dependency graph topo-sort wiring — no builtin skills use dependencies currently",
@@ -64,15 +59,15 @@
     },
     {
       "id": "U-D1",
-      "description": "Agent Debug Panel 重设计 — 信息整合到 StatusBar 后 Debug 面板需深入调整",
+      "description": "Agent Debug Panel redesign",
       "added_at": "2026-03-22",
-      "precondition": "Phase U G3 StatusBar 完成后"
+      "precondition": "Phase U G3 StatusBar complete"
     }
   ],
-  "notes": "Phase V COMPLETE + post-fix. 11/12 tasks (V1-3 deferred). Skills system activated from dead code to running. 9 Memento-Skills originals in .octo/skills/ (replaced 5 self-written), SkillSelector auto-select, Model Override, SubAgent-based Playbook execution, CLI commands, TUI autocomplete, 15 e2e tests. Tests: 2329→2370 (+41). Post-fix commit: a557204.",
+  "notes": "Phase X COMPLETE. 4/4 tasks. TUI runtime status enhancements: (1) /clear now syncs backend history via ClearHistory message, (2) Error/Security/Emergency events show as visible messages in conversation area instead of silent state clearing, (3) Activity indicator expanded to 3 rows with rounds/tools counter, (4) Completion summary with elapsed/rounds/tools/tokens appended after tool-using tasks, (5) Git status CC-style with staged/modified/untracked/unpushed breakdown. Tests: 461 octo-cli tests pass, 2387 workspace total (unchanged).",
   "previous_phase": {
-    "name": "Phase U — TUI Production Hardening",
+    "name": "Phase W — OctoRoot 统一目录管理",
     "status": "COMPLETE",
-    "commit": "77c2297"
+    "commit": "4d045db"
   }
 }

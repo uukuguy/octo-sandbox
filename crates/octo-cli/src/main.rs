@@ -9,8 +9,8 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 use octo_cli::commands::{
     self, execute_ask, execute_run, generate_completions, handle_agent, handle_config, handle_eval,
-    handle_mcp, handle_memory, handle_session, handle_skill, handle_tools, run_doctor, AppState,
-    CompletionsCommands,
+    handle_mcp, handle_memory, handle_root, handle_session, handle_skill, handle_tools, run_doctor,
+    AppState, CompletionsCommands,
 };
 use octo_cli::output;
 use octo_cli::tui;
@@ -45,10 +45,23 @@ async fn main() -> Result<()> {
 
     info!("Starting Octo CLI");
 
-    // Determine database path
+    // Discover OctoRoot for unified path management
+    let octo_root = octo_engine::OctoRoot::discover()
+        .unwrap_or_else(|e| {
+            tracing::warn!("Failed to discover OctoRoot: {}, using defaults", e);
+            // Fallback: construct with current dir or "."
+            let wd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            octo_engine::OctoRoot::with_working_dir(&wd).expect("OctoRoot fallback failed")
+        });
+
+    // Ensure directories exist
+    if let Err(e) = octo_root.ensure_dirs() {
+        tracing::warn!("Failed to ensure OctoRoot directories: {}", e);
+    }
+
+    // Determine database path: CLI flag > OctoRoot resolution
     let db_path = cli.db.unwrap_or_else(|| {
-        // Try to get from config or use default
-        std::env::var("OCTO_DB_PATH").unwrap_or_else(|_| "octo.db".to_string())
+        octo_root.resolve_db_path().to_string_lossy().to_string()
     });
 
     // Build output config from CLI flags
@@ -62,8 +75,8 @@ async fn main() -> Result<()> {
         quiet: cli.quiet,
     };
 
-    // Initialize app state
-    let state = AppState::new(db_path.into(), output_config).await?;
+    // Initialize app state with OctoRoot
+    let state = AppState::with_octo_root(db_path.into(), output_config, octo_root).await?;
 
     match cli.command {
         Commands::Run {
@@ -137,6 +150,7 @@ async fn main() -> Result<()> {
             commands::dashboard::run_dashboard(&opts).await?;
         }
         Commands::Skill { action } => handle_skill(action, &state).await?,
+        Commands::Root { action } => handle_root(action, &state).await?,
         Commands::Eval { action } => handle_eval(action, &state).await?,
     }
 

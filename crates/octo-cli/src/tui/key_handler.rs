@@ -91,6 +91,8 @@ fn execute_slash_command(state: &mut TuiState, input: &str) {
             state.tool_expanded_overrides.clear();
             state.tool_toggle_cursor = 0;
             state.invalidate_cache();
+            // Notify backend to clear conversation history
+            let _ = state.handle.tx.try_send(AgentMessage::ClearHistory);
         }
         "/exit" | "/quit" | "/q" => {
             state.running = false;
@@ -391,6 +393,8 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
                     state.task_start_time = Some(std::time::Instant::now());
                     state.task_input_tokens = 0;
                     state.task_output_tokens = 0;
+                    state.task_tool_calls = 0;
+                    state.task_rounds = 0;
 
                     // Send to agent
                     let _ = state

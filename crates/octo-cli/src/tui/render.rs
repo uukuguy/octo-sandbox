@@ -14,7 +14,7 @@ pub fn render(state: &TuiState, frame: &mut Frame) {
 
     // Dynamic panel heights
     let input_lines = state.input_buffer.split('\n').count().max(1).min(8) as u16;
-    let activity_height: u16 = if state.is_streaming || state.is_thinking { 1 } else { 0 };
+    let activity_height: u16 = if state.is_streaming || state.is_thinking { 3 } else { 0 };
     let status_height = 3u16; // always: border + row1 (brand/dir/git) + row2 (tokens/mcp/cost/context)
 
     let chunks = Layout::default()
@@ -123,7 +123,8 @@ fn render_activity_indicator(state: &TuiState, frame: &mut Frame, area: Rect) {
         task_elapsed,
         state.task_input_tokens,
         state.task_output_tokens,
-    );
+    )
+    .tool_calls(state.task_tool_calls, state.task_rounds);
     frame.render_widget(widget, area);
 }
 
@@ -151,7 +152,7 @@ fn render_status_bar(state: &TuiState, frame: &mut Frame, area: Rect) {
         &state.working_dir,
         state.git_branch.as_deref(),
     )
-    .git_dirty_count(state.git_dirty_count)
+    .git_status(state.git_staged, state.git_modified, state.git_untracked, state.git_unpushed)
     .context_usage_pct(state.context_usage_pct)
     .session_elapsed(Some(state.session_start_time.elapsed()))
     .tokens(state.total_input_tokens, state.total_output_tokens);

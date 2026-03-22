@@ -3,6 +3,22 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase X — TUI 运行状态增强",
+      "completed_at": "2026-03-23T02:30:00+08:00",
+      "progress": "100%",
+      "tests": 2387,
+      "commit": null,
+      "tasks": "4/4"
+    },
+    {
+      "name": "Phase W — OctoRoot 统一目录管理",
+      "completed_at": "2026-03-23T01:30:00+08:00",
+      "progress": "100%",
+      "tests": 2387,
+      "commit": null,
+      "tasks": "10/10"
+    },
+    {
       "name": "Phase V — Agent Skills 完整实现",
       "completed_at": "2026-03-22T21:45:00+08:00",
       "progress": "100%",
