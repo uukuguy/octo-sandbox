@@ -5,6 +5,7 @@
 //! input buffer, scroll position, and metrics.
 
 use std::collections::hash_map::DefaultHasher;
+use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::time::Instant;
 
@@ -146,6 +147,12 @@ pub struct TuiState {
     // ── Formatter registry ──
     /// Dynamic tool output formatter registry.
     pub tool_formatter_registry: super::formatters::formatter_registry::ToolFormatterRegistry,
+
+    // ── Tool collapse ──
+    /// Global default: tool results collapsed by default.
+    pub tools_default_collapsed: bool,
+    /// Per-tool override: tool_use_id -> expanded state. `true` = force expand.
+    pub tool_expanded_overrides: HashMap<String, bool>,
 }
 
 impl TuiState {
@@ -215,6 +222,8 @@ impl TuiState {
             per_message_cache: Vec::new(),
             tool_formatter_registry:
                 super::formatters::formatter_registry::ToolFormatterRegistry::new(),
+            tools_default_collapsed: true,
+            tool_expanded_overrides: HashMap::new(),
         }
     }
 
@@ -389,6 +398,26 @@ impl TuiState {
     pub fn invalidate_cache(&mut self) {
         self.message_generation += 1;
         self.dirty = true;
+    }
+
+    /// Check if a tool result is collapsed.
+    pub fn is_tool_collapsed(&self, tool_use_id: &str) -> bool {
+        match self.tool_expanded_overrides.get(tool_use_id) {
+            Some(expanded) => !expanded,
+            None => self.tools_default_collapsed,
+        }
+    }
+
+    /// Find the most recent completed tool_use_id in messages.
+    pub fn find_last_tool_use_id(&self) -> Option<String> {
+        self.messages
+            .iter()
+            .rev()
+            .flat_map(|m| m.content.iter())
+            .find_map(|b| match b {
+                ContentBlock::ToolResult { tool_use_id, .. } => Some(tool_use_id.clone()),
+                _ => None,
+            })
     }
 
     /// Invalidate all caches including per-message cache (e.g., on terminal resize).

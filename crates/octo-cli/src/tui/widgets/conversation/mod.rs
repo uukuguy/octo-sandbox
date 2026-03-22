@@ -33,6 +33,23 @@ use crate::tui::widgets::spinner::{COMPLETED_CHAR, SPINNER_FRAMES};
 
 pub use spinner::ActiveTool;
 
+/// Collapse state for tool results.
+pub struct ToolCollapseState<'a> {
+    /// Whether tools are collapsed by default.
+    pub default_collapsed: bool,
+    /// Per-tool override map: tool_use_id -> expanded.
+    pub overrides: &'a std::collections::HashMap<String, bool>,
+}
+
+impl<'a> ToolCollapseState<'a> {
+    fn is_collapsed(&self, tool_use_id: &str) -> bool {
+        match self.overrides.get(tool_use_id) {
+            Some(expanded) => !expanded,
+            None => self.default_collapsed,
+        }
+    }
+}
+
 /// Widget that renders the conversation log.
 pub struct ConversationWidget<'a> {
     messages: &'a [ChatMessage],
@@ -42,6 +59,8 @@ pub struct ConversationWidget<'a> {
     spinner_char: char,
     /// Optional formatter registry for tool-specific output rendering.
     formatter_registry: Option<&'a ToolFormatterRegistry>,
+    /// Optional tool collapse state.
+    collapse_state: Option<ToolCollapseState<'a>>,
 }
 
 impl<'a> ConversationWidget<'a> {
@@ -52,11 +71,17 @@ impl<'a> ConversationWidget<'a> {
             active_tools: &[],
             spinner_char: SPINNER_FRAMES[0],
             formatter_registry: None,
+            collapse_state: None,
         }
     }
 
     pub fn formatter_registry(mut self, registry: &'a ToolFormatterRegistry) -> Self {
         self.formatter_registry = Some(registry);
+        self
+    }
+
+    pub fn collapse_state(mut self, state: ToolCollapseState<'a>) -> Self {
+        self.collapse_state = Some(state);
         self
     }
 
@@ -188,7 +213,27 @@ impl<'a> ConversationWidget<'a> {
                 ContentBlock::ToolResult {
                     content, is_error, tool_use_id, ..
                 } => {
-                    // Detect diff tools by looking back at the matching ToolUse
+                    // Check if this tool result should be collapsed
+                    if let Some(ref cs) = self.collapse_state {
+                        if cs.is_collapsed(tool_use_id) {
+                            let tool_name = self.find_tool_name(tool_use_id);
+                            let name = tool_name.as_deref().unwrap_or("tool");
+                            let line_count = content.lines().count();
+                            if let Some(registry) = self.formatter_registry {
+                                lines.push(registry.format_collapsed(name, content));
+                            } else {
+                                lines.push(Line::from(Span::styled(
+                                    format!(
+                                        "  \u{2699} {name} \u{2713} \u{2014} {line_count} lines (Ctrl+O to expand)"
+                                    ),
+                                    Style::default().fg(style_tokens::GREY),
+                                )));
+                            }
+                            continue;
+                        }
+                    }
+
+                    // Expanded: full rendering
                     let tool_name = self.find_tool_name(tool_use_id);
                     self.build_tool_result_lines(
                         content,

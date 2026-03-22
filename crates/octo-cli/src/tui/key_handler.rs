@@ -81,6 +81,24 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             };
         }
 
+        // ── Ctrl+O: toggle most recent completed tool result collapse ──
+        (KeyModifiers::CONTROL, KeyCode::Char('o')) => {
+            if let Some(tool_id) = state.find_last_tool_use_id() {
+                let currently_collapsed = state.is_tool_collapsed(&tool_id);
+                state
+                    .tool_expanded_overrides
+                    .insert(tool_id, currently_collapsed); // toggle: collapsed->expand, expanded->collapse
+                state.invalidate_cache();
+            }
+        }
+
+        // ── Alt+O: toggle global tool collapse default ──
+        (KeyModifiers::ALT, KeyCode::Char('o')) => {
+            state.tools_default_collapsed = !state.tools_default_collapsed;
+            state.tool_expanded_overrides.clear(); // reset per-tool overrides
+            state.invalidate_cache();
+        }
+
         // ── Enter: submit input ──
         (KeyModifiers::NONE, KeyCode::Enter) => {
             if !state.input_buffer.trim().is_empty() && !state.is_streaming {
@@ -342,6 +360,7 @@ async fn handle_approval_key(state: &mut TuiState, key: KeyEvent) {
 mod tests {
     use super::*;
     use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+    use octo_types::message::ContentBlock;
     use octo_types::SessionId;
     use tokio::sync::{broadcast, mpsc};
 
@@ -613,6 +632,77 @@ mod tests {
         });
         handle_key(&mut state, make_key(KeyCode::Char('y'))).await;
         assert!(state.pending_approval.is_none());
+    }
+
+    #[test]
+    fn test_tool_collapsed_by_default() {
+        let state = make_test_state();
+        assert!(state.is_tool_collapsed("any-tool-id"));
+        assert!(state.tools_default_collapsed);
+    }
+
+    #[test]
+    fn test_tool_expand_override() {
+        let mut state = make_test_state();
+        state.tool_expanded_overrides.insert("t1".into(), true);
+        assert!(!state.is_tool_collapsed("t1")); // expanded
+        assert!(state.is_tool_collapsed("t2")); // others still collapsed
+    }
+
+    #[test]
+    fn test_global_toggle_clears_overrides() {
+        let mut state = make_test_state();
+        state.tool_expanded_overrides.insert("t1".into(), true);
+        // Simulate Alt+O: toggle global + clear overrides
+        state.tools_default_collapsed = !state.tools_default_collapsed;
+        state.tool_expanded_overrides.clear();
+        assert!(!state.is_tool_collapsed("t1")); // follows global (now false)
+    }
+
+    #[tokio::test]
+    async fn test_ctrl_o_toggles_last_tool() {
+        let mut state = make_test_state();
+        // Add a message with a tool result
+        state.messages.push(ChatMessage {
+            role: octo_types::message::MessageRole::Assistant,
+            content: vec![
+                ContentBlock::ToolUse {
+                    id: "t1".into(),
+                    name: "bash".into(),
+                    input: serde_json::json!({"command": "ls"}),
+                },
+                ContentBlock::ToolResult {
+                    tool_use_id: "t1".into(),
+                    content: "file1\nfile2".into(),
+                    is_error: false,
+                },
+            ],
+        });
+        assert!(state.is_tool_collapsed("t1")); // collapsed by default
+
+        // Ctrl+O should toggle the last tool
+        handle_key(&mut state, make_ctrl_key('o')).await;
+        assert!(!state.is_tool_collapsed("t1")); // now expanded
+
+        // Ctrl+O again should collapse it
+        handle_key(&mut state, make_ctrl_key('o')).await;
+        assert!(state.is_tool_collapsed("t1")); // back to collapsed
+    }
+
+    #[tokio::test]
+    async fn test_alt_o_toggles_global() {
+        let mut state = make_test_state();
+        assert!(state.tools_default_collapsed);
+
+        let alt_o = KeyEvent {
+            code: KeyCode::Char('o'),
+            modifiers: KeyModifiers::ALT,
+            kind: KeyEventKind::Press,
+            state: KeyEventState::NONE,
+        };
+        handle_key(&mut state, alt_o).await;
+        assert!(!state.tools_default_collapsed);
+        assert!(state.tool_expanded_overrides.is_empty());
     }
 
     #[test]

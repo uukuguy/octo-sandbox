@@ -90,12 +90,18 @@ fn render_conversation(state: &TuiState, frame: &mut Frame, area: Rect) {
             / 100)
             % super::widgets::spinner::SPINNER_FRAMES.len()];
 
+    let collapse = super::widgets::conversation::ToolCollapseState {
+        default_collapsed: state.tools_default_collapsed,
+        overrides: &state.tool_expanded_overrides,
+    };
+
     let conversation = super::widgets::conversation::ConversationWidget::new(
         &messages,
         state.scroll_offset,
     )
     .active_tools(&state.active_tools, spinner_char)
-    .formatter_registry(&state.tool_formatter_registry);
+    .formatter_registry(&state.tool_formatter_registry)
+    .collapse_state(collapse);
 
     frame.render_widget(conversation, area);
 }
