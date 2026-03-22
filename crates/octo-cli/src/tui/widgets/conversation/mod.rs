@@ -500,22 +500,12 @@ impl Widget for ConversationWidget<'_> {
 
         let lines = self.build_lines();
 
-        // Compute total wrapped line count (character-level estimate)
-        let total_lines: usize = lines
-            .iter()
-            .map(|line| {
-                let w = line.width();
-                if w == 0 || content_area.width == 0 {
-                    1
-                } else {
-                    w.div_ceil(content_area.width as usize)
-                }
-            })
-            .sum();
+        let paragraph = Paragraph::new(lines.clone()).wrap(Wrap { trim: false });
+
+        // Use ratatui's own line_count() for accurate wrapped line total
+        let total_lines = paragraph.line_count(content_area.width);
         let viewport_height = content_area.height as usize;
         let max_scroll = total_lines.saturating_sub(viewport_height);
-
-        let paragraph = Paragraph::new(lines.clone()).wrap(Wrap { trim: false });
 
         // scroll_offset = lines from bottom; convert to lines from top for ratatui
         let clamped = (self.scroll_offset as usize).min(max_scroll);
