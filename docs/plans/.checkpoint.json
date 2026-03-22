@@ -1,55 +1,68 @@
 {
-  "plan_file": "docs/plans/2026-03-20-phase-t-tui-opendev-integration.md",
-  "phase": "complete",
-  "created_at": "2026-03-20T12:50:00+08:00",
-  "updated_at": "2026-03-20T15:50:00+08:00",
-  "completed_tasks": ["T1-1", "T1-2", "T1-3", "T1-4", "T1-5", "T1-6", "T1-7", "T1-8", "T1-9", "T1-10", "T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-6", "T2-7", "T2-8", "T3-1", "T3-2", "T3-3", "T3-4", "T3-5", "T3-6"],
+  "plan_file": "docs/plans/2026-03-22-phase-u-tui-production-hardening.md",
+  "phase": "design",
+  "created_at": "2026-03-22T10:32:00+08:00",
+  "updated_at": "2026-03-22T10:32:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 24,
+  "total_tasks": 10,
   "task_groups": {
-    "T1": {
-      "name": "基础设施移植",
-      "tasks": ["T1-1", "T1-2", "T1-3", "T1-4", "T1-5", "T1-6", "T1-7", "T1-8", "T1-9", "T1-10"],
-      "status": "COMPLETE",
-      "description": "formatters, managers, widgets, event system 移植"
+    "G1": {
+      "name": "基础设施",
+      "tasks": ["U1-1", "U1-2", "U1-3"],
+      "status": "PENDING",
+      "description": "Approval Gate 接线, Event Batch Drain, Scroll 加速"
     },
-    "T2": {
-      "name": "对话中心主界面",
-      "tasks": ["T2-1", "T2-2", "T2-3", "T2-4", "T2-5", "T2-6", "T2-7", "T2-8"],
-      "status": "COMPLETE",
-      "description": "TuiState, render, event loop, engine 对接, approval, autocomplete, legacy cleanup"
+    "G2": {
+      "name": "渲染优化",
+      "tasks": ["U2-1", "U2-2", "U2-3"],
+      "status": "PENDING",
+      "description": "Per-message 缓存, Formatter 注册表, Tool Collapse"
     },
-    "T3": {
-      "name": "调试浮层 + 完善",
-      "tasks": ["T3-1", "T3-2", "T3-3", "T3-4", "T3-5", "T3-6"],
-      "status": "COMPLETE",
-      "description": "Ctrl+D/E/A overlays, welcome panel, thinking/progress rendering, theme validation, full test suite"
+    "G3": {
+      "name": "增强 Widgets",
+      "tasks": ["U3-1", "U3-2", "U3-3"],
+      "status": "PENDING",
+      "description": "StatusBar 重设计, Todo Panel, InputWidget 改进"
+    },
+    "G4": {
+      "name": "品牌完善",
+      "tasks": ["U4-1"],
+      "status": "PENDING",
+      "description": "Welcome Panel ASCII Art + 呼吸动画"
     }
   },
-  "phase_name": "Phase T — TUI OpenDev 整合",
-  "status": "COMPLETE",
-  "execution_mode": "ruflo-sequential",
-  "design_file": "docs/design/TUI_OPENDEV_INTEGRATION_DESIGN.md",
-  "roadmap_file": "docs/plans/ROADMAP_POST_PHASE_R.md",
+  "phase_name": "Phase U — TUI Production Hardening",
+  "status": "DESIGN_COMPLETE",
+  "execution_mode": null,
+  "design_file": null,
+  "roadmap_file": null,
   "branch": "feat/tui-opendev-integration",
   "baseline": {
-    "tests": 2250,
-    "commit": "7e72656"
-  },
-  "final": {
     "tests": 2259,
-    "commit": "22a13ed",
-    "delta": "+9 tests"
+    "commit": "74f4781"
   },
+  "final": null,
   "key_decisions": [
-    "类型统一：直接使用 octo-types + AgentEvent，零适配层",
-    "布局：对话中心 + 浮层调试，废弃 12-Tab 多屏",
-    "对接：与 REPL 共用 AgentExecutorHandle",
-    "完整特性：无 mock/stub，全部真实 engine 数据",
-    "回退策略：feature branch 开发，每 Task 一个 commit"
+    "ApprovalGate: Arc<Mutex<HashMap>> oneshot 通道，TUI 调用 gate.respond()",
+    "Per-message cache: Vec<(u64, Vec<Line>)> 按消息位置索引，content hash 失效",
+    "ToolFormatter: 动态 HashMap 注册表，支持 MCP 扩展",
+    "Scroll: 3 级加速 (3/6/12 lines)，200ms 方向窗口",
+    "Tool Collapse: CC 风格，默认折叠，Ctrl+O 最近 / Alt+O 全局",
+    "Event Batch: while try_next() drain loop before render",
+    "Todo Panel: 替代 Active Tools，需 engine AgentEvent::PlanUpdate",
+    "StatusBar: Unicode 符号 (✳ ▸ ◦ ↕ ⊞)，分层亮度，amber 品牌色",
+    "InputWidget: 去底框，mode-colored separator，ghost text + Tab accept",
+    "Welcome: ASCII Art OCTO (Tier 3) + 🦑 fallback (Tier 1/2)，amber 呼吸动画"
   ],
-  "notes": "Phase T COMPLETE (22a13ed): All 24/24 tasks done. T2-D1 autocomplete resolved (e6c5f0d). T3 overlays (agent_debug, eval, session_picker), welcome panel, thinking/progress verified, theme validated, 2259 workspace tests pass. Commits: e6c5f0d (T2-D1), 0050e07 (T3-1/2/3), c10d52b (T3-4/5), 22a13ed (T3-6).",
+  "notes": "Phase U plan created from grid-tui gap analysis. 10 tasks in 4 groups + 1 deferred (Debug Panel redesign). Ready for execution.",
   "deferred": [
+    {
+      "id": "U-D1",
+      "description": "Agent Debug Panel 重设计 — 信息整合到 StatusBar 后 Debug 面板需深入调整",
+      "added_at": "2026-03-22",
+      "precondition": "Phase U G3 StatusBar 完成后"
+    },
     {
       "id": "S-D1",
       "description": "Agent Skills 系统是否符合标准规范 — 专题研究",
@@ -58,8 +71,8 @@
     }
   ],
   "previous_phase": {
-    "name": "Phase S — Agent Capability Boost",
+    "name": "Phase T — TUI OpenDev 整合",
     "status": "COMPLETE",
-    "commit": "68ad13e"
+    "commit": "74464b9"
   }
 }
