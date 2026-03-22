@@ -1,76 +1,77 @@
 {
-  "plan_file": null,
-  "phase": "complete",
-  "created_at": "2026-03-23T03:45:00+08:00",
-  "updated_at": "2026-03-23T04:30:00+08:00",
-  "completed_tasks": ["Z-T1", "Z-T2"],
+  "plan_file": "docs/plans/2026-03-23-phase-aa-deployment-config.md",
+  "phase": "design",
+  "created_at": "2026-03-23T04:50:00+08:00",
+  "updated_at": "2026-03-23T05:30:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 2,
+  "total_tasks": 6,
   "task_groups": {
-    "Z": {
-      "name": "Landmine Scan & Fix",
-      "tasks": ["Z-T1", "Z-T2"],
-      "status": "COMPLETE",
-      "description": "Find and fix components that are implemented but not wired through production code paths"
+    "G1": {
+      "name": "OctoRoot Path Extensions",
+      "tasks": ["AA-T1"],
+      "status": "PENDING"
+    },
+    "G2": {
+      "name": "Layered Config Loading",
+      "tasks": ["AA-T2b", "AA-T2"],
+      "status": "PENDING"
+    },
+    "G3": {
+      "name": "Credentials Loading",
+      "tasks": ["AA-T3"],
+      "status": "PENDING"
+    },
+    "G4": {
+      "name": "Hardcoded Path Fixes + CLI Enhancement",
+      "tasks": ["AA-T4", "AA-T5"],
+      "status": "PENDING"
     }
   },
-  "phase_name": "Phase Z — Landmine Scan & Fix",
-  "status": "COMPLETE",
-  "execution_mode": "direct",
-  "design_file": null,
-  "roadmap_file": null,
+  "phase_name": "Phase AA — Octo 部署配置架构",
+  "status": "DESIGN_COMPLETE",
+  "execution_mode": null,
+  "design_file": "docs/design/DEPLOYMENT_CONFIG_DESIGN.md",
+  "guide_file": "docs/design/DEPLOYMENT_CONFIG_GUIDE.md",
   "branch": "main",
   "baseline": {
-    "tests": 2387,
-    "commit": "039c75c"
-  },
-  "final": {
     "tests": 2383,
-    "commit": "81fa923"
+    "commit": "3ab7bca"
   },
-  "key_decisions": [
-    "ToolExecutionRecorder: added to AgentExecutor, threaded from Runtime, wired recording calls in harness (record_start + record_complete/record_failed per tool execution)",
-    "ContextBudgetManager/ContextPruner/LoopGuard: explicitly passed to AgentLoopConfig instead of relying on ..Default::default() fallback",
-    "CredentialResolver + Vault: initialized in AgentRuntime with optional OCTO_VAULT_PASSWORD env var for AES-GCM encrypted vault",
-    "InMemoryWorkingMemory confirmed as correct design choice — SqliteWorkingMemory shares one table, would cause cross-session data pollution",
-    "Enhanced deferred-scan skill with Landmine Scan (Step 0-B): 4 scan patterns for ..Default::default() field swallowing, None for real components, InMemory/Noop in production, unused .with_xxx() builders"
-  ],
   "deferred": [
     {
-      "id": "W-D1",
-      "description": "octo root migrate — auto-migrate legacy DB locations to new OctoRoot layout",
-      "added_at": "2026-03-23",
-      "precondition": "When users need automated migration from legacy paths"
+      "id": "AA-D1",
+      "description": "octo auth login/status/logout commands",
+      "precondition": "UX design for interactive credential setup"
     },
     {
-      "id": "W-D2",
-      "description": "Global + project config.yaml merging (CLI/Server side)",
-      "added_at": "2026-03-23",
-      "precondition": "When multi-project config management is needed"
+      "id": "AA-D2",
+      "description": "octo init command — project template creation",
+      "precondition": "After config loading stabilizes"
     },
     {
-      "id": "V1-3",
-      "description": "Dependency graph topo-sort wiring — no builtin skills use dependencies currently",
-      "added_at": "2026-03-22",
-      "precondition": "When skills with inter-dependencies are added"
+      "id": "AA-D3",
+      "description": "XDG Base Directory support",
+      "precondition": "Low priority, OCTO_GLOBAL_ROOT covers"
     },
     {
-      "id": "U-D1",
-      "description": "Agent Debug Panel redesign",
-      "added_at": "2026-03-22",
-      "precondition": "Phase U G3 StatusBar complete"
-    },
-    {
-      "id": "Z-D1",
-      "description": "CredentialResolver integration into provider config — resolve API keys from Vault instead of raw env vars",
-      "added_at": "2026-03-23",
-      "precondition": "When secret management UX is designed (master password source: keyring/config/interactive)"
+      "id": "AA-D4",
+      "description": "Config file watcher (hot-reload)",
+      "precondition": "Future enhancement"
     }
   ],
-  "notes": "Phase Z complete. 5 landmines fixed: ToolExecutionRecorder wired to harness, budget/pruner/loop_guard explicitly passed, CredentialResolver+Vault initialized in Runtime. deferred-scan skill enhanced with Landmine Scan capability.",
+  "key_decisions": [
+    "7-layer config priority: CLI > env > .env > config.local.yaml > project > global > defaults",
+    "Field-level shallow merge via serde_yaml Value recursion",
+    "credentials.yaml separate file with mode 600",
+    "--config explicit flag skips auto-discovery (Cargo/Terraform convention)",
+    "Legacy $PWD/config.yaml fallback with deprecation warning",
+    "No XDG support — OCTO_GLOBAL_ROOT env var covers the need"
+  ],
+  "notes": "Design phase complete. 3 documents produced: design doc, deployment guide, implementation plan. Research: 8 CLI tools compared. Resolves W-D2 deferred.",
   "previous_phase": {
-    "name": "Phase Y — Playbook Skill SubAgent Wiring",
+    "name": "Phase Z — Landmine Scan & Fix",
     "status": "COMPLETE",
-    "commit": "c0f92b4"
+    "commit": "81fa923"
   }
 }
