@@ -19,7 +19,7 @@ pub fn render(state: &TuiState, frame: &mut Frame) {
         (state.active_tools.len() as u16 + 2).min(8)
     };
     let input_lines = state.input_buffer.lines().count().max(1).min(8) as u16;
-    let status_height = 2u16;
+    let status_height = 1u16;
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -169,55 +169,29 @@ fn render_input(state: &TuiState, frame: &mut Frame, area: Rect) {
     }
 }
 
-/// Render the status bar with model, tokens, and hints.
+/// Render the status bar using the StatusBarWidget.
 fn render_status_bar(state: &TuiState, frame: &mut Frame, area: Rect) {
-    if area.height == 0 {
-        return;
-    }
+    use super::app_state::AgentState;
+    use super::widgets::status_bar::AgentStateDisplay;
 
-    let dim = Style::default().fg(Color::DarkGray);
+    let agent_display = match state.agent_state() {
+        AgentState::Streaming => AgentStateDisplay::Streaming,
+        AgentState::Thinking => AgentStateDisplay::Thinking,
+        AgentState::Idle => AgentStateDisplay::Idle,
+    };
 
-    // Row 0: model | tokens (compact, left + right aligned)
-    let left = format!(
-        " {} \u{00b7} {}",
-        state.model_name,
-        state.session_id.as_str(),
-    );
-    let right = format!(
-        "{}↑ {}↓ ",
-        state.total_input_tokens, state.total_output_tokens,
-    );
+    let widget = super::widgets::status_bar::StatusBarWidget::new(
+        &state.model_name,
+        &state.working_dir,
+        state.git_branch.as_deref(),
+    )
+    .context_usage_pct(state.context_usage_pct)
+    .session_cost(state.session_cost)
+    .mcp_status(state.mcp_status, false)
+    .tokens(state.total_input_tokens, state.total_output_tokens)
+    .agent_state(agent_display);
 
-    let chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(65), Constraint::Percentage(35)])
-        .split(Rect { height: 1, ..area });
-
-    frame.render_widget(Paragraph::new(Line::from(Span::styled(left, dim))), chunks[0]);
-    frame.render_widget(
-        Paragraph::new(Line::from(Span::styled(right, dim)))
-            .alignment(Alignment::Right),
-        chunks[1],
-    );
-
-    // Row 1: hints
-    if area.height >= 2 {
-        let hints_area = Rect {
-            x: area.x,
-            y: area.y + 1,
-            width: area.width,
-            height: 1,
-        };
-        let hints = if state.overlay != OverlayMode::None {
-            " Esc: close overlay"
-        } else {
-            " Ctrl+D: debug \u{00b7} Ctrl+C: cancel \u{00b7} \u{2191}\u{2193} scroll"
-        };
-        frame.render_widget(
-            Paragraph::new(Line::from(Span::styled(hints, dim))),
-            hints_area,
-        );
-    }
+    frame.render_widget(widget, area);
 }
 
 /// Render the tool approval dialog as a centered popup.

@@ -287,9 +287,16 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.streaming_text.clear();
             state.invalidate_cache();
         }
+        AgentEvent::TokenBudgetUpdate { budget } => {
+            state.context_usage_pct = budget.usage_percent as f64;
+            state.dirty = true;
+        }
+        AgentEvent::ContextDegraded { usage_pct, .. } => {
+            state.context_usage_pct = usage_pct as f64;
+            state.dirty = true;
+        }
         _ => {
-            // IterationStart/End, ContextDegraded, MemoryFlushed,
-            // ToolExecution, TokenBudgetUpdate, Typing
+            // IterationStart/End, MemoryFlushed, ToolExecution, Typing
             state.dirty = true;
         }
     }

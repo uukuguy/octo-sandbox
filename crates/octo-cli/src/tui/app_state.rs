@@ -35,6 +35,14 @@ pub enum OverlayMode {
     SessionPicker,
 }
 
+/// Agent operational state for status bar display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentState {
+    Idle,
+    Streaming,
+    Thinking,
+}
+
 /// A tool execution awaiting user approval.
 #[derive(Debug, Clone)]
 pub struct PendingApproval {
@@ -153,6 +161,24 @@ pub struct TuiState {
     pub tools_default_collapsed: bool,
     /// Per-tool override: tool_use_id -> expanded state. `true` = force expand.
     pub tool_expanded_overrides: HashMap<String, bool>,
+
+    // ── StatusBar data ──
+    /// Current working directory (shortened for display).
+    pub working_dir: String,
+    /// Current git branch name (if in a git repo).
+    pub git_branch: Option<String>,
+    /// Context window usage percentage (0.0–100.0).
+    pub context_usage_pct: f64,
+    /// Cumulative session cost in USD.
+    pub session_cost: f64,
+    /// MCP server status: (connected, total).
+    pub mcp_status: Option<(usize, usize)>,
+
+    // ── Todo Panel ──
+    /// Plan steps from dual-mode agent.
+    pub plan_steps: Vec<octo_engine::agent::dual::PlanStep>,
+    /// Whether the todo panel is visible.
+    pub todo_visible: bool,
 }
 
 impl TuiState {
@@ -224,6 +250,27 @@ impl TuiState {
                 super::formatters::formatter_registry::ToolFormatterRegistry::new(),
             tools_default_collapsed: true,
             tool_expanded_overrides: HashMap::new(),
+            working_dir: std::env::current_dir()
+                .map(|p| p.display().to_string())
+                .unwrap_or_else(|_| ".".to_string()),
+            git_branch: std::process::Command::new("git")
+                .args(["rev-parse", "--abbrev-ref", "HEAD"])
+                .output()
+                .ok()
+                .and_then(|o| {
+                    if o.status.success() {
+                        String::from_utf8(o.stdout)
+                            .ok()
+                            .map(|s| s.trim().to_string())
+                    } else {
+                        None
+                    }
+                }),
+            context_usage_pct: 0.0,
+            session_cost: 0.0,
+            mcp_status: None,
+            plan_steps: Vec::new(),
+            todo_visible: false,
         }
     }
 
@@ -424,6 +471,17 @@ impl TuiState {
     pub fn invalidate_all_cache(&mut self) {
         self.per_message_cache.clear();
         self.invalidate_cache();
+    }
+
+    /// Get the current agent state for status bar display.
+    pub fn agent_state(&self) -> AgentState {
+        if self.is_thinking {
+            AgentState::Thinking
+        } else if self.is_streaming {
+            AgentState::Streaming
+        } else {
+            AgentState::Idle
+        }
     }
 
     /// Auto-scroll to bottom unless user has manually scrolled up.
@@ -655,6 +713,58 @@ mod tests {
         let cloned = approval.clone();
         assert_eq!(cloned.tool_id, "t1");
         assert_eq!(cloned.tool_name, "bash");
+    }
+
+    #[test]
+    fn agent_state_idle_by_default() {
+        let handle = make_test_handle();
+        let state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "model".to_string(),
+        );
+        assert_eq!(state.agent_state(), AgentState::Idle);
+    }
+
+    #[test]
+    fn agent_state_streaming() {
+        let handle = make_test_handle();
+        let mut state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "model".to_string(),
+        );
+        state.is_streaming = true;
+        assert_eq!(state.agent_state(), AgentState::Streaming);
+    }
+
+    #[test]
+    fn agent_state_thinking_takes_priority() {
+        let handle = make_test_handle();
+        let mut state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "model".to_string(),
+        );
+        state.is_streaming = true;
+        state.is_thinking = true;
+        assert_eq!(state.agent_state(), AgentState::Thinking);
+    }
+
+    #[test]
+    fn working_dir_and_git_branch_initialized() {
+        let handle = make_test_handle();
+        let state = TuiState::new_for_test(
+            SessionId::from_string("s1"),
+            handle,
+            "model".to_string(),
+        );
+        assert!(!state.working_dir.is_empty());
+        assert_eq!(state.context_usage_pct, 0.0);
+        assert_eq!(state.session_cost, 0.0);
+        assert!(state.mcp_status.is_none());
+        assert!(state.plan_steps.is_empty());
+        assert!(!state.todo_visible);
     }
 
     #[test]

@@ -13,6 +13,14 @@ use ratatui::{
 
 use crate::tui::formatters::style_tokens;
 
+/// Agent operational state for status bar display.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AgentStateDisplay {
+    Idle,
+    Streaming,
+    Thinking,
+}
+
 /// Bottom status bar widget.
 pub struct StatusBarWidget<'a> {
     model: &'a str,
@@ -25,6 +33,7 @@ pub struct StatusBarWidget<'a> {
     spinner_char: Option<char>,
     input_tokens: u64,
     output_tokens: u64,
+    agent_state: AgentStateDisplay,
 }
 
 impl<'a> StatusBarWidget<'a> {
@@ -40,6 +49,7 @@ impl<'a> StatusBarWidget<'a> {
             spinner_char: None,
             input_tokens: 0,
             output_tokens: 0,
+            agent_state: AgentStateDisplay::Idle,
         }
     }
 
@@ -70,6 +80,11 @@ impl<'a> StatusBarWidget<'a> {
         self
     }
 
+    pub fn agent_state(mut self, state: AgentStateDisplay) -> Self {
+        self.agent_state = state;
+        self
+    }
+
     fn format_tokens(n: u64) -> String {
         if n >= 1_000_000 {
             format!("{:.1}M", n as f64 / 1_000_000.0)
@@ -89,12 +104,27 @@ impl Widget for StatusBarWidget<'_> {
 
         let mut spans: Vec<Span> = Vec::new();
 
-        // Model name
+        // Brand + Model name (✳ = U+2733 Eight Spoked Asterisk)
         spans.push(Span::styled(
-            format!("\u{25C6} {}", self.model),
+            format!("\u{2733} {}", self.model),
             Style::default()
-                .fg(style_tokens::CYAN)
+                .fg(style_tokens::AMBER)
                 .add_modifier(Modifier::BOLD),
+        ));
+        spans.push(Span::styled(
+            "  \u{2502}  ",
+            Style::default().fg(style_tokens::GREY),
+        ));
+
+        // Agent state indicator
+        let (state_symbol, state_color) = match self.agent_state {
+            AgentStateDisplay::Streaming => ("\u{25B8} streaming", style_tokens::GREEN_LIGHT),
+            AgentStateDisplay::Thinking => ("\u{25E6} thinking", style_tokens::MAGENTA),
+            AgentStateDisplay::Idle => ("\u{00B7} idle", style_tokens::DIM_GREY),
+        };
+        spans.push(Span::styled(
+            state_symbol,
+            Style::default().fg(state_color),
         ));
         spans.push(Span::styled(
             "  \u{2502}  ",
@@ -153,7 +183,7 @@ impl Widget for StatusBarWidget<'_> {
             spans.push(Span::styled(
                 format!("{ch} "),
                 Style::default()
-                    .fg(style_tokens::CYAN)
+                    .fg(style_tokens::AMBER)
                     .add_modifier(Modifier::BOLD),
             ));
         }
@@ -202,7 +232,7 @@ impl Widget for StatusBarWidget<'_> {
             spans.push(Span::styled(
                 cost_str,
                 Style::default()
-                    .fg(style_tokens::CYAN)
+                    .fg(style_tokens::AMBER)
                     .add_modifier(Modifier::BOLD),
             ));
             spans.push(Span::styled(
@@ -270,7 +300,7 @@ mod tests {
 
     #[test]
     fn test_status_bar_render_single_row() {
-        let area = Rect::new(0, 0, 80, 1);
+        let area = Rect::new(0, 0, 120, 1);
         let mut buf = Buffer::empty(area);
 
         let widget = StatusBarWidget::new("test-model", ".", None);
@@ -283,5 +313,86 @@ mod tests {
             })
             .collect();
         assert!(rendered.contains("test-model"));
+    }
+
+    #[test]
+    fn test_status_bar_brand_symbol() {
+        let area = Rect::new(0, 0, 120, 1);
+        let mut buf = Buffer::empty(area);
+
+        let widget = StatusBarWidget::new("test-model", "/home/user", Some("main"))
+            .tokens(5000, 1500);
+        widget.render(area, &mut buf);
+
+        // Collect all symbols from the buffer
+        let content: String = buf.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("\u{2733}"), "Should contain brand symbol ✳");
+        assert!(content.contains("test-model"), "Should contain model name");
+    }
+
+    #[test]
+    fn test_status_bar_agent_state_streaming() {
+        let area = Rect::new(0, 0, 120, 1);
+        let mut buf = Buffer::empty(area);
+
+        let widget = StatusBarWidget::new("model", ".", None)
+            .agent_state(AgentStateDisplay::Streaming);
+        widget.render(area, &mut buf);
+
+        let content: String = buf.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("streaming"), "Should show streaming state");
+    }
+
+    #[test]
+    fn test_status_bar_agent_state_thinking() {
+        let area = Rect::new(0, 0, 120, 1);
+        let mut buf = Buffer::empty(area);
+
+        let widget = StatusBarWidget::new("model", ".", None)
+            .agent_state(AgentStateDisplay::Thinking);
+        widget.render(area, &mut buf);
+
+        let content: String = buf.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("thinking"), "Should show thinking state");
+    }
+
+    #[test]
+    fn test_status_bar_agent_state_idle() {
+        let area = Rect::new(0, 0, 120, 1);
+        let mut buf = Buffer::empty(area);
+
+        let widget = StatusBarWidget::new("model", ".", None)
+            .agent_state(AgentStateDisplay::Idle);
+        widget.render(area, &mut buf);
+
+        let content: String = buf.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("idle"), "Should show idle state");
+    }
+
+    #[test]
+    fn test_status_bar_with_cost() {
+        let area = Rect::new(0, 0, 120, 1);
+        let mut buf = Buffer::empty(area);
+
+        let widget = StatusBarWidget::new("model", ".", None)
+            .session_cost(0.05);
+        widget.render(area, &mut buf);
+
+        let content: String = buf.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("$0.05"), "Should show session cost");
+    }
+
+    #[test]
+    fn test_status_bar_with_mcp() {
+        let area = Rect::new(0, 0, 120, 1);
+        let mut buf = Buffer::empty(area);
+
+        let widget = StatusBarWidget::new("model", ".", None)
+            .mcp_status(Some((2, 3)), false);
+        widget.render(area, &mut buf);
+
+        let content: String = buf.content().iter().map(|c| c.symbol()).collect();
+        assert!(content.contains("MCP"), "Should show MCP status");
+        assert!(content.contains("2/3"), "Should show connected/total");
     }
 }

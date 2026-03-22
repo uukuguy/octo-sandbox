@@ -37,6 +37,11 @@ pub const ORANGE_CAUTION: Color = Color::Rgb(255, 165, 0);
 pub const CYAN: Color = Color::Rgb(0, 191, 255);
 pub const DIM_GREY: Color = Color::Rgb(107, 114, 128);
 
+// Brand colors
+pub const AMBER: Color = Color::Rgb(212, 160, 23);
+pub const AMBER_DIM: Color = Color::Rgb(140, 105, 15);
+pub const MAGENTA: Color = Color::Rgb(192, 120, 221);
+
 // Diff background colors
 pub const DIFF_ADD_BG: Color = Color::Rgb(0, 40, 0);
 pub const DIFF_DEL_BG: Color = Color::Rgb(40, 0, 0);
