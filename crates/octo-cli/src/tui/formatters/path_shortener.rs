@@ -49,23 +49,23 @@ impl PathShortener {
         self.replace_home_in_text(&result)
     }
 
-    /// Shorten a path for status bar display: home -> ~, then keep last 2 components.
+    /// Shorten a path for status bar display: home -> ~, then keep last 1 component.
     pub fn shorten_display(&self, path: &str) -> String {
         let display = self.replace_home_prefix(path);
 
         if let Some(after_tilde) = display.strip_prefix("~/") {
             let parts: Vec<&str> = after_tilde.split('/').filter(|p| !p.is_empty()).collect();
-            if parts.len() <= 2 {
+            if parts.len() <= 1 {
                 return display;
             }
-            return format!("~/\u{2026}/{}", parts[parts.len() - 2..].join("/"));
+            return format!("~/\u{2026}/{}", parts[parts.len() - 1]);
         }
 
         let parts: Vec<&str> = display.split('/').filter(|p| !p.is_empty()).collect();
-        if parts.len() <= 2 {
+        if parts.len() <= 1 {
             return display;
         }
-        format!("\u{2026}/{}", parts[parts.len() - 2..].join("/"))
+        format!("\u{2026}/{}", parts[parts.len() - 1])
     }
 
     fn replace_home_prefix(&self, path: &str) -> String {

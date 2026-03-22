@@ -145,8 +145,8 @@ impl Widget for InputWidget<'_> {
         let sep_line = Line::from(spans);
         buf.set_line(area.left(), area.top(), &sep_line, area.width);
 
-        // Text area between top separator and bottom border
-        let text_height = area.height.saturating_sub(2); // -1 top separator, -1 bottom border
+        // Text area below top separator (no bottom border — status bar provides its own top border)
+        let text_height = area.height.saturating_sub(1); // -1 top separator
         if text_height == 0 {
             return;
         }
@@ -232,13 +232,7 @@ impl Widget for InputWidget<'_> {
             }
         }
 
-        // Bottom border: light thin line
-        let bottom_y = area.y + area.height.saturating_sub(1);
-        if bottom_y > area.y && bottom_y < area.y + area.height {
-            let border_style = Style::default().fg(style_tokens::BORDER);
-            let border_line: String = "\u{2500}".repeat(area.width as usize);
-            buf.set_string(area.left(), bottom_y, &border_line, border_style);
-        }
+        // No bottom border — the status bar's top border provides the separator.
     }
 }
 
@@ -301,14 +295,14 @@ mod tests {
     }
 
     #[test]
-    fn test_input_has_bottom_border() {
+    fn test_input_no_bottom_border() {
         let area = Rect::new(0, 0, 60, 3);
         let mut buf = Buffer::empty(area);
 
         let widget = InputWidget::new("hello", 5, "NORMAL", 0);
         widget.render(area, &mut buf);
 
-        // Bottom row (row 2) should be a thin border line
+        // Bottom row (row 2) should NOT be a border line (status bar provides its own)
         let bottom: String = (0..area.width)
             .map(|x| {
                 buf.cell((x, 2))
@@ -317,8 +311,8 @@ mod tests {
             .collect();
         let dash_count = bottom.chars().filter(|c| *c == '\u{2500}').count();
         assert!(
-            dash_count > area.width as usize / 2,
-            "Bottom row should be a border line, got {dash_count} dashes"
+            dash_count == 0,
+            "Bottom row should NOT have a border line, got {dash_count} dashes"
         );
     }
 

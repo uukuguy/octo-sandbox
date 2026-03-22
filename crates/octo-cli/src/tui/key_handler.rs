@@ -38,6 +38,80 @@ fn compute_scroll_amount(state: &mut TuiState, direction_up: bool) -> u16 {
     SCROLL_AMOUNTS[state.scroll_accel as usize]
 }
 
+/// Execute a TUI-local slash command. Returns `true` if handled locally.
+fn execute_slash_command(state: &mut TuiState, input: &str) {
+    let parts: Vec<&str> = input.trim().splitn(2, ' ').collect();
+    let cmd = parts[0];
+    let _args = parts.get(1).copied().unwrap_or("");
+
+    match cmd {
+        "/help" | "/h" | "/?" => {
+            let help_text = concat!(
+                "Available commands:\n",
+                "  /help       — Show this help\n",
+                "  /clear      — Clear conversation history\n",
+                "  /exit /quit — Exit the session\n",
+                "  /debug      — Toggle debug panel\n",
+                "  /eval       — Toggle eval panel\n",
+                "  /sessions   — Toggle session picker\n",
+                "  /todo       — Toggle todo/plan panel\n",
+                "  /compact    — Compact conversation context\n",
+                "  /cost       — Show token usage and costs\n",
+                "  /model      — Switch the LLM model\n",
+                "  /mode       — Switch between plan/normal mode\n",
+                "  /theme      — Change color theme\n",
+            );
+            state
+                .messages
+                .push(ChatMessage::assistant(help_text));
+            state.invalidate_cache();
+            state.auto_scroll();
+        }
+        "/clear" => {
+            state.messages.clear();
+            state.streaming_text.clear();
+            state.thinking_text.clear();
+            state.per_message_cache.clear();
+            state.invalidate_cache();
+        }
+        "/exit" | "/quit" | "/q" => {
+            state.running = false;
+        }
+        "/debug" => {
+            state.overlay = if state.overlay == OverlayMode::AgentDebug {
+                OverlayMode::None
+            } else {
+                OverlayMode::AgentDebug
+            };
+        }
+        "/eval" => {
+            state.overlay = if state.overlay == OverlayMode::Eval {
+                OverlayMode::None
+            } else {
+                OverlayMode::Eval
+            };
+        }
+        "/sessions" => {
+            state.overlay = if state.overlay == OverlayMode::SessionPicker {
+                OverlayMode::None
+            } else {
+                OverlayMode::SessionPicker
+            };
+        }
+        "/todo" => {
+            state.todo_visible = !state.todo_visible;
+            state.dirty = true;
+        }
+        _ => {
+            // Unknown slash command — show error message locally
+            let msg = format!("Unknown command: {}. Type /help for available commands.", cmd);
+            state.messages.push(ChatMessage::assistant(&msg));
+            state.invalidate_cache();
+            state.auto_scroll();
+        }
+    }
+}
+
 /// Handle a keyboard event, mutating TuiState accordingly.
 pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
     // If an overlay is active, route to overlay key handler
@@ -67,18 +141,91 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             };
         }
         (KeyModifiers::CONTROL, KeyCode::Char('e')) => {
-            state.overlay = if state.overlay == OverlayMode::Eval {
-                OverlayMode::None
+            // Emacs: move cursor to end of line; when input empty: toggle eval overlay
+            if !state.input_buffer.is_empty() {
+                state.input_cursor = state.input_buffer.len();
             } else {
-                OverlayMode::Eval
-            };
+                state.overlay = if state.overlay == OverlayMode::Eval {
+                    OverlayMode::None
+                } else {
+                    OverlayMode::Eval
+                };
+            }
         }
         (KeyModifiers::CONTROL, KeyCode::Char('a')) => {
-            state.overlay = if state.overlay == OverlayMode::SessionPicker {
-                OverlayMode::None
+            // Emacs: move cursor to start of line; when input empty: toggle session picker
+            if !state.input_buffer.is_empty() {
+                state.input_cursor = 0;
             } else {
-                OverlayMode::SessionPicker
-            };
+                state.overlay = if state.overlay == OverlayMode::SessionPicker {
+                    OverlayMode::None
+                } else {
+                    OverlayMode::SessionPicker
+                };
+            }
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('n')) => {
+            // Emacs: move cursor down one line in multiline input
+            if state.input_buffer.contains('\n') {
+                let lines: Vec<&str> = state.input_buffer.split('\n').collect();
+                let mut pos = 0;
+                let mut cursor_line = 0;
+                let mut cursor_col = 0;
+                for (i, line) in lines.iter().enumerate() {
+                    if state.input_cursor <= pos + line.len() {
+                        cursor_line = i;
+                        cursor_col = state.input_cursor - pos;
+                        break;
+                    }
+                    pos += line.len() + 1;
+                    if i == lines.len() - 1 {
+                        cursor_line = i;
+                        cursor_col = line.len();
+                    }
+                }
+                if cursor_line + 1 < lines.len() {
+                    let next_line = lines[cursor_line + 1];
+                    let new_col = cursor_col.min(next_line.len());
+                    let mut new_pos = 0;
+                    for line in &lines[..=cursor_line] {
+                        new_pos += line.len() + 1;
+                    }
+                    state.input_cursor = new_pos + new_col;
+                }
+            }
+        }
+        (KeyModifiers::CONTROL, KeyCode::Char('p')) => {
+            // Emacs: move cursor up one line in multiline input; when input empty: toggle todo
+            if state.input_buffer.contains('\n') {
+                let lines: Vec<&str> = state.input_buffer.split('\n').collect();
+                let mut pos = 0;
+                let mut cursor_line = 0;
+                let mut cursor_col = 0;
+                for (i, line) in lines.iter().enumerate() {
+                    if state.input_cursor <= pos + line.len() {
+                        cursor_line = i;
+                        cursor_col = state.input_cursor - pos;
+                        break;
+                    }
+                    pos += line.len() + 1;
+                    if i == lines.len() - 1 {
+                        cursor_line = i;
+                        cursor_col = line.len();
+                    }
+                }
+                if cursor_line > 0 {
+                    let prev_line = lines[cursor_line - 1];
+                    let new_col = cursor_col.min(prev_line.len());
+                    let mut new_pos = 0;
+                    for line in &lines[..cursor_line - 1] {
+                        new_pos += line.len() + 1;
+                    }
+                    state.input_cursor = new_pos + new_col;
+                }
+            } else {
+                state.todo_visible = !state.todo_visible;
+                state.dirty = true;
+            }
         }
 
         // ── Ctrl+O: toggle most recent completed tool result collapse ──
@@ -92,12 +239,6 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             }
         }
 
-        // ── Ctrl+P: toggle todo panel visibility ──
-        (KeyModifiers::CONTROL, KeyCode::Char('p')) => {
-            state.todo_visible = !state.todo_visible;
-            state.dirty = true;
-        }
-
         // ── Alt+O: toggle global tool collapse default ──
         (KeyModifiers::ALT, KeyCode::Char('o')) => {
             state.tools_default_collapsed = !state.tools_default_collapsed;
@@ -105,30 +246,56 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             state.invalidate_cache();
         }
 
-        // ── Enter: submit input ──
+        // ── Tab: accept autocomplete suggestion ──
+        (KeyModifiers::NONE, KeyCode::Tab) => {
+            if state.autocomplete.is_visible() {
+                if let Some((insert, delete_count)) = state.autocomplete.accept() {
+                    // Delete trigger + partial text, then insert completion
+                    let start = state.input_cursor.saturating_sub(delete_count);
+                    state.input_buffer.replace_range(start..state.input_cursor, &insert);
+                    state.input_cursor = start + insert.len();
+                    state.dirty = true;
+                }
+            }
+        }
+
+        // ── Enter: accept autocomplete OR execute slash command OR submit input ──
         (KeyModifiers::NONE, KeyCode::Enter) => {
-            if !state.input_buffer.trim().is_empty() && !state.is_streaming {
+            // If autocomplete popup is visible, accept the selection
+            if state.autocomplete.is_visible() {
+                if let Some((insert, delete_count)) = state.autocomplete.accept() {
+                    let start = state.input_cursor.saturating_sub(delete_count);
+                    state.input_buffer.replace_range(start..state.input_cursor, &insert);
+                    state.input_cursor = start + insert.len();
+                    state.dirty = true;
+                }
+            } else if !state.input_buffer.trim().is_empty() && !state.is_streaming {
                 let text = std::mem::take(&mut state.input_buffer);
                 state.input_cursor = 0;
 
-                // Save to message history
-                state.message_history.push(text.clone());
+                // Check for slash commands
+                if text.starts_with('/') {
+                    execute_slash_command(state, &text);
+                } else {
+                    // Save to message history
+                    state.message_history.push(text.clone());
 
-                // Add user message to conversation
-                state.messages.push(ChatMessage::user(&text));
-                state.invalidate_cache();
-                state.auto_scroll();
+                    // Add user message to conversation
+                    state.messages.push(ChatMessage::user(&text));
+                    state.invalidate_cache();
+                    state.auto_scroll();
 
-                // Send to agent
-                let _ = state
-                    .handle
-                    .send(AgentMessage::UserMessage {
-                        content: text,
-                        channel_id: "tui".into(),
-                    })
-                    .await;
-                state.is_streaming = true;
-                state.interrupt_manager.reset();
+                    // Send to agent
+                    let _ = state
+                        .handle
+                        .send(AgentMessage::UserMessage {
+                            content: text,
+                            channel_id: "tui".into(),
+                        })
+                        .await;
+                    state.is_streaming = true;
+                    state.interrupt_manager.reset();
+                }
             }
         }
 
@@ -141,8 +308,12 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             state.dirty = true;
         }
 
-        // ── Arrow keys: history navigation / scroll ──
+        // ── Arrow keys: autocomplete navigation / history / scroll ──
         (KeyModifiers::NONE, KeyCode::Up) => {
+            if state.autocomplete.is_visible() {
+                state.autocomplete.select_prev();
+                return;
+            }
             // Try history navigation first (when input is empty and history exists)
             if state.input_buffer.is_empty() && !state.message_history.is_empty() {
                 if let Some(prev) = state.message_history.up() {
@@ -163,6 +334,10 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             }
         }
         (KeyModifiers::NONE, KeyCode::Down) => {
+            if state.autocomplete.is_visible() {
+                state.autocomplete.select_next();
+                return;
+            }
             if state.message_history.is_navigating() {
                 // Currently browsing history — navigate forward
                 if let Some(next) = state.message_history.down() {
@@ -215,6 +390,9 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             state.input_cursor += c.len_utf8();
             state.interrupt_manager.reset();
             state.dirty = true;
+            // Update autocomplete on every keystroke
+            let text_before = state.input_buffer[..state.input_cursor].to_string();
+            state.autocomplete.update(&text_before);
         }
 
         // ── Backspace ──
@@ -229,6 +407,8 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
                 state.input_buffer.remove(prev);
                 state.input_cursor = prev;
                 state.dirty = true;
+                let text_before = state.input_buffer[..state.input_cursor].to_string();
+                state.autocomplete.update(&text_before);
             }
         }
 
@@ -237,6 +417,8 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             if state.input_cursor < state.input_buffer.len() {
                 state.input_buffer.remove(state.input_cursor);
                 state.dirty = true;
+                let text_before = state.input_buffer[..state.input_cursor].to_string();
+                state.autocomplete.update(&text_before);
             }
         }
 
@@ -262,8 +444,12 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             }
         }
 
-        // ── Escape: cancel streaming (priority) → clear input → reset scroll ──
+        // ── Escape: dismiss autocomplete → cancel streaming → clear input → reset scroll ──
         (KeyModifiers::NONE, KeyCode::Esc) => {
+            if state.autocomplete.is_visible() {
+                state.autocomplete.dismiss();
+                return;
+            }
             if state.is_streaming || !state.active_tools.is_empty() {
                 // Cancel current agent operation — highest priority
                 let _ = state
@@ -758,5 +944,140 @@ mod tests {
         assert!(state.scroll_last_dir.is_none());
         assert!(state.scroll_last_time.is_none());
         assert_eq!(state.scroll_accel, 0);
+    }
+
+    #[test]
+    fn test_slash_command_help() {
+        let mut state = make_test_state();
+        execute_slash_command(&mut state, "/help");
+        assert_eq!(state.messages.len(), 1);
+        let text = match &state.messages[0].content[0] {
+            ContentBlock::Text { text } => text.clone(),
+            _ => String::new(),
+        };
+        assert!(text.contains("/help"), "Help output should list /help command");
+        assert!(text.contains("/debug"), "Help output should list /debug command");
+    }
+
+    #[test]
+    fn test_slash_command_clear() {
+        let mut state = make_test_state();
+        state.messages.push(ChatMessage::user("hello"));
+        state.messages.push(ChatMessage::assistant("hi"));
+        execute_slash_command(&mut state, "/clear");
+        assert!(state.messages.is_empty());
+    }
+
+    #[test]
+    fn test_slash_command_exit() {
+        let mut state = make_test_state();
+        assert!(state.running);
+        execute_slash_command(&mut state, "/exit");
+        assert!(!state.running);
+    }
+
+    #[test]
+    fn test_slash_command_quit() {
+        let mut state = make_test_state();
+        execute_slash_command(&mut state, "/quit");
+        assert!(!state.running);
+    }
+
+    #[test]
+    fn test_slash_command_debug_toggle() {
+        let mut state = make_test_state();
+        assert_eq!(state.overlay, OverlayMode::None);
+        execute_slash_command(&mut state, "/debug");
+        assert_eq!(state.overlay, OverlayMode::AgentDebug);
+        execute_slash_command(&mut state, "/debug");
+        assert_eq!(state.overlay, OverlayMode::None);
+    }
+
+    #[test]
+    fn test_slash_command_eval_toggle() {
+        let mut state = make_test_state();
+        execute_slash_command(&mut state, "/eval");
+        assert_eq!(state.overlay, OverlayMode::Eval);
+        execute_slash_command(&mut state, "/eval");
+        assert_eq!(state.overlay, OverlayMode::None);
+    }
+
+    #[test]
+    fn test_slash_command_sessions_toggle() {
+        let mut state = make_test_state();
+        execute_slash_command(&mut state, "/sessions");
+        assert_eq!(state.overlay, OverlayMode::SessionPicker);
+    }
+
+    #[test]
+    fn test_slash_command_todo_toggle() {
+        let mut state = make_test_state();
+        assert!(!state.todo_visible);
+        execute_slash_command(&mut state, "/todo");
+        assert!(state.todo_visible);
+        execute_slash_command(&mut state, "/todo");
+        assert!(!state.todo_visible);
+    }
+
+    #[test]
+    fn test_slash_command_unknown() {
+        let mut state = make_test_state();
+        execute_slash_command(&mut state, "/foobar");
+        assert_eq!(state.messages.len(), 1);
+        let text = match &state.messages[0].content[0] {
+            ContentBlock::Text { text } => text.clone(),
+            _ => String::new(),
+        };
+        assert!(text.contains("Unknown command"));
+    }
+
+    #[tokio::test]
+    async fn test_slash_command_via_enter() {
+        let mut state = make_test_state();
+        // Type "/help" — autocomplete will show
+        for c in "/help".chars() {
+            handle_key(&mut state, make_key(KeyCode::Char(c))).await;
+        }
+        // First Enter: accepts autocomplete (inserts "/help")
+        handle_key(&mut state, make_key(KeyCode::Enter)).await;
+        assert_eq!(state.input_buffer, "/help");
+        // Second Enter: executes the slash command
+        handle_key(&mut state, make_key(KeyCode::Enter)).await;
+        // Should NOT be streaming (local command, not sent to agent)
+        assert!(!state.is_streaming);
+        // Should have help message
+        assert_eq!(state.messages.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_autocomplete_triggers_on_slash() {
+        let mut state = make_test_state();
+        handle_key(&mut state, make_key(KeyCode::Char('/'))).await;
+        // Autocomplete should be visible with all slash commands
+        assert!(state.autocomplete.is_visible());
+        assert!(!state.autocomplete.items().is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_autocomplete_dismiss_on_esc() {
+        let mut state = make_test_state();
+        handle_key(&mut state, make_key(KeyCode::Char('/'))).await;
+        assert!(state.autocomplete.is_visible());
+        handle_key(&mut state, make_key(KeyCode::Esc)).await;
+        assert!(!state.autocomplete.is_visible());
+    }
+
+    #[tokio::test]
+    async fn test_autocomplete_accept_on_tab() {
+        let mut state = make_test_state();
+        // Type "/hel" to trigger autocomplete
+        for c in "/hel".chars() {
+            handle_key(&mut state, make_key(KeyCode::Char(c))).await;
+        }
+        assert!(state.autocomplete.is_visible());
+        // Tab to accept
+        handle_key(&mut state, make_key(KeyCode::Tab)).await;
+        assert!(!state.autocomplete.is_visible());
+        assert_eq!(state.input_buffer, "/help");
     }
 }

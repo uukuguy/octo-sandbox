@@ -179,6 +179,10 @@ pub struct TuiState {
     pub plan_steps: Vec<octo_engine::agent::dual::PlanStep>,
     /// Whether the todo panel is visible.
     pub todo_visible: bool,
+
+    // ── Autocomplete ──
+    /// Autocomplete engine for slash commands and file mentions.
+    pub autocomplete: super::autocomplete::AutocompleteEngine,
 }
 
 impl TuiState {
@@ -271,6 +275,9 @@ impl TuiState {
             mcp_status: None,
             plan_steps: Vec::new(),
             todo_visible: false,
+            autocomplete: super::autocomplete::AutocompleteEngine::new(
+                std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+            ),
         }
     }
 

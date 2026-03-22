@@ -26,7 +26,7 @@ pub fn render(state: &TuiState, frame: &mut Frame) {
         .constraints([
             Constraint::Min(5),              // conversation area
             Constraint::Length(todo_height),  // todo panel (hidden when empty/invisible)
-            Constraint::Length(input_lines + 2), // input area (top separator + text + bottom border)
+            Constraint::Length(input_lines + 1), // input area (top separator + text)
             Constraint::Length(status_height),   // status bar
         ])
         .split(area);
@@ -37,6 +37,11 @@ pub fn render(state: &TuiState, frame: &mut Frame) {
     }
     render_input(state, frame, chunks[2]);
     render_status_bar(state, frame, chunks[3]);
+
+    // Autocomplete popup (rendered above input area)
+    if state.autocomplete.is_visible() {
+        render_autocomplete_popup(state, frame, chunks[2]);
+    }
 
     // Overlays (rendered on top)
     if state.overlay != OverlayMode::None {
@@ -158,6 +163,75 @@ fn render_status_bar(state: &TuiState, frame: &mut Frame, area: Rect) {
     .agent_state(agent_display);
 
     frame.render_widget(widget, area);
+}
+
+/// Render the autocomplete popup above the input area.
+fn render_autocomplete_popup(state: &TuiState, frame: &mut Frame, input_area: Rect) {
+    let items = state.autocomplete.render_popup();
+    if items.is_empty() {
+        return;
+    }
+
+    let max_items = items.len().min(10);
+    let popup_height = max_items as u16 + 2; // +2 for border
+    let popup_width = 50u16.min(input_area.width);
+
+    // Position above the input area
+    let popup_y = input_area.y.saturating_sub(popup_height);
+    let popup_x = input_area.x + 2; // indent slightly past the prompt
+
+    let popup_area = Rect {
+        x: popup_x,
+        y: popup_y,
+        width: popup_width,
+        height: popup_height,
+    };
+
+    // Clear background
+    frame.render_widget(Clear, popup_area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::DarkGray))
+        .title(" Completions ")
+        .title_style(Style::default().fg(Color::Cyan));
+    let inner = block.inner(popup_area);
+    frame.render_widget(block, popup_area);
+
+    // Render each item
+    for (i, (label, desc, selected)) in items.iter().take(max_items).enumerate() {
+        if (i as u16) >= inner.height {
+            break;
+        }
+        let row = inner.y + i as u16;
+        let style = if *selected {
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+        let desc_style = if *selected {
+            Style::default().fg(Color::Black).bg(Color::Cyan)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        let label_width = label.len().min(inner.width as usize / 2);
+        let desc_width = inner.width as usize - label_width - 2;
+        let desc_display: String = if desc.len() > desc_width {
+            desc.chars().take(desc_width.saturating_sub(1)).chain(std::iter::once('\u{2026}')).collect()
+        } else {
+            desc.clone()
+        };
+
+        let line = Line::from(vec![
+            Span::styled(format!(" {:<width$}", label, width = label_width), style),
+            Span::styled(format!("  {}", desc_display), desc_style),
+        ]);
+        frame.buffer_mut().set_line(inner.x, row, &line, inner.width);
+    }
 }
 
 /// Render the tool approval dialog as a centered popup.

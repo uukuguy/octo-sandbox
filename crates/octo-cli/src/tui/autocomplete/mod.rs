@@ -39,6 +39,10 @@ pub static BUILTIN_COMMANDS: &[SlashCommand] = &[
     SlashCommand { name: "agents", description: "List available agents" },
     SlashCommand { name: "delegate", description: "Delegate to another agent" },
     SlashCommand { name: "collab", description: "Collaborative multi-agent mode" },
+    SlashCommand { name: "debug", description: "Toggle debug panel" },
+    SlashCommand { name: "eval", description: "Toggle eval panel" },
+    SlashCommand { name: "sessions", description: "Toggle session picker" },
+    SlashCommand { name: "todo", description: "Toggle todo/plan panel" },
 ];
 
 // ── Completion item ────────────────────────────────────────────────

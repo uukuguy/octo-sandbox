@@ -21,12 +21,11 @@ use color::hsl_to_rgb;
 /// Stateless widget that renders the welcome panel from `WelcomePanelState`.
 pub struct WelcomePanel<'a> {
     state: &'a WelcomePanelState,
-    model_name: &'a str,
 }
 
 impl<'a> WelcomePanel<'a> {
-    pub fn new(state: &'a WelcomePanelState, model_name: &'a str) -> Self {
-        Self { state, model_name }
+    pub fn new(state: &'a WelcomePanelState, _model_name: &'a str) -> Self {
+        Self { state }
     }
 
     #[inline]
@@ -78,15 +77,15 @@ impl<'a> WelcomePanel<'a> {
         }
     }
 
-    // 5-row ASCII art: "OCTO" in block letters (width 35)
+    // 5-row ASCII art: "OCTO" using half-block characters for smooth rounded look (width 37)
     const LOGO_LINES: [&'static str; 5] = [
-        "  ██████   ██████ ████████  ██████ ",
-        " ██    ██ ██         ██    ██    ██",
-        " ██    ██ ██         ██    ██    ██",
-        " ██    ██ ██         ██    ██    ██",
-        "  ██████   ██████    ██     ██████ ",
+        " \u{2584}\u{2584}\u{2584}\u{2584}\u{2584}   \u{2584}\u{2584}\u{2584}\u{2584}\u{2584}  \u{2584}\u{2584}\u{2584}\u{2584}\u{2584}\u{2584}  \u{2584}\u{2584}\u{2584}\u{2584}\u{2584} ",
+        "\u{2588}\u{2588}   \u{2588}\u{2588} \u{2588}\u{2588}        \u{2588}\u{2588}   \u{2588}\u{2588}   \u{2588}\u{2588}",
+        "\u{2588}\u{2588}   \u{2588}\u{2588} \u{2588}\u{2588}        \u{2588}\u{2588}   \u{2588}\u{2588}   \u{2588}\u{2588}",
+        "\u{2588}\u{2588}   \u{2588}\u{2588} \u{2588}\u{2588}        \u{2588}\u{2588}   \u{2588}\u{2588}   \u{2588}\u{2588}",
+        " \u{2580}\u{2580}\u{2580}\u{2580}\u{2580}   \u{2580}\u{2580}\u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}\u{2580}\u{2580}\u{2580}  \u{2580}\u{2580}\u{2580}\u{2580}\u{2580} ",
     ];
-    const LOGO_WIDTH: usize = 35;
+    const LOGO_WIDTH: usize = 37;
     const LOGO_HEIGHT: usize = 5;
 
     /// Render the dot-grid background with pulsing intersections and OCTO logo as negative space.
@@ -250,9 +249,14 @@ impl Widget for WelcomePanel<'_> {
             let by = subtitle_y + 1;
             self.draw_border(buf, area, center_x, by, box_w, box_h);
 
-            let info_text = format!("model: {}  \u{2502}  {}", self.model_name, help);
+            let max_inner = (box_w as usize).saturating_sub(4); // 2 border chars + 2 padding
+            let display_text: String = if help.len() > max_inner {
+                help.chars().take(max_inner - 1).chain(std::iter::once('\u{2026}')).collect()
+            } else {
+                help.to_string()
+            };
             let info_y = by + 1;
-            self.write_gradient_line(buf, area, info_y, &info_text, 0.35);
+            self.write_gradient_line(buf, area, info_y, &display_text, 0.35);
         }
     }
 }
@@ -338,7 +342,7 @@ mod tests {
         widget.render(area, &mut buf);
 
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
-        assert!(content.contains("gpt-4o"), "Should show model info");
         assert!(content.contains("Autonomous AI Workbench"), "Should show subtitle");
+        assert!(content.contains("Enter"), "Should show help text");
     }
 }
