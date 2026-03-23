@@ -10,6 +10,11 @@
 # ==============================================================================
 FROM node:22-slim AS base-system
 
+# Optional: pip mirror for builds behind firewalls or in China mainland
+# Usage: docker build --build-arg PIP_INDEX_URL=https://pypi.tuna.tsinghua.edu.cn/simple ...
+ARG PIP_INDEX_URL
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+
 # System packages: git, curl, python3, openssh, etc.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \

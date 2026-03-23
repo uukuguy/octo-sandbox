@@ -3,6 +3,10 @@
 
 FROM octo-sandbox:base AS dev
 
+# Optional: pip mirror (inherited from base or set independently)
+ARG PIP_INDEX_URL
+ENV PIP_INDEX_URL=${PIP_INDEX_URL}
+
 USER root
 
 # C/C++ compilers for native extensions + AD-T3 debugging tools
@@ -32,9 +36,10 @@ RUN cargo install flamegraph --locked \
     && rm -rf /usr/local/cargo/registry /usr/local/cargo/git
 
 # Python dev packages (includes MCP, LLM, ML libraries)
-COPY scripts/requirements-dev.txt /tmp/requirements-dev.txt
-RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements-dev.txt \
-    && rm /tmp/requirements-dev.txt
+COPY scripts/requirements-dev.txt scripts/install-python-packages.sh /tmp/
+RUN chmod +x /tmp/install-python-packages.sh \
+    && /tmp/install-python-packages.sh /tmp/requirements-dev.txt \
+    && rm /tmp/requirements-dev.txt /tmp/install-python-packages.sh
 
 # PyTorch CPU-only (separate install from CPU-only index)
 RUN pip3 install --no-cache-dir --break-system-packages \
