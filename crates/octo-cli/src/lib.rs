@@ -39,6 +39,10 @@ pub struct Cli {
     #[arg(short, long, global = true)]
     pub db: Option<String>,
 
+    /// Target project directory (overrides $PWD for OctoRoot discovery)
+    #[arg(short = 'P', long, global = true)]
+    pub project: Option<String>,
+
     /// Output format (text, json, table)
     #[arg(long, global = true, default_value = "text")]
     pub output: String,

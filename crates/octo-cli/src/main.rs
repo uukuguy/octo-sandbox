@@ -46,13 +46,20 @@ async fn main() -> Result<()> {
     info!("Starting Octo CLI");
 
     // Discover OctoRoot for unified path management
-    let octo_root = octo_engine::OctoRoot::discover()
-        .unwrap_or_else(|e| {
-            tracing::warn!("Failed to discover OctoRoot: {}, using defaults", e);
-            // Fallback: construct with current dir or "."
-            let wd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-            octo_engine::OctoRoot::with_working_dir(&wd).expect("OctoRoot fallback failed")
-        });
+    let octo_root = if let Some(ref project_path) = cli.project {
+        octo_engine::OctoRoot::with_project_dir(project_path)
+            .unwrap_or_else(|e| {
+                eprintln!("Error: {}", e);
+                std::process::exit(1);
+            })
+    } else {
+        octo_engine::OctoRoot::discover()
+            .unwrap_or_else(|e| {
+                tracing::warn!("Failed to discover OctoRoot: {}, using defaults", e);
+                let wd = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                octo_engine::OctoRoot::with_working_dir(&wd).expect("OctoRoot fallback failed")
+            })
+    };
 
     // Ensure directories exist
     if let Err(e) = octo_root.ensure_dirs() {

@@ -50,6 +50,21 @@ impl OctoRoot {
         Self::with_working_dir(&working_dir)
     }
 
+    /// Create OctoRoot with an explicit project directory.
+    ///
+    /// This is the entry point when `--project <PATH>` is specified on the CLI.
+    /// The path is canonicalized and validated for existence.
+    pub fn with_project_dir(project_dir: impl AsRef<Path>) -> Result<Self> {
+        let project_dir = project_dir.as_ref();
+        let canonical = project_dir.canonicalize().with_context(|| {
+            format!(
+                "Project directory does not exist: {}",
+                project_dir.display()
+            )
+        })?;
+        Self::with_working_dir(&canonical)
+    }
+
     /// Create OctoRoot with an explicit working directory.
     pub fn with_working_dir(working_dir: &Path) -> Result<Self> {
         let global_root = if let Ok(env_root) = std::env::var("OCTO_GLOBAL_ROOT") {
@@ -441,6 +456,33 @@ mod tests {
             tmp.path().join("project").join("eval.toml")
         );
         std::env::remove_var("OCTO_PROJECT_ROOT");
+    }
+
+    #[test]
+    fn test_with_project_dir_existing() {
+        let tmp = tempfile::tempdir().unwrap();
+        let project = tmp.path().join("myproject");
+        std::fs::create_dir_all(&project).unwrap();
+
+        std::env::set_var("OCTO_GLOBAL_ROOT", tmp.path().join("global"));
+
+        let root = OctoRoot::with_project_dir(&project).unwrap();
+        // Should resolve to the canonical path
+        assert_eq!(root.working_dir(), project.canonicalize().unwrap());
+
+        std::env::remove_var("OCTO_GLOBAL_ROOT");
+    }
+
+    #[test]
+    fn test_with_project_dir_nonexistent() {
+        let result = OctoRoot::with_project_dir("/nonexistent/path/that/does/not/exist");
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err().to_string();
+        assert!(
+            err_msg.contains("does not exist"),
+            "Error should mention 'does not exist', got: {}",
+            err_msg
+        );
     }
 
     #[test]
