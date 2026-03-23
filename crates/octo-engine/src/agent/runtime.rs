@@ -298,7 +298,7 @@ impl AgentRuntime {
         let metering = Arc::new(Metering::new());
 
         // 15. SecurityPolicy initialization (path validation for ToolContext)
-        let security_policy = Arc::new(SecurityPolicy::new().with_workspace(working_dir.clone()));
+        let security_policy = Arc::new(SecurityPolicy::new().with_working_dir(working_dir.clone()));
 
         // 16. SafetyPipeline with CanaryGuardLayer (T1 — canary token injection)
         let canary_guard = crate::security::CanaryGuardLayer::with_default_canary();

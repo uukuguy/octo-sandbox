@@ -15,7 +15,6 @@
 //!     └── _Users_foo_myproject/         path encoding: / → _
 //!         ├── meta.json                 { "path": "/Users/foo/myproject", "created_at": "..." }
 //!         ├── octo.db                   SQLite (sessions, memory, tools, audit)
-//!         ├── workspace/                Agent output files
 //!         └── history/                  Session history/snapshots
 //!
 //! $PWD/.octo/                           OCTO_PROJECT_ROOT (declarative, git-trackable)
@@ -106,11 +105,6 @@ impl OctoRoot {
     /// Project-local skills directory (`$PWD/.octo/skills/`).
     pub fn project_skills_dir(&self) -> PathBuf {
         self.project_root.join("skills")
-    }
-
-    /// Agent workspace directory for outputs.
-    pub fn workspace_dir(&self) -> PathBuf {
-        self.project_data_dir().join("workspace")
     }
 
     /// Session history directory.
@@ -204,7 +198,6 @@ impl OctoRoot {
     pub fn ensure_dirs(&self) -> Result<()> {
         let dirs_to_create = [
             self.project_data_dir(),
-            self.workspace_dir(),
             self.history_dir(),
             self.cache_dir(),
             self.global_skills_dir(),
@@ -338,7 +331,6 @@ mod tests {
 
         // Check directories exist
         assert!(root.project_data_dir().exists());
-        assert!(root.workspace_dir().exists());
         assert!(root.history_dir().exists());
         assert!(root.cache_dir().exists());
         assert!(root.global_skills_dir().exists());

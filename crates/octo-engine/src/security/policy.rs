@@ -48,8 +48,8 @@ pub enum CommandRiskLevel {
 pub struct SecurityPolicy {
     /// Autonomy level for this session.
     pub autonomy: AutonomyLevel,
-    /// Allowed workspace directory.
-    pub workspace_dir: PathBuf,
+    /// Allowed working directory.
+    pub working_dir: PathBuf,
     /// Whether to restrict all operations to workspace only.
     pub workspace_only: bool,
     /// Whitelist of allowed commands (empty = allow all).
@@ -72,7 +72,7 @@ impl Default for SecurityPolicy {
     fn default() -> Self {
         Self {
             autonomy: AutonomyLevel::Supervised,
-            workspace_dir: PathBuf::from("."),
+            working_dir: PathBuf::from("."),
             workspace_only: true,
             // Empty = allow all commands. Security enforcement is at sandbox level.
             // Use AutonomyLevel + risk assessment for approval gates instead.
@@ -113,9 +113,9 @@ impl SecurityPolicy {
         Self::default()
     }
 
-    /// Create a policy with custom workspace.
-    pub fn with_workspace(mut self, workspace: PathBuf) -> Self {
-        self.workspace_dir = workspace;
+    /// Create a policy with custom working directory.
+    pub fn with_working_dir(mut self, dir: PathBuf) -> Self {
+        self.working_dir = dir;
         self
     }
 
@@ -169,9 +169,9 @@ impl SecurityPolicy {
         // Check workspace restriction
         if self.workspace_only {
             let workspace = self
-                .workspace_dir
+                .working_dir
                 .canonicalize()
-                .unwrap_or_else(|_| self.workspace_dir.clone());
+                .unwrap_or_else(|_| self.working_dir.clone());
             // For new files that don't exist yet, canonicalize the parent directory
             let expanded_canonical = expanded.canonicalize().unwrap_or_else(|_| {
                 if let Some(parent) = expanded.parent() {

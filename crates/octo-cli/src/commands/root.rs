@@ -33,7 +33,6 @@ fn show_root(state: &AppState) -> Result<()> {
     println!();
     println!("Project data:         {}", root.project_data_dir().display());
     println!("  octo.db:            {}", root.db_path().display());
-    println!("  workspace/:         {}", root.workspace_dir().display());
     println!("  history/:           {}", root.history_dir().display());
     println!();
     println!("Resolved DB path:     {}", root.resolve_db_path().display());
