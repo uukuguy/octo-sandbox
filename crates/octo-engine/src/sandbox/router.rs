@@ -23,6 +23,12 @@ pub enum ToolCategory {
     FileSystem,
     /// Network requests
     Network,
+    /// Script execution (Python, Node.js, etc.)
+    Script,
+    /// GPU-accelerated workloads
+    Gpu,
+    /// Untrusted code from external sources
+    Untrusted,
 }
 
 /// Enum wrapper for runtime adapters
@@ -105,6 +111,9 @@ impl SandboxRouter {
     /// - Compute -> Wasm
     /// - FileSystem -> Docker
     /// - Network -> Wasm
+    /// - Script -> Docker
+    /// - Gpu -> Docker
+    /// - Untrusted -> Docker
     pub fn new() -> Self {
         Self::with_policy(SandboxPolicy::default())
     }
@@ -116,6 +125,9 @@ impl SandboxRouter {
         tool_mapping.insert(ToolCategory::Compute, SandboxType::Wasm);
         tool_mapping.insert(ToolCategory::FileSystem, SandboxType::Docker);
         tool_mapping.insert(ToolCategory::Network, SandboxType::Wasm);
+        tool_mapping.insert(ToolCategory::Script, SandboxType::Docker);
+        tool_mapping.insert(ToolCategory::Gpu, SandboxType::Docker);
+        tool_mapping.insert(ToolCategory::Untrusted, SandboxType::Docker);
 
         Self {
             adapters: HashMap::new(),
@@ -150,13 +162,18 @@ impl SandboxRouter {
     pub fn get_sandbox_type(&self, category: ToolCategory) -> SandboxType {
         self.tool_mapping
             .get(&category)
-            .copied()
-            .unwrap_or(self.default_sandbox)
+            .cloned()
+            .unwrap_or_else(|| self.default_sandbox.clone())
     }
 
     /// Get an adapter by sandbox type
-    pub fn get_adapter(&self, sandbox_type: SandboxType) -> Option<&Arc<AdapterEnum>> {
-        self.adapters.get(&sandbox_type)
+    pub fn get_adapter(&self, sandbox_type: &SandboxType) -> Option<&Arc<AdapterEnum>> {
+        self.adapters.get(sandbox_type)
+    }
+
+    /// List all registered adapter types
+    pub fn registered_backends(&self) -> Vec<SandboxType> {
+        self.adapters.keys().cloned().collect()
     }
 
     /// Execute a command in the appropriate sandbox
@@ -173,14 +190,14 @@ impl SandboxRouter {
 
         // Try to get the target adapter
         let (actual_type, adapter) = if let Some(adapter) = self.adapters.get(&target_type) {
-            (target_type, adapter)
+            (target_type.clone(), adapter)
         } else {
             // Target adapter not available — try fallback
-            self.resolve_fallback(target_type)?
+            self.resolve_fallback(&target_type)?
         };
 
         // Policy enforcement
-        if !self.policy.allows(actual_type) {
+        if !self.policy.allows(&actual_type) {
             return Err(SandboxError::PolicyDenied {
                 policy: self.policy,
                 sandbox_type: actual_type,
@@ -188,7 +205,7 @@ impl SandboxRouter {
         }
 
         // Log degradation if needed
-        if self.policy.requires_degradation_audit(target_type, actual_type) {
+        if self.policy.requires_degradation_audit(&target_type, &actual_type) {
             tracing::warn!(
                 "Sandbox degradation: {} -> {} (policy: {})",
                 target_type,
@@ -208,15 +225,15 @@ impl SandboxRouter {
     /// Try to find a fallback adapter when the target is not available
     fn resolve_fallback(
         &self,
-        target_type: SandboxType,
+        target_type: &SandboxType,
     ) -> Result<(SandboxType, &Arc<AdapterEnum>), SandboxError> {
         // Fallback order: Docker -> Wasm -> Subprocess
         let fallback_order = [SandboxType::Docker, SandboxType::Wasm, SandboxType::Subprocess];
 
         for fallback in &fallback_order {
-            if *fallback != target_type {
+            if fallback != target_type {
                 if let Some(adapter) = self.adapters.get(fallback) {
-                    return Ok((*fallback, adapter));
+                    return Ok((fallback.clone(), adapter));
                 }
             }
         }
@@ -305,9 +322,9 @@ mod tests {
         router.register_adapter(AdapterEnum::Docker(DockerAdapter::new("alpine:latest")));
 
         // Get adapter should work
-        assert!(router.get_adapter(SandboxType::Subprocess).is_some());
-        assert!(router.get_adapter(SandboxType::Wasm).is_some());
-        assert!(router.get_adapter(SandboxType::Docker).is_some());
+        assert!(router.get_adapter(&SandboxType::Subprocess).is_some());
+        assert!(router.get_adapter(&SandboxType::Wasm).is_some());
+        assert!(router.get_adapter(&SandboxType::Docker).is_some());
     }
 
     #[tokio::test]
@@ -392,38 +409,56 @@ mod tests {
     #[test]
     fn test_strict_allows_docker_and_wasm() {
         let policy = SandboxPolicy::Strict;
-        assert!(policy.allows(SandboxType::Docker));
-        assert!(policy.allows(SandboxType::Wasm));
-        assert!(!policy.allows(SandboxType::Subprocess));
+        assert!(policy.allows(&SandboxType::Docker));
+        assert!(policy.allows(&SandboxType::Wasm));
+        assert!(!policy.allows(&SandboxType::Subprocess));
+        assert!(policy.allows(&SandboxType::External("e2b".to_string())));
     }
 
     #[test]
     fn test_preferred_allows_all() {
         let policy = SandboxPolicy::Preferred;
-        assert!(policy.allows(SandboxType::Docker));
-        assert!(policy.allows(SandboxType::Wasm));
-        assert!(policy.allows(SandboxType::Subprocess));
+        assert!(policy.allows(&SandboxType::Docker));
+        assert!(policy.allows(&SandboxType::Wasm));
+        assert!(policy.allows(&SandboxType::Subprocess));
     }
 
     #[test]
     fn test_development_allows_all() {
         let policy = SandboxPolicy::Development;
-        assert!(policy.allows(SandboxType::Docker));
-        assert!(policy.allows(SandboxType::Wasm));
-        assert!(policy.allows(SandboxType::Subprocess));
+        assert!(policy.allows(&SandboxType::Docker));
+        assert!(policy.allows(&SandboxType::Wasm));
+        assert!(policy.allows(&SandboxType::Subprocess));
     }
 
     #[test]
     fn test_preferred_degradation_audit() {
         let policy = SandboxPolicy::Preferred;
-        assert!(policy.requires_degradation_audit(SandboxType::Docker, SandboxType::Subprocess));
-        assert!(!policy.requires_degradation_audit(SandboxType::Docker, SandboxType::Docker));
+        assert!(policy.requires_degradation_audit(&SandboxType::Docker, &SandboxType::Subprocess));
+        assert!(!policy.requires_degradation_audit(&SandboxType::Docker, &SandboxType::Docker));
     }
 
     #[test]
     fn test_strict_no_degradation_audit() {
         let policy = SandboxPolicy::Strict;
-        assert!(!policy.requires_degradation_audit(SandboxType::Docker, SandboxType::Subprocess));
+        assert!(!policy.requires_degradation_audit(&SandboxType::Docker, &SandboxType::Subprocess));
+    }
+
+    #[test]
+    fn test_new_category_default_mappings() {
+        let router = SandboxRouter::new();
+        assert_eq!(
+            router.get_sandbox_type(ToolCategory::Script),
+            SandboxType::Docker
+        );
+        assert_eq!(
+            router.get_sandbox_type(ToolCategory::Gpu),
+            SandboxType::Docker
+        );
+        assert_eq!(
+            router.get_sandbox_type(ToolCategory::Untrusted),
+            SandboxType::Docker
+        );
     }
 
     #[tokio::test]

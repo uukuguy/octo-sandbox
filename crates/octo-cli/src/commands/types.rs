@@ -256,6 +256,17 @@ pub enum SkillCommands {
     },
 }
 
+/// Sandbox diagnostic subcommands
+#[derive(Subcommand)]
+pub enum SandboxCommands {
+    /// Show current sandbox profile and run mode
+    Status,
+    /// Show routing decisions for each tool category (dry-run)
+    DryRun,
+    /// List registered sandbox backends
+    ListBackends,
+}
+
 /// Root path management subcommands
 #[derive(Subcommand)]
 pub enum RootCommands {

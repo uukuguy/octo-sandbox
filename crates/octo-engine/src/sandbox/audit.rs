@@ -125,13 +125,14 @@ impl SandboxAuditEvent {
         language: &str,
         policy: SandboxPolicy,
     ) -> Self {
+        let image = format!("{} -> {}", target_type, actual_type);
         Self {
             sandbox_type: actual_type,
             sandbox_id: String::new(),
             action: SandboxAction::DegradationWarning,
             language: language.to_string(),
             code_hash: Self::hash_code(code),
-            image: Some(format!("{} -> {}", target_type, actual_type)),
+            image: Some(image),
             exit_code: None,
             execution_time_ms: 0,
             stdout_size: 0,

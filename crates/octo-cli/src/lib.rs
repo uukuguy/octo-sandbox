@@ -7,7 +7,7 @@ use clap::Parser;
 
 use commands::{
     AgentCommands, CompletionsCommands, ConfigCommands, EvalCommands, McpCommands, MemoryCommands,
-    RootCommands, SessionCommands, SkillCommands, ToolsCommands,
+    RootCommands, SandboxCommands, SessionCommands, SkillCommands, ToolsCommands,
 };
 
 pub mod commands;
@@ -142,6 +142,12 @@ pub enum Commands {
     Eval {
         #[command(subcommand)]
         action: EvalCommands,
+    },
+
+    /// Sandbox execution environment diagnostics
+    Sandbox {
+        #[command(subcommand)]
+        action: SandboxCommands,
     },
 
     /// Initialize Octo project in current directory

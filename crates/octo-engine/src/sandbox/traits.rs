@@ -20,7 +20,8 @@ impl fmt::Display for SandboxId {
 }
 
 /// Type of sandbox runtime
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
 pub enum SandboxType {
     /// WebAssembly runtime
     Wasm,
@@ -28,6 +29,8 @@ pub enum SandboxType {
     Docker,
     /// Local subprocess
     Subprocess,
+    /// External third-party sandbox (E2B, Modal, Firecracker, gVisor)
+    External(String),
 }
 
 impl fmt::Display for SandboxType {
@@ -36,6 +39,7 @@ impl fmt::Display for SandboxType {
             SandboxType::Wasm => write!(f, "wasm"),
             SandboxType::Docker => write!(f, "docker"),
             SandboxType::Subprocess => write!(f, "subprocess"),
+            SandboxType::External(name) => write!(f, "external:{}", name),
         }
     }
 }
@@ -125,17 +129,20 @@ impl Default for SandboxPolicy {
 
 impl SandboxPolicy {
     /// Check whether a given sandbox type is allowed under this policy
-    pub fn allows(&self, sandbox_type: SandboxType) -> bool {
+    pub fn allows(&self, sandbox_type: &SandboxType) -> bool {
         match self {
             SandboxPolicy::Strict => {
-                matches!(sandbox_type, SandboxType::Docker | SandboxType::Wasm)
+                matches!(
+                    sandbox_type,
+                    SandboxType::Docker | SandboxType::Wasm | SandboxType::External(_)
+                )
             }
             SandboxPolicy::Preferred | SandboxPolicy::Development => true,
         }
     }
 
     /// Whether degradation from `target` to `actual` requires an audit record
-    pub fn requires_degradation_audit(&self, target: SandboxType, actual: SandboxType) -> bool {
+    pub fn requires_degradation_audit(&self, target: &SandboxType, actual: &SandboxType) -> bool {
         target != actual && matches!(self, SandboxPolicy::Preferred)
     }
 }

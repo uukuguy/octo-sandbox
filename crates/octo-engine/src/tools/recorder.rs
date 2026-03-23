@@ -185,6 +185,11 @@ impl ToolExecutionRecorder {
                 .unwrap_or(None)
                 .map(|v| v as u64),
             error: row.get(10).unwrap_or(None),
+            // Sandbox context fields — not stored in DB yet, populated at runtime
+            sandbox_profile: None,
+            execution_target: None,
+            actual_backend: None,
+            routing_reason: None,
         }
     }
 }

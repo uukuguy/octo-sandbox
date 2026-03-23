@@ -15,6 +15,7 @@ pub mod mcp;
 pub mod memory;
 pub mod root;
 pub mod run;
+pub mod sandbox;
 pub mod session;
 pub mod skill;
 pub mod state;
@@ -24,7 +25,7 @@ pub mod types;
 // Re-export types for external use
 pub use types::{
     AgentCommands, CompletionsCommands, ConfigCommands, EvalCommands, McpCommands, MemoryCommands,
-    RootCommands, SessionCommands, SkillCommands, ToolsCommands,
+    RootCommands, SandboxCommands, SessionCommands, SkillCommands, ToolsCommands,
 };
 
 // Re-export handler functions
@@ -39,6 +40,7 @@ pub use mcp::handle_mcp;
 pub use memory::handle_memory;
 pub use root::handle_root;
 pub use run::execute_run;
+pub use sandbox::handle_sandbox;
 pub use session::handle_session;
 pub use skill::handle_skill;
 pub use tools::handle_tools;

@@ -84,7 +84,14 @@ impl SkillRuntime for NodeJsRuntime {
     ) -> Result<serde_json::Value> {
         let args_json = serde_json::to_string(&args)?;
 
-        let output = tokio::time::timeout(self.timeout, {
+        // Use profile-aware timeout if available, else fall back to configured default
+        let effective_timeout = if context.sandbox_profile.is_some() {
+            std::time::Duration::from_secs(context.effective_timeout_secs())
+        } else {
+            self.timeout
+        };
+
+        let output = tokio::time::timeout(effective_timeout, {
             Command::new(&self.node_path)
                 .arg("-e")
                 .arg(script)

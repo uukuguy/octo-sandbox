@@ -65,7 +65,7 @@ async fn test_router_register_adapter() {
     router.register_adapter(AdapterEnum::Subprocess(SubprocessAdapter::new()));
 
     // Get adapter should work
-    assert!(router.get_adapter(SandboxType::Subprocess).is_some());
+    assert!(router.get_adapter(&SandboxType::Subprocess).is_some());
 }
 
 #[tokio::test]

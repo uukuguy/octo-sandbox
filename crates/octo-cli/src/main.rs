@@ -9,8 +9,8 @@ use tracing_subscriber::{fmt, EnvFilter};
 
 use octo_cli::commands::{
     self, execute_ask, execute_init, execute_run, generate_completions, handle_agent, handle_config,
-    handle_eval, handle_mcp, handle_memory, handle_root, handle_session, handle_skill, handle_tools,
-    run_doctor, AppState, CompletionsCommands,
+    handle_eval, handle_mcp, handle_memory, handle_root, handle_sandbox, handle_session,
+    handle_skill, handle_tools, run_doctor, AppState, CompletionsCommands,
 };
 use octo_cli::output;
 use octo_cli::tui;
@@ -152,6 +152,7 @@ async fn main() -> Result<()> {
         }
         Commands::Skill { action } => handle_skill(action, &state).await?,
         Commands::Root { action } => handle_root(action, &state).await?,
+        Commands::Sandbox { action } => handle_sandbox(action, &state).await?,
         Commands::Eval { action } => handle_eval(action, &state).await?,
     }
 

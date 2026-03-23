@@ -35,6 +35,8 @@ pub struct StatusBarWidget<'a> {
     session_elapsed: Option<std::time::Duration>,
     input_tokens: u64,
     output_tokens: u64,
+    /// Sandbox profile name (e.g., "development", "staging", "production")
+    sandbox_profile: Option<&'a str>,
 }
 
 /// Standalone activity indicator widget (1 row, shown between conversation and input).
@@ -159,7 +161,14 @@ impl<'a> StatusBarWidget<'a> {
             session_elapsed: None,
             input_tokens: 0,
             output_tokens: 0,
+            sandbox_profile: None,
         }
+    }
+
+    /// Set the sandbox profile to display.
+    pub fn sandbox_profile(mut self, profile: Option<&'a str>) -> Self {
+        self.sandbox_profile = profile;
+        self
     }
 
     pub fn git_status(mut self, staged: usize, modified: usize, untracked: usize, unpushed: usize) -> Self {
@@ -270,6 +279,21 @@ impl Widget for StatusBarWidget<'_> {
                 spans.push(Span::styled(
                     format!("\u{23F1} {}", Self::format_elapsed(elapsed)),
                     Style::default().fg(style_tokens::SUBTLE),
+                ));
+                spans.push(sep.clone());
+            }
+
+            // Sandbox profile badge
+            if let Some(profile) = self.sandbox_profile {
+                let profile_color = match profile {
+                    "development" => style_tokens::GREEN_LIGHT,
+                    "staging" => style_tokens::GOLD,
+                    "production" => style_tokens::ORANGE,
+                    _ => style_tokens::SUBTLE,
+                };
+                spans.push(Span::styled(
+                    format!("\u{25CF} {}", profile),
+                    Style::default().fg(profile_color),
                 ));
                 spans.push(sep.clone());
             }

@@ -26,6 +26,18 @@ pub struct ToolExecution {
     pub started_at: i64,
     pub duration_ms: Option<u64>,
     pub error: Option<String>,
+    /// Sandbox profile used for this execution (e.g., "development", "staging", "production")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub sandbox_profile: Option<String>,
+    /// Execution target (e.g., "local", "sandbox:ephemeral:docker")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub execution_target: Option<String>,
+    /// Actual sandbox backend used (e.g., "docker", "wasm", "subprocess")
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub actual_backend: Option<String>,
+    /// Reason for the routing decision
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub routing_reason: Option<String>,
 }
 
 /// Snapshot of the token budget state.

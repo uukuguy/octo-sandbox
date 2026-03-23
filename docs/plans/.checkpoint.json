@@ -1,85 +1,100 @@
 {
-  "plan_file": "docs/plans/2026-03-23-phase-aa-deployment-config.md",
+  "plan_file": "docs/plans/2026-03-23-phase-ab-tool-execution-environment.md",
   "phase": "execution",
-  "created_at": "2026-03-23T04:50:00+08:00",
-  "updated_at": "2026-03-23T05:40:00+08:00",
-  "completed_tasks": ["AA-T1", "AA-T2b", "AA-T2", "AA-T3", "AA-T4", "AA-T5"],
+  "created_at": "2026-03-23T07:30:00+08:00",
+  "updated_at": "2026-03-23T09:30:00+08:00",
+  "completed_tasks": [
+    "AB-T1", "AB-T2", "AB-T3", "AB-T4", "AB-T5", "AB-T6", "AB-T7", "AB-T8", "AB-T9", "AB-T10"
+  ],
   "current_task": null,
-  "total_tasks": 6,
+  "total_tasks": 10,
   "task_groups": {
     "G1": {
-      "name": "OctoRoot Path Extensions",
-      "tasks": ["AA-T1"],
-      "status": "DONE"
+      "name": "Profile + RunMode + Config",
+      "tasks": ["AB-T1", "AB-T2", "AB-T3"],
+      "status": "COMPLETE"
     },
     "G2": {
-      "name": "Layered Config Loading",
-      "tasks": ["AA-T2b", "AA-T2"],
-      "status": "DONE"
+      "name": "BashTool + SkillRuntime Integration",
+      "tasks": ["AB-T4", "AB-T5", "AB-T6"],
+      "status": "COMPLETE"
     },
     "G3": {
-      "name": "Credentials Loading",
-      "tasks": ["AA-T3"],
-      "status": "DONE"
+      "name": "Observability — Record + Display",
+      "tasks": ["AB-T7", "AB-T8"],
+      "status": "COMPLETE"
     },
     "G4": {
-      "name": "Hardcoded Path Fixes + CLI Enhancement",
-      "tasks": ["AA-T4", "AA-T5"],
-      "status": "DONE"
+      "name": "External Sandbox + CLI",
+      "tasks": ["AB-T9", "AB-T10"],
+      "status": "COMPLETE"
     }
   },
-  "phase_name": "Phase AA — Octo 部署配置架构",
-  "status": "COMPLETE",
-  "execution_mode": "executing-plans",
-  "design_file": "docs/design/DEPLOYMENT_CONFIG_DESIGN.md",
-  "guide_file": "docs/design/DEPLOYMENT_CONFIG_GUIDE.md",
+  "phase_name": "Phase AB — 智能体工具执行环境",
+  "status": "IMPLEMENTATION_COMPLETE",
+  "execution_mode": "writing-plans",
+  "design_file": "docs/design/TOOL_EXECUTION_ENVIRONMENT_DESIGN.md",
   "branch": "main",
   "baseline": {
-    "tests": 2383,
-    "commit": "3ab7bca"
+    "tests": 2394,
+    "commit": "4d45e9a"
   },
-  "final": {
-    "tests": 2388,
-    "commit": "a1384e8"
-  },
-  "commits": [
-    "7a8c416 feat(root): add path methods for local config, credentials, tls, mcp, eval",
-    "5887161 feat(config): layered config loading with credentials + OctoRoot integration",
-    "a1384e8 feat(cli): enhance config show/paths with layered source display"
-  ],
   "deferred": [
     {
-      "id": "AA-D1",
-      "description": "octo auth login/status/logout commands",
-      "precondition": "UX design for interactive credential setup"
+      "id": "AB-D1",
+      "description": "Octo sandbox Docker image (Dockerfile + CI)",
+      "precondition": "Basic integration complete"
     },
     {
-      "id": "AA-D2",
-      "description": "octo init command — project template creation",
-      "precondition": "After config loading stabilizes"
+      "id": "AB-D2",
+      "description": "E2B provider full implementation",
+      "precondition": "ExternalSandboxProvider trait stable"
     },
     {
-      "id": "AA-D3",
-      "description": "XDG Base Directory support",
-      "precondition": "Low priority, OCTO_GLOBAL_ROOT covers"
+      "id": "AB-D3",
+      "description": "WASM plugin loading (.octo/plugins/*.wasm)",
+      "precondition": "WASM routing activated"
     },
     {
-      "id": "AA-D4",
-      "description": "Config file watcher (hot-reload)",
-      "precondition": "Future enhancement"
+      "id": "AB-D4",
+      "description": "Session Sandbox persistence (per-session Docker reuse)",
+      "precondition": "BashTool sandbox integration complete"
+    },
+    {
+      "id": "AB-D5",
+      "description": "CredentialResolver → sandbox env injection",
+      "precondition": "Z-D1 complete"
+    },
+    {
+      "id": "AB-D6",
+      "description": "gVisor / Firecracker provider",
+      "precondition": "External trait stable"
     }
   ],
   "key_decisions": [
-    "7-layer config priority: CLI > env > .env > config.local.yaml > project > global > defaults",
-    "Field-level shallow merge via serde_yaml Value recursion",
-    "credentials.yaml separate file with mode 600",
-    "--config explicit flag skips auto-discovery (Cargo/Terraform convention)",
-    "Legacy $PWD/config.yaml fallback with deprecation warning",
-    "No XDG support — OCTO_GLOBAL_ROOT env var covers the need"
+    "Four sandbox backends: Native/WASM/Docker/External",
+    "Two deployment modes: Sandboxed (mode A) vs Host (mode B)",
+    "SandboxProfile as one-line config switch (dev/stg/prod/custom)",
+    "Development profile = zero-friction (no sandbox overhead)",
+    "Keep two RuntimeAdapter traits (octo-sandbox vs octo-engine) — no merge",
+    "Tool/SkillRuntime trait interfaces unchanged — changes internal only",
+    "--sandbox-bypass preserves SecurityPolicy.forbidden_paths"
   ],
+  "implementation_notes": {
+    "AB-T1": "SandboxProfile enum (dev/stg/prod/custom) with resolve() priority chain, 16 tests",
+    "AB-T2": "OctoRunMode auto-detect (dockerenv/containerenv/k8s), 9 tests",
+    "AB-T3": "SandboxType +External(String) broke Copy→Clone, updated all call sites",
+    "AB-T4": "ExecutionTargetResolver routing decision engine, 12 tests",
+    "AB-T5": "BashTool refactored: with_sandbox() constructor, profile-aware env filtering",
+    "AB-T6": "SkillContext +sandbox_profile field, runtimes respect profile timeout",
+    "AB-T7": "ToolExecution +4 telemetry fields (sandbox_profile/target/backend/reason)",
+    "AB-T8": "StatusBar sandbox profile badge with color coding",
+    "AB-T9": "ExternalSandboxProvider async trait + StubE2BProvider, 9 tests",
+    "AB-T10": "CLI `octo sandbox` (status/dry-run/list-backends), 5 tests"
+  },
   "previous_phase": {
-    "name": "Phase Z — Landmine Scan & Fix",
+    "name": "Phase AA — Octo 部署配置架构",
     "status": "COMPLETE",
-    "commit": "81fa923"
+    "commit": "4d45e9a"
   }
 }

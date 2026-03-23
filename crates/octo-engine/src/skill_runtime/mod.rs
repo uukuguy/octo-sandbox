@@ -2,6 +2,8 @@ use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
 
+use crate::sandbox::SandboxProfile;
+
 pub mod nodejs;
 pub mod python;
 pub mod shell;
@@ -33,6 +35,8 @@ pub struct SkillContext {
     pub tools: Vec<ToolInfo>,
     /// Working directory for the skill execution.
     pub working_dir: PathBuf,
+    /// Sandbox profile controlling execution environment.
+    pub sandbox_profile: Option<SandboxProfile>,
 }
 
 impl SkillContext {
@@ -41,12 +45,34 @@ impl SkillContext {
             skill_name,
             tools: Vec::new(),
             working_dir,
+            sandbox_profile: None,
         }
     }
 
     pub fn with_tools(mut self, tools: Vec<ToolInfo>) -> Self {
         self.tools = tools;
         self
+    }
+
+    pub fn with_sandbox_profile(mut self, profile: SandboxProfile) -> Self {
+        self.sandbox_profile = Some(profile);
+        self
+    }
+
+    /// Get the effective timeout for this context based on the sandbox profile.
+    pub fn effective_timeout_secs(&self) -> u64 {
+        self.sandbox_profile
+            .as_ref()
+            .map(|p| p.timeout_secs())
+            .unwrap_or(30)
+    }
+
+    /// Whether environment variables should be passed through to the subprocess.
+    pub fn env_passthrough(&self) -> bool {
+        self.sandbox_profile
+            .as_ref()
+            .map(|p| p.env_passthrough())
+            .unwrap_or(true)
     }
 }
 

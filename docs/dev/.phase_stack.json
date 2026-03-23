@@ -1,5 +1,13 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase AB — Octo 智能体工具执行环境",
+      "started_at": "2026-03-23T07:30:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "progress": "design complete, 0/10 tasks"
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
     {
