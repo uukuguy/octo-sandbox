@@ -1,5 +1,5 @@
-# Additional Python packages for grid-sandbox:dev
-# Extends base packages with data science, ML, and dev tooling.
+# Additional Python packages for octo-sandbox:dev
+# Extends base packages with data science, ML, agent dev tooling.
 
 # --- Data Science ---
 numpy>=1.26
@@ -23,3 +23,24 @@ ipdb>=0.13
 # --- Documentation ---
 sphinx>=7.2
 mkdocs>=1.5
+
+# --- MCP Development (AD-T3) ---
+mcp>=1.0
+fastmcp>=2.0
+httpx-sse>=0.4
+
+# --- LLM Development (AD-T3) ---
+tiktoken>=0.7
+anthropic>=0.40
+openai>=1.50
+litellm>=1.50
+ollama>=0.4
+
+# --- Skill Development (AD-T3) ---
+yamllint>=1.35
+jsonschema>=4.21
+
+# --- Local Model / ML CPU-only (AD-T3) ---
+sentence-transformers>=3.0
+transformers>=4.45
+onnxruntime>=1.18

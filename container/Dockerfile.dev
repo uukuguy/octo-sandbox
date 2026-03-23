@@ -1,27 +1,49 @@
-# Octo Sandbox Dev Image — extends base with Rust toolchain + dev tools
+# Octo Sandbox Dev Image — extends base with full agent development environment
 # Build: docker build -f container/Dockerfile.dev -t octo-sandbox:dev container/
 
 FROM octo-sandbox:base AS dev
 
 USER root
 
-# C/C++ compilers for native extensions
+# C/C++ compilers for native extensions + AD-T3 debugging tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     pkg-config \
     libssl-dev \
+    # --- AD-T3: System-level debugging ---
+    strace \
+    ltrace \
+    tcpdump \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Rust toolchain
+# Install Rust toolchain with dev components
 ENV RUSTUP_HOME=/usr/local/rustup
 ENV CARGO_HOME=/usr/local/cargo
 ENV PATH=/usr/local/cargo/bin:$PATH
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable \
+    && rustup component add rust-analyzer clippy rustfmt \
+    && rustup target add wasm32-wasip1
 
-# Python dev packages
+# Install wasm-pack for WASM development
+RUN curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+# Install flamegraph for Rust performance profiling
+RUN cargo install flamegraph --locked \
+    && rm -rf /usr/local/cargo/registry /usr/local/cargo/git
+
+# Python dev packages (includes MCP, LLM, ML libraries)
 COPY scripts/requirements-dev.txt /tmp/requirements-dev.txt
 RUN pip3 install --no-cache-dir --break-system-packages -r /tmp/requirements-dev.txt \
     && rm /tmp/requirements-dev.txt
+
+# PyTorch CPU-only (separate install from CPU-only index)
+RUN pip3 install --no-cache-dir --break-system-packages \
+    torch --index-url https://download.pytorch.org/whl/cpu
+
+# Node.js MCP packages (global)
+RUN npm install -g \
+    @modelcontextprotocol/sdk \
+    @modelcontextprotocol/inspector
 
 USER sandbox
 WORKDIR /workspace/session
