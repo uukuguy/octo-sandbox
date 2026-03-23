@@ -55,11 +55,16 @@ impl Default for SessionSandboxConfig {
     }
 }
 
+/// Default cleanup interval (5 minutes).
+pub const DEFAULT_CLEANUP_INTERVAL: Duration = Duration::from_secs(5 * 60);
+
 /// Manages a pool of per-session Docker containers.
 pub struct SessionSandboxManager {
     docker: Arc<DockerAdapter>,
     containers: Arc<RwLock<HashMap<String, SessionContainer>>>,
     config: SessionSandboxConfig,
+    /// Handle for the background cleanup timer task (if running).
+    cleanup_handle: RwLock<Option<tokio::task::JoinHandle<()>>>,
 }
 
 impl SessionSandboxManager {
@@ -68,6 +73,7 @@ impl SessionSandboxManager {
             docker,
             containers: Arc::new(RwLock::new(HashMap::new())),
             config,
+            cleanup_handle: RwLock::new(None),
         }
     }
 
@@ -193,8 +199,67 @@ impl SessionSandboxManager {
         count
     }
 
-    /// Shut down all managed containers.
+    /// Start a background task that periodically cleans up idle/expired containers.
+    ///
+    /// The timer is opt-in: it only runs if this method is called.  The handle is
+    /// stored internally and will be aborted automatically on [`shutdown`].
+    ///
+    /// Returns a reference-counted clone of `self` for chaining.
+    pub fn start_cleanup_timer(self: &Arc<Self>, interval: Duration) -> Arc<Self> {
+        let mgr = Arc::clone(self);
+        let handle = {
+            let mgr_inner = Arc::clone(&mgr);
+            tokio::spawn(async move {
+                let mut ticker = tokio::time::interval(interval);
+                // First tick completes immediately — skip it so we don't
+                // run cleanup right at startup.
+                ticker.tick().await;
+                loop {
+                    ticker.tick().await;
+                    let cleaned = mgr_inner.cleanup_idle().await;
+                    if cleaned > 0 {
+                        tracing::info!(cleaned, "Session sandbox cleanup timer: removed idle containers");
+                    }
+                }
+            })
+        };
+
+        // Store the handle so shutdown() can abort it.
+        // We use try_write to avoid blocking; in the unlikely case another
+        // caller holds the lock we just log a warning.
+        if let Ok(mut guard) = mgr.cleanup_handle.try_write() {
+            // If a previous timer was running, abort it first.
+            if let Some(old) = guard.take() {
+                old.abort();
+            }
+            *guard = Some(handle);
+        } else {
+            tracing::warn!("Could not store cleanup timer handle — lock contended");
+        }
+
+        mgr
+    }
+
+    /// Returns `true` if the background cleanup timer is currently running.
+    pub fn is_cleanup_timer_running(&self) -> bool {
+        self.cleanup_handle
+            .try_read()
+            .map(|guard| guard.as_ref().map_or(false, |h| !h.is_finished()))
+            .unwrap_or(false)
+    }
+
+    /// Shut down all managed containers and stop the cleanup timer.
     pub async fn shutdown(&self) -> Result<(), SandboxError> {
+        // 1. Abort the cleanup timer if running.
+        {
+            let mut handle_guard = self.cleanup_handle.write().await;
+            if let Some(handle) = handle_guard.take() {
+                handle.abort();
+                tracing::info!("Cleanup timer aborted");
+            }
+        }
+
+        // 2. Destroy all containers.
         let entries: Vec<(String, SandboxId)> = {
             let mut containers = self.containers.write().await;
             containers
@@ -324,5 +389,58 @@ mod tests {
 
         let sessions = mgr.active_sessions().await;
         assert!(sessions.is_empty());
+    }
+
+    #[tokio::test]
+    async fn test_start_cleanup_timer_creates_handle() {
+        let docker = Arc::new(DockerAdapter::with_default_image());
+        let mgr = Arc::new(SessionSandboxManager::new(docker, make_config()));
+
+        // Timer not running initially
+        assert!(!mgr.is_cleanup_timer_running());
+
+        // Start the timer with a long interval (won't actually fire in the test)
+        let mgr2 = mgr.start_cleanup_timer(Duration::from_secs(3600));
+
+        // Timer should now be running
+        assert!(mgr2.is_cleanup_timer_running());
+
+        // Clean up
+        mgr.shutdown().await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_shutdown_aborts_cleanup_timer() {
+        let docker = Arc::new(DockerAdapter::with_default_image());
+        let mgr = Arc::new(SessionSandboxManager::new(docker, make_config()));
+
+        mgr.start_cleanup_timer(Duration::from_secs(3600));
+        assert!(mgr.is_cleanup_timer_running());
+
+        mgr.shutdown().await.unwrap();
+
+        // After shutdown the timer should no longer be running
+        assert!(!mgr.is_cleanup_timer_running());
+    }
+
+    #[tokio::test]
+    async fn test_start_cleanup_timer_replaces_previous() {
+        let docker = Arc::new(DockerAdapter::with_default_image());
+        let mgr = Arc::new(SessionSandboxManager::new(docker, make_config()));
+
+        // Start first timer
+        mgr.start_cleanup_timer(Duration::from_secs(3600));
+        assert!(mgr.is_cleanup_timer_running());
+
+        // Start second timer — should abort the first
+        mgr.start_cleanup_timer(Duration::from_secs(7200));
+        assert!(mgr.is_cleanup_timer_running());
+
+        mgr.shutdown().await.unwrap();
+    }
+
+    #[test]
+    fn test_default_cleanup_interval() {
+        assert_eq!(DEFAULT_CLEANUP_INTERVAL, Duration::from_secs(300));
     }
 }

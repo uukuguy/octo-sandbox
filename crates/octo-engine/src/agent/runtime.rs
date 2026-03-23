@@ -616,6 +616,7 @@ impl AgentRuntime {
             self.approval_gate.clone(),
             self.skill_registry.clone(),
             Some(self.recorder.clone()),
+            None, // session_sandbox: AC-T7
         );
 
         // Spawn 持久化主循环

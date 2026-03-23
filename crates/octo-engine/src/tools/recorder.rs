@@ -190,6 +190,8 @@ impl ToolExecutionRecorder {
             execution_target: None,
             actual_backend: None,
             routing_reason: None,
+            sandbox_session_id: None,
+            sandbox_container_reused: None,
         }
     }
 }

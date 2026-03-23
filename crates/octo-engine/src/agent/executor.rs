@@ -13,6 +13,7 @@ use crate::agent::subagent::SubAgentManager;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::WorkingMemory;
 use crate::providers::Provider;
+use crate::sandbox::SessionSandboxManager;
 use crate::skills::{ExecuteSkillTool, SkillRegistry, SubAgentContext};
 use crate::tools::ToolRegistry;
 
@@ -108,6 +109,8 @@ pub struct AgentExecutor {
     skill_registry: Option<Arc<SkillRegistry>>,
     // Tool execution recorder for observability
     recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
+    // Session-scoped sandbox container manager (AC-T7)
+    session_sandbox: Option<Arc<SessionSandboxManager>>,
 }
 
 impl AgentExecutor {
@@ -136,6 +139,7 @@ impl AgentExecutor {
         approval_gate: Option<crate::tools::approval::ApprovalGate>,
         skill_registry: Option<Arc<SkillRegistry>>,
         recorder: Option<Arc<crate::tools::recorder::ToolExecutionRecorder>>,
+        session_sandbox: Option<Arc<SessionSandboxManager>>,
     ) -> Self {
         Self {
             session_id,
@@ -163,6 +167,7 @@ impl AgentExecutor {
             turn_gate: super::turn_gate::TurnGate::new(),
             skill_registry,
             recorder,
+            session_sandbox,
         }
     }
 
@@ -321,7 +326,28 @@ impl AgentExecutor {
             }
         }
 
+        // Release session sandbox container before stopping (AC-T7)
+        self.shutdown_sandbox().await;
+
         info!(session_id = %self.session_id.as_str(), "AgentExecutor stopped (channel closed)");
+    }
+
+    /// Release the session sandbox container, if any.
+    async fn shutdown_sandbox(&self) {
+        if let Some(ref ssm) = self.session_sandbox {
+            if let Err(e) = ssm.release(self.session_id.as_str()).await {
+                tracing::warn!(
+                    session_id = %self.session_id.as_str(),
+                    error = %e,
+                    "Failed to release session sandbox"
+                );
+            }
+        }
+    }
+
+    /// Expose session sandbox manager for BashTool wiring.
+    pub fn session_sandbox(&self) -> Option<&Arc<SessionSandboxManager>> {
+        self.session_sandbox.as_ref()
     }
 
     /// 返回当前对话历史（用于 session 持久化）
