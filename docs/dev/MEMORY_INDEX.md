@@ -7,6 +7,9 @@
 
 ## [Active Work]
 
+- 2026-03-23 19:50 | Phase AD images built locally (base 1.32GB, dev 4.59GB). Design discussion → Phase AE: Agent Workspace Architecture
+  - Fixes: GID 1000 conflict, ltrace arm64, container-test entrypoint @ f7827af, 73295f5
+  - Phase AE scope: --project CLI param, examples/demo-project, container bind mount $PWD:$PWD, remove unused workspace_dir/Dockerfile /workspace/*
 - 2026-03-23 18:45 | Phase AD COMPLETE (5/5 tasks) — container image enhancement @ 1431bc5
   - G3: GitHub Actions CI/CD workflow + Makefile targets + CLI --multi-platform flag
   - All groups complete: G1 (base enterprise), G2 (dev agent), G3 (CI/CD)
