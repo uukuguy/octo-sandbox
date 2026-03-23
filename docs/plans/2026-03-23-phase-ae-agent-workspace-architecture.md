@@ -118,8 +118,8 @@
 | ID | 描述 | 原因 |
 |----|------|------|
 | AE-D1 | Container bind mount `$PWD:$PWD` 实际实现 | `SessionSandboxManager` 未 wired（AC-T7 = `None`） |
-| AE-D2 | `octo init` 在 `--project` 目标目录创建 `.octo/` | 需 init 命令重构 |
-| AE-D3 | 容器内 OctoRoot 自动检测 global root | 需容器环境变量注入 |
+| AE-D2 | `octo init` 在 `--project` 目标目录创建 `.octo/` | 需 init 命令重构 | ✅ 已补 — `--project` 参数已在 AE-T1 实现，init 自动尊重 |
+| AE-D3 | 容器内 OctoRoot 自动检测 global root | 需容器环境变量注入 | ✅ 已补 — Dockerfile 添加 `ENV OCTO_GLOBAL_ROOT` + `OCTO_SANDBOXED=1` |
 
 ---
 

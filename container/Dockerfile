@@ -79,8 +79,21 @@ RUN groupadd -g 1000 -o sandbox 2>/dev/null || true \
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
     CMD python3 --version && git --version && bash --version || exit 1
 
+# OctoRoot directory structure for container environment (AE-D3)
+# These can be overridden at runtime: docker run -e OCTO_GLOBAL_ROOT=/custom/path
+ENV OCTO_GLOBAL_ROOT=/home/sandbox/.octo
+ENV OCTO_SANDBOXED=1
+
+# Provider API keys — not baked in, passed at runtime via docker run -e (AD-D5)
+# ENV ANTHROPIC_API_KEY=    (pass at runtime)
+# ENV OPENAI_API_KEY=       (pass at runtime)
+# ENV OPENAI_BASE_URL=      (pass at runtime)
+
 # Switch to non-root user
 USER sandbox
+
+# Ensure global OctoRoot directory exists
+RUN mkdir -p /home/sandbox/.octo
 
 # Working directory for tool execution
 WORKDIR /home/sandbox

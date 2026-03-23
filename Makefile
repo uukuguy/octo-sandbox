@@ -3,6 +3,8 @@
         verify verify-runtime verify-api verify-api-mcp \
         eval-list eval-run eval-compare eval-benchmark eval-benchmark-mini \
         eval-history eval-report eval-trace eval-diagnose eval-diff eval-progress \
+        sandbox-status sandbox-dry-run sandbox-backends \
+        sandbox-dev sandbox-staging sandbox-production sandbox-shell \
         container-build container-build-dev container-build-multi container-build-multi-dev \
         container-list container-clean container-test \
         docker-build docker-build-python docker-build-rust docker-build-nodejs \
@@ -397,6 +399,50 @@ verify-api-mcp:
 	curl -sf "http://localhost:3001/api/mcp/servers/$(ID)/logs" && echo " ✅ GET /api/mcp/servers/$(ID)/logs" || echo " ❌ GET /api/mcp/servers/$(ID)/logs"
 
 # ============================================================
+# 沙箱环境切换 (sandbox profile / run mode)
+# 详细指南: docs/design/SANDBOX_ENVIRONMENT_GUIDE.md
+# ============================================================
+
+# 查看当前沙箱状态 (RunMode, Profile, Policy 等)
+sandbox-status:
+	cargo run -p octo-cli --bin octo -- sandbox status
+
+# 预览所有工具类别的路由决策 (不实际执行)
+sandbox-dry-run:
+	cargo run -p octo-cli --bin octo -- sandbox dry-run
+
+# 列出已注册的沙箱后端
+sandbox-backends:
+	cargo run -p octo-cli --bin octo -- sandbox list-backends
+
+# Development 模式运行 CLI (默认, 所有工具本地执行)
+sandbox-dev:
+	OCTO_SANDBOX_PROFILE=dev cargo run --quiet -p octo-cli --bin octo -- run $(CLI_ARGS)
+
+# Staging 模式运行 CLI (优先容器, 无后端时降级本地)
+sandbox-staging:
+	OCTO_SANDBOX_PROFILE=staging cargo run --quiet -p octo-cli --bin octo -- run $(CLI_ARGS)
+
+# Production 模式运行 CLI (强制容器隔离)
+sandbox-production:
+	OCTO_SANDBOX_PROFILE=production cargo run --quiet -p octo-cli --bin octo -- run $(CLI_ARGS)
+
+# 进入容器内交互式 shell (自动检测为 Sandboxed 模式)
+# API keys 从宿主机环境透传 (AD-D5)
+sandbox-shell:
+	@if ! docker image inspect octo-sandbox:dev >/dev/null 2>&1; then \
+		echo "镜像 octo-sandbox:dev 不存在，先构建..."; \
+		$(MAKE) container-build-dev; \
+	fi
+	docker run -it --rm \
+		-v $(PWD):/workspace \
+		-w /workspace \
+		$(if $(ANTHROPIC_API_KEY),-e ANTHROPIC_API_KEY,) \
+		$(if $(OPENAI_API_KEY),-e OPENAI_API_KEY,) \
+		$(if $(OPENAI_BASE_URL),-e OPENAI_BASE_URL,) \
+		octo-sandbox:dev bash
+
+# ============================================================
 # Container images (octo-sandbox base/dev)
 # ============================================================
 
@@ -520,6 +566,15 @@ help:
 	@echo "  make cli-session                     列出 sessions"
 	@echo "  make cli-config                      显示配置"
 	@echo "  make cli-doctor                      健康诊断"
+	@echo ""
+	@echo "沙箱环境切换 (详细指南: docs/design/SANDBOX_ENVIRONMENT_GUIDE.md):"
+	@echo "  make sandbox-status                  查看当前沙箱状态"
+	@echo "  make sandbox-dry-run                 预览工具路由决策"
+	@echo "  make sandbox-backends                列出已注册后端"
+	@echo "  make sandbox-dev                     Development 模式 (默认, 本地执行)"
+	@echo "  make sandbox-staging                 Staging 模式 (优先容器)"
+	@echo "  make sandbox-production              Production 模式 (强制容器)"
+	@echo "  make sandbox-shell                   进入容器内交互式 shell"
 	@echo ""
 	@echo "构建:"
 	@echo "  make all              完整构建 (后端 + 前端)"
