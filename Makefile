@@ -8,6 +8,9 @@
         docker-build docker-build-python docker-build-rust docker-build-nodejs \
         docker-build-bash docker-build-general docker-build-swebench docker-list docker-clean
 
+# Default test project for CLI commands
+TEST_PROJECT ?= $(PWD)/examples/demo-project
+
 # ============================================================
 # 主要命令
 # ============================================================
@@ -157,7 +160,7 @@ cli-session:
 
 # 配置管理
 cli-config:
-	cargo run -p octo-cli --bin octo -- config show
+	cargo run -p octo-cli --bin octo -- --project $(TEST_PROJECT) config show
 
 # 健康诊断
 cli-doctor:
