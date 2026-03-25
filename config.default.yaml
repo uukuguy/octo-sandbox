@@ -1,88 +1,118 @@
 # =============================================================================
-# Octo Server Configuration
+# Octo Configuration — Full Reference (all parameters, all commented)
 # =============================================================================
-# Copy this file to config.yaml and uncomment/modify parameters as needed.
-# Priority: config.yaml < CLI args < .env
+# This file is auto-generated and serves as a reference for all available
+# configuration parameters with their default values.
+#
+# To customize, copy to one of:
+#   ~/.octo/config.yaml           (global, all projects)
+#   $PROJECT/.octo/config.yaml    (project-specific)
+#   $PROJECT/.octo/config.local.yaml  (local overrides, .gitignore)
+#
+# Priority (lowest → highest):
+#   1. Code defaults
+#   2. ~/.octo/config.yaml
+#   3. $PROJECT/.octo/config.yaml
+#   4. $PROJECT/.octo/config.local.yaml
+#   5. $PROJECT/.octo/credentials.yaml  (API keys only)
+#   6. CLI arguments (--port, --host)
+#   7. Environment variables (OCTO_*, ANTHROPIC_*, OPENAI_*)
 # =============================================================================
 
-# Server configuration
+# ── Server ───────────────────────────────────────────────────────────────────
 # server:
-#   host: 127.0.0.1    # Server bind address
-#   port: 3001          # Server port
+#   host: 127.0.0.1              # Bind address
+#   port: 3001                   # HTTP port
+#   cors_origins: []             # Allowed CORS origins (empty = permissive)
 
-# LLM Provider configuration
+# ── LLM Provider ─────────────────────────────────────────────────────────────
 # provider:
-#   name: anthropic     # Provider: anthropic or openai
-#   api_key: ""         # API key (required)
-#   base_url: None      # Optional proxy URL
-#   model: None         # Optional model override
+#   name: anthropic              # Provider: anthropic | openai
+#   api_key: ""                  # API key (prefer env: ANTHROPIC_API_KEY)
+#   base_url: null               # Optional proxy URL (e.g., OpenRouter)
+#   model: null                  # Model override (default: claude-opus-4-5)
 
-# Database configuration
-# When path is empty, OctoRoot resolves it automatically:
+# ── Database ─────────────────────────────────────────────────────────────────
+# Auto-resolved when empty:
 #   1. OCTO_DB_PATH env var
-#   2. ./data/octo.db (if exists, legacy server)
-#   3. ./octo.db (if exists, legacy CLI)
-#   4. ~/.octo/projects/<project_key>/octo.db (new default)
+#   2. ./data/octo.db (legacy server)
+#   3. ./octo.db (legacy CLI)
+#   4. ~/.octo/projects/<key>/octo.db (default)
 # database:
-#   path: ""  # Empty = auto-resolve via OctoRoot
+#   path: ""                     # Empty = auto-resolve via OctoRoot
 
-# Logging configuration
+# ── Logging ──────────────────────────────────────────────────────────────────
 # logging:
 #   level: octo_server=debug,octo_engine=debug,tower_http=debug
 
-# MCP configuration
+# ── MCP (Model Context Protocol) ─────────────────────────────────────────────
 # mcp:
-#   servers_dir: None   # Optional MCP servers directory
+#   servers_dir: null            # Directory containing MCP server configs
 
-# Skills configuration
-# Skills configuration
-# When OctoRoot is active, skills are auto-loaded from:
-#   1. $PWD/.octo/skills/ (project-level)
-#   2. ~/.octo/skills/ (global)
+# ── Skills ───────────────────────────────────────────────────────────────────
+# Builtin skills are auto-installed to ~/.octo/skills/ on first run.
+# Additional skills are loaded from:
+#   1. $PROJECT/.octo/skills/    (project-level, highest priority)
+#   2. ~/.octo/skills/           (global, includes builtins)
 # skills:
-#   dirs: []  # Auto-resolved by OctoRoot when empty
+#   dirs: []                     # Extra skill directories (auto-resolved by OctoRoot)
 
-# Working directory for sandbox (optional)
-# working_dir: "./data/sandbox"   # Optional working directory
+# ── Tools ────────────────────────────────────────────────────────────────────
+# tools:
+#   web_search_priority:         # Web search provider priority
+#     - jina                     # Jina Search API (requires JINA_API_KEY)
+#     - tavily                   # Tavily (requires TAVILY_API_KEY)
+#     - duckduckgo               # DuckDuckGo (no key needed, fallback)
 
-# Enable event bus for observability
-# enable_event_bus: false    # Enable event bus (default: false)
+# ── Working Directory ────────────────────────────────────────────────────────
+# working_dir: null              # Sandbox working dir (default: $PWD)
 
-# TLS configuration
+# ── Observability ────────────────────────────────────────────────────────────
+# enable_event_bus: false        # Enable TelemetryBus for event streaming
+
+# ── Sandbox ──────────────────────────────────────────────────────────────────
+# Sandbox profile controls tool execution isolation level.
+# Profiles: development | staging | production | custom
+# Set via env: OCTO_SANDBOX_PROFILE=staging
+#
+# sandbox_profile: null          # null = auto-detect (development if local)
+#
+# Profile defaults:
+#   development:  local execution, no container required
+#   staging:      container required (2GB RAM, 2 CPU, bridge network)
+#   production:   container required (1GB RAM, 1 CPU, no network)
+
+# ── TLS ──────────────────────────────────────────────────────────────────────
 # tls:
-#   enabled: false        # Enable HTTPS
-#   cert_path: null       # Path to PEM certificate
-#   key_path: null        # Path to PEM private key
-#   self_signed: false    # Auto-generate self-signed cert
-#   self_signed_dir: null # Output dir for self-signed certs
+#   enabled: false               # Enable HTTPS
+#   cert_path: null              # Path to PEM certificate file
+#   key_path: null               # Path to PEM private key file
+#   self_signed: false           # Auto-generate self-signed cert on startup
+#   self_signed_dir: null        # Output directory for generated certs
 
-# Auth configuration
-# Configure via environment variables (recommended) or inline below.
-#
-# Option 1: Disable auth (local dev only)
-#   OCTO_AUTH_MODE=none
-#
-# Option 2: API key auth
-#   OCTO_AUTH_MODE=api_key
-#   OCTO_API_KEY=your-secret-key     # key clients use in Authorization: Bearer header
-#   OCTO_API_KEY_USER=dev            # optional user id (default: "default")
+# ── Authentication ───────────────────────────────────────────────────────────
+# Configure via environment variables (recommended):
+#   OCTO_AUTH_MODE=none          # Disable auth (local dev only)
+#   OCTO_AUTH_MODE=api_key       # API key auth
+#   OCTO_API_KEY=your-key        # Key for Authorization: Bearer header
+#   OCTO_API_KEY_USER=dev        # Optional user ID (default: "default")
 #
 # auth:
-#   mode: api_key   # none | api_key
+#   mode: api_key                # none | api_key
 #   api_keys:
 #     - key: "your-secret-key"
 #       user_id: "dev"
 #       permissions: ["read", "write", "admin"]
 
-# Scheduler configuration
+# ── Scheduler ────────────────────────────────────────────────────────────────
 # scheduler:
-#   enabled: false          # Enable cron scheduler
-#   check_interval_secs: 60  # Interval between task checks (seconds)
-#   max_concurrent: 5       # Max concurrent scheduled tasks
+#   enabled: false               # Enable cron task scheduler
+#   check_interval_secs: 60     # Interval between task checks
+#   max_concurrent: 5           # Max concurrent scheduled tasks
 
-# Provider chain configuration (optional, multi-provider failover)
+# ── Provider Chain (multi-provider failover) ─────────────────────────────────
 # provider_chain:
-#   failover_policy: automatic  # automatic | manual
+#   failover_policy: automatic   # automatic | manual
 #   health_check_interval_sec: 30
 #   instances:
 #     - name: primary
@@ -94,15 +124,14 @@
 #       model: gpt-4o
 #       priority: 2
 
-# Smart routing configuration (optional, complexity-based model routing)
+# ── Smart Routing (complexity-based model selection) ─────────────────────────
 # smart_routing:
-#   enabled: false         # Enable smart routing
-#   default_tier: medium    # Default tier: low | medium | high
-#   tiers: {}               # Custom tier configurations
-#   thresholds: null        # Custom analyzer thresholds
+#   enabled: false               # Enable smart routing
+#   default_tier: medium         # Default tier: low | medium | high
+#   tiers: {}                    # Custom tier configurations
+#   thresholds: null             # Custom analyzer thresholds
 
-# Sync configuration (offline-first sync with HLC timestamps)
+# ── Sync (offline-first with HLC timestamps) ────────────────────────────────
 # sync:
-#   enabled: false          # Enable offline sync
-#   node_id: null          # Node identifier (auto-generated UUID if not set)
-
+#   enabled: false               # Enable offline sync
+#   node_id: null               # Node identifier (auto-generated if null)

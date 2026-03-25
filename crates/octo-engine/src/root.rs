@@ -220,7 +220,22 @@ impl OctoRoot {
                 .with_context(|| format!("Failed to write meta.json: {}", meta_path.display()))?;
         }
 
+        // Seed default config.yaml to global and project dirs (if not present)
+        Self::seed_default_config(&self.global_root.join("config.yaml"));
+        Self::seed_default_config(&self.project_root.join("config.yaml"));
+
         Ok(())
+    }
+
+    /// Seed config.default.yaml to a target path if it doesn't already exist.
+    fn seed_default_config(target: &Path) {
+        if target.exists() {
+            return;
+        }
+        const DEFAULT_CONFIG: &str = include_str!("../../../config.default.yaml");
+        if let Err(e) = std::fs::write(target, DEFAULT_CONFIG) {
+            tracing::debug!(path = %target.display(), error = %e, "Failed to seed default config");
+        }
     }
 
     /// Resolve database path.

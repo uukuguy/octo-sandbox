@@ -1,4 +1,4 @@
 # Demo project configuration for octo CLI testing
-provider:
-  name: anthropic
-  model: claude-sonnet-4-5-20250514
+# provider:
+#  name: anthropic
+#  model: claude-sonnet-4-5-20250514
