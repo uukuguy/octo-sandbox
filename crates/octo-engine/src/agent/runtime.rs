@@ -486,6 +486,24 @@ impl AgentRuntime {
             }
         }
 
+        // 18. Register MCP management tools (mcp_install, mcp_remove, mcp_list)
+        {
+            let mcp_config_path = config
+                .octo_root
+                .as_ref()
+                .map(|r| r.project_root().join("mcp.json"))
+                .unwrap_or_else(|| PathBuf::from(".octo/mcp.json"));
+            let handle = crate::tools::mcp_manage::McpManageHandle {
+                mcp_manager: runtime.mcp_manager.clone(),
+                tools: runtime.tools.clone(),
+                config_path: mcp_config_path,
+            };
+            let mut tools_guard = runtime.tools.lock().unwrap_or_else(|e| e.into_inner());
+            tools_guard.register(crate::tools::mcp_manage::McpInstallTool::new(handle.clone()));
+            tools_guard.register(crate::tools::mcp_manage::McpRemoveTool::new(handle.clone()));
+            tools_guard.register(crate::tools::mcp_manage::McpListTool::new(handle));
+        }
+
         Ok(runtime)
     }
 

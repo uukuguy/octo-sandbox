@@ -9,6 +9,7 @@ pub mod glob;
 pub mod grep;
 pub mod interceptor;
 pub mod knowledge_graph;
+pub mod mcp_manage;
 pub mod path_safety;
 pub mod memory_forget;
 pub mod memory_recall;
