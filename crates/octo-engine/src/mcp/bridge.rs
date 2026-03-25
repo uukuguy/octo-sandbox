@@ -58,14 +58,24 @@ impl Tool for McpToolBridge {
     }
 
     async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
-        let client = self.client.read().await;
-        match client.call_tool(&self.tool_info.name, params).await {
-            Ok(result) => {
-                let is_error = result
+        // Catch panics from rmcp transport layer (e.g., broken pipe when server process dies)
+        let client = self.client.clone();
+        let tool_name = self.tool_info.name.clone();
+        let server_name = self.server_name.clone();
+
+        let result = tokio::task::spawn(async move {
+            let client_guard = client.read().await;
+            client_guard.call_tool(&tool_name, params).await
+        })
+        .await;
+
+        match result {
+            Ok(Ok(value)) => {
+                let is_error = value
                     .get("isError")
                     .and_then(|v| v.as_bool())
                     .unwrap_or(false);
-                let content = result
+                let content = value
                     .get("content")
                     .and_then(|v| v.as_str())
                     .unwrap_or("")
@@ -76,7 +86,21 @@ impl Tool for McpToolBridge {
                     Ok(ToolOutput::success(content))
                 }
             }
-            Err(e) => Ok(ToolOutput::error(format!("MCP tool error: {e}"))),
+            Ok(Err(e)) => Ok(ToolOutput::error(format!(
+                "MCP tool error (server '{}'): {e}",
+                server_name
+            ))),
+            Err(join_err) => {
+                tracing::error!(
+                    server = %server_name,
+                    error = %join_err,
+                    "MCP tool call panicked — server process may have crashed"
+                );
+                Ok(ToolOutput::error(format!(
+                    "MCP server '{}' crashed during tool call: {join_err}",
+                    server_name
+                )))
+            }
         }
     }
 }
