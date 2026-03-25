@@ -16,7 +16,7 @@ use octo_cli::output;
 use octo_cli::tui;
 use octo_cli::{Cli, Commands};
 
-fn init_logging(verbose: bool) {
+fn init_logging(verbose: bool, tui_mode: bool) {
     let filter = if verbose {
         // -v: respect RUST_LOG if set, otherwise use debug level
         EnvFilter::try_from_default_env()
@@ -26,13 +26,36 @@ fn init_logging(verbose: bool) {
         EnvFilter::new("octo_cli=warn,octo_engine=warn,octo_eval=warn")
     };
 
-    fmt()
-        .with_env_filter(filter)
-        .with_target(false)
-        .with_thread_ids(false)
-        .with_file(true)
-        .with_line_number(true)
-        .init();
+    if tui_mode {
+        // In TUI mode, writing to stderr corrupts the ratatui alternate screen.
+        // Redirect all tracing output to a log file instead.
+        let log_dir = dirs::data_local_dir()
+            .unwrap_or_else(|| std::path::PathBuf::from("."))
+            .join("octo");
+        let _ = std::fs::create_dir_all(&log_dir);
+        let log_file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_dir.join("tui.log"))
+            .expect("Failed to open TUI log file");
+        fmt()
+            .with_env_filter(filter)
+            .with_target(false)
+            .with_thread_ids(false)
+            .with_file(true)
+            .with_line_number(true)
+            .with_ansi(false)
+            .with_writer(std::sync::Mutex::new(log_file))
+            .init();
+    } else {
+        fmt()
+            .with_env_filter(filter)
+            .with_target(false)
+            .with_thread_ids(false)
+            .with_file(true)
+            .with_line_number(true)
+            .init();
+    }
 }
 
 #[tokio::main]
@@ -41,7 +64,8 @@ async fn main() -> Result<()> {
     dotenvy::dotenv().ok();
 
     let cli = Cli::parse();
-    init_logging(cli.verbose);
+    let is_tui = matches!(cli.command, Commands::Tui { .. });
+    init_logging(cli.verbose, is_tui);
 
     info!("Starting Octo CLI");
 
