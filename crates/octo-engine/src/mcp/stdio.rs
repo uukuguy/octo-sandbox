@@ -56,6 +56,10 @@ impl McpClient for StdioMcpClient {
                 for (k, v) in &env {
                     c.env(k, v);
                 }
+                // Suppress stderr from leaking into the terminal.
+                // Without this, MCP server startup messages (e.g. "Context7 ... running on stdio")
+                // corrupt the TUI screen by writing directly to the terminal's alternate buffer.
+                c.stderr(std::process::Stdio::null());
             }),
         )
         .context("Failed to spawn MCP server process")?;
