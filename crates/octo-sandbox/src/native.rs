@@ -38,6 +38,7 @@ impl RuntimeAdapter for NativeRuntime {
                 .arg("-c")
                 .arg(cmd)
                 .current_dir(working_dir)
+                .stdin(std::process::Stdio::null())
                 .env_clear()
                 .env("PATH", "/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin")
                 .env("HOME", "/tmp")

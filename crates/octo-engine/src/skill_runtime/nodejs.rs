@@ -96,6 +96,7 @@ impl SkillRuntime for NodeJsRuntime {
                 .arg("-e")
                 .arg(script)
                 .current_dir(&context.working_dir)
+                .stdin(std::process::Stdio::null())
                 .env("SKILL_NAME", &context.skill_name)
                 .env("SKILL_ARGS", &args_json)
                 .env(

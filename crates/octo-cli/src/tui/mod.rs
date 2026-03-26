@@ -348,6 +348,11 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.dirty = true;
         }
         AgentEvent::Completed(result) => {
+            // Re-enable raw mode in case a child process inadvertently disabled it.
+            // This is a defensive measure — without raw mode, terminal escape sequences
+            // from mouse capture leak into the input area as garbled characters.
+            let _ = crossterm::terminal::enable_raw_mode();
+
             // Capture elapsed before clearing task_start_time
             let task_elapsed = state.task_start_time.map(|t| t.elapsed());
 
@@ -419,6 +424,7 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.invalidate_cache();
         }
         AgentEvent::Done => {
+            let _ = crossterm::terminal::enable_raw_mode();
             state.is_streaming = false;
             state.is_thinking = false;
             state.thinking_text.clear();
@@ -426,6 +432,7 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.invalidate_cache();
         }
         AgentEvent::Error { message } => {
+            let _ = crossterm::terminal::enable_raw_mode();
             // Flush any partial streaming text first
             if !state.streaming_text.is_empty() {
                 let partial = std::mem::take(&mut state.streaming_text);

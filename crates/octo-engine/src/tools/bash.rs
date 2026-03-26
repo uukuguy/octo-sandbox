@@ -160,6 +160,7 @@ impl BashTool {
                 .arg("-c")
                 .arg(command)
                 .current_dir(working_dir)
+                .stdin(std::process::Stdio::null())
                 .env_clear()
                 .envs(env_vars)
                 .output(),

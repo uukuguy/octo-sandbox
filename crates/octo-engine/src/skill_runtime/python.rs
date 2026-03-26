@@ -183,6 +183,7 @@ impl PythonRuntime {
             .arg("--args")
             .arg(args_json)
             .current_dir(&context.working_dir)
+            .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped());
 

@@ -88,6 +88,7 @@ impl RuntimeAdapter for SubprocessAdapter {
         cmd.arg("-c")
             .arg(code)
             .current_dir(&instance.working_dir)
+            .stdin(Stdio::null())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .env_clear();

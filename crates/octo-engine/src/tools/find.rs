@@ -83,7 +83,8 @@ impl Tool for FindTool {
         debug!(?name, ?search_path, ?type_filter, "running find");
 
         let mut cmd = tokio::process::Command::new("find");
-        cmd.arg(&search_path);
+        cmd.stdin(std::process::Stdio::null())
+            .arg(&search_path);
 
         // Exclude common directories
         cmd.args([
