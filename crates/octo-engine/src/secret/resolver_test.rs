@@ -4,7 +4,7 @@ mod tests {
 
     #[test]
     fn test_resolver_priority() {
-        // Priority: Vault -> Dotenv -> Env
+        // Priority: Vault -> Env -> Dotenv
         let resolver = CredentialResolver::new();
 
         // Without vault, should return None
@@ -41,7 +41,7 @@ mod tests {
         let vault = CredentialVault::new_for_testing("test_password".to_string());
         vault.set("test_key", "vault_value").unwrap();
 
-        // Test priority: Vault > Dotenv > Env
+        // Test priority: Vault > Env > Dotenv
         let resolver = CredentialResolver::new().with_vault(vault);
 
         // Vault should have the value

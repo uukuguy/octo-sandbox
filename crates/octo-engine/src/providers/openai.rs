@@ -87,14 +87,11 @@ struct StreamOptions {
 
 /// Create reasoning configuration for models that support it (Claude via OpenRouter, etc.)
 fn create_thinking_config(model: &str) -> Option<ReasoningConfig> {
-    // Enable reasoning for Claude models through OpenAI-compatible APIs (OpenRouter)
+    // Enable reasoning for Claude models through OpenAI-compatible APIs (OpenRouter).
+    // Only match models that contain "claude" or "anthropic" to avoid false positives
+    // (e.g. "Qwen3.5-27B-Opus-4.6" contains "opus" but is not a Claude model).
     let model_lower = model.to_lowercase();
-    if model_lower.contains("claude")
-        || model_lower.contains("anthropic")
-        || model_lower.contains("sonnet")
-        || model_lower.contains("opus")
-        || model_lower.contains("haiku")
-    {
+    if model_lower.contains("claude") || model_lower.contains("anthropic") {
         Some(ReasoningConfig {
             effort: "high".to_string(),
         })

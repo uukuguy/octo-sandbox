@@ -200,8 +200,9 @@ Single-page app with tab-based navigation:
 
 ### Priority Order (lowest to highest)
 1. **config.yaml** - Main configuration file
-2. **CLI arguments** - e.g., `--port 4000`
-3. **Environment Variables (.env)** - Highest priority, overrides everything
+2. **.env file** - Local development overrides
+3. **CLI arguments** - e.g., `--port 4000`
+4. **Shell environment variables** - Highest priority, overrides everything
 
 ### Configuration Files
 

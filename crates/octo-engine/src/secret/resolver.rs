@@ -1,7 +1,7 @@
 //! Credential Resolver - Resolve credentials from multiple sources
 //!
-//! Resolves credentials from Vault, .env files, and environment variables
-//! with priority: Vault > .env > Environment
+//! Resolves credentials from Vault, environment variables, and .env files
+//! with priority: Vault > Environment > .env
 
 use crate::secret::vault::CredentialVault;
 use regex::Regex;
@@ -47,16 +47,16 @@ impl CredentialResolver {
             }
         }
 
-        // 2. .env file
+        // 2. Environment variables
+        if let Ok(val) = std::env::var(key) {
+            return Some(Zeroizing::new(val));
+        }
+
+        // 3. .env file (lowest priority)
         if let Some(ref path) = self.dotenv_path {
             if let Ok(val) = self.read_dotenv(path, key) {
                 return Some(Zeroizing::new(val));
             }
-        }
-
-        // 3. Environment variables (lowest priority)
-        if let Ok(val) = std::env::var(key) {
-            return Some(Zeroizing::new(val));
         }
 
         None

@@ -439,7 +439,7 @@ impl Config {
         output.push_str(
             "# Copy this file to config.yaml and uncomment/modify parameters as needed.\n",
         );
-        output.push_str("# Priority: config.yaml < CLI args < .env\n");
+        output.push_str("# Priority: config.yaml < .env < CLI args < shell env vars\n");
         output.push_str(
             "# =============================================================================\n\n",
         );
