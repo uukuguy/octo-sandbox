@@ -39,14 +39,14 @@ fn compute_scroll_amount(state: &mut TuiState, direction_up: bool) -> u16 {
 }
 
 /// Execute a TUI-local slash command. Returns `true` if handled locally.
-fn execute_slash_command(state: &mut TuiState, input: &str) {
+async fn execute_slash_command(state: &mut TuiState, input: &str) {
     let parts: Vec<&str> = input.trim().splitn(2, ' ').collect();
     let cmd = parts[0];
     let _args = parts.get(1).copied().unwrap_or("");
 
     match cmd {
         "/help" | "/h" | "/?" => {
-            let help_text = concat!(
+            let mut help_text = String::from(concat!(
                 "Available commands:\n",
                 "  /help       — Show this help\n",
                 "  /clear      — Clear conversation history\n",
@@ -61,6 +61,19 @@ fn execute_slash_command(state: &mut TuiState, input: &str) {
                 "  /model      — Switch the LLM model\n",
                 "  /mode       — Switch between plan/normal mode\n",
                 "  /theme      — Change color theme\n",
+            ));
+            // Append custom commands if any are loaded
+            if !state.custom_commands.is_empty() {
+                help_text.push_str("\nCustom commands:\n");
+                for c in &state.custom_commands {
+                    let args_hint = if c.has_arguments { " <args>" } else { "" };
+                    help_text.push_str(&format!(
+                        "  /{}{} — {}\n",
+                        c.name, args_hint, c.description
+                    ));
+                }
+            }
+            help_text.push_str(concat!(
                 "\nKeyboard shortcuts:\n",
                 "  Ctrl+Y      — Copy last response to clipboard\n",
                 "  Ctrl+O      — Cycle through tool results (expand/collapse one by one)\n",
@@ -68,10 +81,10 @@ fn execute_slash_command(state: &mut TuiState, input: &str) {
                 "\nText selection:\n",
                 "  Most terminals (iTerm2, etc.) support native text selection & copy.\n",
                 "  /mouse      — Toggle mouse capture off if native selection doesn't work.\n",
-            );
+            ));
             state
                 .messages
-                .push(ChatMessage::assistant(help_text));
+                .push(ChatMessage::assistant(&help_text));
             state.invalidate_cache();
             state.auto_scroll();
         }
@@ -146,11 +159,48 @@ fn execute_slash_command(state: &mut TuiState, input: &str) {
             state.auto_scroll();
         }
         _ => {
-            // Unknown slash command — show error message locally
-            let msg = format!("Unknown command: {}. Type /help for available commands.", cmd);
-            state.messages.push(ChatMessage::assistant(&msg));
-            state.invalidate_cache();
-            state.auto_scroll();
+            // Check custom commands from ~/.octo/commands/
+            let cmd_name = cmd.strip_prefix('/').unwrap_or(cmd);
+            if let Some(custom) = state
+                .custom_commands
+                .iter()
+                .find(|c| c.name == cmd_name)
+                .cloned()
+            {
+                // Expand template with arguments
+                let expanded = custom.expand(_args);
+
+                // Show the expanded prompt as a user message
+                state.messages.push(ChatMessage::user(&expanded));
+                state.invalidate_cache();
+                state.auto_scroll();
+
+                // Start task timing
+                state.task_start_time = Some(std::time::Instant::now());
+                state.task_input_tokens = 0;
+                state.task_output_tokens = 0;
+                state.task_tool_calls = 0;
+                state.task_rounds = 0;
+
+                // Send to agent
+                let _ = state
+                    .handle
+                    .send(AgentMessage::UserMessage {
+                        content: expanded,
+                        channel_id: "tui".into(),
+                    })
+                    .await;
+                state.is_streaming = true;
+                state.cancelled = false;
+                state.interrupt_manager.reset();
+            } else {
+                // Unknown slash command — show error message locally
+                let msg =
+                    format!("Unknown command: {}. Type /help for available commands.", cmd);
+                state.messages.push(ChatMessage::assistant(&msg));
+                state.invalidate_cache();
+                state.auto_scroll();
+            }
         }
     }
 }
@@ -366,7 +416,7 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
 
                 // Check for slash commands
                 if text.starts_with('/') {
-                    execute_slash_command(state, &text);
+                    execute_slash_command(state, &text).await;
                 } else {
                     // Save to message history
                     state.message_history.push(text.clone());
@@ -1067,10 +1117,10 @@ mod tests {
         assert_eq!(state.scroll_accel, 0);
     }
 
-    #[test]
-    fn test_slash_command_help() {
+    #[tokio::test]
+    async fn test_slash_command_help() {
         let mut state = make_test_state();
-        execute_slash_command(&mut state, "/help");
+        execute_slash_command(&mut state, "/help").await;
         assert_eq!(state.messages.len(), 1);
         let text = match &state.messages[0].content[0] {
             ContentBlock::Text { text } => text.clone(),
@@ -1080,68 +1130,68 @@ mod tests {
         assert!(text.contains("/debug"), "Help output should list /debug command");
     }
 
-    #[test]
-    fn test_slash_command_clear() {
+    #[tokio::test]
+    async fn test_slash_command_clear() {
         let mut state = make_test_state();
         state.messages.push(ChatMessage::user("hello"));
         state.messages.push(ChatMessage::assistant("hi"));
-        execute_slash_command(&mut state, "/clear");
+        execute_slash_command(&mut state, "/clear").await;
         assert!(state.messages.is_empty());
     }
 
-    #[test]
-    fn test_slash_command_exit() {
+    #[tokio::test]
+    async fn test_slash_command_exit() {
         let mut state = make_test_state();
         assert!(state.running);
-        execute_slash_command(&mut state, "/exit");
+        execute_slash_command(&mut state, "/exit").await;
         assert!(!state.running);
     }
 
-    #[test]
-    fn test_slash_command_quit() {
+    #[tokio::test]
+    async fn test_slash_command_quit() {
         let mut state = make_test_state();
-        execute_slash_command(&mut state, "/quit");
+        execute_slash_command(&mut state, "/quit").await;
         assert!(!state.running);
     }
 
-    #[test]
-    fn test_slash_command_debug_toggle() {
+    #[tokio::test]
+    async fn test_slash_command_debug_toggle() {
         let mut state = make_test_state();
         assert_eq!(state.overlay, OverlayMode::None);
-        execute_slash_command(&mut state, "/debug");
+        execute_slash_command(&mut state, "/debug").await;
         assert_eq!(state.overlay, OverlayMode::AgentDebug);
-        execute_slash_command(&mut state, "/debug");
+        execute_slash_command(&mut state, "/debug").await;
         assert_eq!(state.overlay, OverlayMode::None);
     }
 
-    #[test]
-    fn test_slash_command_eval_toggle() {
+    #[tokio::test]
+    async fn test_slash_command_eval_toggle() {
         let mut state = make_test_state();
-        execute_slash_command(&mut state, "/eval");
+        execute_slash_command(&mut state, "/eval").await;
         assert_eq!(state.overlay, OverlayMode::Eval);
-        execute_slash_command(&mut state, "/eval");
+        execute_slash_command(&mut state, "/eval").await;
         assert_eq!(state.overlay, OverlayMode::None);
     }
 
-    #[test]
-    fn test_slash_command_sessions_toggle() {
+    #[tokio::test]
+    async fn test_slash_command_sessions_toggle() {
         let mut state = make_test_state();
-        execute_slash_command(&mut state, "/sessions");
+        execute_slash_command(&mut state, "/sessions").await;
         assert_eq!(state.overlay, OverlayMode::SessionPicker);
     }
 
-    #[test]
-    fn test_slash_command_todo_shows_message() {
+    #[tokio::test]
+    async fn test_slash_command_todo_shows_message() {
         let mut state = make_test_state();
-        execute_slash_command(&mut state, "/todo");
+        execute_slash_command(&mut state, "/todo").await;
         // /todo now shows an informational message instead of toggling a panel
         assert_eq!(state.messages.len(), 1);
     }
 
-    #[test]
-    fn test_slash_command_unknown() {
+    #[tokio::test]
+    async fn test_slash_command_unknown() {
         let mut state = make_test_state();
-        execute_slash_command(&mut state, "/foobar");
+        execute_slash_command(&mut state, "/foobar").await;
         assert_eq!(state.messages.len(), 1);
         let text = match &state.messages[0].content[0] {
             ContentBlock::Text { text } => text.clone(),

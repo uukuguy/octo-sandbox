@@ -162,6 +162,21 @@ impl OctoRoot {
         vec![self.project_skills_dir(), self.global_skills_dir()]
     }
 
+    /// Global custom commands directory (`~/.octo/commands/`).
+    pub fn global_commands_dir(&self) -> PathBuf {
+        self.global_root.join("commands")
+    }
+
+    /// Project-local custom commands directory (`$PWD/.octo/commands/`).
+    pub fn project_commands_dir(&self) -> PathBuf {
+        self.project_root.join("commands")
+    }
+
+    /// Commands directories in priority order: [project, global].
+    pub fn commands_dirs(&self) -> Vec<PathBuf> {
+        vec![self.project_commands_dir(), self.global_commands_dir()]
+    }
+
     /// Project-local override config (git-ignored): `$PWD/.octo/config.local.yaml`.
     pub fn project_local_config(&self) -> PathBuf {
         self.project_root.join("config.local.yaml")
@@ -202,6 +217,8 @@ impl OctoRoot {
             self.cache_dir(),
             self.global_skills_dir(),
             self.project_skills_dir(),
+            self.global_commands_dir(),
+            self.project_commands_dir(),
         ];
 
         for dir in &dirs_to_create {

@@ -1,6 +1,7 @@
 pub mod agent;
 pub mod audit;
 pub mod auth;
+pub mod commands;
 pub mod context;
 pub mod db;
 pub mod event;

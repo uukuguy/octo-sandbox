@@ -208,6 +208,10 @@ pub struct TuiState {
     // ── Autocomplete ──
     /// Autocomplete engine for slash commands and file mentions.
     pub autocomplete: super::autocomplete::AutocompleteEngine,
+
+    // ── Custom commands ──
+    /// Loaded custom commands from ~/.octo/commands/ and .octo/commands/.
+    pub custom_commands: Vec<octo_engine::commands::CustomCommand>,
 }
 
 impl TuiState {
@@ -312,6 +316,7 @@ impl TuiState {
             autocomplete: super::autocomplete::AutocompleteEngine::new(
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
             ),
+            custom_commands: Vec::new(),
         }
     }
 

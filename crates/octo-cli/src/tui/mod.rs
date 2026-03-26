@@ -84,6 +84,22 @@ pub async fn run_tui_conversation(state: &AppState) -> Result<()> {
         tui_state.approval_gate = Some(gate.clone());
     }
 
+    // Load custom commands from ~/.octo/commands/ and .octo/commands/
+    {
+        let custom_cmds = octo_engine::commands::load_commands(&state.octo_root.commands_dirs());
+        if !custom_cmds.is_empty() {
+            let slash_cmds: Vec<autocomplete::SlashCommand> = custom_cmds
+                .iter()
+                .map(|c| autocomplete::SlashCommand {
+                    name: c.name.clone(),
+                    description: format!("[cmd] {}", c.description),
+                })
+                .collect();
+            tui_state.autocomplete.add_commands(&slash_cmds);
+        }
+        tui_state.custom_commands = custom_cmds;
+    }
+
     // Inject user-invocable skills as slash commands for autocomplete
     if let Some(registry) = state.agent_runtime.skill_registry() {
         let skill_commands: Vec<autocomplete::SlashCommand> = registry
