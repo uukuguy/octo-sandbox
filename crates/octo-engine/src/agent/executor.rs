@@ -247,6 +247,7 @@ impl AgentExecutor {
                                         working_dir: self.working_dir.clone(),
                                         path_validator: self.path_validator.clone(),
                                     }),
+                                    event_sender: Some(self.broadcast_tx.clone()),
                                 };
                                 registry.register(
                                     ExecuteSkillTool::new(skill_reg.clone())

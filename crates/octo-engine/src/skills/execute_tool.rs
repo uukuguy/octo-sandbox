@@ -9,6 +9,7 @@ use anyhow::Result;
 use async_trait::async_trait;
 use futures_util::StreamExt;
 use serde_json::json;
+use tokio::sync::broadcast;
 
 use octo_types::skill::ExecutionMode;
 use octo_types::{ContentBlock, MessageRole, ToolContext, ToolOutput, ToolSource};
@@ -33,6 +34,9 @@ pub struct SubAgentContext {
     pub user_id: octo_types::UserId,
     pub sandbox_id: octo_types::SandboxId,
     pub tool_ctx: Option<octo_types::ToolContext>,
+    /// Optional broadcast sender to forward sub-agent streaming events to the
+    /// parent agent's event stream, enabling real-time TUI rendering.
+    pub event_sender: Option<broadcast::Sender<AgentEvent>>,
 }
 
 /// Tool that executes a skill by name.
@@ -287,7 +291,15 @@ impl ExecuteSkillTool {
                         skill.name, message
                     )));
                 }
-                _ => {}
+                AgentEvent::Done => {
+                    // Sub-agent stream ended — don't forward Done to parent
+                }
+                other => {
+                    // Forward all streaming events to parent for real-time TUI rendering
+                    if let Some(ref sender) = ctx.event_sender {
+                        let _ = sender.send(other);
+                    }
+                }
             }
         }
 
