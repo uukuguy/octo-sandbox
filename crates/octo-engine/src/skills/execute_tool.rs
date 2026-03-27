@@ -264,6 +264,9 @@ impl ExecuteSkillTool {
         let mut final_output = String::new();
         let mut iterations_used = 0u32;
 
+        // Short display name for TUI (e.g. "skill-review" from "skill-review-<uuid>")
+        let display_id = format!("skill-{}", skill.name);
+
         while let Some(event) = stream.next().await {
             match event {
                 AgentEvent::Completed(result) => {
@@ -283,21 +286,38 @@ impl ExecuteSkillTool {
                             })
                         })
                         .unwrap_or_default();
+                    // Forward completion summary to parent as SubAgentEvent
+                    if let Some(ref sender) = ctx.event_sender {
+                        let _ = sender.send(AgentEvent::SubAgentEvent {
+                            source_id: display_id.clone(),
+                            inner: Box::new(AgentEvent::Completed(result)),
+                        });
+                    }
                 }
                 AgentEvent::Error { message } => {
                     let _ = ctx.manager.fail(&subagent_id, message.clone()).await;
+                    // Forward error to parent before returning
+                    if let Some(ref sender) = ctx.event_sender {
+                        let _ = sender.send(AgentEvent::SubAgentEvent {
+                            source_id: display_id.clone(),
+                            inner: Box::new(AgentEvent::Error { message: message.clone() }),
+                        });
+                    }
                     return Ok(ToolOutput::error(format!(
                         "Skill '{}' execution failed: {}",
                         skill.name, message
                     )));
                 }
                 AgentEvent::Done => {
-                    // Sub-agent stream ended — don't forward Done to parent
+                    // Sub-agent stream ended — don't forward
                 }
                 other => {
-                    // Forward all streaming events to parent for real-time TUI rendering
+                    // Wrap and forward streaming events to parent for TUI rendering
                     if let Some(ref sender) = ctx.event_sender {
-                        let _ = sender.send(other);
+                        let _ = sender.send(AgentEvent::SubAgentEvent {
+                            source_id: display_id.clone(),
+                            inner: Box::new(other),
+                        });
                     }
                 }
             }

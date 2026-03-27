@@ -80,6 +80,14 @@ pub enum AgentEvent {
     },
     /// The agent loop was halted by an emergency stop (E-Stop).
     EmergencyStopped(Option<String>),
+    /// Streaming event from a sub-agent (e.g. playbook skill execution).
+    /// Wrapped to isolate sub-agent state from parent agent state in the TUI.
+    SubAgentEvent {
+        /// Human-readable sub-agent identifier (e.g. "skill-review").
+        source_id: String,
+        /// The original event from the sub-agent.
+        inner: Box<AgentEvent>,
+    },
 }
 
 /// Structured return result for AgentLoop (Opus §3.2)

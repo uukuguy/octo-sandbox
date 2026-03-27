@@ -212,6 +212,18 @@ pub struct TuiState {
     // ── Custom commands ──
     /// Loaded custom commands from ~/.octo/commands/ and .octo/commands/.
     pub custom_commands: Vec<octo_engine::commands::CustomCommand>,
+
+    // ── SubAgent streaming ──
+    /// Active sub-agent source ID (e.g. "skill-review"), or None if no sub-agent running.
+    pub subagent_source_id: Option<String>,
+    /// Sub-agent streaming text buffer (rendered separately from main streaming_text).
+    pub subagent_streaming_text: String,
+    /// Sub-agent thinking text buffer.
+    pub subagent_thinking_text: String,
+    /// Sub-agent active tool executions.
+    pub subagent_active_tools: Vec<ActiveTool>,
+    /// Sub-agent completion summary (rounds, tool_calls) shown after completion.
+    pub subagent_completed: Option<(u32, u32)>,
 }
 
 impl TuiState {
@@ -317,6 +329,11 @@ impl TuiState {
                 std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
             ),
             custom_commands: Vec::new(),
+            subagent_source_id: None,
+            subagent_streaming_text: String::new(),
+            subagent_thinking_text: String::new(),
+            subagent_active_tools: Vec::new(),
+            subagent_completed: None,
         }
     }
 
@@ -487,6 +504,62 @@ impl TuiState {
                 )));
             }
             lines.push(Line::from("")); // spacing
+        }
+
+        // Sub-agent streaming output — rendered in an indented block
+        if self.subagent_source_id.is_some() {
+            let source = self.subagent_source_id.as_deref().unwrap_or("sub-agent");
+            let dim_style = ratatui::style::Style::default()
+                .fg(ratatui::style::Color::DarkGray);
+            let indent_style = ratatui::style::Style::default()
+                .fg(ratatui::style::Color::Rgb(120, 120, 180)); // muted blue
+
+            // Header
+            lines.push(Line::from(ratatui::text::Span::styled(
+                format!("  \u{2502} \u{2500}\u{2500}\u{2500} SubAgent: {} \u{2500}\u{2500}\u{2500}", source),
+                indent_style,
+            )));
+
+            // Sub-agent thinking
+            if !self.subagent_thinking_text.is_empty() {
+                lines.push(Line::from(ratatui::text::Span::styled(
+                    format!("  \u{2502} \u{1F4AD} Thinking..."),
+                    dim_style.add_modifier(ratatui::style::Modifier::ITALIC),
+                )));
+                for line in self.subagent_thinking_text.lines().take(5) {
+                    lines.push(Line::from(ratatui::text::Span::styled(
+                        format!("  \u{2502}   {}", line),
+                        dim_style.add_modifier(ratatui::style::Modifier::ITALIC),
+                    )));
+                }
+            }
+
+            // Sub-agent active tools (spinning)
+            for tool in &self.subagent_active_tools {
+                let elapsed = tool.started_at.elapsed().as_secs();
+                lines.push(Line::from(ratatui::text::Span::styled(
+                    format!("  \u{2502} \u{2699} {}: {}s", tool.name, elapsed),
+                    indent_style,
+                )));
+            }
+
+            // Sub-agent streaming text
+            if !self.subagent_streaming_text.is_empty() {
+                for line in self.subagent_streaming_text.lines() {
+                    lines.push(Line::from(ratatui::text::Span::styled(
+                        format!("  \u{2502} {}", line),
+                        indent_style,
+                    )));
+                }
+            }
+
+            // Completion footer
+            if let Some((rounds, tools)) = self.subagent_completed {
+                lines.push(Line::from(ratatui::text::Span::styled(
+                    format!("  \u{2570}\u{2500} Completed ({} rounds, {} tools)", rounds, tools),
+                    dim_style,
+                )));
+            }
         }
 
         // Thinking text — always re-render (not cached)

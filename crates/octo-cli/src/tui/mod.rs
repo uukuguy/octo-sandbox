@@ -346,6 +346,14 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
                 });
             }
             state.task_tool_calls += 1;
+            // Clear sub-agent state when execute_skill tool completes
+            if state.subagent_source_id.is_some() {
+                state.subagent_source_id = None;
+                state.subagent_streaming_text.clear();
+                state.subagent_thinking_text.clear();
+                state.subagent_active_tools.clear();
+                state.subagent_completed = None;
+            }
             state.invalidate_cache();
         }
         AgentEvent::ToolProgress {
@@ -386,6 +394,12 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.thinking_text.clear();
             state.active_tools.clear();
             state.task_start_time = None;
+            // Clear sub-agent state on parent completion
+            state.subagent_source_id = None;
+            state.subagent_streaming_text.clear();
+            state.subagent_thinking_text.clear();
+            state.subagent_active_tools.clear();
+            state.subagent_completed = None;
 
             // Replace messages with final_messages from agent loop if available.
             // These include full tool call/result content blocks (collapsed in UI).
@@ -527,8 +541,80 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.task_rounds += 1;
             state.dirty = true;
         }
+        AgentEvent::SubAgentEvent { source_id, inner } => {
+            handle_subagent_event(state, source_id, *inner);
+        }
         _ => {
             // MemoryFlushed, ToolExecution, Typing
+            state.dirty = true;
+        }
+    }
+}
+
+/// Process a SubAgentEvent, updating isolated sub-agent state in TuiState.
+fn handle_subagent_event(
+    state: &mut app_state::TuiState,
+    source_id: String,
+    event: octo_engine::agent::AgentEvent,
+) {
+    use octo_engine::agent::AgentEvent;
+
+    // Track which sub-agent is active
+    if state.subagent_source_id.is_none() {
+        state.subagent_source_id = Some(source_id.clone());
+    }
+
+    match event {
+        AgentEvent::TextDelta { text } => {
+            state.subagent_streaming_text.push_str(&text);
+            state.invalidate_cache();
+            state.auto_scroll();
+        }
+        AgentEvent::TextComplete { .. } => {
+            // Finalize sub-agent streaming text (keep accumulated text for display)
+            state.invalidate_cache();
+        }
+        AgentEvent::ThinkingDelta { text } => {
+            state.subagent_thinking_text.push_str(&text);
+            state.invalidate_cache();
+        }
+        AgentEvent::ThinkingComplete { .. } => {
+            state.subagent_thinking_text.clear();
+            state.invalidate_cache();
+        }
+        AgentEvent::ToolStart { tool_id, tool_name, input } => {
+            state.subagent_active_tools.push(
+                widgets::conversation::ActiveTool {
+                    tool_id,
+                    name: tool_name,
+                    args: input,
+                    started_at: std::time::Instant::now(),
+                },
+            );
+            state.dirty = true;
+        }
+        AgentEvent::ToolResult { tool_id, .. } => {
+            if let Some(idx) = state.subagent_active_tools.iter().position(|t| t.tool_id == tool_id) {
+                state.subagent_active_tools.remove(idx);
+            } else {
+                state.subagent_active_tools.pop();
+            }
+            state.invalidate_cache();
+        }
+        AgentEvent::Completed(result) => {
+            state.subagent_completed = Some((result.rounds, result.tool_calls));
+            state.subagent_active_tools.clear();
+            state.subagent_thinking_text.clear();
+            state.invalidate_cache();
+        }
+        AgentEvent::Error { message } => {
+            // Show error inline in sub-agent text
+            state.subagent_streaming_text.push_str(&format!("\n[Error] {}", message));
+            state.subagent_active_tools.clear();
+            state.subagent_thinking_text.clear();
+            state.invalidate_cache();
+        }
+        _ => {
             state.dirty = true;
         }
     }
