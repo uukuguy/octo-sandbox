@@ -29,7 +29,9 @@ use crate::skills::{
     SkillTool,
 };
 use crate::tools::recorder::ToolExecutionRecorder;
-use crate::tools::{default_tools, register_kg_tools, register_memory_tools, ToolRegistry};
+use crate::tools::{
+    default_tools, register_kg_tools, register_memory_tools, register_scheduler_tools, ToolRegistry,
+};
 
 const MPSC_CAPACITY: usize = 32;
 const BROADCAST_CAPACITY: usize = 256;
@@ -186,7 +188,7 @@ impl AgentRuntime {
         let memory_store: Arc<dyn MemoryStore> = Arc::new(SqliteMemoryStore::new(conn.clone()));
 
         // 5. Create ToolExecutionRecorder
-        let recorder = Arc::new(ToolExecutionRecorder::new(conn));
+        let recorder = Arc::new(ToolExecutionRecorder::new(conn.clone()));
 
         // 6. Create Provider
         let api_key = config
@@ -216,6 +218,12 @@ impl AgentRuntime {
             crate::memory::KnowledgeGraph::new(),
         ));
         register_kg_tools(&mut tools, knowledge_graph.clone());
+
+        // 7c. Create SchedulerStorage and register scheduler tools
+        let scheduler_storage: Arc<dyn crate::scheduler::SchedulerStorage> = Arc::new(
+            crate::scheduler::SqliteSchedulerStorage::new(conn),
+        );
+        register_scheduler_tools(&mut tools, scheduler_storage);
 
         // 8. Create and load SkillRegistry
         let skill_registry = Arc::new(SkillRegistry::new());

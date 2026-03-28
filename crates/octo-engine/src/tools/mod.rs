@@ -18,6 +18,7 @@ pub mod memory_store;
 pub mod memory_update;
 pub mod rate_limiter;
 pub mod recorder;
+pub mod scheduler;
 pub mod subagent;
 pub mod traits;
 pub mod truncation;
@@ -49,6 +50,7 @@ use tokio::sync::RwLock;
 use crate::memory::graph::KnowledgeGraph;
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
+use crate::scheduler::SchedulerStorage;
 use octo_types::ToolSpec;
 
 pub struct ToolRegistry {
@@ -159,4 +161,11 @@ pub fn register_kg_tools(
     kg: Arc<RwLock<KnowledgeGraph>>,
 ) {
     knowledge_graph::register_kg_tools(registry, kg);
+}
+
+pub fn register_scheduler_tools(
+    registry: &mut ToolRegistry,
+    storage: Arc<dyn SchedulerStorage>,
+) {
+    registry.register(scheduler::ScheduleTaskTool::new(storage));
 }
