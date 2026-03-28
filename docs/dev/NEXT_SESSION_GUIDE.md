@@ -1,54 +1,49 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-28 10:30 GMT+8
-**当前分支**: `main` (ahead of origin by 4 commits)
-**当前状态**: SubAgent Streaming Events 阶段完成，scheduler tool WIP 未提交
+**最后更新**: 2026-03-28 11:30 GMT+8
+**当前分支**: `main` (ahead of origin by 10 commits)
+**当前状态**: Tier1+Tier2 暂缓项批量完成
 
 ---
 
 ## 项目状态
 
 ```
-SubAgent Streaming Events                  -> COMPLETE @ cc05eeb
-Builtin Commands Redesign                  -> COMPLETE @ 1916320
-Custom Commands + TUI Fixes                -> COMPLETE @ 263eeb2
+CI Fix + Z-D1 + AA-D1 + AB-D1(partial)  -> COMPLETE @ 9f7c163
+Scheduler Tool (schedule_task)           -> COMPLETE @ a922159
+SubAgent Streaming Events                -> COMPLETE @ cc05eeb
+Builtin Commands Redesign                -> COMPLETE @ 1916320
+Custom Commands + TUI Fixes              -> COMPLETE @ 263eeb2
 Post-AF: Builtin Skills + Config + TUI Fix -> COMPLETE @ 072c15b
-Phase AF: SSM Wiring + Deferred Batch      -> COMPLETE @ 976e813
-Phase AE: Agent Workspace Architecture     -> COMPLETE @ ee4986f
-Phase AD-AC-AB-AA-Z-Y-X-W-V-U-T           -> ALL COMPLETE
+Phase AF-AE-AD-AC-AB-AA-Z-Y-X-W-V-U-T  -> ALL COMPLETE
 ```
 
 ### 基线数据
 
-- **Tests**: 2476 passing
+- **Tests**: 2476 passing (+ auth tests)
 - **测试命令**: `cargo test --workspace -- --test-threads=1`
 - **DB migrations**: CURRENT_VERSION=11
 
 ---
 
-## 进行中的工作 (未提交)
+## 本次完成的暂缓项
 
-### Scheduler Tool (schedule_task)
+### Z-D1: CredentialResolver → Provider chain ✅
+- `AgentRuntime` 不再 hardcode `std::env::var("ANTHROPIC_API_KEY")`
+- 使用 `resolve_api_key_env()` 自动匹配 20+ provider 的 env var
+- 通过 `CredentialResolver` 优先级链解析: Vault > env > credentials.yaml > .env
 
-在 TUI 模式下暴露调度器 CRUD 操作给 agent。
+### AA-D1: octo auth login/status/logout ✅
+- `octo auth login --provider anthropic --key sk-...` 存储到 `~/.octo/credentials.yaml`
+- `octo auth status` 显示已存储凭证（脱敏）+ 环境变量覆盖
+- `octo auth logout --provider openai` 移除凭证
+- `CredentialResolver` 新增 `with_credentials()` 支持 YAML 文件
+- 文件权限自动设为 0600
 
-**已完成文件**:
-- `crates/octo-engine/src/tools/scheduler.rs` — 新建：ScheduleTaskTool 实现
-- `crates/octo-engine/src/tools/mod.rs` — 新增 scheduler 模块 + register_scheduler_tools()
-- `crates/octo-engine/src/agent/runtime.rs` — 创建 SqliteSchedulerStorage + 注册 scheduler tools
-
-**设计文档**: `.claude/plans/tranquil-wibbling-unicorn.md`
-
-**设计要点**:
-- 单一 action-dispatch tool（非多个独立 tool）
-- 仅处理 CRUD via SchedulerStorage，不触发执行
-- 可选注册：仅在 SchedulerStorage 可用时注册
-
-**下一步**:
-1. 完成 ScheduleTaskTool 的 execute() 实现（list/create/update/delete/run_now actions）
-2. 编译验证：`cargo check --workspace`
-3. 添加单元测试
-4. 提交
+### AB-D1: CI/CD 修复 ✅
+- 移除 `.cargo/config.toml`（macOS sccache 路径破坏 Linux CI）
+- 修复 `install-cli-tools.sh` ripgrep 15.1.0 URL（amd64 改用 musl）
+- 容器构建触发条件: push main + `container/**` 路径变更（不是每次推送）
 
 ---
 
@@ -56,19 +51,15 @@ Phase AD-AC-AB-AA-Z-Y-X-W-V-U-T           -> ALL COMPLETE
 
 | 来源 | ID | 内容 | 状态 |
 |------|----|----|------|
-| Phase AB | AB-D1 | Octo sandbox Docker image | 可实施 |
 | Phase AB | AB-D2 | E2B provider 完整实现 | 可实施 |
 | Phase AB | AB-D3 | WASM plugin loading | 待定 |
 | Phase AB | AB-D4 | Session Sandbox 持久化 | 可实施 |
-| Phase AB | AB-D5 | CredentialResolver -> sandbox env 注入 | 待定 |
+| Phase AB | AB-D5 | CredentialResolver -> sandbox env 注入 | 可实施（Z-D1 已完成） |
 | Phase AB | AB-D6 | gVisor / Firecracker provider | 可实施 |
-| Phase AC | AC-D1 | CI/CD pipeline | 低优先级 |
 | Phase AC | AC-D4~D6 | Multi-image, snapshots, compose | 低优先级 |
 | Phase AD | AD-D1~D6 | LibreOffice, cloud, cosign, CLI, docling | 低优先级 |
-| Phase AA | AA-D1 | octo auth login/status/logout | 待 UX 设计 |
 | Phase AA | AA-D3 | XDG Base Directory | 低优先级 |
 | Phase AA | AA-D4 | Config 热重载 | 未来增强 |
-| Phase Z | Z-D1 | CredentialResolver -> provider chain | 待定 |
 
 ---
 
@@ -76,12 +67,12 @@ Phase AD-AC-AB-AA-Z-Y-X-W-V-U-T           -> ALL COMPLETE
 
 | 文件 | 作用 |
 |------|------|
-| `crates/octo-engine/src/tools/scheduler.rs` | scheduler tool (WIP) |
-| `crates/octo-engine/src/commands.rs` | 自定义命令加载器 + builtin sync |
-| `crates/octo-engine/src/skills/execute_tool.rs` | sub-agent 事件转发 |
-| `crates/octo-engine/src/agent/events.rs` | SubAgent* 事件变体 |
-| `crates/octo-engine/src/sandbox/` | SandboxProfile, SSM, Docker, 路由 |
+| `crates/octo-cli/src/commands/auth.rs` | octo auth 凭证管理 (NEW) |
+| `crates/octo-engine/src/secret/resolver.rs` | CredentialResolver 优先级链 |
+| `crates/octo-engine/src/tools/scheduler.rs` | scheduler tool |
 | `crates/octo-engine/src/agent/runtime.rs` | AgentRuntime 初始化 |
+| `crates/octo-engine/src/skills/execute_tool.rs` | sub-agent 事件转发 |
+| `crates/octo-engine/src/sandbox/` | SandboxProfile, SSM, Docker, 路由 |
 | `crates/octo-cli/src/tui/` | TUI 核心 |
 | `config.default.yaml` | 全量配置参考 |
 
@@ -104,4 +95,8 @@ make cli-run
 
 # 启动 server + web
 make dev
+
+# 凭证管理
+octo auth login --provider anthropic --key sk-ant-xxx
+octo auth status
 ```
