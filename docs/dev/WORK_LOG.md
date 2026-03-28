@@ -1,5 +1,71 @@
 # octo-sandbox 工作日志
 
+## SubAgent Streaming Events (2026-03-27)
+
+### 完成内容
+
+实现 sub-agent 流式事件转发，使 TUI 能实时显示 skill playbook 模式下 sub-agent 的推理和工具调用过程。
+
+**1. Sub-Agent 事件转发 (12c7752)**
+- `SubAgentContext` 新增 `event_sender: Option<broadcast::Sender<AgentEvent>>`
+- `execute_playbook` 将所有中间事件（TextDelta、ThinkingDelta、ToolStart/Result 等）通过 broadcast channel 转发到父 agent
+- `AgentExecutor` 构建 `SubAgentContext` 时传入 `self.broadcast_tx.clone()`
+- 新增 `AgentEvent` 变体：`SubAgentTextDelta`、`SubAgentThinkingDelta`、`SubAgentToolStart`、`SubAgentToolResult`
+
+**2. TUI 渲染 Sub-Agent 事件 (cc05eeb)**
+- TUI `AppState` 新增 sub-agent 状态字段（`sub_agent_active`、`sub_agent_text`、`sub_agent_tool_name`）
+- Sub-agent 事件在 TUI 中以缩进隔离块显示
+- Tool 完成时自动清理 sub-agent 状态
+
+**3. Provider 修复 (d6fbe9b)**
+- `OpenAIProvider` 对 localhost/127.0.0.1 使用 `.no_proxy()` 绕过系统代理，修复 502 错误
+
+**4. 配置修复 (7de26ea)**
+- 统一凭据优先级：env > credentials.yaml > config.yaml
+- 修复 Ollama reasoning 配置不匹配问题
+
+### 技术变更
+- `crates/octo-engine/src/agent/events.rs` — 新增 SubAgent* 事件变体
+- `crates/octo-engine/src/skills/execute_tool.rs` — sub-agent 事件转发逻辑
+- `crates/octo-engine/src/agent/harness.rs` — SubAgentContext 传入 broadcast_tx
+- `crates/octo-cli/src/tui/app_state.rs` — sub-agent 状态字段 + 渲染
+- `crates/octo-cli/src/tui/mod.rs` — sub-agent 事件处理 + 状态清理
+- `crates/octo-engine/src/providers/openai.rs` — no_proxy + think tag filter
+
+### 提交记录
+- `cc05eeb` feat(tui): render sub-agent streaming events in isolated indented block
+- `12c7752` feat(skills): forward sub-agent streaming events to parent TUI
+- `d6fbe9b` fix(provider): bypass system proxy for local LLM endpoints
+- `7de26ea` fix(config): unify credential priority and fix Ollama reasoning mismatch
+
+### 下一步建议
+- 实现 scheduler tool（schedule_task）暴露调度器 CRUD 给 TUI agent
+- 测试 sub-agent 流式输出在实际 skill 执行中的表现
+
+---
+
+## Builtin Commands Redesign (2026-03-26)
+
+### 完成内容
+
+基于 GitHub Copilot、Claude Code bundled skills、Awesome Claude Skills (9.8k stars) 和 Skills Marketplace 的调研，重新设计 10 个内置命令。
+
+- 升级 6 个代码工程命令模板（review/test/fix/refactor/doc/commit）为结构化多步骤提示词
+- 新增 4 个企业级命令：/security (OWASP audit), /plan (需求分解), /audit (6 维度代码库评估), /bootstrap (脚手架)
+- 移除 4 个低价值命令：summarize, translate, explain, optimize
+- 修复显示 bug：斜杠命令显示简洁输入而非完整展开提示词
+- 更新 10 命令测试断言
+- 设计文档 + 调研来源
+
+### 提交记录
+- `1916320` feat(commands): redesign builtin commands with enterprise-grade templates
+
+### 测试结果
+- 66 tests pass (22 commands + 44 key_handler)
+- 基线 2476 不变
+
+---
+
 ## MCP Support + TUI Robustness + Custom Commands (2026-03-26)
 
 ### 完成内容
