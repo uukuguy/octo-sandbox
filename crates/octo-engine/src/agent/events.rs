@@ -80,6 +80,16 @@ pub enum AgentEvent {
     },
     /// The agent loop was halted by an emergency stop (E-Stop).
     EmergencyStopped(Option<String>),
+    /// The LLM produced a malformed or incomplete tool call (e.g. truncated XML/JSON).
+    /// The agent loop will automatically retry with contextual guidance.
+    RetryingMalformedToolCall {
+        /// Which retry attempt this is (1-based).
+        attempt: u32,
+        /// Maximum retries before giving up.
+        max_attempts: u32,
+        /// Human-readable reason for the retry.
+        reason: String,
+    },
     /// Streaming event from a sub-agent (e.g. playbook skill execution).
     /// Wrapped to isolate sub-agent state from parent agent state in the TUI.
     SubAgentEvent {

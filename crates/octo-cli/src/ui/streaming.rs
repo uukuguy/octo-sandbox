@@ -71,6 +71,15 @@ async fn render_text_stream(
                         eprintln!("  {} {}", "✘".red(), preview.red());
                     }
                 }
+                AgentEvent::RetryingMalformedToolCall { attempt, max_attempts, reason } => {
+                    eprintln!(
+                        "{}",
+                        format!(
+                            "[Retry {}/{}] Malformed tool call detected, retrying: {}",
+                            attempt, max_attempts, reason
+                        ).yellow()
+                    );
+                }
                 AgentEvent::Error { message } => {
                     eprintln!("{}", format!("Error: {}", message).red().bold());
                 }

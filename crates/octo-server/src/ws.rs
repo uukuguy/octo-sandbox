@@ -110,6 +110,14 @@ enum ServerMessage {
     #[serde(rename = "security_blocked")]
     SecurityBlocked { session_id: String, reason: String },
 
+    #[serde(rename = "retrying_malformed_tool_call")]
+    RetryingMalformedToolCall {
+        session_id: String,
+        attempt: u32,
+        max_attempts: u32,
+        reason: String,
+    },
+
     /// Session lifecycle update (created, message_added, context_updated, closed).
     /// The actual WebSocket subscription wiring is deferred to a later phase.
     #[serde(rename = "session_update")]
@@ -304,6 +312,16 @@ async fn handle_socket(socket: WebSocket, state: Arc<AppState>) {
                                         reason,
                                     }
                                 }
+                                AgentEvent::RetryingMalformedToolCall {
+                                    attempt,
+                                    max_attempts,
+                                    reason,
+                                } => ServerMessage::RetryingMalformedToolCall {
+                                    session_id: sid_str.clone(),
+                                    attempt,
+                                    max_attempts,
+                                    reason,
+                                },
                                 // IterationStart/IterationEnd are internal — skip
                                 _ => continue,
                             };

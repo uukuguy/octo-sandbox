@@ -541,6 +541,21 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
             state.task_rounds += 1;
             state.dirty = true;
         }
+        AgentEvent::RetryingMalformedToolCall { attempt, max_attempts, reason } => {
+            // Show retry notification inline so the user knows what's happening
+            state.messages.push(ChatMessage {
+                role: MessageRole::Assistant,
+                content: vec![ContentBlock::Text {
+                    text: format!(
+                        "[Retry {}/{}] LLM 输出了格式错误的工具调用，正在重试。原因：{}",
+                        attempt, max_attempts, reason
+                    ),
+                }],
+            });
+            state.dirty = true;
+            state.invalidate_cache();
+            state.auto_scroll();
+        }
         AgentEvent::SubAgentEvent { source_id, inner } => {
             handle_subagent_event(state, source_id, *inner);
         }

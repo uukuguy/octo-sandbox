@@ -139,6 +139,12 @@ async fn stream_text_output(
                     eprintln!("  [{}] {}", icon, preview);
                 }
             }
+            Ok(AgentEvent::RetryingMalformedToolCall { attempt, max_attempts, reason }) => {
+                eprintln!(
+                    "[Retry {}/{}] Malformed tool call detected, retrying: {}",
+                    attempt, max_attempts, reason
+                );
+            }
             Ok(AgentEvent::Error { message }) => {
                 eprintln!("Error: {}", message);
                 break;
@@ -209,6 +215,12 @@ async fn collect_json_output(
                 output_tokens = result.output_tokens;
                 stop_reason = format!("{:?}", result.stop_reason);
                 break;
+            }
+            Ok(AgentEvent::RetryingMalformedToolCall { attempt, max_attempts, reason }) => {
+                eprintln!(
+                    "[Retry {}/{}] Malformed tool call detected, retrying: {}",
+                    attempt, max_attempts, reason
+                );
             }
             Ok(AgentEvent::Error { message }) => {
                 error_message = Some(message);

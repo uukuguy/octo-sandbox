@@ -46,6 +46,9 @@ const MAX_TOOL_OUTPUT_SIZE: usize = 100_000;
 /// Default context window when no budget is configured (128K tokens).
 const DEFAULT_CONTEXT_WINDOW: usize = 128_000;
 
+/// Maximum number of retries when the LLM produces a malformed tool call.
+const MAX_MALFORMED_TOOL_CALL_RETRIES: u32 = 2;
+
 /// Interval (in rounds) at which Zone B working memory is refreshed.
 /// This allows agent's memory_edit changes to take effect mid-conversation.
 const ZONE_B_REFRESH_INTERVAL: u32 = 5;
@@ -312,6 +315,9 @@ async fn run_agent_loop_inner(
         max_continuations: config.max_tokens_continuation,
         ..Default::default()
     });
+
+    // Malformed tool call retry counter — tracks consecutive retries within a turn
+    let mut malformed_retry_count: u32 = 0;
 
     // P1-4: DeferredActionDetector for detecting deferred actions in text
     let deferred_detector = DeferredActionDetector::new();
@@ -728,12 +734,73 @@ async fn run_agent_loop_inner(
                     count = recovered.len(),
                     "Recovered tool calls from plain text"
                 );
+                // Reset malformed retry counter on successful recovery
+                malformed_retry_count = 0;
                 tool_uses = recovered;
+            }
+        }
+
+        // --- Malformed / incomplete tool call detection + retry ---
+        // If the LLM tried to produce a tool call but it was incomplete or
+        // malformed (e.g. truncated XML/JSON), retry instead of silently
+        // ending the turn.  This covers both max_tokens truncation and
+        // models that emit broken tool call syntax.
+        if tool_uses.is_empty() && !full_text.is_empty() {
+            let malformed = detect_malformed_tool_call(&full_text);
+            if malformed.is_some() && malformed_retry_count < MAX_MALFORMED_TOOL_CALL_RETRIES {
+                malformed_retry_count += 1;
+                let reason = malformed.unwrap_or_default();
+
+                warn!(
+                    attempt = malformed_retry_count,
+                    max = MAX_MALFORMED_TOOL_CALL_RETRIES,
+                    reason = %reason,
+                    "Detected malformed tool call, retrying"
+                );
+
+                // Notify user via event
+                let _ = tx
+                    .send(AgentEvent::RetryingMalformedToolCall {
+                        attempt: malformed_retry_count,
+                        max_attempts: MAX_MALFORMED_TOOL_CALL_RETRIES,
+                        reason: reason.clone(),
+                    })
+                    .await;
+
+                // Build retry guidance for the model
+                let retry_prompt = if stop_reason == StopReason::MaxTokens {
+                    format!(
+                        "Your previous response was truncated due to the output token limit (stop_reason=max_tokens). \
+                         The tool call you were generating was incomplete: {}. \
+                         Please re-generate your tool call using the correct structured format. \
+                         Keep the tool arguments concise to avoid truncation.",
+                        reason
+                    )
+                } else {
+                    format!(
+                        "Your previous response contained a malformed tool call that could not be parsed: {}. \
+                         Please re-generate your tool call using the correct structured format \
+                         (use the tool_use API, not XML or plain text).",
+                        reason
+                    )
+                };
+
+                // Append the broken text as assistant message + retry prompt
+                messages.push(ChatMessage::assistant(&full_text));
+                messages.push(ChatMessage {
+                    role: MessageRole::User,
+                    content: vec![ContentBlock::Text { text: retry_prompt }],
+                });
+                let _ = tx.send(AgentEvent::IterationEnd { round, input_tokens: total_input_tokens, output_tokens: total_output_tokens }).await;
+                continue; // Re-enter loop for retry
             }
         }
 
         // --- If no tool uses: check for continuation or finalize ---
         if stop_reason != StopReason::ToolUse || tool_uses.is_empty() {
+            // Reset malformed retry counter on successful non-tool turn
+            malformed_retry_count = 0;
+
             // P1-1: Auto-continuation on max_tokens
             if stop_reason == StopReason::MaxTokens
                 && continuation_tracker.should_continue("max_tokens")
@@ -1634,6 +1701,55 @@ fn soft_trim_tool_result(result: &str, soft_limit: usize) -> String {
 }
 
 // ---------------------------------------------------------------------------
+// Malformed / incomplete tool call detection
+// ---------------------------------------------------------------------------
+// Detects when the LLM attempted to produce a tool call but the output was
+// incomplete or malformed (e.g. truncated by max_tokens).  Returns a
+// human-readable reason string if a malformed tool call pattern is found.
+// This is intentionally conservative — only matches clear indicators of
+// attempted-but-broken tool invocations, not arbitrary text.
+// ---------------------------------------------------------------------------
+
+/// Detect malformed or incomplete tool call patterns in LLM text output.
+///
+/// Returns `Some(reason)` if the text contains evidence of an attempted
+/// but incomplete tool call, or `None` if the text looks like normal prose.
+fn detect_malformed_tool_call(text: &str) -> Option<String> {
+    // Strategy 1: Qwen-style XML — opening <tool_call> or <function= without proper closing
+    if text.contains("<tool_call>") || text.contains("<function=") {
+        // Check if there's a properly closed tool call (already handled by parse_tool_calls_from_text)
+        let has_complete = text.contains("</function>") && text.contains("</tool_call>");
+        if !has_complete {
+            return Some("Incomplete XML tool call (truncated <tool_call>/<function=> block)".into());
+        }
+    }
+
+    // Strategy 2: JSON tool call — opening {"name": ... without proper closing
+    // Look for patterns like {"name": "bash", "arguments": { ... without closing }}
+    if let Some(start) = text.find(r#""name""#) {
+        let sub = &text[start..];
+        if sub.contains(r#""arguments""#) {
+            // Check if the JSON object is properly closed
+            let open_braces = sub.chars().filter(|&c| c == '{').count();
+            let close_braces = sub.chars().filter(|&c| c == '}').count();
+            if open_braces > close_braces {
+                return Some("Incomplete JSON tool call (unclosed braces in name/arguments object)".into());
+            }
+        }
+    }
+
+    // Strategy 3: Fenced JSON block opened but not closed
+    if text.contains("```json") && !text.contains("```\n") && text.matches("```").count() == 1 {
+        // Only one ``` found after ```json — the block was never closed
+        if text.contains(r#""name""#) && text.contains(r#""arguments""#) {
+            return Some("Incomplete fenced JSON tool call (unclosed code block)".into());
+        }
+    }
+
+    None
+}
+
+// ---------------------------------------------------------------------------
 // Text-based tool call recovery (W7-T3)
 // ---------------------------------------------------------------------------
 // Some LLMs (open-source models via OpenAI-compatible API) emit tool calls as
@@ -1952,5 +2068,68 @@ mod tests {
         let result = soft_trim_tool_result(&input, 1_000);
         assert!(result.contains("[... omitted"));
         assert!(result.len() < input.len());
+    }
+
+    // --- Malformed tool call detection tests ---
+
+    #[test]
+    fn test_detect_malformed_qwen_xml_truncated() {
+        // Real-world case: Qwen model output truncated mid-XML
+        let text = r#"<tool_call>
+<function=bash>
+<parameter=command>cd /tmp && nohup node server.js &</parameter>
+</function"#;
+        let result = detect_malformed_tool_call(text);
+        assert!(result.is_some());
+        assert!(result.unwrap().contains("Incomplete XML"));
+    }
+
+    #[test]
+    fn test_detect_malformed_qwen_xml_no_close_tag() {
+        let text = "<tool_call>\n<function=bash>\n<parameter=command>ls -la</parameter>";
+        let result = detect_malformed_tool_call(text);
+        assert!(result.is_some());
+    }
+
+    #[test]
+    fn test_detect_malformed_json_unclosed_braces() {
+        let text = r#"I'll run this: {"name": "bash", "arguments": {"command": "echo hello"#;
+        let result = detect_malformed_tool_call(text);
+        assert!(result.is_some());
+        assert!(result.unwrap().contains("unclosed braces"));
+    }
+
+    #[test]
+    fn test_detect_malformed_fenced_json_unclosed() {
+        // This text has unclosed JSON braces AND unclosed fenced block.
+        // Strategy 2 (JSON unclosed braces) fires first since it comes before Strategy 3.
+        let text = "Sure, let me do that.\n```json\n{\"name\":\"bash\",\"arguments\":{\"command\":\"ls\"";
+        let result = detect_malformed_tool_call(text);
+        assert!(result.is_some());
+        assert!(result.unwrap().contains("unclosed braces"));
+    }
+
+    #[test]
+    fn test_detect_malformed_normal_text_returns_none() {
+        let text = "Here's the answer to your question. The function works correctly.";
+        assert!(detect_malformed_tool_call(text).is_none());
+    }
+
+    #[test]
+    fn test_detect_malformed_complete_qwen_returns_none() {
+        // Complete Qwen XML should NOT trigger malformed detection
+        let text = r#"<tool_call>
+<function=bash>
+<parameter=command>ls -la</parameter>
+</function>
+</tool_call>"#;
+        assert!(detect_malformed_tool_call(text).is_none());
+    }
+
+    #[test]
+    fn test_detect_malformed_complete_json_returns_none() {
+        // Complete JSON should NOT trigger (it will be handled by parse_tool_calls_from_text)
+        let text = r#"{"name": "bash", "arguments": {"command": "ls"}}"#;
+        assert!(detect_malformed_tool_call(text).is_none());
     }
 }
