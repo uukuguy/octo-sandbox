@@ -3,6 +3,7 @@
 //! Provides extensible hook points across the agent lifecycle.
 //! Hooks can observe, modify, or abort operations.
 
+pub mod builtin;
 mod context;
 mod handler;
 mod registry;

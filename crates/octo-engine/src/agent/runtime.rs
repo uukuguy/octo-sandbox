@@ -505,9 +505,31 @@ impl AgentRuntime {
             mcp_manager,
             working_dir,
             metering,
-            security_policy,
+            security_policy: security_policy.clone(),
             event_store: Some(event_store),
-            hook_registry: Arc::new(HookRegistry::new()),
+            hook_registry: {
+                let registry = Arc::new(HookRegistry::new());
+                // Register builtin handlers (Phase AH)
+                {
+                    let r = registry.clone();
+                    let sp = security_policy;
+                    tokio::spawn(async move {
+                        use crate::hooks::HookPoint;
+                        // SecurityPolicyHandler: PreToolUse — blocks forbidden paths + high-risk commands
+                        r.register(
+                            HookPoint::PreToolUse,
+                            Arc::new(crate::hooks::builtin::SecurityPolicyHandler::new(sp)),
+                        ).await;
+                        // AuditLogHandler: PostToolUse — structured audit logging
+                        r.register(
+                            HookPoint::PostToolUse,
+                            Arc::new(crate::hooks::builtin::AuditLogHandler),
+                        ).await;
+                        tracing::debug!("Builtin hook handlers registered (security-policy, audit-log)");
+                    });
+                }
+                registry
+            },
             tenant_context,
             router: tokio::sync::RwLock::new(crate::agent::router::AgentRouter::new()),
             safety_pipeline: Some(safety_pipeline),
