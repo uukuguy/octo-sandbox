@@ -2,7 +2,7 @@
   "plan_file": "docs/plans/2026-03-29-phase-ag-memory-context-enhancement.md",
   "phase": "complete",
   "created_at": "2026-03-29T00:00:00+08:00",
-  "updated_at": "2026-03-29T21:30:00+08:00",
+  "updated_at": "2026-03-29T22:00:00+08:00",
   "completed_tasks": [
     "Task 1: 类型系统扩展 (octo-types)",
     "Task 2: DB Migration v12 + SqliteMemoryStore 扩展",
@@ -19,12 +19,13 @@
     "AG-D3: 智能遗忘 (configurable strategy + dry_run)",
     "AG-D4: 记忆冲突解决 (replace/skip/force)",
     "AG-D7: memory_compress 压缩工具",
-    "AG-D1: ProceduralExtractor 程序记忆提取 (6 tests)"
+    "AG-D1: ProceduralExtractor 程序记忆提取 (6 tests)",
+    "TUI Fix: table border overflow (scrollbar+indent offset)"
   ],
   "current_task": null,
-  "total_tasks": 16,
-  "phase_name": "Phase AG — 记忆和上下文机制增强",
-  "status": "COMPLETE",
+  "total_tasks": 17,
+  "phase_name": "Phase AG — 记忆和上下文机制增强 + Deferred补齐",
+  "status": "COMPLETE — SESSION ENDED",
   "execution_mode": "direct",
   "branch": "main",
   "baseline": {
@@ -34,8 +35,8 @@
   },
   "current": {
     "tests": "2476+ (993 lib + 40 new tests)",
-    "commit": "b4decbe",
+    "commit": "59ea910",
     "db_version": 12
   },
-  "notes": "Phase AG COMPLETE + 5 deferred items resolved. All 11 original tasks + AG-D1/D3/D4/D5/D7. New components: ProceduralExtractor (6 tests) as session-end Step 4, MemoryCompressTool (LLM summary), MemorySearchTool HybridQueryEngine integration, smart forgetting (MemoryFilter max_importance/older_than_secs/max_access_count + dry_run), conflict resolution (on_conflict=replace/skip/force). Remaining deferred: AG-D2 (episodic→semantic consolidation, needs data), AG-D6 (KG semantic search, needs embedding), AG-D8 (frontend Memory Explorer)."
+  "notes": "Phase AG fully complete with deferred items. 11 original tasks + 5 deferred (D1/D3/D4/D5/D7) + 1 TUI bugfix. Remaining deferred: AG-D2 (episodic→semantic, needs data), AG-D6 (KG semantic, needs embedding), AG-D8 (frontend). Next session can start a new phase."
 }
