@@ -569,9 +569,24 @@ async fn run_agent_loop_inner(
         }
 
         // --- Build CompletionRequest ---
-        // P1-2: Apply observation masking to messages sent to LLM
-        let masker = crate::context::ObservationMasker::with_defaults();
-        let masked_messages = masker.mask(&messages);
+        // P1-2: Apply observation masking when context budget exceeds 50%
+        // Below 50% usage, full tool outputs are kept for better LLM reasoning.
+        // Above 50%, old tool results are masked to save tokens.
+        let usage_ratio = budget.usage_ratio(&system_prompt, &messages, &tool_specs);
+        let masked_messages = if usage_ratio > 0.5 {
+            let masker = crate::context::ObservationMasker::new(
+                crate::context::ObservationMaskConfig {
+                    keep_recent_turns: 3,
+                    min_mask_length: 200,
+                    ..Default::default()
+                },
+            );
+            let masked = masker.mask(&messages);
+            debug!(usage_ratio, "ObservationMasker activated (>50% budget)");
+            masked
+        } else {
+            messages.clone()
+        };
 
         let force_text = loop_steps::should_force_text_only(
             round,
