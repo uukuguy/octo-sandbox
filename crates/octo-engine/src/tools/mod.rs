@@ -11,6 +11,7 @@ pub mod interceptor;
 pub mod knowledge_graph;
 pub mod mcp_manage;
 pub mod path_safety;
+pub mod memory_compress;
 pub mod memory_edit;
 pub mod memory_forget;
 pub mod memory_recall;
@@ -40,6 +41,7 @@ use self::file_write::FileWriteTool;
 use self::find::FindTool;
 use self::glob::GlobTool;
 use self::grep::GrepTool;
+use self::memory_compress::MemoryCompressTool;
 use self::memory_forget::MemoryForgetTool;
 use self::memory_recall::MemoryRecallTool;
 use self::memory_search::MemorySearchTool;
@@ -52,6 +54,7 @@ use self::web_search::WebSearchTool;
 use tokio::sync::RwLock;
 
 use crate::memory::graph::KnowledgeGraph;
+use crate::memory::hybrid_query::HybridQueryEngine;
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
 use crate::scheduler::SchedulerStorage;
@@ -153,11 +156,26 @@ pub fn register_memory_tools(
     store: Arc<dyn MemoryStore>,
     provider: Arc<dyn Provider>,
 ) {
+    register_memory_tools_with_hybrid(registry, store, provider, None);
+}
+
+/// Register memory tools with an optional HybridQueryEngine for enhanced search.
+pub fn register_memory_tools_with_hybrid(
+    registry: &mut ToolRegistry,
+    store: Arc<dyn MemoryStore>,
+    provider: Arc<dyn Provider>,
+    hybrid_engine: Option<Arc<HybridQueryEngine>>,
+) {
     registry.register(MemoryStoreTool::new(store.clone(), provider.clone()));
-    registry.register(MemorySearchTool::new(store.clone(), provider.clone()));
+    let search_tool = match hybrid_engine {
+        Some(engine) => MemorySearchTool::with_hybrid_engine(store.clone(), provider.clone(), engine),
+        None => MemorySearchTool::new(store.clone(), provider.clone()),
+    };
+    registry.register(search_tool);
     registry.register(MemoryUpdateTool::new(store.clone()));
-    registry.register(MemoryRecallTool::new(store.clone(), provider));
+    registry.register(MemoryRecallTool::new(store.clone(), provider.clone()));
     registry.register(MemoryForgetTool::new(store.clone()));
+    registry.register(MemoryCompressTool::new(store.clone(), provider));
     registry.register(MemoryTimelineTool::new(store));
 }
 

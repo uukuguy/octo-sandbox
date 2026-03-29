@@ -163,8 +163,30 @@ impl MemoryStore for SqliteMemoryStore {
                         for src in sources {
                             params.push(Box::new(src.as_str().to_string()));
                         }
+                        param_idx += sources.len();
                     }
                 }
+
+                if let Some(max_imp) = filter.max_importance {
+                    sql.push_str(&format!(" AND importance <= ?{param_idx}"));
+                    params.push(Box::new(max_imp as f64));
+                    param_idx += 1;
+                }
+
+                if let Some(max_ac) = filter.max_access_count {
+                    sql.push_str(&format!(" AND access_count <= ?{param_idx}"));
+                    params.push(Box::new(max_ac as i64));
+                    param_idx += 1;
+                }
+
+                if let Some(older_secs) = filter.older_than_secs {
+                    let cutoff = chrono::Utc::now().timestamp() - older_secs;
+                    sql.push_str(&format!(" AND created_at < ?{param_idx}"));
+                    params.push(Box::new(cutoff));
+                    param_idx += 1;
+                }
+
+                let _ = param_idx; // suppress unused warning
 
                 let params_ref: Vec<&dyn rusqlite::types::ToSql> =
                     params.iter().map(|p| p.as_ref()).collect();
@@ -250,10 +272,30 @@ impl MemoryStore for SqliteMemoryStore {
                         for t in types {
                             params.push(Box::new(t.as_str().to_string()));
                         }
-                        #[allow(unused_assignments)]
-                        { param_idx += types.len(); }
+                        param_idx += types.len();
                     }
                 }
+
+                if let Some(max_imp) = filter.max_importance {
+                    sql.push_str(&format!(" AND importance <= ?{param_idx}"));
+                    params.push(Box::new(max_imp as f64));
+                    param_idx += 1;
+                }
+
+                if let Some(max_ac) = filter.max_access_count {
+                    sql.push_str(&format!(" AND access_count <= ?{param_idx}"));
+                    params.push(Box::new(max_ac as i64));
+                    param_idx += 1;
+                }
+
+                if let Some(older_secs) = filter.older_than_secs {
+                    let cutoff = chrono::Utc::now().timestamp() - older_secs;
+                    sql.push_str(&format!(" AND created_at < ?{param_idx}"));
+                    params.push(Box::new(cutoff));
+                    param_idx += 1;
+                }
+
+                let _ = param_idx;
 
                 sql.push_str(&format!(" ORDER BY updated_at DESC LIMIT {}", filter.limit));
 

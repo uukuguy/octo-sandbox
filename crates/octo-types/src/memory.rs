@@ -414,6 +414,37 @@ impl MemoryEntry {
             event_data: Some(event.clone()),
         }
     }
+
+    /// Create a procedural memory entry (workflow pattern).
+    pub fn new_procedural(
+        user_id: impl Into<String>,
+        description: &str,
+        tool_sequence: &[String],
+        task_type: &str,
+        session_id: impl Into<String>,
+    ) -> Self {
+        Self {
+            id: MemoryId::new(),
+            user_id: user_id.into(),
+            sandbox_id: String::new(),
+            category: MemoryCategory::Patterns,
+            content: description.to_string(),
+            metadata: serde_json::json!({
+                "tool_sequence": tool_sequence,
+                "task_type": task_type,
+            }),
+            embedding: None,
+            importance: 0.6,
+            access_count: 0,
+            source_type: MemorySource::Extracted,
+            source_ref: format!("procedural:{task_type}"),
+            ttl: None,
+            timestamps: MemoryTimestamps::default(),
+            memory_type: MemoryType::Procedural,
+            session_id: Some(session_id.into()),
+            event_data: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -475,6 +506,12 @@ pub struct MemoryFilter {
     pub session_id: Option<String>,
     /// Filter by memory types
     pub memory_types: Option<Vec<MemoryType>>,
+    /// Maximum importance threshold — matches entries with importance <= this value
+    pub max_importance: Option<f32>,
+    /// Maximum access count — matches entries accessed <= this many times
+    pub max_access_count: Option<u32>,
+    /// Minimum age in seconds — matches entries older than (now - older_than_secs)
+    pub older_than_secs: Option<i64>,
 }
 
 impl Default for MemoryFilter {
@@ -488,6 +525,9 @@ impl Default for MemoryFilter {
             time_range: None,
             session_id: None,
             memory_types: None,
+            max_importance: None,
+            max_access_count: None,
+            older_than_secs: None,
         }
     }
 }

@@ -11,7 +11,7 @@ use crate::agent::{AgentConfig, AgentEvent, AgentLoopConfig};
 use crate::context::{ContextBudgetManager, ContextPruner};
 use crate::agent::subagent::SubAgentManager;
 use crate::memory::store_traits::MemoryStore;
-use crate::memory::{EventExtractor, SessionSummarizer, SessionSummaryStore, WorkingMemory};
+use crate::memory::{EventExtractor, ProceduralExtractor, SessionSummarizer, SessionSummaryStore, WorkingMemory};
 use crate::providers::Provider;
 use crate::sandbox::{
     DockerAdapter, OctoRunMode, SandboxProfile, SandboxRouter,
@@ -474,6 +474,45 @@ impl AgentExecutor {
                         "Step 3: Session summarization failed"
                     );
                 }
+            }
+        }
+
+        // Step 4: Procedural pattern extraction → L2 procedural memories
+        match ProceduralExtractor::extract_patterns(self.provider.as_ref(), &self.history, &model)
+            .await
+        {
+            Ok(patterns) if !patterns.is_empty() => {
+                let mut proc_stored = 0;
+                for pattern in &patterns {
+                    let entry = octo_types::MemoryEntry::new_procedural(
+                        self.user_id.as_str(),
+                        &pattern.description,
+                        &pattern.tool_sequence,
+                        &pattern.task_type,
+                        self.session_id.as_str(),
+                    );
+                    if store.store(entry).await.is_ok() {
+                        proc_stored += 1;
+                    }
+                }
+                info!(
+                    session_id = %self.session_id.as_str(),
+                    patterns = proc_stored,
+                    "Step 4: Procedural pattern extraction complete"
+                );
+            }
+            Ok(_) => {
+                tracing::debug!(
+                    session_id = %self.session_id.as_str(),
+                    "Step 4: No procedural patterns extracted"
+                );
+            }
+            Err(e) => {
+                tracing::warn!(
+                    session_id = %self.session_id.as_str(),
+                    error = %e,
+                    "Step 4: Procedural pattern extraction failed"
+                );
             }
         }
     }

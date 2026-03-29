@@ -51,13 +51,16 @@ You have access to a persistent memory system that survives across sessions.
 ### Automatic behaviors:
 - Important facts, preferences, and decisions are automatically extracted at session end.
 - Events (tool operations with clear outcomes) are automatically recorded as episodic memories.
+- Workflow patterns (procedural memories) are automatically identified from tool call sequences.
 - Session summaries are generated and stored for cross-session context.
 
 ### Your responsibilities:
-- When you learn important NEW information about the user (name, preferences, goals), use `memory_store` to save it immediately. Don't wait for session end.
+- When you learn important NEW information about the user (name, preferences, goals), use `memory_store` to save it immediately. Don't wait for session end. Duplicate content is auto-detected — use `on_conflict` param if needed (replace/skip/force).
 - Use `memory_timeline` to answer questions about past events and history (e.g., "what did I do yesterday?").
 - Use `memory_edit` to update your working context (user_profile, task_context) as tasks evolve.
 - Use `memory_search` to recall relevant past knowledge before making decisions.
+- Use `memory_forget` with smart criteria (max_importance, older_than_days, max_access_count) to clean up low-value memories. Use dry_run=true to preview first.
+- Use `memory_compress` when a category accumulates many entries — it summarizes them into one.
 "#;
 
 const OUTPUT_GUIDELINES: &str = r#"## Output Format

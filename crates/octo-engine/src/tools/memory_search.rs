@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use anyhow::Result;
@@ -7,6 +8,7 @@ use tracing::debug;
 
 use octo_types::{SearchOptions, ToolContext, ToolOutput, ToolSource};
 
+use crate::memory::hybrid_query::HybridQueryEngine;
 use crate::memory::store_traits::MemoryStore;
 use crate::providers::Provider;
 
@@ -15,11 +17,29 @@ use super::traits::Tool;
 pub struct MemorySearchTool {
     store: Arc<dyn MemoryStore>,
     provider: Arc<dyn Provider>,
+    hybrid_engine: Option<Arc<HybridQueryEngine>>,
 }
 
 impl MemorySearchTool {
     pub fn new(store: Arc<dyn MemoryStore>, provider: Arc<dyn Provider>) -> Self {
-        Self { store, provider }
+        Self {
+            store,
+            provider,
+            hybrid_engine: None,
+        }
+    }
+
+    /// Create with an optional HybridQueryEngine for enhanced semantic search.
+    pub fn with_hybrid_engine(
+        store: Arc<dyn MemoryStore>,
+        provider: Arc<dyn Provider>,
+        hybrid_engine: Arc<HybridQueryEngine>,
+    ) -> Self {
+        Self {
+            store,
+            provider,
+            hybrid_engine: Some(hybrid_engine),
+        }
     }
 }
 
@@ -69,26 +89,64 @@ impl Tool for MemorySearchTool {
         let opts = SearchOptions {
             user_id: "default".to_string(),
             limit,
-            query_embedding,
+            query_embedding: query_embedding.clone(),
             ..Default::default()
         };
 
         let results = self.store.search(query, opts).await?;
 
-        if results.is_empty() {
+        // Merge HybridQueryEngine results if available
+        let mut seen_ids: HashSet<String> = results.iter().map(|r| r.entry.id.to_string()).collect();
+        let mut hybrid_extra = Vec::new();
+
+        if let Some(engine) = &self.hybrid_engine {
+            let emb_ref = query_embedding.as_deref();
+            match engine.search(query, emb_ref, limit).await {
+                Ok(hybrid_results) => {
+                    for hr in hybrid_results {
+                        if seen_ids.insert(hr.id.clone()) {
+                            hybrid_extra.push(hr);
+                        }
+                    }
+                    if !hybrid_extra.is_empty() {
+                        debug!(
+                            extra = hybrid_extra.len(),
+                            "HybridQueryEngine contributed additional results"
+                        );
+                    }
+                }
+                Err(e) => {
+                    debug!(error = %e, "HybridQueryEngine search failed, using store results only");
+                }
+            }
+        }
+
+        if results.is_empty() && hybrid_extra.is_empty() {
             return Ok(ToolOutput::success("No memories found.".to_string()));
         }
 
-        let mut output = format!("Found {} memories:\n\n", results.len());
-        for (i, r) in results.iter().enumerate() {
+        let total = results.len() + hybrid_extra.len();
+        let mut output = format!("Found {} memories:\n\n", total);
+        let mut idx = 1;
+
+        for r in results.iter() {
             output.push_str(&format!(
                 "{}. [{}] (score: {:.2}, category: {})\n   {}\n\n",
-                i + 1,
+                idx,
                 r.entry.id,
                 r.score,
                 r.entry.category.as_str(),
                 r.entry.content,
             ));
+            idx += 1;
+        }
+
+        for hr in hybrid_extra.iter() {
+            output.push_str(&format!(
+                "{}. [{}] (score: {:.2}, source: {})\n   {}\n\n",
+                idx, hr.id, hr.score, hr.source, hr.content,
+            ));
+            idx += 1;
         }
 
         Ok(ToolOutput::success(output))
