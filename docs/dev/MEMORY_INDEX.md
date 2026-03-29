@@ -7,6 +7,7 @@
 
 ## [Active Work]
 
+- 2026-03-29 00:30 | Phase AG plan + design COMPLETE (11 tasks, 4 groups). 记忆和上下文机制增强. 5 断裂点修复 + 情景记忆 + Agent 主动管理 + ObservationMasker. 参考: Letta/MemGPT, ChatGPT Memory, Mem0, A-Mem. Ready to execute.
 - 2026-03-23 21:45 | Phase AE plan written (7 tasks, 4 groups). Ready to execute.
   - G1: --project CLI + OctoRoot::with_project_dir()
   - G2: Delete workspace_dir() + SecurityPolicy rename working_dir

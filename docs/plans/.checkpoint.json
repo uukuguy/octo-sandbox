@@ -1,30 +1,24 @@
 {
-  "plan_file": null,
-  "phase": "execution",
-  "created_at": "2026-03-26T18:30:00+08:00",
-  "updated_at": "2026-03-26T19:10:00+08:00",
-  "completed_tasks": [
-    "Redesign builtin commands: upgrade 6 templates from one-liner to structured multi-step prompts",
-    "Add 4 enterprise-value commands: /security (OWASP audit), /plan (requirement decomposition), /audit (6-dimension codebase assessment), /bootstrap (scaffolding)",
-    "Remove 4 low-value commands: summarize, translate, explain, optimize",
-    "Fix display bug: slash commands show concise input instead of full expanded prompt",
-    "Update test assertions for new 10-command set",
-    "Add design document with research sources"
-  ],
-  "current_task": null,
-  "total_tasks": 6,
-  "phase_name": "Builtin Commands Redesign",
-  "status": "COMPLETE",
+  "plan_file": "docs/plans/2026-03-29-phase-ag-memory-context-enhancement.md",
+  "phase": "planning",
+  "created_at": "2026-03-29T00:00:00+08:00",
+  "updated_at": "2026-03-29T00:30:00+08:00",
+  "completed_tasks": [],
+  "current_task": "Task 1: 类型系统扩展 (octo-types)",
+  "total_tasks": 11,
+  "phase_name": "Phase AG — 记忆和上下文机制增强",
+  "status": "PLANNED",
   "execution_mode": "direct",
   "branch": "main",
   "baseline": {
     "tests": 2476,
-    "commit": "8b34240"
+    "commit": "df54865",
+    "db_version": 11
   },
   "previous_phase": {
-    "name": "MCP Support + TUI Robustness + Custom Commands",
+    "name": "Builtin Commands Redesign",
     "status": "COMPLETE",
-    "commit": "263eeb2"
+    "commit": "1916320"
   },
-  "notes": "Redesigned builtin commands based on research of GitHub Copilot, Claude Code bundled skills, Awesome Claude Skills (9.8k stars), and Skills Marketplace. Final set: 6 code engineering (review/test/fix/refactor/doc/commit) + 4 enterprise (security/plan/audit/bootstrap). All 66 tests pass (22 commands + 44 key_handler). Commit: 1916320."
+  "notes": "Phase AG: 记忆和上下文机制增强。G1(3 tasks): 接线修复+基础设施。G2(4 tasks): 情景记忆系统。G3(3 tasks): Agent主动记忆管理。G4(1 task): 上下文工程增强。设计文档: docs/design/MEMORY_CONTEXT_ENHANCEMENT_DESIGN.md。参考: Letta/MemGPT, ChatGPT Memory, Mem0, A-Mem。8 deferred items (AG-D1~D8)。"
 }

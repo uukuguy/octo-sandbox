@@ -1,5 +1,13 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase AG — 记忆和上下文机制增强",
+      "started_at": "2026-03-28T16:00:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "progress": "0%"
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
     {
