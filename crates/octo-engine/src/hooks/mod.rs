@@ -5,6 +5,7 @@
 
 pub mod builtin;
 pub mod declarative;
+pub mod policy;
 mod context;
 mod handler;
 mod registry;
