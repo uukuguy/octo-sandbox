@@ -1,42 +1,39 @@
 {
-  "plan_file": "docs/plans/2026-03-29-phase-ag-memory-context-enhancement.md",
-  "phase": "complete",
-  "created_at": "2026-03-29T00:00:00+08:00",
-  "updated_at": "2026-03-29T22:00:00+08:00",
-  "completed_tasks": [
-    "Task 1: 类型系统扩展 (octo-types)",
-    "Task 2: DB Migration v12 + SqliteMemoryStore 扩展",
-    "Task 3: 接线 SessionEndMemoryHook + MemoryInjector",
-    "Task 4: EventExtractor — 事件提取器 (9 tests)",
-    "Task 5: SessionSummarizer — 会话摘要生成 (8 tests)",
-    "Task 6: Session End 完整流程接线 — 3-step pipeline",
-    "Task 7: memory_timeline 工具 (11 tests)",
-    "Task 8: memory_edit 工具 (6 tests)",
-    "Task 9: Session Summaries 注入 Zone B++",
-    "Task 10: System Prompt 记忆管理指令 + Zone B 周期刷新",
-    "Task 11: ObservationMasker 条件激活 (>50% budget)",
-    "AG-D5: HybridQueryEngine 接入 memory_search",
-    "AG-D3: 智能遗忘 (configurable strategy + dry_run)",
-    "AG-D4: 记忆冲突解决 (replace/skip/force)",
-    "AG-D7: memory_compress 压缩工具",
-    "AG-D1: ProceduralExtractor 程序记忆提取 (6 tests)",
-    "TUI Fix: table border overflow (scrollbar+indent offset)"
-  ],
+  "plan_file": "docs/plans/2026-03-30-phase-ah-hook-system-enhancement.md",
+  "phase": "planned",
+  "created_at": "2026-03-30T03:30:00+08:00",
+  "updated_at": "2026-03-30T03:30:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 17,
-  "phase_name": "Phase AG — 记忆和上下文机制增强 + Deferred补齐",
-  "status": "COMPLETE — SESSION ENDED",
+  "total_tasks": 15,
+  "phase_name": "Phase AH — Hook 系统增强：三层混合架构",
+  "status": "PLANNED — READY FOR EXECUTION",
   "execution_mode": "direct",
   "branch": "main",
   "baseline": {
     "tests": 2476,
-    "commit": "df54865",
-    "db_version": 11
-  },
-  "current": {
-    "tests": "2476+ (993 lib + 40 new tests)",
-    "commit": "59ea910",
+    "commit": "727499d",
     "db_version": 12
   },
-  "notes": "Phase AG fully complete with deferred items. 11 original tasks + 5 deferred (D1/D3/D4/D5/D7) + 1 TUI bugfix. Remaining deferred: AG-D2 (episodic→semantic, needs data), AG-D6 (KG semantic, needs embedding), AG-D8 (frontend). Next session can start a new phase."
+  "current": {
+    "tests": 2476,
+    "commit": "727499d",
+    "db_version": 12
+  },
+  "groups": {
+    "G1": { "name": "HookContext 增强", "tasks": 3, "status": "pending", "priority": "P0" },
+    "G2": { "name": "内置 Handler 注册", "tasks": 3, "status": "pending", "priority": "P0" },
+    "G3": { "name": "声明式加载与 Command 执行", "tasks": 4, "status": "pending", "priority": "P1" },
+    "G4": { "name": "Prompt 类型 LLM 评估", "tasks": 2, "status": "pending", "priority": "P2" },
+    "G5": { "name": "策略引擎", "tasks": 3, "status": "pending", "priority": "P3" }
+  },
+  "deferred": [
+    "AH-D1: Webhook 类型执行器 (P4)",
+    "AH-D2: WASM 插件 hook (P5/未来)",
+    "AH-D3: 平台租户策略合并 (P4)",
+    "AH-D4: TUI hook 状态面板 (P4)",
+    "AH-D5: Stop/SubagentStop 声明式支持 (P3)",
+    "AH-D6: ask 决策→ApprovalGate 集成 (P3)"
+  ],
+  "notes": "Phase AH plan created. Three-layer hybrid architecture: L1 programmatic (Rust trait) + L2 policy engine (rules YAML) + L3 declarative (hooks.yaml with prompt/command/webhook). Informed by CC hooks, NVIDIA OpenShell, K8s Admission Webhooks patterns. Previous session also committed malformed tool call retry mechanism (727499d)."
 }
