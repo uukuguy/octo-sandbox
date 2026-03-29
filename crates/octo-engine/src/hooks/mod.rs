@@ -4,6 +4,7 @@
 //! Hooks can observe, modify, or abort operations.
 
 pub mod builtin;
+pub mod declarative;
 mod context;
 mod handler;
 mod registry;
