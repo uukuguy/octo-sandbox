@@ -32,7 +32,7 @@ use crate::skills::{
 };
 use crate::tools::recorder::ToolExecutionRecorder;
 use crate::tools::{
-    default_tools, register_kg_tools, register_memory_tools, register_scheduler_tools, ToolRegistry,
+    default_tools, register_kg_tools, register_memory_tools, register_working_memory_tools, register_scheduler_tools, ToolRegistry,
 };
 
 const MPSC_CAPACITY: usize = 32;
@@ -253,6 +253,7 @@ impl AgentRuntime {
         // 7. Create ToolRegistry with default + memory + knowledge graph + skills
         let mut tools = default_tools();
         register_memory_tools(&mut tools, memory_store.clone(), provider.clone());
+        register_working_memory_tools(&mut tools, memory.clone());
 
         // 7b. Create KnowledgeGraph and register KG tools
         let knowledge_graph = Arc::new(tokio::sync::RwLock::new(

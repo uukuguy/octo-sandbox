@@ -11,6 +11,7 @@ pub mod interceptor;
 pub mod knowledge_graph;
 pub mod mcp_manage;
 pub mod path_safety;
+pub mod memory_edit;
 pub mod memory_forget;
 pub mod memory_recall;
 pub mod memory_search;
@@ -42,6 +43,7 @@ use self::grep::GrepTool;
 use self::memory_forget::MemoryForgetTool;
 use self::memory_recall::MemoryRecallTool;
 use self::memory_search::MemorySearchTool;
+use self::memory_edit::MemoryEditTool;
 use self::memory_store::MemoryStoreTool;
 use self::memory_timeline::MemoryTimelineTool;
 use self::memory_update::MemoryUpdateTool;
@@ -157,6 +159,15 @@ pub fn register_memory_tools(
     registry.register(MemoryRecallTool::new(store.clone(), provider));
     registry.register(MemoryForgetTool::new(store.clone()));
     registry.register(MemoryTimelineTool::new(store));
+}
+
+/// Register working memory management tools (memory_edit).
+/// Call after register_memory_tools when working memory is available.
+pub fn register_working_memory_tools(
+    registry: &mut ToolRegistry,
+    memory: Arc<dyn crate::memory::WorkingMemory>,
+) {
+    registry.register(MemoryEditTool::new(memory));
 }
 
 pub fn register_kg_tools(

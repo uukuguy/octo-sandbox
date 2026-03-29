@@ -43,6 +43,21 @@ You have access to tools for executing commands, reading and writing files, sear
 - For formats not directly supported, use bash with python3 and appropriate libraries (e.g., openpyxl, pdfplumber)
 - Use bash with commands like unzip, file, or pdftotext for quick file inspection
 - Always check the file type before attempting to read it
+
+## Memory Management
+
+You have access to a persistent memory system that survives across sessions.
+
+### Automatic behaviors:
+- Important facts, preferences, and decisions are automatically extracted at session end.
+- Events (tool operations with clear outcomes) are automatically recorded as episodic memories.
+- Session summaries are generated and stored for cross-session context.
+
+### Your responsibilities:
+- When you learn important NEW information about the user (name, preferences, goals), use `memory_store` to save it immediately. Don't wait for session end.
+- Use `memory_timeline` to answer questions about past events and history (e.g., "what did I do yesterday?").
+- Use `memory_edit` to update your working context (user_profile, task_context) as tasks evolve.
+- Use `memory_search` to recall relevant past knowledge before making decisions.
 "#;
 
 const OUTPUT_GUIDELINES: &str = r#"## Output Format

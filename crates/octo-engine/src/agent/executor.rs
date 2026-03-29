@@ -312,6 +312,7 @@ impl AgentExecutor {
                         budget: Some(ContextBudgetManager::default()),
                         pruner: Some(ContextPruner::new()),
                         loop_guard: Some(super::loop_guard::LoopGuard::new()),
+                        session_summary_store: self.session_summary_store.clone(),
                         ..AgentLoopConfig::default()
                     };
 

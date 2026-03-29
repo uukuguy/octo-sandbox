@@ -124,6 +124,10 @@ pub struct AgentLoopConfig {
     // === Canary Guard (W10) ===
     /// Optional canary guard layer for per-turn canary rotation.
     pub canary_guard: Option<CanaryGuardLayer>,
+
+    // === Session Summary Store (Phase AG) ===
+    /// Session summary store for cross-session context injection.
+    pub session_summary_store: Option<Arc<crate::memory::SessionSummaryStore>>,
 }
 
 impl Default for AgentLoopConfig {
@@ -166,6 +170,7 @@ impl Default for AgentLoopConfig {
             estop: None,
             self_repair: None,
             canary_guard: None,
+            session_summary_store: None,
         }
     }
 }

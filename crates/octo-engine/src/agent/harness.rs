@@ -46,6 +46,10 @@ const MAX_TOOL_OUTPUT_SIZE: usize = 100_000;
 /// Default context window when no budget is configured (128K tokens).
 const DEFAULT_CONTEXT_WINDOW: usize = 128_000;
 
+/// Interval (in rounds) at which Zone B working memory is refreshed.
+/// This allows agent's memory_edit changes to take effect mid-conversation.
+const ZONE_B_REFRESH_INTERVAL: u32 = 5;
+
 /// Compute dynamic tool result budget based on context window size.
 ///
 /// Returns `(soft_limit, hard_limit)` in characters:
@@ -253,6 +257,27 @@ async fn run_agent_loop_inner(
         }
     }
 
+    // --- Zone B++: Recent session summaries injection (Phase AG) ---
+    if let Some(ref summary_store) = config.session_summary_store {
+        match summary_store.recent(5).await {
+            Ok(summaries) if !summaries.is_empty() => {
+                let summary_text = format_session_summaries(&summaries);
+                if !summary_text.is_empty() {
+                    loop_steps::inject_zone_b(&mut messages, &summary_text);
+                    debug!(
+                        "Zone B++ injected: {} session summaries, {} chars",
+                        summaries.len(),
+                        summary_text.len()
+                    );
+                }
+            }
+            Err(e) => {
+                warn!("Failed to load session summaries: {}", e);
+            }
+            _ => {}
+        }
+    }
+
     // --- Compute tool specs ---
     let tool_specs = tools.specs();
 
@@ -312,6 +337,21 @@ async fn run_agent_loop_inner(
                     .send(AgentEvent::EmergencyStopped(Some(format!("{}", reason))))
                     .await;
                 break;
+            }
+        }
+
+        // --- Zone B periodic refresh (Phase AG) ---
+        // Re-compile working memory every N rounds to reflect updates from memory_edit
+        if round > 0 && round % ZONE_B_REFRESH_INTERVAL == 0 {
+            if let Some(ref memory) = config.memory {
+                let new_xml = memory
+                    .compile(&config.user_id, &config.sandbox_id)
+                    .await
+                    .unwrap_or_default();
+                if !new_xml.is_empty() {
+                    loop_steps::inject_zone_b(&mut messages, &new_xml);
+                    debug!(round, "Zone B refreshed: {} chars", new_xml.len());
+                }
             }
         }
 
@@ -1716,6 +1756,46 @@ fn parse_tool_calls_from_text(text: &str) -> Vec<PendingToolUse> {
     }
 
     results
+}
+
+/// Format recent session summaries into a context block for Zone B injection.
+///
+/// Budget: max 2000 chars total. Oldest summaries are dropped first if over budget.
+fn format_session_summaries(summaries: &[crate::memory::SessionSummary]) -> String {
+    const MAX_CHARS: usize = 2000;
+
+    let mut lines = Vec::new();
+    lines.push("## Recent Sessions".to_string());
+
+    for s in summaries {
+        let date = chrono::DateTime::from_timestamp(s.created_at, 0)
+            .map(|dt| dt.format("%Y-%m-%d").to_string())
+            .unwrap_or_else(|| "unknown".to_string());
+
+        let topics = if s.key_topics.is_empty() {
+            String::new()
+        } else {
+            format!(" [{}]", s.key_topics.join(", "))
+        };
+
+        lines.push(format!("- [{}] {}{}", date, s.summary, topics));
+    }
+
+    let result = lines.join("\n");
+    if result.len() <= MAX_CHARS {
+        result
+    } else {
+        // Drop oldest summaries (last in list since they're ordered desc) until under budget
+        while lines.len() > 2 {
+            // Keep header + at least 1 entry
+            let total: usize = lines.iter().map(|l| l.len() + 1).sum();
+            if total <= MAX_CHARS {
+                break;
+            }
+            lines.pop();
+        }
+        lines.join("\n")
+    }
 }
 
 #[cfg(test)]
