@@ -15,6 +15,7 @@ pub mod memory_forget;
 pub mod memory_recall;
 pub mod memory_search;
 pub mod memory_store;
+pub mod memory_timeline;
 pub mod memory_update;
 pub mod rate_limiter;
 pub mod recorder;
@@ -42,6 +43,7 @@ use self::memory_forget::MemoryForgetTool;
 use self::memory_recall::MemoryRecallTool;
 use self::memory_search::MemorySearchTool;
 use self::memory_store::MemoryStoreTool;
+use self::memory_timeline::MemoryTimelineTool;
 use self::memory_update::MemoryUpdateTool;
 use self::web_fetch::WebFetchTool;
 use self::web_search::WebSearchTool;
@@ -153,7 +155,8 @@ pub fn register_memory_tools(
     registry.register(MemorySearchTool::new(store.clone(), provider.clone()));
     registry.register(MemoryUpdateTool::new(store.clone()));
     registry.register(MemoryRecallTool::new(store.clone(), provider));
-    registry.register(MemoryForgetTool::new(store));
+    registry.register(MemoryForgetTool::new(store.clone()));
+    registry.register(MemoryTimelineTool::new(store));
 }
 
 pub fn register_kg_tools(
