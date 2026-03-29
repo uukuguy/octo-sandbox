@@ -413,9 +413,13 @@ fn render_table(table_lines: &[&str], palette: &MdPalette, out: &mut Vec<Line<'s
     // Fit column widths to terminal width.
     // Each column uses: 1 border + 1 space + content + 1 space = content + 3 per column,
     // plus 1 for the leading border.
+    // Subtract 3 from terminal width to account for:
+    //   - 1 column scrollbar (conversation widget)
+    //   - 2 chars prefix (⏺ or continuation indent prepended by ConversationWidget)
     let term_width = crossterm::terminal::size().map(|(w, _)| w as usize).unwrap_or(120);
+    let effective_width = term_width.saturating_sub(3);
     let overhead = 1 + num_cols * 3; // leading │ + (space + content + space│) per col
-    let available = term_width.saturating_sub(overhead);
+    let available = effective_width.saturating_sub(overhead);
 
     let total_natural: usize = col_widths.iter().sum();
     if total_natural > available && available > 0 {
