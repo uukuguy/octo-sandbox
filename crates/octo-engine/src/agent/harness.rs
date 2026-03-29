@@ -300,15 +300,19 @@ async fn run_agent_loop_inner(
     // --- Compute max rounds ---
     let max_rounds = loop_steps::effective_max_rounds(config.max_iterations);
 
-    // --- SessionStart hook ---
-    if let Some(ref hooks) = config.hook_registry {
-        let ctx = HookContext::new().with_session(config.session_id.as_str());
-        hooks.execute(HookPoint::SessionStart, &ctx).await;
-    }
-
     let mut total_tool_calls: u32 = 0;
     let mut total_input_tokens: u64 = 0;
     let mut total_output_tokens: u64 = 0;
+
+    // Phase AH: Track recent tool names for rich HookContext
+    let mut recent_tools: Vec<String> = Vec::new();
+    const MAX_RECENT_TOOLS: usize = 10;
+
+    // --- SessionStart hook ---
+    if let Some(ref hooks) = config.hook_registry {
+        let ctx = build_rich_hook_context(&config, 0, 0, &recent_tools);
+        hooks.execute(HookPoint::SessionStart, &ctx).await;
+    }
 
     // P1-1: ContinuationTracker for max_tokens auto-continuation
     let mut continuation_tracker = ContinuationTracker::new(ContinuationConfig {
@@ -369,9 +373,7 @@ async fn run_agent_loop_inner(
         // --- PreTask hook (round 0 only) ---
         if round == 0 {
             if let Some(ref hooks) = config.hook_registry {
-                let ctx = HookContext::new()
-                    .with_session(config.session_id.as_str())
-                    .with_turn(round);
+                let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools);
                 if let HookAction::Abort(reason) = hooks.execute(HookPoint::PreTask, &ctx).await {
                     let _ = tx
                         .send(AgentEvent::Error {
@@ -379,7 +381,7 @@ async fn run_agent_loop_inner(
                         })
                         .await;
                     let _ = tx.send(AgentEvent::Done).await;
-                    fire_session_end(&config, &tx).await;
+                    fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                     return;
                 }
             }
@@ -387,9 +389,7 @@ async fn run_agent_loop_inner(
 
         // --- LoopTurnStart hook ---
         if let Some(ref hooks) = config.hook_registry {
-            let ctx = HookContext::new()
-                .with_session(config.session_id.as_str())
-                .with_turn(round);
+            let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools);
             if let HookAction::Abort(reason) = hooks.execute(HookPoint::LoopTurnStart, &ctx).await {
                 let _ = tx
                     .send(AgentEvent::Error {
@@ -397,7 +397,7 @@ async fn run_agent_loop_inner(
                     })
                     .await;
                 let _ = tx.send(AgentEvent::Done).await;
-                fire_session_end(&config, &tx).await;
+                fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                 return;
             }
         }
@@ -471,9 +471,7 @@ async fn run_agent_loop_inner(
             }
 
             if let Some(ref hooks) = config.hook_registry {
-                let ctx = HookContext::new()
-                    .with_session(config.session_id.as_str())
-                    .with_turn(round)
+                let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
                     .with_degradation(format!("{:?}", level));
                 hooks.execute(HookPoint::ContextDegraded, &ctx).await;
             }
@@ -666,7 +664,7 @@ async fn run_agent_loop_inner(
                     })
                     .await;
                 let _ = tx.send(AgentEvent::Done).await;
-                fire_session_end(&config, &tx).await;
+                fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                 return;
             }
         };
@@ -683,7 +681,7 @@ async fn run_agent_loop_inner(
                         message: e.to_string(),
                     })
                     .await;
-                fire_session_end(&config, &tx).await;
+                fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                 return;
             }
         };
@@ -903,7 +901,7 @@ async fn run_agent_loop_inner(
 
             let _ = tx.send(AgentEvent::IterationEnd { round, input_tokens: total_input_tokens, output_tokens: total_output_tokens }).await;
 
-            fire_post_task_hooks(&config, &tx, round, turn_start.elapsed().as_millis() as u64)
+            fire_post_task_hooks(&config, &tx, round, turn_start.elapsed().as_millis() as u64, total_tool_calls, &recent_tools)
                 .await;
 
             let _ = tx
@@ -986,7 +984,7 @@ async fn run_agent_loop_inner(
                         })
                         .await;
                     let _ = tx.send(AgentEvent::Done).await;
-                    fire_session_end(&config, &tx).await;
+                    fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                     guard_blocked = true;
                     break;
                 }
@@ -1058,7 +1056,7 @@ async fn run_agent_loop_inner(
                                     })
                                     .await;
                                 let _ = tx.send(AgentEvent::Done).await;
-                                fire_session_end(&config, &tx).await;
+                                fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                                 approval_blocked = true;
                                 break;
                             }
@@ -1074,7 +1072,7 @@ async fn run_agent_loop_inner(
                                 })
                                 .await;
                             let _ = tx.send(AgentEvent::Done).await;
-                            fire_session_end(&config, &tx).await;
+                            fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                             approval_blocked = true;
                             break;
                         }
@@ -1192,7 +1190,7 @@ async fn run_agent_loop_inner(
                                     })
                                     .await;
                                 let _ = tx.send(AgentEvent::Done).await;
-                                fire_session_end(&config, &tx).await;
+                                fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                                 return;
                             }
                         }
@@ -1204,7 +1202,7 @@ async fn run_agent_loop_inner(
                                 })
                                 .await;
                             let _ = tx.send(AgentEvent::Done).await;
-                            fire_session_end(&config, &tx).await;
+                            fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                             return;
                         }
                         ApprovalDecision::Approved => {
@@ -1215,8 +1213,7 @@ async fn run_agent_loop_inner(
 
                 // PreToolUse hook
                 if let Some(ref hooks) = config.hook_registry {
-                    let ctx = HookContext::new()
-                        .with_session(config.session_id.as_str())
+                    let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
                         .with_tool(&tu.name, input.clone());
                     if let HookAction::Block(reason) =
                         hooks.execute(HookPoint::PreToolUse, &ctx).await
@@ -1273,8 +1270,7 @@ async fn run_agent_loop_inner(
 
                 // PostToolUse hook
                 if let Some(ref hooks) = config.hook_registry {
-                    let mut ctx = HookContext::new()
-                        .with_session(config.session_id.as_str())
+                    let mut ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
                         .with_tool(&tu.name, input.clone())
                         .with_result(!result.is_error, exec_duration);
                     ctx.tool_result = Some(serde_json::Value::String(result.content.clone()));
@@ -1299,6 +1295,12 @@ async fn run_agent_loop_inner(
         let mut tool_results: Vec<ContentBlock> = Vec::new();
         for (tu, input, result) in tool_outputs {
             total_tool_calls += 1;
+
+            // Phase AH: Track recent tool names for rich HookContext
+            recent_tools.push(tu.name.clone());
+            if recent_tools.len() > MAX_RECENT_TOOLS {
+                recent_tools.remove(0);
+            }
 
             // Record tool execution to SQLite for observability
             if let Some(ref recorder) = config.recorder {
@@ -1420,7 +1422,7 @@ async fn run_agent_loop_inner(
                             })
                             .await;
                         let _ = tx.send(AgentEvent::Done).await;
-                        fire_session_end(&config, &tx).await;
+                        fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                         return;
                     }
                     _ => {}
@@ -1444,9 +1446,7 @@ async fn run_agent_loop_inner(
 
         if let Some(ref hooks) = config.hook_registry {
             let elapsed = turn_start.elapsed().as_millis() as u64;
-            let ctx = HookContext::new()
-                .with_session(config.session_id.as_str())
-                .with_turn(round)
+            let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
                 .with_result(true, elapsed);
             hooks.execute(HookPoint::LoopTurnEnd, &ctx).await;
         }
@@ -1477,7 +1477,7 @@ async fn run_agent_loop_inner(
             final_messages: messages.clone(),
         }))
         .await;
-    fire_session_end(&config, &tx).await;
+    fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
     let _ = tx.send(AgentEvent::Done).await;
 }
 
@@ -1573,9 +1573,14 @@ async fn consume_stream(
 }
 
 /// Fire SessionEnd hook.
-async fn fire_session_end(config: &AgentLoopConfig, _tx: &mpsc::Sender<AgentEvent>) {
+async fn fire_session_end(
+    config: &AgentLoopConfig,
+    _tx: &mpsc::Sender<AgentEvent>,
+    total_tool_calls: u32,
+    recent_tools: &[String],
+) {
     if let Some(ref hooks) = config.hook_registry {
-        let ctx = HookContext::new().with_session(config.session_id.as_str());
+        let ctx = build_rich_hook_context(config, 0, total_tool_calls, recent_tools);
         hooks.execute(HookPoint::SessionEnd, &ctx).await;
     }
 }
@@ -1586,11 +1591,11 @@ async fn fire_post_task_hooks(
     tx: &mpsc::Sender<AgentEvent>,
     round: u32,
     elapsed_ms: u64,
+    total_tool_calls: u32,
+    recent_tools: &[String],
 ) {
     if let Some(ref hooks) = config.hook_registry {
-        let ctx = HookContext::new()
-            .with_session(config.session_id.as_str())
-            .with_turn(round)
+        let ctx = build_rich_hook_context(config, round, total_tool_calls, recent_tools)
             .with_result(true, elapsed_ms);
         hooks.execute(HookPoint::PostTask, &ctx).await;
         hooks.execute(HookPoint::LoopTurnEnd, &ctx).await;
@@ -1698,6 +1703,39 @@ fn soft_trim_tool_result(result: &str, soft_limit: usize) -> String {
         omitted,
         &result[tail_start..]
     )
+}
+
+/// Build a rich HookContext from the current agent loop state (Phase AH).
+///
+/// Populates environment, history, and session fields from `AgentLoopConfig`.
+fn build_rich_hook_context(
+    config: &AgentLoopConfig,
+    round: u32,
+    total_tool_calls: u32,
+    recent_tools: &[String],
+) -> HookContext {
+    let mut ctx = HookContext::new()
+        .with_session(config.session_id.as_str())
+        .with_turn(round)
+        .with_history(total_tool_calls, round, recent_tools.to_vec());
+
+    // Environment context from config
+    if let Some(ref tool_ctx) = config.tool_ctx {
+        ctx.working_dir = Some(tool_ctx.working_dir.display().to_string());
+    }
+    ctx.model = Some(config.model.clone());
+
+    // Agent ID from manifest
+    if let Some(ref manifest) = config.manifest {
+        ctx.agent_id = Some(manifest.name.clone());
+    }
+
+    // Active skill name
+    if let Some(ref skill) = config.active_skill {
+        ctx.skill_name = Some(skill.name.clone());
+    }
+
+    ctx
 }
 
 // ---------------------------------------------------------------------------
