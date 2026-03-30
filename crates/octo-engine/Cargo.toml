@@ -8,7 +8,8 @@ octo-types = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 futures-util = { workspace = true }
-reqwest = { workspace = true }
+reqwest = { workspace = true, features = ["blocking"] }
+url = "2"
 urlencoding = { workspace = true }
 bytes = { workspace = true }
 serde = { workspace = true }
