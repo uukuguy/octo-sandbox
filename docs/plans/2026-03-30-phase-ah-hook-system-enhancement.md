@@ -1004,7 +1004,7 @@ impl HookHandler for DeclarativeHookBridge {
 | AH-D2 | WASM 插件 hook (Wasmtime WIT 接口) | octo-sandbox WASM 基础 | P5/未来 | ✅ 已补 (Phase AI @ ef54b2f) |
 | AH-D3 | 平台租户策略合并逻辑 | octo-platform-server 推进 | P4 | ⏳ |
 | AH-D4 | TUI hook 状态面板（显示已注册 hooks、执行统计） | G2 完成 ✅ | P4 | ⏳ |
-| AH-D5 | Stop / SubagentStop 事件声明式支持 | G3 完成 ✅ | P3 | ⏳ |
+| AH-D5 | Stop / SubagentStop 事件声明式支持 | G3 完成 ✅ | P3 | ✅ 已补 @ c68c373 |
 | AH-D6 | `ask` 决策类型 → ApprovalGate 集成 | G3 + approval 系统 | P3 | ⏳ |
 | AH-D7 | DeclarativeHookBridge + PolicyEngineBridge 在 AgentRuntime 中注册接线 | hooks.yaml/policies.yaml 文件存在 | P1 | ✅ 已补 @ 4ebc7fa |
 | AH-D8 | Prompt 类型 action 在 bridge.rs 中调用 execute_prompt (需 Provider 传入) | G4 完成 ✅ + Provider 注入路径 | P2 | ✅ 已补 @ 4ebc7fa |

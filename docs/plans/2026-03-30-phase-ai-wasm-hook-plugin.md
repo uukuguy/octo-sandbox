@@ -452,8 +452,8 @@ AgentRuntime 初始化时扫描插件目录，预加载所有 WASM 插件。
 | AI-D3 | 插件间通信（一个插件调用另一个插件） | G3 完成 | P5 | ⏳ |
 | AI-D4 | WASM 组件缓存（预编译 AOT 加速加载） | G2 完成 | P3 | ⏳ |
 | AI-D5 | 多语言示例插件（Python/Go/JS via componentize） | G5 完成 | P3 | ⏳ |
-| AI-D6 | 插件沙箱资源限制（CPU fuel + 内存上限） | G3 完成 | P2 | ⏳ |
-| AI-D7 | AgentRuntime 启动时自动发现加载 WASM 插件 | G3+G4 完成 | P1 | ⏳ |
+| AI-D6 | 插件沙箱资源限制（CPU fuel + 内存上限） | G3 完成 | P2 | ✅ 已补 @ c68c373 |
+| AI-D7 | AgentRuntime 启动时自动发现加载 WASM 插件 | G3+G4 完成 | P1 | ✅ 已补 @ c68c373 |
 
 ---
 
