@@ -1,0 +1,17 @@
+name: security-validator
+version: 0.1.0
+description: Blocks dangerous bash commands (rm -rf, fork bombs, etc.)
+author: octo-team
+
+wasm: target/wasm32-wasip2/release/octo_hook_example.wasm
+
+hook_points:
+  - PreToolUse
+
+matcher: "bash|shell_execute"
+
+failure_mode: fail_closed
+
+capabilities:
+  - log
+  - get-context
