@@ -7,6 +7,11 @@
 
 ## [Active Work]
 
+- 2026-03-30 07:30 | Phase AH Deferred D1/D7/D8 已补 — runtime 接线 + webhook + prompt 执行 @ 4ebc7fa. 104 tests. 剩余: D2/D3/D4/D5/D6.
+- 2026-03-30 07:00 | **Phase AH COMPLETE** — 三层混合 Hook 架构 (15/15 tasks, 92 tests, 4 commits) @ 4e890bc. L1编程式+L2策略+L3声明式. 6 deferred.
+- 2026-03-30 06:30 | Phase AH G3 COMPLETE — 声明式 hook 系统 (config+executor+bridge+loader, 34 tests) @ 41dd651. Next: G4/G5.
+- 2026-03-30 06:00 | Phase AH G2 COMPLETE — SecurityPolicyHandler + AuditLogHandler + AgentRuntime 接线 (11 tests) @ 69b95cb. Next: G3 声明式 hooks.yaml.
+- 2026-03-30 05:30 | Phase AH G1 COMPLETE — HookContext 增强 (T1-T3 merged, 9 tests) @ 94f6b40. 新增环境/历史/用户输入字段 + Serialize + to_json/to_env_vars + harness rich context. Next: G2 内置 Handler.
 - 2026-03-29 02:00 | Phase AG G1 COMPLETE (3/3 tasks). Types扩展 + DB v12 + SessionSummaryStore + 接线 SessionEndMemoryHook + MemoryInjector. 断裂点#1#2修复. Commits: 9891821, f9c80ed, 5fd622e. Next: G2 情景记忆.
 - 2026-03-29 00:30 | Phase AG plan + design COMPLETE (11 tasks, 4 groups). 记忆和上下文机制增强. 5 断裂点修复 + 情景记忆 + Agent 主动管理 + ObservationMasker. 参考: Letta/MemGPT, ChatGPT Memory, Mem0, A-Mem. Ready to execute.
 - 2026-03-23 21:45 | Phase AE plan written (7 tasks, 4 groups). Ready to execute.

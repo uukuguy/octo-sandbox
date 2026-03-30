@@ -1,5 +1,67 @@
 # octo-sandbox 工作日志
 
+## Phase AH — Hook 系统增强：三层混合架构 (2026-03-30)
+
+### 完成内容
+
+将 octo 的 hook 系统从"空转框架"（HookRegistry 14 个 HookPoint 但无 handler）升级为三层混合架构，支持多语言扩展和完整环境上下文传递。
+
+**G1: HookContext 增强 (94f6b40)**
+- 新增运行环境字段：working_dir, sandbox_mode, sandbox_profile, model, autonomy_level
+- 新增历史字段：total_tool_calls, current_round, recent_tools (最近10次)
+- 新增 user_query 字段
+- 添加 `Serialize` 派生 + `to_json()` / `to_env_vars()` 序列化方法
+- harness.rs 中创建 `build_rich_hook_context()` 替换所有10+ 简单构造点
+
+**G2: 内置 Handler 注册 (69b95cb)**
+- `SecurityPolicyHandler` (PreToolUse, priority=10, FailClosed): forbidden_paths + command risk + autonomy level
+- `AuditLogHandler` (PostToolUse, priority=200, FailOpen): 结构化 tracing::info! 审计
+- AgentRuntime 初始化时通过 tokio::spawn 注册
+
+**G3: 声明式加载与 Command 执行 (41dd651)**
+- `config.rs`: hooks.yaml 配置类型 (HooksConfig/HookEntry/HookActionConfig)
+- `command_executor.rs`: sh -c 执行外部脚本，env vars + stdin JSON 双通道传递
+- `bridge.rs`: DeclarativeHookBridge (priority=500)，regex tool 匹配
+- `loader.rs`: 分层配置加载 (OCTO_HOOKS_FILE > project/.octo > ~/.octo)
+
+**G4: Prompt LLM 评估 (4e890bc)**
+- `prompt_renderer.rs`: {{variable}} 模板渲染，无变量时自动附加完整 JSON
+- `prompt_executor.rs`: Provider::complete() 调用 + JSON 决策解析 + keyword fallback
+
+**G5: 策略引擎 (4e890bc)**
+- `config.rs`: policies.yaml 配置 (6种规则类型)
+- `matcher.rs`: 路径/命令/工具匹配 + 条件表达式 (context.field == 'value')
+- `bridge.rs`: PolicyEngineBridge (priority=100, FailClosed)
+
+**Deferred 补齐 (4ebc7fa)**
+- AH-D7: AgentRuntime 自动加载 hooks.yaml + policies.yaml 注册 bridge
+- AH-D8: prompt action 调用 execute_prompt (with_provider builder)
+- AH-D1: webhook_executor.rs (reqwest HTTP POST/PUT)
+
+### 技术变更
+- 新增文件结构: `hooks/builtin/` (2文件), `hooks/declarative/` (7文件), `hooks/policy/` (3文件)
+- 修改: `hooks/context.rs`, `hooks/mod.rs`, `agent/harness.rs`, `agent/runtime.rs`
+- 新增约 3700 行代码
+
+### 测试结果
+- 104 hook tests 全部通过
+- Workspace 编译通过，无 error
+
+### 未完成项
+- AH-D2 ⏳ WASM 插件 hook (blocked: WASM 基础)
+- AH-D3 ⏳ 平台租户策略合并 (blocked: platform-server)
+- AH-D4 ⏳ TUI hook 状态面板 (P4)
+- AH-D5 ⏳ Stop/SubagentStop 事件声明式 (P3)
+- AH-D6 ⏳ ask → ApprovalGate 集成 (P3)
+- Landmine: `with_provider()` 未在 runtime 中调用，prompt hooks 优雅跳过
+
+### 下一步
+- 创建示例 hooks.yaml / policies.yaml 配置
+- D5 Stop events 支持
+- 集成测试验证三层 hook 链
+
+---
+
 ## SubAgent Streaming Events (2026-03-27)
 
 ### 完成内容

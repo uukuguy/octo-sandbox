@@ -994,16 +994,20 @@ impl HookHandler for DeclarativeHookBridge {
 
 ---
 
-## Deferred 项
+## Deferred 项（暂缓项）
 
-| ID | 内容 | 依赖 | 优先级 |
-|----|------|------|--------|
-| AH-D1 | Webhook 类型执行器 (HTTP POST) | G3 完成 | P4 |
-| AH-D2 | WASM 插件 hook (Wasmtime WIT 接口) | octo-sandbox WASM 基础 | P5/未来 |
-| AH-D3 | 平台租户策略合并逻辑 | octo-platform-server 推进 | P4 |
-| AH-D4 | TUI hook 状态面板 | G2 完成 | P4 |
-| AH-D5 | Stop / SubagentStop 事件声明式支持 | G3 完成 | P3 |
-| AH-D6 | `ask` 决策类型 → ApprovalGate 集成 | G3 + approval 系统 | P3 |
+> 本阶段已知但暂未实现的功能点。每次开始新 Task 前先检查此列表。
+
+| ID | 内容 | 前置条件 | 优先级 | 状态 |
+|----|------|---------|--------|------|
+| AH-D1 | Webhook 类型执行器 (HTTP POST body JSON) | G3 完成 ✅ | P4 | ✅ 已补 @ 4ebc7fa |
+| AH-D2 | WASM 插件 hook (Wasmtime WIT 接口) | octo-sandbox WASM 基础 | P5/未来 | ⏳ |
+| AH-D3 | 平台租户策略合并逻辑 | octo-platform-server 推进 | P4 | ⏳ |
+| AH-D4 | TUI hook 状态面板（显示已注册 hooks、执行统计） | G2 完成 ✅ | P4 | ⏳ |
+| AH-D5 | Stop / SubagentStop 事件声明式支持 | G3 完成 ✅ | P3 | ⏳ |
+| AH-D6 | `ask` 决策类型 → ApprovalGate 集成 | G3 + approval 系统 | P3 | ⏳ |
+| AH-D7 | DeclarativeHookBridge + PolicyEngineBridge 在 AgentRuntime 中注册接线 | hooks.yaml/policies.yaml 文件存在 | P1 | ✅ 已补 @ 4ebc7fa |
+| AH-D8 | Prompt 类型 action 在 bridge.rs 中调用 execute_prompt (需 Provider 传入) | G4 完成 ✅ + Provider 注入路径 | P2 | ✅ 已补 @ 4ebc7fa |
 
 ---
 

@@ -1,137 +1,78 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-03-29 00:30 GMT+8
-**当前分支**: `main` (ahead of origin by 10 commits)
-**当前状态**: Phase AG 计划编写完成，待实施
+**最后更新**: 2026-03-30 07:30 GMT+8
+**当前分支**: `main`
+**当前状态**: Phase AH 完成，无活跃 Phase
 
 ---
 
 ## 项目状态
 
-```
-Phase AG — 记忆和上下文机制增强      -> PLANNED (11 tasks, 4 groups)
-CI Fix + Z-D1 + AA-D1 + AB-D1(partial)  -> COMPLETE @ 9f7c163
-Scheduler Tool (schedule_task)           -> COMPLETE @ a922159
-SubAgent Streaming Events                -> COMPLETE @ cc05eeb
-Builtin Commands Redesign                -> COMPLETE @ 1916320
-Custom Commands + TUI Fixes              -> COMPLETE @ 263eeb2
-Post-AF: Builtin Skills + Config + TUI Fix -> COMPLETE @ 072c15b
-Phase AF-AE-AD-AC-AB-AA-Z-Y-X-W-V-U-T  -> ALL COMPLETE
-```
+### 已完成 Phases
+- Phase A-H: Core Engine + Eval 基础
+- Phase I-R: 外部 Benchmark + 标准测试 + 评估
+- Phase S: Agent Capability Boost
+- Phase T: TUI OpenDev 整合 (24 tasks)
+- Phase U: TUI Production Hardening (10 tasks)
+- Phase V: Agent Skills (11 tasks)
+- Phase W: OctoRoot 统一目录管理 (10 tasks)
+- Phase X: TUI 运行状态增强 (4 tasks)
+- Phase Y: Playbook Skill SubAgent (1 task)
+- Phase Z: Landmine Scan & Fix (2 tasks)
+- Phase AA: 部署配置架构 (6 tasks)
+- Phase AB: 智能体工具执行环境 (10 tasks)
+- Phase AC: 沙箱容器 (9 tasks)
+- Phase AD: 容器镜像增强 (5 tasks)
+- Phase AE: Agent Workspace Architecture (7 tasks)
+- Phase AF: SSM Wiring (3 tasks)
+- Phase AG: 记忆和上下文机制增强 (11 tasks + 5 deferred)
+- **Phase AH: Hook 系统增强 (15 tasks + 3 deferred) @ 4ebc7fa**
 
-### 基线数据
-
-- **Tests**: 2476 passing
-- **测试命令**: `cargo test --workspace -- --test-threads=1`
-- **DB migrations**: CURRENT_VERSION=11 (Phase AG 将升级到 v12)
-
----
-
-## Phase AG 概览
-
-**设计文档**: `docs/design/MEMORY_CONTEXT_ENHANCEMENT_DESIGN.md`
-**实施计划**: `docs/plans/2026-03-29-phase-ag-memory-context-enhancement.md`
-**Checkpoint**: `docs/plans/.checkpoint.json`
-
-### 核心目标
-
-让 agent 具备跨会话记忆、事件记忆、时间线查询、主动记忆管理能力。
-
-### 任务分组
-
-| Group | Tasks | 目标 |
-|-------|-------|------|
-| G1 | Task 1-3 | 接线修复 + 基础设施（类型扩展、DB migration、Hook 接线） |
-| G2 | Task 4-7 | 情景记忆系统（事件提取、会话摘要、时间线查询） |
-| G3 | Task 8-10 | Agent 主动记忆管理（memory_edit、摘要注入、指令+刷新） |
-| G4 | Task 11 | 上下文工程增强（ObservationMasker 接入） |
-
-### 执行顺序
-
-```
-G1 (Task 1→2→3) → G2 (Task 4‖5→6, 7) → G3 (Task 8, 9, 10) → G4 (Task 11)
-```
-
-### 五大断裂点修复
-
-1. ✅ 会话结束不提取 → Task 3 + Task 6 接线 SessionEndMemoryHook + EventExtractor
-2. ✅ 新会话不注入 → Task 3 + Task 9 接线 MemoryInjector + Session Summaries
-3. ⏳ 搜索只有 FTS → Deferred AG-D5 (HybridQueryEngine)
-4. ✅ Zone B 只注入一次 → Task 10 周期刷新
-5. ⏳ 压缩只能截断 → Deferred AG-D7 (Summarize 策略)
+### 测试基线
+- 2476+ tests (pre-AH baseline)
+- 104 new hook tests
+- DB version: 12
 
 ---
 
-## 下一步操作
+## Phase AH 产出摘要
 
-```bash
-# 1. 确认基线
-cargo check --workspace
-cargo test --workspace -- --test-threads=1  # 应为 2476
+三层混合 Hook 架构：
+- **L1 编程式** (priority=10): SecurityPolicyHandler + AuditLogHandler, 自动注册
+- **L2 策略引擎** (priority=100): policies.yaml 零代码规则
+- **L3 声明式** (priority=500): hooks.yaml (command + prompt + webhook)
 
-# 2. 开始 G1-Task 1: 类型系统扩展
-# 编辑 crates/octo-types/src/memory.rs
-# 新增 MemoryType, EventData, SortField 等
-
-# 3. 逐 Task 推进
-# 每完成一个 Task: cargo test + /checkpoint-progress
+关键文件：
+```
+crates/octo-engine/src/hooks/
+├── context.rs          # HookContext (增强后含 env/history/query + Serialize)
+├── builtin/            # SecurityPolicyHandler + AuditLogHandler
+├── declarative/        # config + command_executor + prompt_renderer/executor + webhook_executor + bridge + loader
+└── policy/             # config + matcher + bridge
 ```
 
----
-
-## 关键代码路径
-
-| 文件 | 作用 |
-|------|------|
-| `crates/octo-types/src/memory.rs` | 记忆类型定义 (本 Phase 重点修改) |
-| `crates/octo-engine/src/memory/` | 记忆子系统 (本 Phase 重点区域) |
-| `crates/octo-engine/src/agent/harness.rs` | Agent Loop (接线目标) |
-| `crates/octo-engine/src/agent/executor.rs` | Session 生命周期 (hook 接线目标) |
-| `crates/octo-engine/src/context/system_prompt.rs` | Zone A 记忆指令 |
-| `crates/octo-engine/src/context/observation_masker.rs` | ObservationMasker (待接入) |
-| `crates/octo-engine/src/tools/` | 记忆工具 (新增 timeline, edit) |
-| `crates/octo-engine/src/db/mod.rs` | DB migration v12 |
+Runtime 接线: `agent/runtime.rs` 初始化时自动从 `.octo/hooks.yaml` 和 `.octo/policies.yaml` 加载
 
 ---
 
-## Deferred 未清项
+## ⚠️ Deferred 未清项
 
-### Phase AG Deferred
-| ID | 内容 | 优先级 |
-|----|------|--------|
-| AG-D1 | 程序记忆提取（工作流模式学习） | P2 |
-| AG-D2 | 情景→语义巩固 | P3 |
-| AG-D3 | 智能遗忘 | P3 |
-| AG-D4 | 记忆冲突解决 | P3 |
-| AG-D5 | HybridQueryEngine 接入 memory tools | P2 |
-| AG-D6 | KG 语义搜索 | P3 |
-| AG-D7 | Summarize 压缩策略 | P2 |
-| AG-D8 | Memory Explorer 前端增强 | P3 |
+| 来源 | ID | 内容 | 前置条件 | 优先级 |
+|------|----|----|---------|--------|
+| Phase AH | D2 | WASM 插件 hook | WASM 基础设施 | P5 |
+| Phase AH | D3 | 平台租户策略合并 | octo-platform-server | P4 |
+| Phase AH | D4 | TUI hook 状态面板 | — | P4 |
+| Phase AH | D5 | Stop/SubagentStop 声明式 | 新 HookPoint variant | P3 |
+| Phase AH | D6 | ask → ApprovalGate | approval 系统 | P3 |
 
-### 历史 Deferred（不影响 Phase AG）
-| 来源 | ID | 内容 |
-|------|----|------|
-| Phase AB | AB-D2~D6 | E2B, WASM, sandbox 持久化, gVisor |
-| Phase AC | AC-D4~D6 | Multi-image, snapshots, compose |
-| Phase AD | AD-D1~D6 | LibreOffice, cloud, cosign, CLI, docling |
+Landmine: `DeclarativeHookBridge::with_provider()` 未在 runtime 调用，prompt hooks 优雅跳过
 
 ---
 
-## 快速启动
+## 下一步建议
 
-```bash
-# 编译检查
-cargo check --workspace
-
-# 全量测试
-cargo test --workspace -- --test-threads=1
-
-# TUI 模式
-make cli-tui
-
-# CLI 交互模式
-make cli-run
-
-# 启动 server + web
-make dev
-```
+1. **示例配置**: 创建 `examples/hooks.yaml` 和 `examples/policies.yaml` 供用户参考
+2. **集成测试**: 在真实 agent loop 中验证三层 hook 链端到端
+3. **D5 Stop events**: 添加 `HookPoint::Stop` / `HookPoint::SubagentStop` variant
+4. **with_provider 接线**: 在 runtime 中将 provider clone 传入 DeclarativeHookBridge
+5. **新 Phase 方向**: 可考虑 eval 增强、前端 MCP workbench 改进、或平台多租户推进
