@@ -12,17 +12,38 @@ use tracing::{debug, warn};
 use super::command_executor;
 use super::config::{FailureMode, HookActionConfig, HooksConfig};
 use crate::hooks::{HookAction, HookContext, HookFailureMode, HookHandler, HookPoint};
+use crate::providers::Provider;
 
 /// Bridge handler that dispatches declarative hook actions from hooks.yaml.
 pub struct DeclarativeHookBridge {
     config: Arc<HooksConfig>,
     /// The HookPoint this bridge instance is registered for.
     hook_point: HookPoint,
+    /// Optional LLM provider for prompt-type actions.
+    provider: Option<Arc<dyn Provider>>,
+    /// Model name for prompt-type actions.
+    model: Option<String>,
 }
 
 impl DeclarativeHookBridge {
     pub fn new(config: Arc<HooksConfig>, hook_point: HookPoint) -> Self {
-        Self { config, hook_point }
+        Self {
+            config,
+            hook_point,
+            provider: None,
+            model: None,
+        }
+    }
+
+    /// Create a bridge with LLM provider for prompt-type actions.
+    pub fn with_provider(
+        mut self,
+        provider: Arc<dyn Provider>,
+        model: String,
+    ) -> Self {
+        self.provider = Some(provider);
+        self.model = Some(model);
+        self
     }
 
     /// Convert HookPoint to its config key name.
@@ -131,19 +152,84 @@ impl HookHandler for DeclarativeHookBridge {
                             }
                         }
                     }
-                    HookActionConfig::Prompt { .. } => {
-                        // Prompt execution is implemented in G4 (Phase AH Task 11-12)
-                        debug!(
-                            hook = event_name,
-                            "Skipping prompt action (not yet implemented)"
-                        );
+                    HookActionConfig::Prompt {
+                        prompt,
+                        timeout,
+                    } => {
+                        if let (Some(ref provider), Some(ref model)) =
+                            (&self.provider, &self.model)
+                        {
+                            debug!(
+                                hook = event_name,
+                                "Executing declarative prompt hook"
+                            );
+                            match super::prompt_executor::execute_prompt(
+                                prompt, ctx, provider.as_ref(), model, *timeout,
+                            )
+                            .await
+                            {
+                                Ok(decision) => {
+                                    if decision.is_deny() {
+                                        let reason = decision
+                                            .reason
+                                            .unwrap_or_else(|| "Denied by LLM evaluation".into());
+                                        return Ok(HookAction::Block(reason));
+                                    }
+                                    // "allow" or "ask" — continue
+                                }
+                                Err(e) => {
+                                    warn!(
+                                        hook = event_name,
+                                        error = %e,
+                                        "Prompt hook evaluation failed, treating as allow (fail-open)"
+                                    );
+                                    // Prompt hooks are fail-open by default
+                                }
+                            }
+                        } else {
+                            debug!(
+                                hook = event_name,
+                                "Skipping prompt action (no LLM provider configured)"
+                            );
+                        }
                     }
-                    HookActionConfig::Webhook { .. } => {
-                        // Webhook execution is deferred (AH-D1)
+                    HookActionConfig::Webhook {
+                        url,
+                        method,
+                        timeout,
+                        failure_mode,
+                    } => {
                         debug!(
                             hook = event_name,
-                            "Skipping webhook action (deferred AH-D1)"
+                            url = %url,
+                            "Executing declarative webhook hook"
                         );
+                        match super::webhook_executor::execute_webhook(
+                            url, method, ctx, *timeout,
+                        )
+                        .await
+                        {
+                            Ok(decision) => {
+                                if decision.is_deny() {
+                                    let reason = decision
+                                        .reason
+                                        .unwrap_or_else(|| "Denied by webhook".into());
+                                    return Ok(HookAction::Block(reason));
+                                }
+                            }
+                            Err(e) => {
+                                warn!(
+                                    hook = event_name,
+                                    url = %url,
+                                    error = %e,
+                                    "Webhook hook failed"
+                                );
+                                if *failure_mode == FailureMode::FailClosed {
+                                    return Err(e);
+                                }
+                                // FailOpen: log and continue
+                            }
+                        }
                     }
                 }
             }

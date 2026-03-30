@@ -1,7 +1,7 @@
 //! Policy engine — rules-based hook evaluation from policies.yaml.
 
 mod bridge;
-mod config;
+pub mod config;
 mod matcher;
 
 pub use bridge::PolicyEngineBridge;

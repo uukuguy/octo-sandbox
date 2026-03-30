@@ -3,9 +3,10 @@
 mod bridge;
 mod command_executor;
 mod config;
-mod loader;
+pub mod loader;
 pub mod prompt_executor;
 pub mod prompt_renderer;
+pub mod webhook_executor;
 
 pub use bridge::DeclarativeHookBridge;
 pub use command_executor::{execute_command, HookDecision};

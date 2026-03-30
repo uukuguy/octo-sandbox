@@ -503,29 +503,65 @@ impl AgentRuntime {
             recorder,
             provider_chain,
             mcp_manager,
-            working_dir,
+            working_dir: working_dir.clone(),
             metering,
             security_policy: security_policy.clone(),
             event_store: Some(event_store),
             hook_registry: {
                 let registry = Arc::new(HookRegistry::new());
-                // Register builtin handlers (Phase AH)
+                // Register builtin + declarative + policy handlers (Phase AH)
                 {
                     let r = registry.clone();
                     let sp = security_policy;
+                    let wd = working_dir.clone();
                     tokio::spawn(async move {
                         use crate::hooks::HookPoint;
-                        // SecurityPolicyHandler: PreToolUse — blocks forbidden paths + high-risk commands
+
+                        // Layer 1: Builtin handlers
                         r.register(
                             HookPoint::PreToolUse,
                             Arc::new(crate::hooks::builtin::SecurityPolicyHandler::new(sp)),
                         ).await;
-                        // AuditLogHandler: PostToolUse — structured audit logging
                         r.register(
                             HookPoint::PostToolUse,
                             Arc::new(crate::hooks::builtin::AuditLogHandler),
                         ).await;
-                        tracing::debug!("Builtin hook handlers registered (security-policy, audit-log)");
+                        tracing::debug!("Layer 1: builtin handlers registered (security-policy, audit-log)");
+
+                        // Layer 2: Policy engine (policies.yaml)
+                        if let Some(policies_path) = resolve_policies_path(Some(&wd)) {
+                            match crate::hooks::policy::config::load_policies_config(&policies_path) {
+                                Ok(policy_config) => {
+                                    let pc = Arc::new(policy_config);
+                                    // Register PolicyEngineBridge for each unique hook point
+                                    let hook_points = collect_policy_hook_points(&pc);
+                                    for hp in hook_points {
+                                        r.register(
+                                            hp,
+                                            Arc::new(crate::hooks::policy::PolicyEngineBridge::new(pc.clone(), hp)),
+                                        ).await;
+                                    }
+                                    tracing::info!(path = %policies_path.display(), "Layer 2: policy engine loaded");
+                                }
+                                Err(e) => {
+                                    tracing::warn!(path = %policies_path.display(), error = %e, "Failed to load policies.yaml");
+                                }
+                            }
+                        }
+
+                        // Layer 3: Declarative hooks (hooks.yaml)
+                        if let Some(hooks_config) = crate::hooks::declarative::loader::load_hooks_config_auto(Some(&wd)) {
+                            let hc = Arc::new(hooks_config);
+                            // Register DeclarativeHookBridge for each configured hook point
+                            let hook_points = collect_declarative_hook_points(&hc);
+                            for hp in hook_points {
+                                r.register(
+                                    hp,
+                                    Arc::new(crate::hooks::declarative::DeclarativeHookBridge::new(hc.clone(), hp)),
+                                ).await;
+                            }
+                            tracing::info!("Layer 3: declarative hooks loaded");
+                        }
                     });
                 }
                 registry
@@ -963,6 +999,92 @@ impl AgentRuntime {
                 self.default_model.clone(),
                 AgentConfig::default(),
             )
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------
+// Phase AH: Helper functions for hook system initialization
+// ---------------------------------------------------------------------------
+
+/// Resolve policies.yaml path using the same layered strategy as hooks.yaml.
+fn resolve_policies_path(project_dir: Option<&std::path::Path>) -> Option<std::path::PathBuf> {
+    // 1. Environment variable override
+    if let Ok(env_path) = std::env::var("OCTO_POLICIES_FILE") {
+        let p = std::path::PathBuf::from(&env_path);
+        if p.exists() {
+            return Some(p);
+        }
+    }
+    // 2. Project-level config
+    if let Some(project) = project_dir {
+        let project_policies = project.join(".octo").join("policies.yaml");
+        if project_policies.exists() {
+            return Some(project_policies);
+        }
+    }
+    // 3. Global config
+    if let Some(home) = dirs::home_dir() {
+        let global_policies = home.join(".octo").join("policies.yaml");
+        if global_policies.exists() {
+            return Some(global_policies);
+        }
+    }
+    None
+}
+
+/// Collect unique HookPoints referenced by policies in a PolicyConfig.
+fn collect_policy_hook_points(
+    config: &crate::hooks::policy::PolicyConfig,
+) -> Vec<crate::hooks::HookPoint> {
+    let mut points = std::collections::HashSet::new();
+    for policy in &config.policies {
+        if !policy.enabled {
+            continue;
+        }
+        for hook_name in &policy.hooks {
+            if let Some(hp) = hook_point_from_name(hook_name) {
+                points.insert(hp);
+            }
+        }
+    }
+    points.into_iter().collect()
+}
+
+/// Collect unique HookPoints referenced by entries in a HooksConfig.
+fn collect_declarative_hook_points(
+    config: &crate::hooks::declarative::HooksConfig,
+) -> Vec<crate::hooks::HookPoint> {
+    let mut points = Vec::new();
+    for key in config.hooks.keys() {
+        if let Some(hp) = hook_point_from_name(key) {
+            points.push(hp);
+        }
+    }
+    points
+}
+
+/// Convert a hook point name string to a HookPoint enum variant.
+fn hook_point_from_name(name: &str) -> Option<crate::hooks::HookPoint> {
+    use crate::hooks::HookPoint;
+    match name {
+        "PreToolUse" => Some(HookPoint::PreToolUse),
+        "PostToolUse" => Some(HookPoint::PostToolUse),
+        "PreTask" => Some(HookPoint::PreTask),
+        "PostTask" => Some(HookPoint::PostTask),
+        "SessionStart" => Some(HookPoint::SessionStart),
+        "SessionEnd" => Some(HookPoint::SessionEnd),
+        "ContextDegraded" => Some(HookPoint::ContextDegraded),
+        "LoopTurnStart" => Some(HookPoint::LoopTurnStart),
+        "LoopTurnEnd" => Some(HookPoint::LoopTurnEnd),
+        "AgentRoute" => Some(HookPoint::AgentRoute),
+        "SkillsActivated" => Some(HookPoint::SkillsActivated),
+        "SkillDeactivated" => Some(HookPoint::SkillDeactivated),
+        "SkillScriptStarted" => Some(HookPoint::SkillScriptStarted),
+        "ToolConstraintViolated" => Some(HookPoint::ToolConstraintViolated),
+        _ => {
+            tracing::warn!(name, "Unknown hook point name in config, skipping");
+            None
         }
     }
 }
