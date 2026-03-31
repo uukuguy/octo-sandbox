@@ -411,12 +411,14 @@ impl MemoryStore for SqliteMemoryStore {
         let token_budget = opts.token_budget;
         let limit = opts.limit;
         let user_id = opts.user_id.clone();
+        // AJ-T3: 传递 session_id 用于会话级隔离
+        let session_id = opts.session_id.clone();
 
         let results = self
             .conn
             .call(move |conn| {
-                // Step 1: FTS5 search
-                let fts_results = fts_search(conn, &query_str, &user_id, limit)?;
+                // Step 1: FTS5 search (AJ-T3: with optional session_id filter)
+                let fts_results = fts_search(conn, &query_str, &user_id, session_id.as_deref(), limit)?;
 
                 // Step 2: Vector search (if embedding provided)
                 let vec_results = if has_embedding {
@@ -424,6 +426,7 @@ impl MemoryStore for SqliteMemoryStore {
                         conn,
                         query_embedding.as_ref().unwrap(),
                         &user_id,
+                        session_id.as_deref(),
                         limit,
                     )?
                 } else {
@@ -508,10 +511,14 @@ impl MemoryStore for SqliteMemoryStore {
 }
 
 /// FTS5 full-text search, returns (entry, bm25_score).
+/// AJ-T3: Added optional `session_id` filter for multi-session isolation.
+/// When `session_id` is `Some`, only memories from that session are returned.
+/// When `None`, all memories for the user are searched (backward compatible).
 fn fts_search(
     conn: &rusqlite::Connection,
     query: &str,
     user_id: &str,
+    session_id: Option<&str>,
     limit: usize,
 ) -> rusqlite::Result<Vec<(MemoryEntry, f32)>> {
     // Build FTS match query: simple tokenization for FTS5
@@ -521,50 +528,102 @@ fn fts_search(
         return Ok(Vec::new());
     }
 
-    let mut stmt = conn.prepare(
-        "SELECT m.id, m.user_id, m.sandbox_id, m.category, m.content, m.metadata, m.embedding,
-                m.importance, m.access_count, m.accessed_at, m.source_type, m.source_ref,
-                m.ttl, m.created_at, m.updated_at, m.memory_type, m.session_id, m.event_data,
-                -rank as score
-         FROM memories_fts fts
-         JOIN memories m ON m.rowid = fts.rowid
-         WHERE memories_fts MATCH ?1 AND m.user_id = ?2
-         ORDER BY rank
-         LIMIT ?3",
-    )?;
+    let (sql, params_count) = if session_id.is_some() {
+        (
+            "SELECT m.id, m.user_id, m.sandbox_id, m.category, m.content, m.metadata, m.embedding,
+                    m.importance, m.access_count, m.accessed_at, m.source_type, m.source_ref,
+                    m.ttl, m.created_at, m.updated_at, m.memory_type, m.session_id, m.event_data,
+                    -rank as score
+             FROM memories_fts fts
+             JOIN memories m ON m.rowid = fts.rowid
+             WHERE memories_fts MATCH ?1 AND m.user_id = ?2 AND m.session_id = ?3
+             ORDER BY rank
+             LIMIT ?4",
+            4,
+        )
+    } else {
+        (
+            "SELECT m.id, m.user_id, m.sandbox_id, m.category, m.content, m.metadata, m.embedding,
+                    m.importance, m.access_count, m.accessed_at, m.source_type, m.source_ref,
+                    m.ttl, m.created_at, m.updated_at, m.memory_type, m.session_id, m.event_data,
+                    -rank as score
+             FROM memories_fts fts
+             JOIN memories m ON m.rowid = fts.rowid
+             WHERE memories_fts MATCH ?1 AND m.user_id = ?2
+             ORDER BY rank
+             LIMIT ?3",
+            3,
+        )
+    };
 
-    let rows = stmt.query_map(rusqlite::params![fts_query, user_id, limit as i64], |row| {
-        let entry = row_to_entry(row)?;
-        let score: f32 = row.get(18)?;
-        Ok((entry, score))
-    })?;
+    let mut stmt = conn.prepare(sql)?;
 
-    let mut results = Vec::new();
-    for r in rows.flatten() {
-        results.push(r);
-    }
-    Ok(results)
+    let rows: Vec<(MemoryEntry, f32)> = if params_count == 4 {
+        let sid = session_id.unwrap();
+        stmt.query_map(rusqlite::params![fts_query, user_id, sid, limit as i64], |row| {
+            let entry = row_to_entry(row)?;
+            let score: f32 = row.get(18)?;
+            Ok((entry, score))
+        })?
+        .flatten()
+        .collect()
+    } else {
+        stmt.query_map(rusqlite::params![fts_query, user_id, limit as i64], |row| {
+            let entry = row_to_entry(row)?;
+            let score: f32 = row.get(18)?;
+            Ok((entry, score))
+        })?
+        .flatten()
+        .collect()
+    };
+
+    Ok(rows)
 }
 
 /// Brute-force vector search: load embeddings, compute cosine similarity.
+/// AJ-T3: Added optional `session_id` filter for multi-session isolation.
 fn vector_search(
     conn: &rusqlite::Connection,
     query_embedding: &[f32],
     user_id: &str,
+    session_id: Option<&str>,
     limit: usize,
 ) -> rusqlite::Result<Vec<(MemoryEntry, f32)>> {
-    let mut stmt = conn.prepare(
-        "SELECT id, user_id, sandbox_id, category, content, metadata, embedding,
-                importance, access_count, accessed_at, source_type, source_ref,
-                ttl, created_at, updated_at, memory_type, session_id, event_data
-         FROM memories
-         WHERE user_id = ?1 AND embedding IS NOT NULL",
-    )?;
+    let (sql, use_session) = if session_id.is_some() {
+        (
+            "SELECT id, user_id, sandbox_id, category, content, metadata, embedding,
+                    importance, access_count, accessed_at, source_type, source_ref,
+                    ttl, created_at, updated_at, memory_type, session_id, event_data
+             FROM memories
+             WHERE user_id = ?1 AND embedding IS NOT NULL AND session_id = ?2",
+            true,
+        )
+    } else {
+        (
+            "SELECT id, user_id, sandbox_id, category, content, metadata, embedding,
+                    importance, access_count, accessed_at, source_type, source_ref,
+                    ttl, created_at, updated_at, memory_type, session_id, event_data
+             FROM memories
+             WHERE user_id = ?1 AND embedding IS NOT NULL",
+            false,
+        )
+    };
 
-    let rows = stmt.query_map(rusqlite::params![user_id], row_to_entry)?;
+    let mut stmt = conn.prepare(sql)?;
+
+    let rows: Vec<MemoryEntry> = if use_session {
+        let sid = session_id.unwrap();
+        stmt.query_map(rusqlite::params![user_id, sid], row_to_entry)?
+            .flatten()
+            .collect()
+    } else {
+        stmt.query_map(rusqlite::params![user_id], row_to_entry)?
+            .flatten()
+            .collect()
+    };
 
     let mut scored: Vec<(MemoryEntry, f32)> = Vec::new();
-    for entry in rows.flatten() {
+    for entry in rows {
         if let Some(ref emb) = entry.embedding {
             let sim = cosine_similarity(query_embedding, emb);
             if sim > 0.0 {

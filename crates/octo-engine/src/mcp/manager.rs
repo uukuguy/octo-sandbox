@@ -112,6 +112,10 @@ pub struct McpManager {
     clients: HashMap<String, Arc<RwLock<Box<dyn McpClient>>>>,
     tool_infos: HashMap<String, Vec<McpToolInfo>>,
     runtime_states: HashMap<String, ServerRuntimeState>,
+    /// AJ-T4: Track which session installed each MCP server.
+    /// Key = server name, Value = session_id that installed it.
+    /// Servers installed at startup (pre-configured) have no session owner.
+    server_owners: HashMap<String, Option<String>>,
 }
 
 impl McpManager {
@@ -120,6 +124,7 @@ impl McpManager {
             clients: HashMap::new(),
             tool_infos: HashMap::new(),
             runtime_states: HashMap::new(),
+            server_owners: HashMap::new(),
         }
     }
 
@@ -288,7 +293,53 @@ impl McpManager {
         self.clients.insert(name.clone(), client);
         self.tool_infos.insert(name.clone(), tools);
         self.runtime_states
-            .insert(name, ServerRuntimeState::Running { pid: 0 });
+            .insert(name.clone(), ServerRuntimeState::Running { pid: 0 });
+        // AJ-T4: No session owner for programmatic inserts (startup/deferred)
+        self.server_owners.entry(name).or_insert(None);
+    }
+
+    /// AJ-T4: Insert a connected client with session ownership tracking.
+    pub fn insert_connected_client_for_session(
+        &mut self,
+        name: String,
+        client: Arc<RwLock<Box<dyn McpClient>>>,
+        tools: Vec<McpToolInfo>,
+        session_id: String,
+    ) {
+        self.clients.insert(name.clone(), client);
+        self.tool_infos.insert(name.clone(), tools);
+        self.runtime_states
+            .insert(name.clone(), ServerRuntimeState::Running { pid: 0 });
+        self.server_owners.insert(name, Some(session_id));
+    }
+
+    /// AJ-T4: Check if a server is owned by a specific session.
+    /// Returns true if the server has no owner (global) or is owned by the given session.
+    pub fn can_session_remove(&self, server_name: &str, session_id: &str) -> bool {
+        match self.server_owners.get(server_name) {
+            Some(Some(owner)) => owner == session_id,
+            Some(None) => true, // Global server — anyone can remove
+            None => true,       // Unknown server
+        }
+    }
+
+    /// AJ-T4: Get servers owned by a session (for cleanup on session end).
+    pub fn servers_owned_by_session(&self, session_id: &str) -> Vec<String> {
+        self.server_owners
+            .iter()
+            .filter_map(|(name, owner)| {
+                if owner.as_deref() == Some(session_id) {
+                    Some(name.clone())
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
+
+    /// AJ-T4: Remove session ownership tracking for a server.
+    pub fn remove_server_owner(&mut self, server_name: &str) {
+        self.server_owners.remove(server_name);
     }
 
     /// Add and connect a new MCP server, supporting both Stdio and SSE transports.

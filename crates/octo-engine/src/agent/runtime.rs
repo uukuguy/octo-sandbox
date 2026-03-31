@@ -999,11 +999,17 @@ impl AgentRuntime {
                 tools: session_reg.clone(),
                 config_path: mcp_config_path,
             };
+            // AJ-T2: 创建 session 级 KnowledgeGraph 实例（隔离：session A 的 KG 数据对 session B 不可见）
+            let session_kg = Arc::new(tokio::sync::RwLock::new(crate::memory::KnowledgeGraph::new()));
+
             {
                 let mut reg = session_reg.lock().unwrap_or_else(|e| e.into_inner());
+                // AJ-T1: 重建 MCP 管理工具
                 reg.register(crate::tools::mcp_manage::McpInstallTool::new(session_mcp_handle.clone()));
                 reg.register(crate::tools::mcp_manage::McpRemoveTool::new(session_mcp_handle.clone()));
                 reg.register(crate::tools::mcp_manage::McpListTool::new(session_mcp_handle));
+                // AJ-T2: 重建 KG 工具，指向 session 级 KG
+                register_kg_tools(&mut reg, session_kg.clone());
             }
             session_reg
         };
