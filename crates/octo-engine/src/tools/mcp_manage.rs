@@ -109,6 +109,7 @@ impl Tool for McpInstallTool {
             command: command.clone(),
             args: args.clone(),
             env,
+            auto_start: true,
         };
 
         // 1. Persist to config file

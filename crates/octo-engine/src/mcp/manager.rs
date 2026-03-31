@@ -43,6 +43,14 @@ struct McpServerEntry {
     /// URL for HTTP/SSE transport.
     #[serde(default)]
     url: Option<String>,
+    /// Whether to auto-start on runtime init. Defaults to true.
+    #[serde(default = "default_auto_start")]
+    #[serde(rename = "autoStart")]
+    auto_start: bool,
+}
+
+fn default_auto_start() -> bool {
+    true
 }
 
 /// Expand `${VAR}` and `${VAR:-default}` references in a string using env vars.
@@ -86,6 +94,7 @@ fn expand_entry_env_vars(entry: &McpServerEntry) -> McpServerEntry {
             .collect(),
         transport_type: entry.transport_type.clone(),
         url: entry.url.as_ref().map(|u| expand_env_vars(u)),
+        auto_start: entry.auto_start,
     }
 }
 
@@ -154,12 +163,14 @@ impl McpManager {
         Ok(merged
             .into_iter()
             .map(|(name, entry)| {
+                let auto_start = entry.auto_start;
                 let expanded = expand_entry_env_vars(&entry);
                 McpServerConfig {
                     name,
                     command: expanded.command,
                     args: expanded.args,
                     env: expanded.env,
+                    auto_start,
                 }
             })
             .collect())
@@ -187,6 +198,7 @@ impl McpManager {
             env: config.env.clone(),
             transport_type: None,
             url: None,
+            auto_start: config.auto_start,
         };
         file_config.mcp_servers.insert(config.name.clone(), entry);
 
@@ -289,6 +301,7 @@ impl McpManager {
                 command: config.command.clone(),
                 args: config.args.clone(),
                 env: config.env.clone(),
+                auto_start: true,
             })),
             McpTransport::Sse => {
                 let url = config.url.clone().ok_or_else(|| {
@@ -586,6 +599,7 @@ mod tests {
             command: "npx".to_string(),
             args: vec!["-y".to_string(), "@test/pkg".to_string()],
             env: HashMap::from([("KEY".to_string(), "val".to_string())]),
+            auto_start: true,
         };
 
         McpManager::add_to_config_file(&config_path, &config).unwrap();
@@ -609,12 +623,14 @@ mod tests {
             command: "cmd1".to_string(),
             args: vec![],
             env: HashMap::new(),
+            auto_start: true,
         };
         let config2 = McpServerConfig {
             name: "srv-2".to_string(),
             command: "cmd2".to_string(),
             args: vec![],
             env: HashMap::new(),
+            auto_start: true,
         };
 
         McpManager::add_to_config_file(&config_path, &config1).unwrap();
@@ -634,6 +650,7 @@ mod tests {
             command: "cmd".to_string(),
             args: vec![],
             env: HashMap::new(),
+            auto_start: true,
         };
 
         McpManager::add_to_config_file(&config_path, &config).unwrap();

@@ -16,6 +16,8 @@ use crate::db::Database;
 use crate::event::{EventStore, TelemetryBus};
 use crate::hooks::HookRegistry;
 use crate::mcp::manager::McpManager;
+use crate::mcp::stdio::StdioMcpClient;
+use crate::mcp::traits::McpClient as _;
 use crate::memory::store_traits::MemoryStore;
 use crate::memory::{InMemoryWorkingMemory, SqliteMemoryStore, SqliteWorkingMemory, WorkingMemory};
 use crate::metering::Metering;
@@ -349,7 +351,7 @@ impl AgentRuntime {
         };
 
         // 11. McpManager initialization — auto-load from mcp.json if available
-        let mcp_manager = {
+        let (mcp_manager, deferred_mcp_configs) = {
             let mut mgr = McpManager::new();
 
             // Collect config paths to load (highest priority first):
@@ -373,10 +375,20 @@ impl AgentRuntime {
             }
 
             let mut loaded_names = std::collections::HashSet::new();
+            let mut deferred_configs: Vec<crate::mcp::traits::McpServerConfig> = Vec::new();
             for path in &config_paths {
                 match McpManager::load_config(path) {
                     Ok(configs) => {
                         for server_config in configs {
+                            if !server_config.auto_start {
+                                tracing::info!(
+                                    server = %server_config.name,
+                                    config = %path.display(),
+                                    "Deferring MCP server with autoStart=false (will connect in background)"
+                                );
+                                deferred_configs.push(server_config);
+                                continue;
+                            }
                             if loaded_names.contains(&server_config.name) {
                                 tracing::debug!(
                                     server = %server_config.name,
@@ -425,7 +437,7 @@ impl AgentRuntime {
                 );
             }
 
-            Arc::new(Mutex::new(mgr))
+            (Arc::new(Mutex::new(mgr)), deferred_configs)
         };
 
         // 12. Working directory
@@ -653,6 +665,98 @@ impl AgentRuntime {
             tools_guard.register(crate::tools::mcp_manage::McpInstallTool::new(handle.clone()));
             tools_guard.register(crate::tools::mcp_manage::McpRemoveTool::new(handle.clone()));
             tools_guard.register(crate::tools::mcp_manage::McpListTool::new(handle));
+        }
+
+        // 19. Spawn background tasks for deferred MCP servers (autoStart=false)
+        if !deferred_mcp_configs.is_empty() {
+            let mcp_mgr = runtime.mcp_manager.clone();
+            let tools_registry = runtime.tools.clone();
+            let count = deferred_mcp_configs.len();
+            tracing::info!(count, "Spawning background connection for deferred MCP servers");
+            tokio::spawn(async move {
+                for config in deferred_mcp_configs {
+                    let name = config.name.clone();
+                    tracing::debug!(server = %name, "Background: connecting deferred MCP server");
+
+                    // Mark as starting
+                    {
+                        let mut guard = mcp_mgr.lock().await;
+                        guard.set_runtime_state(
+                            &name,
+                            crate::mcp::manager::ServerRuntimeState::Starting,
+                        );
+                    }
+
+                    // Connect outside the lock
+                    let mut client = StdioMcpClient::new(config.clone());
+                    match client.connect().await {
+                        Ok(()) => {}
+                        Err(e) => {
+                            tracing::warn!(
+                                server = %name,
+                                error = %e,
+                                "Background: failed to connect deferred MCP server"
+                            );
+                            let mut guard = mcp_mgr.lock().await;
+                            guard.set_runtime_state(
+                                &name,
+                                crate::mcp::manager::ServerRuntimeState::Error {
+                                    message: e.to_string(),
+                                },
+                            );
+                            continue;
+                        }
+                    }
+
+                    // Discover tools
+                    let tools: Vec<crate::mcp::traits::McpToolInfo> = match client.list_tools().await {
+                        Ok(t) => t,
+                        Err(e) => {
+                            tracing::warn!(
+                                server = %name,
+                                error = %e,
+                                "Background: failed to list tools from deferred MCP server"
+                            );
+                            let mut guard = mcp_mgr.lock().await;
+                            guard.set_runtime_state(
+                                &name,
+                                crate::mcp::manager::ServerRuntimeState::Error {
+                                    message: e.to_string(),
+                                },
+                            );
+                            continue;
+                        }
+                    };
+
+                    tracing::info!(
+                        server = %name,
+                        tool_count = tools.len(),
+                        "Background: deferred MCP server connected"
+                    );
+
+                    let client_arc: Arc<tokio::sync::RwLock<Box<dyn crate::mcp::traits::McpClient>>> =
+                        Arc::new(tokio::sync::RwLock::new(Box::new(client)));
+
+                    // Insert into manager
+                    {
+                        let mut guard = mcp_mgr.lock().await;
+                        guard.insert_connected_client(name.clone(), client_arc.clone(), tools.clone());
+                    }
+
+                    // Register tool bridges
+                    {
+                        let mut tools_guard = tools_registry.lock().unwrap_or_else(|e| e.into_inner());
+                        for tool_info in &tools {
+                            let bridge = crate::mcp::bridge::McpToolBridge::new(
+                                client_arc.clone(),
+                                name.clone(),
+                                tool_info.clone(),
+                            );
+                            tools_guard.register(bridge);
+                        }
+                    }
+                }
+            });
         }
 
         Ok(runtime)

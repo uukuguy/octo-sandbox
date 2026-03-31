@@ -390,6 +390,7 @@ pub async fn start_server(
         command: server_record.command.clone(),
         args: serde_json::from_str(&server_record.args).unwrap_or_default(),
         env: serde_json::from_str(&server_record.env).unwrap_or_default(),
+        auto_start: true,
     };
 
     // Spawn background task: subprocess connect can block for several seconds

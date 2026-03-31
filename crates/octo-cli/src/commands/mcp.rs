@@ -175,6 +175,7 @@ async fn add_server(
         command,
         args,
         env,
+        auto_start: true,
     };
 
     // Persist to .octo/mcp.json

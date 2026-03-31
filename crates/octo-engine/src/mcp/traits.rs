@@ -246,6 +246,14 @@ pub struct McpServerConfig {
     pub args: Vec<String>,
     #[serde(default)]
     pub env: HashMap<String, String>,
+    /// Whether to auto-start this server on runtime initialization.
+    /// Defaults to `true`. Set to `false` to defer startup until explicit request.
+    #[serde(default = "default_auto_start")]
+    pub auto_start: bool,
+}
+
+fn default_auto_start() -> bool {
+    true
 }
 
 /// Configuration for an MCP server (persisted version with ID).
@@ -276,6 +284,7 @@ impl From<McpServerConfigV2> for McpServerConfig {
             command: v2.command,
             args: v2.args,
             env: v2.env,
+            auto_start: true,
         }
     }
 }
