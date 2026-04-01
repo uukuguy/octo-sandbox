@@ -145,7 +145,7 @@ G4 (测试):
 | AJ-D1 | IPC 健康检查心跳（Unix socket / gRPC） | P3 | 平台 Pod 架构 |
 | AJ-D2 | 崩溃恢复 — EventStore 重放恢复会话 | P2 | 本阶段 session registry |
 | AJ-D3 | 优雅关闭 — SIGTERM checkpoint 所有会话 | P2 | AJ-D2 |
-| AJ-D4 | 会话 idle 超时自动回收 | P2 | 本阶段完成 |
+| AJ-D4 | 会话 idle 超时自动回收 | P2 | ✅ 已补 @ 21a82fc |
 | AJ-D5 | 前端多会话 UI（tab 切换器） | P3 | WS 路由完成 |
 | AJ-D6 | Event Bus 会话过滤订阅 | P4 | 观测需求 |
 | AJ-D7 | KG scope 字段（Global/User/Session） | P3 | 跨 session 知识需求 |
