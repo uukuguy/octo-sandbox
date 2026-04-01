@@ -119,6 +119,21 @@ impl AutonomousState {
     pub fn sleep_duration(&self, sleep_tool_secs: Option<u64>) -> u64 {
         sleep_tool_secs.unwrap_or(self.config.idle_sleep_secs)
     }
+
+    /// Get the appropriate sleep duration considering user presence.
+    pub fn effective_sleep_duration(&self) -> u64 {
+        if self.config.user_presence_aware && self.user_online {
+            self.config.active_sleep_secs
+        } else {
+            self.config.idle_sleep_secs
+        }
+    }
+
+    /// Record a tick completion.
+    pub fn record_tick(&mut self) {
+        self.rounds_completed += 1;
+        self.last_tick_at = Some(Instant::now());
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -278,6 +293,51 @@ mod tests {
             let json = serde_json::to_string(&status).unwrap();
             assert_eq!(json, expected, "failed for {:?}", status);
         }
+    }
+
+    #[test]
+    fn test_autonomous_state_record_tick() {
+        let config = AutonomousConfig::default();
+        let mut state = AutonomousState::new(SessionId::default(), config);
+        assert_eq!(state.rounds_completed, 0);
+        assert!(state.last_tick_at.is_none());
+
+        state.record_tick();
+        assert_eq!(state.rounds_completed, 1);
+        assert!(state.last_tick_at.is_some());
+
+        state.record_tick();
+        assert_eq!(state.rounds_completed, 2);
+    }
+
+    #[test]
+    fn test_autonomous_state_effective_sleep_duration() {
+        let config = AutonomousConfig {
+            idle_sleep_secs: 30,
+            active_sleep_secs: 5,
+            user_presence_aware: true,
+            ..Default::default()
+        };
+        let mut state = AutonomousState::new(SessionId::default(), config);
+
+        // user_online defaults to true → active_sleep
+        assert_eq!(state.effective_sleep_duration(), 5);
+
+        state.user_online = false;
+        assert_eq!(state.effective_sleep_duration(), 30);
+    }
+
+    #[test]
+    fn test_autonomous_state_effective_sleep_not_presence_aware() {
+        let config = AutonomousConfig {
+            idle_sleep_secs: 30,
+            active_sleep_secs: 5,
+            user_presence_aware: false,
+            ..Default::default()
+        };
+        let state = AutonomousState::new(SessionId::default(), config);
+        // Even though user_online is true, presence_aware is false → idle sleep
+        assert_eq!(state.effective_sleep_duration(), 30);
     }
 
     #[test]

@@ -207,6 +207,11 @@ impl OctoRoot {
         self.project_root.join("eval.toml")
     }
 
+    /// Global blob store directory: `~/.octo/blobs/`.
+    pub fn blobs_dir(&self) -> PathBuf {
+        self.global_root.join("blobs")
+    }
+
     // ── Directory management ────────────────────────────────────────
 
     /// Create all necessary directories and write meta.json.

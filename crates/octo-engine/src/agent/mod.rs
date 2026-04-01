@@ -1,4 +1,5 @@
 pub mod autonomous;
+pub mod autonomous_audit;
 pub mod cancellation;
 pub mod capability;
 pub mod catalog;

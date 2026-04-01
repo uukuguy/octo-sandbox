@@ -38,6 +38,12 @@ pub enum AgentMessage {
     Cancel,
     /// 清空对话历史（/clear 命令）
     ClearHistory,
+    /// Pause autonomous mode (AQ-T4).
+    Pause,
+    /// Resume autonomous mode after pause (AQ-T4).
+    Resume,
+    /// Update user presence state for autonomous mode (AQ-T6).
+    UserPresence(bool),
 }
 
 /// AgentExecutor 的对外句柄（可 clone，廉价）
@@ -63,6 +69,21 @@ impl AgentExecutorHandle {
         msg: AgentMessage,
     ) -> Result<(), mpsc::error::SendError<AgentMessage>> {
         self.tx.send(msg).await
+    }
+
+    /// Pause autonomous mode (AQ-T5).
+    pub async fn pause(&self) -> Result<(), mpsc::error::SendError<AgentMessage>> {
+        self.tx.send(AgentMessage::Pause).await
+    }
+
+    /// Resume autonomous mode after pause (AQ-T5).
+    pub async fn resume(&self) -> Result<(), mpsc::error::SendError<AgentMessage>> {
+        self.tx.send(AgentMessage::Resume).await
+    }
+
+    /// Update user presence state for autonomous mode (AQ-T6).
+    pub async fn set_user_presence(&self, online: bool) -> Result<(), mpsc::error::SendError<AgentMessage>> {
+        self.tx.send(AgentMessage::UserPresence(online)).await
     }
 }
 
@@ -353,6 +374,17 @@ impl AgentExecutor {
                         store.set_messages(&self.session_id, vec![]).await;
                     }
                     info!(session_id = %self.session_id.as_str(), "AgentExecutor: history cleared");
+                }
+                AgentMessage::Pause => {
+                    info!(session_id = %self.session_id.as_str(), "AgentExecutor: pause requested (autonomous)");
+                    let _ = self.broadcast_tx.send(AgentEvent::AutonomousPaused);
+                }
+                AgentMessage::Resume => {
+                    info!(session_id = %self.session_id.as_str(), "AgentExecutor: resume requested (autonomous)");
+                    let _ = self.broadcast_tx.send(AgentEvent::AutonomousResumed);
+                }
+                AgentMessage::UserPresence(online) => {
+                    info!(session_id = %self.session_id.as_str(), online, "AgentExecutor: user presence updated");
                 }
             }
         }

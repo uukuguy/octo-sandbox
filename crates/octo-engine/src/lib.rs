@@ -19,6 +19,7 @@ pub mod secret;
 pub mod security;
 pub mod session;
 pub mod skill_runtime;
+pub mod storage;
 pub mod skills;
 pub mod sync;
 pub mod tls;

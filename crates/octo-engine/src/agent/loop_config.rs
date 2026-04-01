@@ -155,6 +155,10 @@ pub struct AgentLoopConfig {
     // === Interaction Gate (Phase AQ-T1) ===
     /// Async interaction gate for agent-to-user communication.
     pub interaction_gate: Option<Arc<crate::tools::interaction::InteractionGate>>,
+
+    // === Blob Store (Phase AQ-T3) ===
+    /// Content-addressed blob store for externalizing large tool outputs.
+    pub blob_store: Option<Arc<crate::storage::BlobStore>>,
 }
 
 impl Default for AgentLoopConfig {
@@ -204,6 +208,7 @@ impl Default for AgentLoopConfig {
             autonomous: None,
             round_memory_config: None,
             interaction_gate: None,
+            blob_store: None,
         }
     }
 }
@@ -455,6 +460,11 @@ impl AgentLoopConfigBuilder {
 
     pub fn interaction_gate(mut self, v: Arc<crate::tools::interaction::InteractionGate>) -> Self {
         self.config.interaction_gate = Some(v);
+        self
+    }
+
+    pub fn blob_store(mut self, v: Arc<crate::storage::BlobStore>) -> Self {
+        self.config.blob_store = Some(v);
         self
     }
 
