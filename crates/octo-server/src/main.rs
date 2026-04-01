@@ -367,7 +367,13 @@ async fn main() -> Result<()> {
             .await?;
     }
 
-    // Graceful shutdown: clean up MCP servers with timeout
+    // Graceful shutdown: stop sessions, then MCP servers
+    tracing::info!("Stopping all active sessions...");
+    let session_cleanup = state.agent_supervisor.cleanup_idle_sessions(
+        std::time::Duration::from_secs(0), // 0 = stop all sessions regardless of activity
+    ).await;
+    tracing::info!(stopped = session_cleanup, "Active sessions stopped");
+
     tracing::info!("Shutting down MCP servers...");
     let cleanup = async {
         let mcp_manager = state.agent_supervisor.mcp_manager();

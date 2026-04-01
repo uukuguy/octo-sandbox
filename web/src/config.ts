@@ -39,7 +39,7 @@ export async function initConfig(): Promise<BackendConfig> {
     return configPromise;
   }
 
-  configPromise = fetch('/api/config')
+  configPromise = fetch('/api/v1/config')
     .then((res) => {
       if (!res.ok) {
         throw new Error(`Failed to fetch config: ${res.status}`);

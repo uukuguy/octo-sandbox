@@ -51,7 +51,7 @@ export default function Memory() {
     if (!sessionId) return;
     setLoading(true);
     try {
-      const res = await fetch(`/api/sessions/${sessionId}`);
+      const res = await fetch(`/api/v1/sessions/${sessionId}`);
       const data = await res.json();
       setSessionMessages(data.messages || []);
     } catch (error) {
@@ -64,7 +64,7 @@ export default function Memory() {
   const fetchWorkingMemory = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/memories/working");
+      const res = await fetch("/api/v1/memories/working");
       const data = await res.json();
       setWorkingMemory(data.blocks || []);
     } catch (error) {
@@ -77,7 +77,7 @@ export default function Memory() {
   const fetchPersistentMemory = async () => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/memories?limit=50`);
+      const res = await fetch(`/api/v1/memories?limit=50`);
       const data = await res.json();
       setPersistentMemory(data.results || []);
     } catch (error) {

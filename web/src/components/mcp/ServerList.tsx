@@ -63,7 +63,7 @@ export function ServerList() {
 
   const loadServers = () => {
     setLoading(true);
-    fetch("/api/mcp/servers")
+    fetch("/api/v1/mcp/servers")
       .then((res) => {
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return res.json();
@@ -84,7 +84,7 @@ export function ServerList() {
   const toggleServer = async (serverId: string, currentStatus: string) => {
     const action = currentStatus === "running" ? "stop" : "start";
     try {
-      const res = await fetch(`/api/mcp/servers/${serverId}/${action}`, {
+      const res = await fetch(`/api/v1/mcp/servers/${serverId}/${action}`, {
         method: "POST",
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -123,7 +123,7 @@ export function ServerList() {
         payload.url = formData.url;
       }
 
-      const res = await fetch("/api/mcp/servers", {
+      const res = await fetch("/api/v1/mcp/servers", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),

@@ -10,7 +10,7 @@ const STATUS_COLORS: Record<string, string> = {
 
 async function castVote(proposalId: string, agentId: string, approve: boolean) {
   try {
-    await fetch(`/api/collaboration/proposals/${proposalId}/vote`, {
+    await fetch(`/api/v1/collaboration/proposals/${proposalId}/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ agent_id: agentId, approve, reason: null }),

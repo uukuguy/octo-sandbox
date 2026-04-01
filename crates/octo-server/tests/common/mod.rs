@@ -219,6 +219,41 @@ impl TestApp {
         self.send(req).await
     }
 
+    /// Send a GET request and return (status, json_body, headers).
+    pub async fn get_with_headers(
+        &self,
+        uri: &str,
+    ) -> (StatusCode, Value, axum::http::HeaderMap) {
+        let req = Request::builder()
+            .uri(uri)
+            .body(Body::empty())
+            .expect("failed to build request");
+        self.send_with_headers(req).await
+    }
+
+    /// Low-level: send request and return headers too.
+    async fn send_with_headers(
+        &self,
+        req: Request<Body>,
+    ) -> (StatusCode, Value, axum::http::HeaderMap) {
+        let response = self
+            .router
+            .clone()
+            .oneshot(req)
+            .await
+            .expect("request failed");
+        let status = response.status();
+        let headers = response.headers().clone();
+        let body_bytes = response
+            .into_body()
+            .collect()
+            .await
+            .expect("failed to read body")
+            .to_bytes();
+        let json: Value = serde_json::from_slice(&body_bytes).unwrap_or(Value::Null);
+        (status, json, headers)
+    }
+
     /// Low-level: send any `Request<Body>` through the router.
     async fn send(&self, req: Request<Body>) -> (StatusCode, Value) {
         let response = self

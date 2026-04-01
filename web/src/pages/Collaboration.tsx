@@ -27,11 +27,11 @@ export default function Collaboration() {
     setLoading(true);
     try {
       const [statusRes, agentsRes, proposalsRes, eventsRes, stateRes] = await Promise.all([
-        fetch("/api/collaboration/status").then((r) => r.json()),
-        fetch("/api/collaboration/agents").then((r) => r.json()),
-        fetch("/api/collaboration/proposals").then((r) => r.json()),
-        fetch("/api/collaboration/events").then((r) => r.json()),
-        fetch("/api/collaboration/shared-state").then((r) => r.json()),
+        fetch("/api/v1/collaboration/status").then((r) => r.json()),
+        fetch("/api/v1/collaboration/agents").then((r) => r.json()),
+        fetch("/api/v1/collaboration/proposals").then((r) => r.json()),
+        fetch("/api/v1/collaboration/events").then((r) => r.json()),
+        fetch("/api/v1/collaboration/shared-state").then((r) => r.json()),
       ]);
       setStatus(statusRes);
       setAgents(agentsRes);

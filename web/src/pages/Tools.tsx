@@ -12,7 +12,7 @@ export default function Tools() {
 
   const refresh = useCallback(() => {
     if (!sessionId) return;
-    fetch(`/api/sessions/${sessionId}/executions?limit=100`)
+    fetch(`/api/v1/sessions/${sessionId}/executions?limit=100`)
       .then((res) => res.ok ? res.json() : [])
       .then((data: ToolExecutionRecord[]) => {
         if (Array.isArray(data)) setExecutions(data);

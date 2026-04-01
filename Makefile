@@ -346,48 +346,53 @@ verify-runtime:
 	@echo "完成后记录结果到 docs/main/WORK_LOG.md"
 
 # API 端点可用性检查 (需服务器运行在 3001)
-# 路由说明:
-#   /api/config                    — 前端配置 (统一配置管理)
-#   /api/sessions/{id}/executions  — 按 session 查工具执行历史
-#   /api/executions/{id}           — 按 execution id 查单条记录
-#   /api/mcp/servers/{id}/tools    — 按 server id 查 MCP 工具列表
-#   /api/mcp/servers/{id}/logs     — 按 server id 查 MCP 日志
+# 路由说明 (所有业务端点统一在 /api/v1/ 下):
+#   /api/health                         — 健康检查 (readiness, 无版本前缀)
+#   /api/health/live                    — 存活探针 (liveness, 无版本前缀)
+#   /api/v1/config                      — 前端配置 (统一配置管理)
+#   /api/v1/sessions/{id}/executions    — 按 session 查工具执行历史
+#   /api/v1/executions/{id}             — 按 execution id 查单条记录
+#   /api/v1/mcp/servers/{id}/tools      — 按 server id 查 MCP 工具列表
+#   /api/v1/mcp/servers/{id}/logs       — 按 server id 查 MCP 日志
 verify-api:
 	@echo "=== REST API 端点验证 (需先 make server) ==="
 	@echo ""
-	@echo "[Health]"
+	@echo "[Health - readiness]"
 	curl -sf http://localhost:3001/api/health && echo " ✅ GET /api/health" || echo " ❌ GET /api/health"
 	@echo ""
+	@echo "[Health - liveness]"
+	curl -sf http://localhost:3001/api/health/live && echo " ✅ GET /api/health/live" || echo " ❌ GET /api/health/live"
+	@echo ""
 	@echo "[Frontend Config]"
-	curl -sf http://localhost:3001/api/config && echo " ✅ GET /api/config" || echo " ❌ GET /api/config"
+	curl -sf http://localhost:3001/api/v1/config && echo " ✅ GET /api/v1/config" || echo " ❌ GET /api/v1/config"
 	@echo ""
 	@echo "[Sessions - list]"
-	curl -sf http://localhost:3001/api/sessions && echo " ✅ GET /api/sessions" || echo " ❌ GET /api/sessions"
+	curl -sf http://localhost:3001/api/v1/sessions && echo " ✅ GET /api/v1/sessions" || echo " ❌ GET /api/v1/sessions"
 	@echo ""
 	@echo "[Memories - list all]"
-	curl -sf http://localhost:3001/api/memories && echo " ✅ GET /api/memories" || echo " ❌ GET /api/memories"
+	curl -sf http://localhost:3001/api/v1/memories && echo " ✅ GET /api/v1/memories" || echo " ❌ GET /api/v1/memories"
 	@echo ""
 	@echo "[Working Memory]"
-	curl -sf http://localhost:3001/api/memories/working && echo " ✅ GET /api/memories/working" || echo " ❌ GET /api/memories/working"
+	curl -sf http://localhost:3001/api/v1/memories/working && echo " ✅ GET /api/v1/memories/working" || echo " ❌ GET /api/v1/memories/working"
 	@echo ""
 	@echo "[Tool Executions - by session]"
-	@FIRST_SID=$$(curl -sf http://localhost:3001/api/sessions | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['session_id'] if d else '')" 2>/dev/null); \
+	@FIRST_SID=$$(curl -sf http://localhost:3001/api/v1/sessions | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['session_id'] if d else '')" 2>/dev/null); \
 	if [ -n "$$FIRST_SID" ]; then \
-	  curl -sf "http://localhost:3001/api/sessions/$$FIRST_SID/executions" && echo " ✅ GET /api/sessions/{id}/executions (session=$$FIRST_SID)" || echo " ❌ GET /api/sessions/{id}/executions"; \
+	  curl -sf "http://localhost:3001/api/v1/sessions/$$FIRST_SID/executions" && echo " ✅ GET /api/v1/sessions/{id}/executions (session=$$FIRST_SID)" || echo " ❌ GET /api/v1/sessions/{id}/executions"; \
 	else \
 	  echo " ⚠️  No sessions found — start a conversation first"; \
 	fi
 	@echo ""
 	@echo "[MCP Servers - list]"
-	curl -sf http://localhost:3001/api/mcp/servers && echo " ✅ GET /api/mcp/servers" || echo " ❌ GET /api/mcp/servers"
+	curl -sf http://localhost:3001/api/v1/mcp/servers && echo " ✅ GET /api/v1/mcp/servers" || echo " ❌ GET /api/v1/mcp/servers"
 	@echo ""
 	@echo "[Built-in Tools - list]"
-	curl -sf http://localhost:3001/api/tools && echo " ✅ GET /api/tools" || echo " ❌ GET /api/tools"
+	curl -sf http://localhost:3001/api/v1/tools && echo " ✅ GET /api/v1/tools" || echo " ❌ GET /api/v1/tools"
 	@echo ""
 	@echo "[Budget]"
-	curl -sf http://localhost:3001/api/budget && echo " ✅ GET /api/budget" || echo " ❌ GET /api/budget"
+	curl -sf http://localhost:3001/api/v1/budget && echo " ✅ GET /api/v1/budget" || echo " ❌ GET /api/v1/budget"
 	@echo ""
-	@echo "Note: /api/mcp/servers/{id}/tools and /api/mcp/servers/{id}/logs"
+	@echo "Note: /api/v1/mcp/servers/{id}/tools and /api/v1/mcp/servers/{id}/logs"
 	@echo "      require a server id — use 'make verify-api-mcp ID=<server_id>'"
 
 # MCP server-specific endpoint check (requires server ID)
@@ -395,11 +400,11 @@ verify-api:
 verify-api-mcp:
 	@if [ -z "$(ID)" ]; then echo "Usage: make verify-api-mcp ID=<server_id>"; exit 1; fi
 	@echo "=== MCP Server $(ID) 端点验证 ==="
-	curl -sf "http://localhost:3001/api/mcp/servers/$(ID)" && echo " ✅ GET /api/mcp/servers/$(ID)" || echo " ❌ GET /api/mcp/servers/$(ID)"
+	curl -sf "http://localhost:3001/api/v1/mcp/servers/$(ID)" && echo " ✅ GET /api/v1/mcp/servers/$(ID)" || echo " ❌ GET /api/v1/mcp/servers/$(ID)"
 	@echo ""
-	curl -sf "http://localhost:3001/api/mcp/servers/$(ID)/tools" && echo " ✅ GET /api/mcp/servers/$(ID)/tools" || echo " ❌ GET /api/mcp/servers/$(ID)/tools"
+	curl -sf "http://localhost:3001/api/v1/mcp/servers/$(ID)/tools" && echo " ✅ GET /api/v1/mcp/servers/$(ID)/tools" || echo " ❌ GET /api/v1/mcp/servers/$(ID)/tools"
 	@echo ""
-	curl -sf "http://localhost:3001/api/mcp/servers/$(ID)/logs" && echo " ✅ GET /api/mcp/servers/$(ID)/logs" || echo " ❌ GET /api/mcp/servers/$(ID)/logs"
+	curl -sf "http://localhost:3001/api/v1/mcp/servers/$(ID)/logs" && echo " ✅ GET /api/v1/mcp/servers/$(ID)/logs" || echo " ❌ GET /api/v1/mcp/servers/$(ID)/logs"
 
 # ============================================================
 # 沙箱环境切换 (sandbox profile / run mode)

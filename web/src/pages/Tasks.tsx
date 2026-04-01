@@ -33,7 +33,7 @@ export default function Tasks() {
   const fetchTasks = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/tasks");
+      const res = await fetch("/api/v1/tasks");
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
@@ -51,7 +51,7 @@ export default function Tasks() {
   const fetchTaskDetail = useCallback(async (id: string) => {
     setDetailLoading(true);
     try {
-      const res = await fetch(`/api/tasks/${id}`);
+      const res = await fetch(`/api/v1/tasks/${id}`);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
@@ -70,7 +70,7 @@ export default function Tasks() {
     if (!prompt.trim()) return;
     setSubmitting(true);
     try {
-      const res = await fetch("/api/tasks", {
+      const res = await fetch("/api/v1/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt, max_rounds: 10, timeout_secs: 300 }),
@@ -92,7 +92,7 @@ export default function Tasks() {
   const deleteTask = async (id: string) => {
     if (!confirm("Are you sure you want to delete this task?")) return;
     try {
-      const res = await fetch(`/api/tasks/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/tasks/${id}`, { method: "DELETE" });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }

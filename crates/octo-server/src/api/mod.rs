@@ -99,9 +99,9 @@ pub fn routes() -> Router<Arc<AppState>> {
         // Provider chain
         .merge(providers::router())
         // Agent registry and lifecycle
-        .nest("/v1", agents::router())
+        .merge(agents::router())
         // Skill catalog
-        .nest("/v1", skills::router())
+        .merge(skills::router())
         // Collaboration dashboard (T9)
         .merge(collaboration::router())
         // Offline sync (D6)

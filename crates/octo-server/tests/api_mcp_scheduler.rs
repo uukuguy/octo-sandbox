@@ -1,11 +1,11 @@
 //! E2E tests for MCP servers, tools, scheduler tasks, and audit endpoints.
 //!
 //! Routes under test:
-//!   GET  /api/mcp/servers         — list MCP servers
-//!   POST /api/mcp/servers         — add MCP server
-//!   GET  /api/tools               — list tools
-//!   GET  /api/scheduler/tasks     — list scheduler tasks
-//!   GET  /api/audit               — list audit events
+//!   GET  /api/v1/mcp/servers         — list MCP servers
+//!   POST /api/v1/mcp/servers         — add MCP server
+//!   GET  /api/v1/tools               — list tools
+//!   GET  /api/v1/scheduler/tasks     — list scheduler tasks
+//!   GET  /api/v1/audit               — list audit events
 
 mod common;
 
@@ -17,7 +17,7 @@ use serde_json::json;
 #[tokio::test]
 async fn list_mcp_servers_initially_empty() {
     let app = common::TestApp::new().await;
-    let (status, body) = app.get("/api/mcp/servers").await;
+    let (status, body) = app.get("/api/v1/mcp/servers").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body.is_array(), "should return an array");
@@ -34,7 +34,7 @@ async fn create_mcp_server() {
         "transport": "stdio"
     });
 
-    let (status, body) = app.post_json("/api/mcp/servers", server_config).await;
+    let (status, body) = app.post_json("/api/v1/mcp/servers", server_config).await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["name"], "test-mcp-server");
@@ -53,7 +53,7 @@ async fn create_mcp_server_rejected_command() {
         "transport": "stdio"
     });
 
-    let (status, body) = app.post_json("/api/mcp/servers", server_config).await;
+    let (status, body) = app.post_json("/api/v1/mcp/servers", server_config).await;
 
     assert_eq!(status, StatusCode::OK);
     // Rejected commands get enabled=false and runtime_status=error
@@ -72,7 +72,7 @@ async fn create_mcp_server_has_correct_fields() {
         "source": "test",
         "enabled": true
     });
-    let (status, body) = app.post_json("/api/mcp/servers", server_config).await;
+    let (status, body) = app.post_json("/api/v1/mcp/servers", server_config).await;
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["name"], "field-check-server");
@@ -88,7 +88,7 @@ async fn create_mcp_server_has_correct_fields() {
 #[tokio::test]
 async fn list_tools_returns_array() {
     let app = common::TestApp::new().await;
-    let (status, body) = app.get("/api/tools").await;
+    let (status, body) = app.get("/api/v1/tools").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body.is_array(), "should return an array");
@@ -100,7 +100,7 @@ async fn list_tools_returns_array() {
 #[tokio::test]
 async fn tools_have_required_fields() {
     let app = common::TestApp::new().await;
-    let (status, body) = app.get("/api/tools").await;
+    let (status, body) = app.get("/api/v1/tools").await;
 
     assert_eq!(status, StatusCode::OK);
     let tools = body.as_array().unwrap();
@@ -116,7 +116,7 @@ async fn tools_have_required_fields() {
 async fn scheduler_tasks_returns_404_when_disabled() {
     // Default TestApp has no scheduler
     let app = common::TestApp::new().await;
-    let (status, _body) = app.get("/api/scheduler/tasks").await;
+    let (status, _body) = app.get("/api/v1/scheduler/tasks").await;
 
     // When scheduler is None, the handler returns 404
     assert_eq!(status, StatusCode::NOT_FOUND);
@@ -125,7 +125,7 @@ async fn scheduler_tasks_returns_404_when_disabled() {
 #[tokio::test]
 async fn scheduler_tasks_returns_empty_when_enabled() {
     let app = common::TestApp::with_scheduler().await;
-    let (status, body) = app.get("/api/scheduler/tasks").await;
+    let (status, body) = app.get("/api/v1/scheduler/tasks").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body["tasks"].is_array(), "should have tasks array");
@@ -137,7 +137,7 @@ async fn scheduler_tasks_returns_empty_when_enabled() {
 #[tokio::test]
 async fn audit_returns_empty_logs() {
     let app = common::TestApp::new().await;
-    let (status, body) = app.get("/api/audit").await;
+    let (status, body) = app.get("/api/v1/audit").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body["logs"].is_array(), "should have logs array");
@@ -149,7 +149,7 @@ async fn audit_returns_empty_logs() {
 #[tokio::test]
 async fn list_executions_returns_array() {
     let app = common::TestApp::new().await;
-    let (status, body) = app.get("/api/executions").await;
+    let (status, body) = app.get("/api/v1/executions").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body.is_array(), "should return an array");

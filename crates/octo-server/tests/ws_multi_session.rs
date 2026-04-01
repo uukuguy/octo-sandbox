@@ -1,10 +1,10 @@
 //! Integration tests for the multi-session REST API endpoints (Phase AJ).
 //!
 //! Tests the session lifecycle REST endpoints:
-//! - POST /api/sessions/start
-//! - GET  /api/sessions/active
-//! - GET  /api/sessions/{id}/status
-//! - DELETE /api/sessions/{id}/stop
+//! - POST /api/v1/sessions/start
+//! - GET  /api/v1/sessions/active
+//! - GET  /api/v1/sessions/{id}/status
+//! - DELETE /api/v1/sessions/{id}/stop
 //!
 //! Uses `TestApp` (tower::ServiceExt::oneshot) — no real port binding or
 //! WebSocket connections.
@@ -20,7 +20,7 @@ async fn test_start_session_endpoint() {
 
     let (status, body) = app
         .post_json(
-            "/api/sessions/start",
+            "/api/v1/sessions/start",
             json!({"session_id": "test-s1", "agent_id": null}),
         )
         .await;
@@ -44,7 +44,7 @@ async fn test_list_active_sessions() {
     // Start two additional sessions.
     let (s1_status, _) = app
         .post_json(
-            "/api/sessions/start",
+            "/api/v1/sessions/start",
             json!({"session_id": "list-s1", "agent_id": null}),
         )
         .await;
@@ -52,14 +52,14 @@ async fn test_list_active_sessions() {
 
     let (s2_status, _) = app
         .post_json(
-            "/api/sessions/start",
+            "/api/v1/sessions/start",
             json!({"session_id": "list-s2", "agent_id": null}),
         )
         .await;
     assert_eq!(s2_status, StatusCode::CREATED);
 
     // List active sessions
-    let (status, body) = app.get("/api/sessions/active").await;
+    let (status, body) = app.get("/api/v1/sessions/active").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(
@@ -89,14 +89,14 @@ async fn test_session_status_endpoint() {
     // Start a session
     let (start_status, _) = app
         .post_json(
-            "/api/sessions/start",
+            "/api/v1/sessions/start",
             json!({"session_id": "test-status-1", "agent_id": null}),
         )
         .await;
     assert_eq!(start_status, StatusCode::CREATED);
 
     // Check status of existing session — should be active
-    let (status, body) = app.get("/api/sessions/test-status-1/status").await;
+    let (status, body) = app.get("/api/v1/sessions/test-status-1/status").await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(
         body["session_id"], "test-status-1",
@@ -108,7 +108,7 @@ async fn test_session_status_endpoint() {
     );
 
     // Check a non-existent session — should report active: false
-    let (status2, body2) = app.get("/api/sessions/nonexistent-xyz/status").await;
+    let (status2, body2) = app.get("/api/v1/sessions/nonexistent-xyz/status").await;
     assert_eq!(status2, StatusCode::OK);
     assert_eq!(
         body2["session_id"], "nonexistent-xyz",
@@ -127,14 +127,14 @@ async fn test_stop_session_endpoint() {
     // Start a session
     let (start_status, _) = app
         .post_json(
-            "/api/sessions/start",
+            "/api/v1/sessions/start",
             json!({"session_id": "test-stop-1", "agent_id": null}),
         )
         .await;
     assert_eq!(start_status, StatusCode::CREATED);
 
     // Stop the session
-    let (stop_status, stop_body) = app.delete("/api/sessions/test-stop-1/stop").await;
+    let (stop_status, stop_body) = app.delete("/api/v1/sessions/test-stop-1/stop").await;
     assert_eq!(stop_status, StatusCode::OK, "stop should return 200");
     assert_eq!(
         stop_body["status"], "stopped",
@@ -142,7 +142,7 @@ async fn test_stop_session_endpoint() {
     );
 
     // Verify it is no longer active
-    let (_, status_body) = app.get("/api/sessions/test-stop-1/status").await;
+    let (_, status_body) = app.get("/api/v1/sessions/test-stop-1/status").await;
     assert_eq!(
         status_body["active"], false,
         "stopped session should no longer be active"
@@ -158,7 +158,7 @@ async fn test_session_lifecycle_full() {
     // 1. Start session
     let (start_status, start_body) = app
         .post_json(
-            "/api/sessions/start",
+            "/api/v1/sessions/start",
             json!({"session_id": sid, "agent_id": null}),
         )
         .await;
@@ -167,7 +167,7 @@ async fn test_session_lifecycle_full() {
     assert_eq!(start_body["status"], "active");
 
     // 2. List — verify the session is present
-    let (_, list_body) = app.get("/api/sessions/active").await;
+    let (_, list_body) = app.get("/api/v1/sessions/active").await;
     let sessions = list_body["sessions"]
         .as_array()
         .expect("sessions should be an array");
@@ -178,23 +178,23 @@ async fn test_session_lifecycle_full() {
     let count_after_start = list_body["count"].as_u64().unwrap();
 
     // 3. Status — should be active
-    let (_, status_body) = app.get(&format!("/api/sessions/{sid}/status")).await;
+    let (_, status_body) = app.get(&format!("/api/v1/sessions/{sid}/status")).await;
     assert_eq!(status_body["active"], true);
 
     // 4. Stop
-    let (stop_status, stop_body) = app.delete(&format!("/api/sessions/{sid}/stop")).await;
+    let (stop_status, stop_body) = app.delete(&format!("/api/v1/sessions/{sid}/stop")).await;
     assert_eq!(stop_status, StatusCode::OK);
     assert_eq!(stop_body["status"], "stopped");
 
     // 5. Status — should no longer be active
-    let (_, status_body2) = app.get(&format!("/api/sessions/{sid}/status")).await;
+    let (_, status_body2) = app.get(&format!("/api/v1/sessions/{sid}/status")).await;
     assert_eq!(
         status_body2["active"], false,
         "session should be inactive after stop"
     );
 
     // 6. List — verify count decreased or session absent
-    let (_, list_body2) = app.get("/api/sessions/active").await;
+    let (_, list_body2) = app.get("/api/v1/sessions/active").await;
     let count_after_stop = list_body2["count"].as_u64().unwrap();
     assert!(
         count_after_stop < count_after_start,

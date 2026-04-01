@@ -19,7 +19,7 @@ async fn health_returns_ok_with_status_and_version() {
 #[tokio::test]
 async fn config_returns_provider_info() {
     let app = common::TestApp::new().await;
-    let (status, body) = app.get("/api/config").await;
+    let (status, body) = app.get("/api/v1/config").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body["provider"].is_string(), "provider should be a string");
@@ -32,7 +32,7 @@ async fn config_returns_provider_info() {
 #[tokio::test]
 async fn budget_returns_token_budget() {
     let app = common::TestApp::new().await;
-    let (status, body) = app.get("/api/budget").await;
+    let (status, body) = app.get("/api/v1/budget").await;
 
     assert_eq!(status, StatusCode::OK);
     assert!(body["total"].is_number(), "total should be a number");

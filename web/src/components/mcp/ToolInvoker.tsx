@@ -43,7 +43,7 @@ export function ToolInvoker() {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    fetch("/api/mcp/servers")
+    fetch("/api/v1/mcp/servers")
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {
@@ -65,7 +65,7 @@ export function ToolInvoker() {
     }
 
     setToolsLoading(true);
-    fetch(`/api/mcp/servers/${selectedServer}/tools`)
+    fetch(`/api/v1/mcp/servers/${selectedServer}/tools`)
       .then((res) => res.json())
       .then((data) => {
         if (Array.isArray(data)) {
@@ -96,7 +96,7 @@ export function ToolInvoker() {
 
     setLoading(true);
     try {
-      const response = await fetch(`/api/mcp/servers/${selectedServer}/call`, {
+      const response = await fetch(`/api/v1/mcp/servers/${selectedServer}/call`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -82,7 +82,7 @@ export default function Schedule() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/scheduler/tasks");
+      const res = await fetch("/api/v1/scheduler/tasks");
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
@@ -107,7 +107,7 @@ export default function Schedule() {
   const fetchExecutions = useCallback(async (taskId: string) => {
     setExecutionsLoading(true);
     try {
-      const res = await fetch(`/api/scheduler/tasks/${taskId}/executions?limit=20`);
+      const res = await fetch(`/api/v1/scheduler/tasks/${taskId}/executions?limit=20`);
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
@@ -137,7 +137,7 @@ export default function Schedule() {
     if (!confirm("Are you sure you want to delete this scheduled task?")) return;
     setDeletingTaskId(id);
     try {
-      const res = await fetch(`/api/scheduler/tasks/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/v1/scheduler/tasks/${id}`, { method: "DELETE" });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
@@ -159,7 +159,7 @@ export default function Schedule() {
     setRunningTaskId(id);
     setError(null);
     try {
-      const res = await fetch(`/api/scheduler/tasks/${id}/run`, { method: "POST" });
+      const res = await fetch(`/api/v1/scheduler/tasks/${id}/run`, { method: "POST" });
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}: ${res.statusText}`);
       }
@@ -573,7 +573,7 @@ function AddTaskModal({ onClose, onCreated }: AddTaskModalProps) {
     setSubmitting(true);
     setError(null);
     try {
-      const res = await fetch("/api/scheduler/tasks", {
+      const res = await fetch("/api/v1/scheduler/tasks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -97,6 +97,15 @@ pub struct ServerConfig {
     /// Allowed CORS origins (empty = allow all)
     #[serde(default)]
     pub cors_origins: Vec<String>,
+    /// Enable strict CORS mode: rejects wildcard when true (default: false)
+    #[serde(default)]
+    pub cors_strict: bool,
+    /// Max request body size in bytes (default: 10MB = 10485760)
+    #[serde(default)]
+    pub max_body_size: Option<usize>,
+    /// Request timeout in seconds (default: 30)
+    #[serde(default)]
+    pub request_timeout_secs: Option<u64>,
 }
 
 impl Default for ServerConfig {
@@ -105,6 +114,9 @@ impl Default for ServerConfig {
             host: "127.0.0.1".to_string(),
             port: 3001,
             cors_origins: vec![],
+            cors_strict: false,
+            max_body_size: None,
+            request_timeout_secs: None,
         }
     }
 }
@@ -350,6 +362,23 @@ impl Config {
             }
         }
 
+        // CORS strict mode
+        if let Ok(strict) = std::env::var("OCTO_CORS_STRICT") {
+            config.server.cors_strict = strict.parse().unwrap_or(false);
+        }
+        // Request body size limit
+        if let Ok(size) = std::env::var("OCTO_MAX_BODY_SIZE") {
+            if let Ok(n) = size.parse() {
+                config.server.max_body_size = Some(n);
+            }
+        }
+        // Request timeout
+        if let Ok(timeout) = std::env::var("OCTO_REQUEST_TIMEOUT_SECS") {
+            if let Ok(n) = timeout.parse() {
+                config.server.request_timeout_secs = Some(n);
+            }
+        }
+
         // CORS origins
         if let Ok(origins) = std::env::var("OCTO_CORS_ORIGINS") {
             config.server.cors_origins = origins
@@ -504,9 +533,12 @@ impl Config {
             defaults.server.host
         ));
         output.push_str(&format!(
-            "#   port: {}          # Server port\n\n",
+            "#   port: {}          # Server port\n",
             defaults.server.port
         ));
+        output.push_str("#   cors_strict: false    # Reject wildcard CORS in production\n");
+        output.push_str("#   max_body_size: 10485760  # Max request body (bytes, default 10MB)\n");
+        output.push_str("#   request_timeout_secs: 30 # Request timeout (seconds)\n\n");
 
         // Provider
         output.push_str("# LLM Provider configuration\n");
