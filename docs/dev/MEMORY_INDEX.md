@@ -7,6 +7,7 @@
 
 ## [Active Work]
 
+- 2026-04-01 10:50 | **Phase AJ COMPLETE** — G4 测试 (T11/T12/T13, 14 tests all pass) @ 819973f. 隔离测试 4 + 生命周期 5 + REST API 5. 全部 13/13 tasks 完成, 6 commits.
 - 2026-04-01 09:30 | **Phase AJ G3 COMPLETE** — WS session_id 路由 + REST 会话端点 + SessionsConfig (T8/T9/T10, 3 tasks) @ 4dd05ed. G1+G2+G3 done (10/13), G4 tests remaining.
 - 2026-03-31 01:00 | Deferred batch resolved: AI-D7 (runtime 自动加载 WASM 插件), AI-D6 (fuel 资源限制 10M), AH-D5 (Stop/SubagentStop events), AH-D2 (标记已补). Remaining: AH-D3/D4/D6 + AI-D1~D5.
 - 2026-03-30 14:30 | **Phase AI COMPLETE** — WASM Component Model Hook 插件系统 (11/11 tasks, 4 commits, 33 new tests). Wasmtime 25→36, WIT 接口, bindgen 绑定, 5 host imports (能力门控+SSRF), 插件发现, hooks.yaml type:wasm, 示例插件. 6 deferred (D1-D6).

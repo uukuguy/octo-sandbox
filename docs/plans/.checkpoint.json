@@ -13,12 +13,15 @@
     "T7: 重构 start_primary() 复用 start_session() — 内部调用 start_session + 更新 primary_session_id",
     "T8: WS 协议 session_id 路由 — /ws?session_id=xxx 查询参数路由 + primary fallback",
     "T9: AppState 解耦 + REST 会话端点 — POST/DELETE/GET sessions + resolve_session_handle",
-    "T10: 配置项 + 会话上限保护 — SessionsConfig + env var overrides + AgentRuntimeConfig wiring"
+    "T10: 配置项 + 会话上限保护 — SessionsConfig + env var overrides + AgentRuntimeConfig wiring",
+    "T11: 隔离测试 — tool registry/KG/memory/MCP cleanup 4 tests",
+    "T12: 多会话生命周期测试 — start/stop/count/limit/primary 5 tests",
+    "T13: WebSocket 多会话集成测试 — REST API start/list/status/stop/lifecycle 5 tests"
   ],
   "current_task": null,
   "total_tasks": 13,
   "phase_name": "Phase AJ — 多会话复用（Multi-Session Multiplexing）",
-  "status": "G1+G2+G3 COMPLETE — 会话隔离 4/4 + 注册表 3/3 + WS路由+REST API 3/3",
+  "status": "ALL COMPLETE — G1 隔离 4/4 + G2 注册表 3/3 + G3 WS+REST 3/3 + G4 测试 3/3 (14 tests)",
   "execution_mode": "subagent-driven-development",
   "branch": "main",
   "baseline": {
@@ -30,14 +33,15 @@
     "G1": { "name": "会话隔离修复", "tasks": 4, "status": "complete", "priority": "P0" },
     "G2": { "name": "多会话注册表", "tasks": 3, "status": "complete", "priority": "P0" },
     "G3": { "name": "WS 路由 + REST API", "tasks": 3, "status": "complete", "priority": "P1" },
-    "G4": { "name": "测试", "tasks": 3, "status": "pending", "priority": "P1" }
+    "G4": { "name": "测试", "tasks": 3, "status": "complete", "priority": "P1" }
   },
   "commits": [
     "1ac1d7f feat(agent): session-scoped ToolRegistry snapshot (AJ-T1)",
     "a17f052 feat(isolation): session-scoped KG, memory search filter, MCP ownership (AJ-T2/T3/T4)",
     "f4cc987 feat(agent): add SessionRegistry data structure (AJ-T5)",
     "857b884 feat(agent): multi-session lifecycle API with start_session/stop_session (AJ-T6/T7)",
-    "4dd05ed feat(server): WS session routing, REST session API, session config (AJ-T8/T9/T10)"
+    "4dd05ed feat(server): WS session routing, REST session API, session config (AJ-T8/T9/T10)",
+    "819973f test(multi-session): isolation, lifecycle, and REST API integration tests (AJ-T11/T12/T13)"
   ],
   "deferred": [
     "AJ-D1: IPC 健康检查心跳",
