@@ -34,6 +34,14 @@ pub struct AuditRecord {
     pub hash: String,
 }
 
+/// Aggregate audit statistics (AO-T9).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AuditStats {
+    pub total: i64,
+    pub by_event_type: std::collections::HashMap<String, i64>,
+    pub by_result: std::collections::HashMap<String, i64>,
+}
+
 /// Result of verifying the audit hash chain integrity.
 #[derive(Debug, Clone)]
 pub struct ChainVerifyResult {
@@ -291,6 +299,102 @@ impl AuditStorage {
     /// Query policy denial events
     pub fn query_policy_denials(&self, limit: u32) -> rusqlite::Result<Vec<AuditRecord>> {
         self.query_sandbox_events(None, Some("PolicyDeny"), limit, 0)
+    }
+
+    /// Export audit records with optional date range filtering (AO-T9).
+    pub fn export(
+        &self,
+        since: Option<&str>,
+        until: Option<&str>,
+        limit: u32,
+    ) -> rusqlite::Result<Vec<AuditRecord>> {
+        let mut sql = String::from("SELECT id, timestamp, event_type, user_id, session_id, resource_id, action, result, metadata, ip_address, prev_hash, hash FROM audit_logs WHERE 1=1");
+        let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
+
+        if let Some(s) = since {
+            sql.push_str(" AND timestamp >= ?");
+            params.push(Box::new(s.to_string()));
+        }
+        if let Some(u) = until {
+            sql.push_str(" AND timestamp <= ?");
+            params.push(Box::new(u.to_string()));
+        }
+
+        sql.push_str(" ORDER BY timestamp ASC LIMIT ?");
+        params.push(Box::new(limit as i64));
+
+        let mut stmt = self.conn.prepare(&sql)?;
+        let params_refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+
+        let rows = stmt.query_map(params_refs.as_slice(), |row| {
+            Ok(AuditRecord {
+                id: row.get(0)?,
+                timestamp: row.get(1)?,
+                event_type: row.get(2)?,
+                user_id: row.get(3)?,
+                session_id: row.get(4)?,
+                resource_id: row.get(5)?,
+                action: row.get(6)?,
+                result: row.get(7)?,
+                metadata: row.get(8)?,
+                ip_address: row.get(9)?,
+                prev_hash: row.get(10)?,
+                hash: row.get(11)?,
+            })
+        })?;
+
+        rows.collect()
+    }
+
+    /// Delete audit records older than the given timestamp (AO-T9).
+    pub fn delete_before(&self, timestamp: &str) -> rusqlite::Result<usize> {
+        self.conn.execute(
+            "DELETE FROM audit_logs WHERE timestamp < ?",
+            rusqlite::params![timestamp],
+        )
+    }
+
+    /// Compute aggregate statistics grouped by event_type and result (AO-T9).
+    pub fn stats(&self) -> rusqlite::Result<AuditStats> {
+        let total: i64 = self.conn.query_row(
+            "SELECT COUNT(*) FROM audit_logs",
+            [],
+            |row| row.get(0),
+        )?;
+
+        let mut by_event_type = std::collections::HashMap::new();
+        {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT event_type, COUNT(*) FROM audit_logs GROUP BY event_type")?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?;
+            for row in rows {
+                let (k, v) = row?;
+                by_event_type.insert(k, v);
+            }
+        }
+
+        let mut by_result = std::collections::HashMap::new();
+        {
+            let mut stmt = self
+                .conn
+                .prepare("SELECT result, COUNT(*) FROM audit_logs GROUP BY result")?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            })?;
+            for row in rows {
+                let (k, v) = row?;
+                by_result.insert(k, v);
+            }
+        }
+
+        Ok(AuditStats {
+            total,
+            by_event_type,
+            by_result,
+        })
     }
 
     pub fn count(&self, event_type: Option<&str>, user_id: Option<&str>) -> rusqlite::Result<i64> {

@@ -10,12 +10,26 @@ use tokio::sync::RwLock;
 
 use crate::config::Config;
 
+/// Runtime-updatable configuration overrides (AO-T8).
+/// Fields set to `Some(...)` override the corresponding value in `Config`.
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct RuntimeConfigOverrides {
+    pub logging_format: Option<String>,
+    pub cors_strict: Option<bool>,
+    pub cors_origins: Option<Vec<String>>,
+    pub provider_name: Option<String>,
+    pub provider_model: Option<String>,
+    pub autonomy_level: Option<String>,
+}
+
 pub struct AppState {
     pub db_path: PathBuf,
     /// Scheduler for periodic tasks (optional)
     pub scheduler: Option<Arc<Scheduler>>,
     /// Server configuration for frontend
     pub config: Config,
+    /// Runtime-updatable overrides (AO-T8)
+    pub runtime_overrides: RwLock<RuntimeConfigOverrides>,
     /// Auth configuration for request authentication
     pub auth_config: AuthConfig,
     /// Metrics registry for collecting application metrics
@@ -51,6 +65,7 @@ impl AppState {
             db_path,
             scheduler,
             config,
+            runtime_overrides: RwLock::new(RuntimeConfigOverrides::default()),
             auth_config,
             metrics_registry,
             agent_supervisor,

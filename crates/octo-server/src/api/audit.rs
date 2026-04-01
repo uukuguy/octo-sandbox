@@ -2,6 +2,7 @@ use std::sync::Arc;
 
 use axum::{
     extract::{Query, State},
+    http::StatusCode,
     routing::get,
     Json, Router,
 };
@@ -89,6 +90,91 @@ pub async fn list_audit(
     Json(AuditResponse { logs, total })
 }
 
+// ── AO-T9: Audit Enhancement ─────────────────────────────────────────
+
+/// Query params for audit export
+#[derive(Deserialize)]
+pub struct AuditExportQuery {
+    pub since: Option<String>,
+    pub until: Option<String>,
+    #[serde(default = "default_export_limit")]
+    pub limit: u32,
+}
+
+fn default_export_limit() -> u32 {
+    10000
+}
+
+/// GET /audit/export — export audit records with date range filtering
+pub async fn export_audit(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<AuditExportQuery>,
+) -> Json<Vec<AuditRecordResponse>> {
+    let Some(audit_storage) = state.audit_storage() else {
+        return Json(vec![]);
+    };
+
+    let limit = query.limit.min(50000);
+    let records = audit_storage
+        .export(query.since.as_deref(), query.until.as_deref(), limit)
+        .unwrap_or_default();
+
+    Json(records.into_iter().map(AuditRecordResponse::from).collect())
+}
+
+/// Query params for audit cleanup
+#[derive(Deserialize)]
+pub struct AuditDeleteQuery {
+    pub before: String,
+}
+
+/// Response for audit cleanup
+#[derive(Serialize)]
+pub struct AuditDeleteResponse {
+    pub deleted_count: usize,
+}
+
+/// DELETE /audit — clean up old audit records
+pub async fn delete_audit(
+    State(state): State<Arc<AppState>>,
+    Query(query): Query<AuditDeleteQuery>,
+) -> Result<Json<AuditDeleteResponse>, StatusCode> {
+    let Some(audit_storage) = state.audit_storage() else {
+        return Err(StatusCode::SERVICE_UNAVAILABLE);
+    };
+
+    let deleted_count = audit_storage
+        .delete_before(&query.before)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    Ok(Json(AuditDeleteResponse { deleted_count }))
+}
+
+/// GET /audit/stats — aggregate audit statistics
+pub async fn audit_stats(
+    State(state): State<Arc<AppState>>,
+) -> Json<serde_json::Value> {
+    let Some(audit_storage) = state.audit_storage() else {
+        return Json(serde_json::json!({
+            "total": 0,
+            "by_event_type": {},
+            "by_result": {},
+        }));
+    };
+
+    match audit_storage.stats() {
+        Ok(stats) => Json(serde_json::to_value(stats).unwrap_or_default()),
+        Err(_) => Json(serde_json::json!({
+            "total": 0,
+            "by_event_type": {},
+            "by_result": {},
+        })),
+    }
+}
+
 pub fn router() -> Router<Arc<AppState>> {
-    Router::new().route("/audit", get(list_audit))
+    Router::new()
+        .route("/audit", get(list_audit).delete(delete_audit))
+        .route("/audit/export", get(export_audit))
+        .route("/audit/stats", get(audit_stats))
 }

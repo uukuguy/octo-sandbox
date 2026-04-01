@@ -2,6 +2,7 @@ pub mod agents;
 pub mod audit;
 pub mod budget;
 pub mod collaboration;
+pub mod context;
 pub mod error;
 pub mod eval_sessions;
 pub mod events;
@@ -78,7 +79,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/executions", get(executions::list_user_executions))
         .route("/executions/{id}", get(executions::get_execution))
         .route("/tools", get(tools::list_tools))
-        .route("/config", get(config::get_config))
+        .route("/config", get(config::get_config).put(config::update_config))
         .route(
             "/memories",
             get(memories::search_memories)
@@ -126,4 +127,6 @@ pub fn routes() -> Router<Arc<AppState>> {
         .merge(sandbox::router())
         // Security Policy + AI Defence (AO-T4 + T5)
         .merge(security::router())
+        // Context Observability (AO-T10)
+        .merge(context::router())
 }
