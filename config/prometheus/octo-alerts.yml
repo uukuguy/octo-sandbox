@@ -1,0 +1,146 @@
+# Octo Server Prometheus Alerting Rules
+#
+# Usage:
+#   Add this file to your Prometheus configuration under `rule_files`:
+#
+#     rule_files:
+#       - "config/prometheus/octo-alerts.yml"
+#
+#   Then reload Prometheus:
+#     kill -HUP $(pidof prometheus)
+#   or via the HTTP API (if --web.enable-lifecycle is set):
+#     curl -X POST http://localhost:9090/-/reload
+#
+# Metric assumptions:
+#   These rules reference metrics exposed by octo-server's /metrics endpoint.
+#   Ensure the Prometheus scrape config targets the octo-server instance:
+#
+#     scrape_configs:
+#       - job_name: "octo-server"
+#         static_configs:
+#           - targets: ["localhost:3001"]
+#         metrics_path: "/api/metrics"
+
+groups:
+  - name: octo-server
+    rules:
+      # ---------- Session capacity ----------
+
+      # High session count: active sessions exceed 80% of the configured maximum.
+      # Sustained pressure may indicate the need to scale or investigate session leaks.
+      - alert: OctoHighSessionCount
+        expr: octo_active_sessions / octo_max_concurrent_sessions > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Session count above 80% capacity"
+          description: "Active sessions are at {{ $value | humanizePercentage }} of max capacity for more than 5 minutes."
+
+      # No active sessions while the server is presumably in use.
+      # May indicate a connectivity issue or load-balancer misconfiguration.
+      - alert: OctoNoActiveSessions
+        expr: octo_active_sessions == 0
+        for: 15m
+        labels:
+          severity: info
+        annotations:
+          summary: "No active sessions for 15 minutes"
+          description: "The server has had zero active sessions for 15 minutes. Verify this is expected."
+
+      # ---------- Request latency ----------
+
+      # P99 request latency exceeds 5 seconds.
+      # Covers all HTTP endpoints; investigate slow LLM calls or DB queries.
+      - alert: OctoHighRequestLatency
+        expr: histogram_quantile(0.99, rate(octo_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Request P99 latency above 5 seconds"
+          description: "The 99th-percentile request latency is {{ $value | humanizeDuration }} over the last 5 minutes."
+
+      # ---------- Error rate ----------
+
+      # More than 5% of requests are returning HTTP 5xx errors.
+      # Placeholder: requires octo_http_requests_total counter with a `status` label.
+      - alert: OctoHighErrorRate
+        expr: >
+          (
+            sum(rate(octo_http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(octo_http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of requests are failing with server errors."
+
+      # ---------- WebSocket connections ----------
+
+      # All WebSocket connections have dropped.
+      # In a deployment where clients are expected to be connected, this signals
+      # a network issue or server-side WebSocket handler failure.
+      - alert: OctoNoWebSocketConnections
+        expr: octo_ws_connections_active == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No active WebSocket connections for 10 minutes"
+          description: "Zero WebSocket connections detected for 10 minutes. Check client connectivity and server WS handler."
+
+      # ---------- LLM token consumption ----------
+
+      # Token burn rate exceeds 100K tokens per minute (sustained).
+      # May indicate a runaway agent loop or unexpectedly large prompts.
+      - alert: OctoHighTokenUsage
+        expr: rate(octo_llm_tokens_used_total[5m]) * 60 > 100000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM token usage exceeding 100K tokens/minute"
+          description: "Current burn rate is {{ $value | humanize }} tokens/minute. Investigate agent loops or oversized prompts."
+
+      # ---------- Memory / database ----------
+
+      # Memory store size growing beyond threshold (10K entries).
+      # Indicates potential memory leak or missing cleanup in long-running sessions.
+      - alert: OctoHighMemoryEntryCount
+        expr: octo_memory_entries_total > 10000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Memory store exceeds 10K entries"
+          description: "Total memory entries: {{ $value }}. Check for session cleanup issues."
+
+      # ---------- MCP server health ----------
+
+      # An MCP server managed by octo-engine has been in a non-running state.
+      # Requires an octo_mcp_server_up gauge (1 = running, 0 = down).
+      - alert: OctoMcpServerDown
+        expr: octo_mcp_server_up == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "MCP server {{ $labels.server_name }} is down"
+          description: "MCP server {{ $labels.server_name }} has been unreachable for 5 minutes."
+
+      # ---------- Server process ----------
+
+      # Server process restart detected (uptime counter reset).
+      # Requires an octo_server_uptime_seconds gauge.
+      - alert: OctoServerRestarted
+        expr: changes(octo_server_uptime_seconds[15m]) > 0
+        for: 0m
+        labels:
+          severity: info
+        annotations:
+          summary: "Octo server restarted"
+          description: "A server restart was detected in the last 15 minutes."

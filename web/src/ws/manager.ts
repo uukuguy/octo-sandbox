@@ -23,6 +23,8 @@ class WsManager {
   /**
    * Get WebSocket URL from config or fallback.
    * Appends ?session_id=xxx when a session is active.
+   * Appends &token=xxx when an auth token is available (browser WS API
+   * cannot send custom HTTP headers, so the token travels as a query param).
    */
   private getUrl(sessionId?: string | null): string {
     let base: string;
@@ -37,9 +39,26 @@ class WsManager {
       const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
       base = `${proto}//${window.location.host}/ws`;
     }
+
+    const params: string[] = [];
+
     const sid = sessionId ?? this.currentSessionId;
     if (sid) {
-      base += `?session_id=${encodeURIComponent(sid)}`;
+      params.push(`session_id=${encodeURIComponent(sid)}`);
+    }
+
+    // Attach auth token for WebSocket connections when auth is enabled.
+    // Priority: window.__OCTO_TOKEN > localStorage 'octo_token'
+    const token =
+      (window as unknown as Record<string, unknown>).__OCTO_TOKEN as string | undefined
+      ?? localStorage.getItem('octo_token')
+      ?? undefined;
+    if (token) {
+      params.push(`token=${encodeURIComponent(token)}`);
+    }
+
+    if (params.length > 0) {
+      base += `?${params.join('&')}`;
     }
     return base;
   }

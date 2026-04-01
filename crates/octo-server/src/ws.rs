@@ -128,35 +128,69 @@ enum ServerMessage {
     },
 }
 
+/// Extract a named parameter from a query string.
+fn extract_query_param(query: &str, name: &str) -> Option<String> {
+    query.split('&').find_map(|pair| {
+        let (k, v) = pair.split_once('=')?;
+        if k == name { Some(v.to_string()) } else { None }
+    })
+}
+
 pub async fn ws_handler(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
     req: Request,
 ) -> impl IntoResponse {
-    // Auth check: if auth is enabled, verify user context exists
+    // Auth check: if auth is enabled, verify user context exists.
+    // Browser WebSocket API cannot send custom HTTP headers, so we also
+    // accept the token as a query parameter: /ws?token=xxx
     if state.auth_config.mode != octo_engine::auth::AuthMode::None
         && req
             .extensions()
             .get::<octo_engine::auth::UserContext>()
             .is_none()
     {
-        return axum::response::Response::builder()
-            .status(axum::http::StatusCode::UNAUTHORIZED)
-            .body(axum::body::Body::from("WebSocket authentication required"))
-            .unwrap_or_else(|_| {
-                axum::response::Response::new(axum::body::Body::from("Unauthorized"))
-            })
-            .into_response();
+        // Try token from query string as fallback for browser WS connections
+        let query_token = req
+            .uri()
+            .query()
+            .and_then(|q| extract_query_param(q, "token"));
+
+        match query_token {
+            Some(ref token) if state.auth_config.validate_key(token) => {
+                debug!("WebSocket authenticated via query token");
+                // Token is valid — proceed (no UserContext extension needed
+                // since ws_handler manages its own auth gate)
+            }
+            Some(_) => {
+                warn!("WebSocket query token validation failed");
+                return axum::response::Response::builder()
+                    .status(axum::http::StatusCode::UNAUTHORIZED)
+                    .body(axum::body::Body::from(
+                        "WebSocket authentication failed: invalid token",
+                    ))
+                    .unwrap_or_else(|_| {
+                        axum::response::Response::new(axum::body::Body::from("Unauthorized"))
+                    })
+                    .into_response();
+            }
+            None => {
+                return axum::response::Response::builder()
+                    .status(axum::http::StatusCode::UNAUTHORIZED)
+                    .body(axum::body::Body::from("WebSocket authentication required"))
+                    .unwrap_or_else(|_| {
+                        axum::response::Response::new(axum::body::Body::from("Unauthorized"))
+                    })
+                    .into_response();
+            }
+        }
     }
 
     // Extract session_id from query string: /ws?session_id=xxx
-    let requested_sid = req.uri().query().and_then(|q| {
-        q.split('&')
-            .find_map(|pair| {
-                let (k, v) = pair.split_once('=')?;
-                if k == "session_id" { Some(v.to_string()) } else { None }
-            })
-    });
+    let requested_sid = req
+        .uri()
+        .query()
+        .and_then(|q| extract_query_param(q, "session_id"));
 
     // Resolve the AgentExecutorHandle based on session_id query param.
     // If session_id is provided, look it up in the session registry;
