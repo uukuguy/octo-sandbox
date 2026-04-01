@@ -35,7 +35,7 @@ impl Tool for WebFetchTool {
     }
 
     fn description(&self) -> &str {
-        "Fetch content from a URL. By default extracts readable text content from HTML pages, stripping scripts, styles, and navigation elements."
+        super::prompts::WEB_FETCH_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {

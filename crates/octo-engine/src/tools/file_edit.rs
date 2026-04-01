@@ -28,7 +28,7 @@ impl Tool for FileEditTool {
     }
 
     fn description(&self) -> &str {
-        "Edit a file by replacing an exact string match with new content. The old_string must appear exactly once in the file (unless replace_all is true)."
+        super::prompts::FILE_EDIT_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {

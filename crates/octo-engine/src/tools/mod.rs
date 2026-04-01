@@ -1,3 +1,4 @@
+pub mod prompts;
 pub mod approval;
 pub mod bash;
 pub mod cast_params;

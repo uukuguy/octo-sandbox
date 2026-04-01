@@ -30,7 +30,7 @@ impl Tool for GlobTool {
     }
 
     fn description(&self) -> &str {
-        "Find files matching a glob pattern. Returns file paths sorted by modification time (newest first). Useful for discovering files by name or extension."
+        super::prompts::GLOB_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {

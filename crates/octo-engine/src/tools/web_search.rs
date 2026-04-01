@@ -94,7 +94,7 @@ impl Tool for WebSearchTool {
     }
 
     fn description(&self) -> &str {
-        "Search the web for information. Returns search results with titles, URLs, and content snippets."
+        super::prompts::WEB_SEARCH_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {

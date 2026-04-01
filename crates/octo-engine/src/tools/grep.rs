@@ -30,7 +30,7 @@ impl Tool for GrepTool {
     }
 
     fn description(&self) -> &str {
-        "Search for a pattern in files using regex. Returns matching lines with file paths and line numbers. Searches recursively in the working directory by default."
+        super::prompts::GREP_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {

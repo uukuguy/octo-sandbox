@@ -41,8 +41,7 @@ impl Tool for SpawnSubAgentTool {
     }
 
     fn description(&self) -> &str {
-        "Spawn a sub-agent to handle a delegated task. The sub-agent runs asynchronously \
-         and its result can be retrieved with query_subagent."
+        super::prompts::SUBAGENT_DESCRIPTION
     }
 
     fn parameters(&self) -> serde_json::Value {
