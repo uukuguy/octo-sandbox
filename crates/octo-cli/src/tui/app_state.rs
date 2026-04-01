@@ -240,6 +240,18 @@ pub struct TuiState {
     // ── Permission mode (Shift+Tab) ──
     /// Current permission mode for tool execution.
     pub permission_mode: super::widgets::figures::PermissionMode,
+
+    // ── Vim mode (E-8) ──
+    /// Vim editing state.
+    pub vim: super::widgets::figures::VimState,
+
+    // ── Model selector (Meta+P, E-10) ──
+    /// Model selector popup state.
+    pub model_selector: super::widgets::figures::ModelSelectorState,
+
+    // ── Sub-session tracking (E-17) ──
+    /// Active sub-sessions for spinner tree display.
+    pub sub_sessions: Vec<super::widgets::figures::SubSessionEntry>,
 }
 
 impl TuiState {
@@ -355,6 +367,9 @@ impl TuiState {
             effort_level: None,
             history_search: super::widgets::figures::HistorySearchState::default(),
             permission_mode: super::widgets::figures::PermissionMode::default(),
+            vim: super::widgets::figures::VimState::default(),
+            model_selector: super::widgets::figures::ModelSelectorState::default(),
+            sub_sessions: Vec::new(),
         }
     }
 

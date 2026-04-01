@@ -14,7 +14,9 @@ pub fn render(state: &mut TuiState, frame: &mut Frame) {
 
     // Dynamic panel heights
     let input_lines = state.input_buffer.split('\n').count().max(1).min(8) as u16;
-    let activity_height: u16 = if state.is_streaming || state.is_thinking { 1 } else { 0 };
+    let base_activity: u16 = if state.is_streaming || state.is_thinking { 1 } else { 0 };
+    let sub_session_height = if !state.sub_sessions.is_empty() { state.sub_sessions.len() as u16 } else { 0 };
+    let activity_height: u16 = base_activity + sub_session_height;
     let status_height = 4u16; // always: border + row1 (brand/dir/git) + row2 (tokens/mcp/cost/context) + empty
 
     let chunks = Layout::default()
@@ -45,7 +47,25 @@ pub fn render(state: &mut TuiState, frame: &mut Frame) {
 
     render_conversation(state, frame, chunks[0]);
     if activity_height > 0 {
-        render_activity_indicator(state, frame, chunks[1]);
+        if base_activity > 0 {
+            let indicator_area = Rect { height: 1, ..chunks[1] };
+            render_activity_indicator(state, frame, indicator_area);
+        }
+        if sub_session_height > 0 {
+            let tree_area = Rect {
+                y: chunks[1].y + base_activity,
+                height: sub_session_height,
+                ..chunks[1]
+            };
+            let spinner_char = super::widgets::spinner::SPINNER_FRAMES
+                [(std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_millis() as usize
+                    / 100)
+                    % super::widgets::spinner::SPINNER_FRAMES.len()];
+            render_sub_session_tree(&state.sub_sessions, frame, tree_area, spinner_char);
+        }
     }
     render_input(state, frame, chunks[2]);
     render_status_bar(state, frame, chunks[3]);
@@ -58,6 +78,11 @@ pub fn render(state: &mut TuiState, frame: &mut Frame) {
     // Overlays (rendered on top)
     if state.overlay != OverlayMode::None {
         super::overlays::render_overlay(state, frame, area);
+    }
+
+    // Model selector popup (Meta+P)
+    if state.model_selector.visible {
+        render_model_selector(state, frame, area);
     }
 
     // Approval dialog (highest priority overlay)
@@ -333,6 +358,126 @@ fn render_approval_dialog(approval: &PendingApproval, frame: &mut Frame, area: R
     ];
     let para = Paragraph::new(text);
     frame.render_widget(para, inner);
+}
+
+/// Render the model selector popup (Meta+P).
+fn render_model_selector(state: &TuiState, frame: &mut Frame, area: Rect) {
+    let models = &state.model_selector.models;
+    let popup_height = (models.len() as u16 + 2).min(area.height); // +2 for border
+    let popup_width = 35u16.min(area.width);
+
+    // Position near the top-right area
+    let popup_x = area.width.saturating_sub(popup_width + 2);
+    let popup_y = 2;
+
+    let popup_area = Rect {
+        x: popup_x,
+        y: popup_y,
+        width: popup_width,
+        height: popup_height,
+    };
+
+    frame.render_widget(Clear, popup_area);
+
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(Color::Cyan))
+        .title(" Select Model ")
+        .title_style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
+    let inner = block.inner(popup_area);
+    frame.render_widget(block, popup_area);
+
+    for (i, model) in models.iter().enumerate() {
+        if (i as u16) >= inner.height {
+            break;
+        }
+        let row = inner.y + i as u16;
+        let is_active = i == state.model_selector.active_index;
+        let is_selected = i == state.model_selector.selected;
+
+        let marker = if is_active {
+            super::widgets::figures::circle::FILLED
+        } else {
+            super::widgets::figures::circle::EMPTY
+        };
+
+        let style = if is_selected {
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Cyan)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::White)
+        };
+
+        let line = Line::from(vec![
+            Span::styled(format!(" {} ", marker), style),
+            Span::styled(model.clone(), style),
+        ]);
+        frame.buffer_mut().set_line(inner.x, row, &line, inner.width);
+    }
+}
+
+/// Render multi-session spinner tree (E-17) in the activity indicator area.
+///
+/// Shows tree-structured parallel progress for sub-agent sessions.
+/// Called from render_activity_indicator when sub-sessions exist.
+fn render_sub_session_tree(
+    sessions: &[super::widgets::figures::SubSessionEntry],
+    frame: &mut Frame,
+    area: Rect,
+    spinner_char: char,
+) {
+    if sessions.is_empty() || area.height == 0 {
+        return;
+    }
+
+    for (i, session) in sessions.iter().enumerate() {
+        if (i as u16) >= area.height {
+            break;
+        }
+        let row = area.y + i as u16;
+        let is_last = i == sessions.len() - 1;
+        let connector = if is_last {
+            super::widgets::figures::tree::LAST
+        } else {
+            super::widgets::figures::tree::BRANCH
+        };
+
+        let status_color = if session.active {
+            Color::Rgb(137, 209, 133) // green
+        } else {
+            Color::Rgb(122, 126, 134) // grey
+        };
+
+        let spinner = if session.active {
+            format!("{} ", spinner_char)
+        } else {
+            format!("{} ", super::widgets::figures::status::SUCCESS)
+        };
+
+        let elapsed = super::widgets::figures::format_elapsed_precise(
+            std::time::Duration::from_secs(session.elapsed_secs),
+        );
+
+        let line = Line::from(vec![
+            Span::styled(format!("  {} ", connector), Style::default().fg(Color::DarkGray)),
+            Span::styled(spinner, Style::default().fg(status_color)),
+            Span::styled(
+                session.name.clone(),
+                Style::default().fg(status_color).add_modifier(Modifier::BOLD),
+            ),
+            Span::styled(
+                format!(" — {}", session.status),
+                Style::default().fg(Color::DarkGray),
+            ),
+            Span::styled(
+                format!(" ({})", elapsed),
+                Style::default().fg(Color::DarkGray),
+            ),
+        ]);
+        frame.buffer_mut().set_line(area.x, row, &line, area.width);
+    }
 }
 
 /// Create a centered rectangle with the given percentage width and fixed height.

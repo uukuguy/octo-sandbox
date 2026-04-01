@@ -487,6 +487,192 @@ impl Default for HistorySearchState {
     }
 }
 
+/// Vim editing mode for TUI input.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum VimMode {
+    /// Normal mode: navigation and commands.
+    Normal,
+    /// Insert mode: direct text input.
+    Insert,
+    /// Visual mode: text selection.
+    Visual,
+}
+
+impl VimMode {
+    /// Status bar label for the current vim mode.
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Normal => "NORMAL",
+            Self::Insert => "INSERT",
+            Self::Visual => "VISUAL",
+        }
+    }
+
+    /// Color for the mode indicator.
+    pub fn color_rgb(&self) -> (u8, u8, u8) {
+        match self {
+            Self::Normal => (130, 160, 255),    // blue
+            Self::Insert => (137, 209, 133),    // green
+            Self::Visual => (192, 120, 221),    // magenta
+        }
+    }
+}
+
+impl Default for VimMode {
+    fn default() -> Self {
+        Self::Insert // Start in Insert mode (normal TUI behavior)
+    }
+}
+
+/// Vim state for the TUI input system.
+#[derive(Debug, Clone)]
+pub struct VimState {
+    /// Current editing mode.
+    pub mode: VimMode,
+    /// Whether vim mode is enabled (vs normal emacs-style editing).
+    pub enabled: bool,
+    /// Visual mode selection start position.
+    pub visual_start: Option<usize>,
+}
+
+impl VimState {
+    pub fn new(enabled: bool) -> Self {
+        Self {
+            mode: if enabled { VimMode::Normal } else { VimMode::Insert },
+            enabled,
+            visual_start: None,
+        }
+    }
+
+    /// Toggle vim mode on/off.
+    pub fn toggle(&mut self) {
+        self.enabled = !self.enabled;
+        if self.enabled {
+            self.mode = VimMode::Normal;
+        } else {
+            self.mode = VimMode::Insert;
+        }
+        self.visual_start = None;
+    }
+
+    /// Enter insert mode (from normal/visual).
+    pub fn enter_insert(&mut self) {
+        self.mode = VimMode::Insert;
+        self.visual_start = None;
+    }
+
+    /// Enter normal mode (from insert/visual).
+    pub fn enter_normal(&mut self) {
+        self.mode = VimMode::Normal;
+        self.visual_start = None;
+    }
+
+    /// Enter visual mode (from normal).
+    pub fn enter_visual(&mut self, cursor_pos: usize) {
+        self.mode = VimMode::Visual;
+        self.visual_start = Some(cursor_pos);
+    }
+}
+
+impl Default for VimState {
+    fn default() -> Self {
+        Self::new(false)
+    }
+}
+
+/// Model selector state for Meta+P popup.
+#[derive(Debug, Clone)]
+pub struct ModelSelectorState {
+    /// Whether the selector popup is visible.
+    pub visible: bool,
+    /// Available model names.
+    pub models: Vec<String>,
+    /// Currently selected index.
+    pub selected: usize,
+    /// Index of the active (current) model.
+    pub active_index: usize,
+}
+
+impl ModelSelectorState {
+    pub fn new() -> Self {
+        Self {
+            visible: false,
+            models: vec![
+                "claude-sonnet-4-6".to_string(),
+                "claude-opus-4-6".to_string(),
+                "claude-haiku-4-5".to_string(),
+            ],
+            selected: 0,
+            active_index: 0,
+        }
+    }
+
+    /// Toggle visibility.
+    pub fn toggle(&mut self) {
+        self.visible = !self.visible;
+        if self.visible {
+            self.selected = self.active_index;
+        }
+    }
+
+    /// Select previous item.
+    pub fn prev(&mut self) {
+        if self.selected > 0 {
+            self.selected -= 1;
+        }
+    }
+
+    /// Select next item.
+    pub fn next(&mut self) {
+        if self.selected + 1 < self.models.len() {
+            self.selected += 1;
+        }
+    }
+
+    /// Confirm selection and return the chosen model name.
+    pub fn confirm(&mut self) -> Option<String> {
+        if self.selected < self.models.len() {
+            self.active_index = self.selected;
+            self.visible = false;
+            Some(self.models[self.selected].clone())
+        } else {
+            None
+        }
+    }
+
+    /// Set available models (from runtime configuration).
+    pub fn set_models(&mut self, models: Vec<String>, active_model: &str) {
+        self.models = models;
+        self.active_index = self.models.iter().position(|m| m == active_model).unwrap_or(0);
+        self.selected = self.active_index;
+    }
+}
+
+impl Default for ModelSelectorState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Sub-session entry for multi-session spinner tree (E-17).
+#[derive(Debug, Clone)]
+pub struct SubSessionEntry {
+    /// Session display name.
+    pub name: String,
+    /// Current status description.
+    pub status: String,
+    /// Whether this session is currently active/running.
+    pub active: bool,
+    /// Elapsed seconds since session started.
+    pub elapsed_secs: u64,
+}
+
+impl SubSessionEntry {
+    pub fn new(name: String, status: String, active: bool, elapsed_secs: u64) -> Self {
+        Self { name, status, active, elapsed_secs }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -645,5 +831,91 @@ mod tests {
         state.query = "git".to_string();
         state.matched_text = Some("git status".to_string());
         assert!(state.prompt_line().contains("git status"));
+    }
+
+    #[test]
+    fn test_vim_mode_transitions() {
+        let mut vim = VimState::new(true);
+        assert_eq!(vim.mode, VimMode::Normal);
+
+        vim.enter_insert();
+        assert_eq!(vim.mode, VimMode::Insert);
+
+        vim.enter_normal();
+        assert_eq!(vim.mode, VimMode::Normal);
+
+        vim.enter_visual(5);
+        assert_eq!(vim.mode, VimMode::Visual);
+        assert_eq!(vim.visual_start, Some(5));
+    }
+
+    #[test]
+    fn test_vim_mode_toggle() {
+        let mut vim = VimState::new(false);
+        assert!(!vim.enabled);
+        assert_eq!(vim.mode, VimMode::Insert);
+
+        vim.toggle();
+        assert!(vim.enabled);
+        assert_eq!(vim.mode, VimMode::Normal);
+
+        vim.toggle();
+        assert!(!vim.enabled);
+        assert_eq!(vim.mode, VimMode::Insert);
+    }
+
+    #[test]
+    fn test_vim_mode_labels() {
+        assert_eq!(VimMode::Normal.label(), "NORMAL");
+        assert_eq!(VimMode::Insert.label(), "INSERT");
+        assert_eq!(VimMode::Visual.label(), "VISUAL");
+    }
+
+    #[test]
+    fn test_model_selector() {
+        let mut sel = ModelSelectorState::new();
+        assert!(!sel.visible);
+        assert_eq!(sel.models.len(), 3);
+
+        sel.toggle();
+        assert!(sel.visible);
+
+        sel.next();
+        assert_eq!(sel.selected, 1);
+        sel.next();
+        assert_eq!(sel.selected, 2);
+        sel.next(); // capped
+        assert_eq!(sel.selected, 2);
+
+        sel.prev();
+        assert_eq!(sel.selected, 1);
+
+        let chosen = sel.confirm();
+        assert_eq!(chosen.as_deref(), Some("claude-opus-4-6"));
+        assert!(!sel.visible);
+        assert_eq!(sel.active_index, 1);
+    }
+
+    #[test]
+    fn test_model_selector_set_models() {
+        let mut sel = ModelSelectorState::new();
+        sel.set_models(
+            vec!["gpt-4o".to_string(), "claude-sonnet".to_string()],
+            "claude-sonnet",
+        );
+        assert_eq!(sel.active_index, 1);
+        assert_eq!(sel.selected, 1);
+    }
+
+    #[test]
+    fn test_sub_session_entry() {
+        let entry = SubSessionEntry::new(
+            "coder-1".to_string(),
+            "Implementing feature".to_string(),
+            true,
+            45,
+        );
+        assert!(entry.active);
+        assert_eq!(entry.elapsed_secs, 45);
     }
 }

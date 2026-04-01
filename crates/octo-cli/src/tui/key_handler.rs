@@ -224,6 +224,140 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
         return;
     }
 
+    // If model selector is visible, route to model selector handler
+    if state.model_selector.visible {
+        match (key.modifiers, key.code) {
+            (KeyModifiers::NONE, KeyCode::Esc) | (KeyModifiers::ALT, KeyCode::Char('p')) => {
+                state.model_selector.visible = false;
+                state.dirty = true;
+            }
+            (KeyModifiers::NONE, KeyCode::Up) | (KeyModifiers::NONE, KeyCode::Char('k')) => {
+                state.model_selector.prev();
+                state.dirty = true;
+            }
+            (KeyModifiers::NONE, KeyCode::Down) | (KeyModifiers::NONE, KeyCode::Char('j')) => {
+                state.model_selector.next();
+                state.dirty = true;
+            }
+            (KeyModifiers::NONE, KeyCode::Enter) => {
+                if let Some(model) = state.model_selector.confirm() {
+                    state.model_name = model;
+                    state.dirty = true;
+                }
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    // If vim mode is enabled and in Normal mode, handle vim keybindings
+    if state.vim.enabled && state.vim.mode == super::widgets::figures::VimMode::Normal {
+        match (key.modifiers, key.code) {
+            // Enter insert mode
+            (KeyModifiers::NONE, KeyCode::Char('i')) => {
+                state.vim.enter_insert();
+                state.dirty = true;
+            }
+            (KeyModifiers::NONE, KeyCode::Char('a')) => {
+                // Insert after cursor
+                if state.input_cursor < state.input_buffer.len() {
+                    let next = state.input_buffer[state.input_cursor..]
+                        .char_indices()
+                        .nth(1)
+                        .map(|(i, _)| state.input_cursor + i)
+                        .unwrap_or(state.input_buffer.len());
+                    state.input_cursor = next;
+                }
+                state.vim.enter_insert();
+                state.dirty = true;
+            }
+            (KeyModifiers::SHIFT, KeyCode::Char('A')) => {
+                // Insert at end of line
+                state.input_cursor = state.input_buffer.len();
+                state.vim.enter_insert();
+                state.dirty = true;
+            }
+            (KeyModifiers::SHIFT, KeyCode::Char('I')) => {
+                // Insert at beginning
+                state.input_cursor = 0;
+                state.vim.enter_insert();
+                state.dirty = true;
+            }
+            // Navigation
+            (KeyModifiers::NONE, KeyCode::Char('h')) | (KeyModifiers::NONE, KeyCode::Left) => {
+                if state.input_cursor > 0 {
+                    let prev = state.input_buffer[..state.input_cursor]
+                        .char_indices()
+                        .last()
+                        .map(|(i, _)| i)
+                        .unwrap_or(0);
+                    state.input_cursor = prev;
+                }
+            }
+            (KeyModifiers::NONE, KeyCode::Char('l')) | (KeyModifiers::NONE, KeyCode::Right) => {
+                if state.input_cursor < state.input_buffer.len() {
+                    let next = state.input_buffer[state.input_cursor..]
+                        .char_indices()
+                        .nth(1)
+                        .map(|(i, _)| state.input_cursor + i)
+                        .unwrap_or(state.input_buffer.len());
+                    state.input_cursor = next;
+                }
+            }
+            (KeyModifiers::NONE, KeyCode::Char('0')) => {
+                state.input_cursor = 0;
+            }
+            (KeyModifiers::SHIFT, KeyCode::Char('$')) => {
+                state.input_cursor = state.input_buffer.len();
+            }
+            // Delete
+            (KeyModifiers::NONE, KeyCode::Char('x')) => {
+                if state.input_cursor < state.input_buffer.len() {
+                    state.input_buffer.remove(state.input_cursor);
+                    if state.input_cursor >= state.input_buffer.len() && state.input_cursor > 0 {
+                        state.input_cursor -= 1;
+                    }
+                    state.dirty = true;
+                }
+            }
+            // Word forward/back
+            (KeyModifiers::NONE, KeyCode::Char('w')) => {
+                // Move to next word start
+                let text = &state.input_buffer[state.input_cursor..];
+                let skip_word = text.chars().take_while(|c| !c.is_whitespace()).count();
+                let skip_space = text.chars().skip(skip_word).take_while(|c| c.is_whitespace()).count();
+                let advance: usize = text.chars().take(skip_word + skip_space).map(|c| c.len_utf8()).sum();
+                state.input_cursor = (state.input_cursor + advance).min(state.input_buffer.len());
+            }
+            (KeyModifiers::NONE, KeyCode::Char('b')) => {
+                // Move to previous word start
+                let text = &state.input_buffer[..state.input_cursor];
+                let skip_space = text.chars().rev().take_while(|c| c.is_whitespace()).count();
+                let skip_word = text.chars().rev().skip(skip_space).take_while(|c| !c.is_whitespace()).count();
+                let retreat: usize = text.chars().rev().take(skip_space + skip_word).map(|c| c.len_utf8()).sum();
+                state.input_cursor = state.input_cursor.saturating_sub(retreat);
+            }
+            // Visual mode
+            (KeyModifiers::NONE, KeyCode::Char('v')) => {
+                state.vim.enter_visual(state.input_cursor);
+                state.dirty = true;
+            }
+            // Still allow Ctrl shortcuts in vim normal mode
+            (KeyModifiers::CONTROL, _) => {
+                // Fall through to main handler below by re-dispatching
+                // (We break out and let the main match handle it)
+            }
+            _ => {
+                state.dirty = true;
+                return;
+            }
+        }
+        // If we handled a vim key (non-Ctrl), return
+        if !key.modifiers.contains(KeyModifiers::CONTROL) {
+            return;
+        }
+    }
+
     // If history search is active, route keypresses to search handler
     if state.history_search.active {
         match (key.modifiers, key.code) {
@@ -454,6 +588,12 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             state.dirty = true;
         }
 
+        // ── Alt+P / Meta+P: toggle model selector popup ──
+        (KeyModifiers::ALT, KeyCode::Char('p')) => {
+            state.model_selector.toggle();
+            state.dirty = true;
+        }
+
         // ── Ctrl+X Ctrl+E: open external editor for input ──
         // Note: This handles Ctrl+X only — a second Ctrl+E is needed.
         // For simplicity, we handle Ctrl+X as the trigger when input is non-empty.
@@ -674,8 +814,14 @@ pub async fn handle_key(state: &mut TuiState, key: KeyEvent) {
             }
         }
 
-        // ── Escape: dismiss autocomplete → cancel streaming → clear input → reset scroll ──
+        // ── Escape: vim normal → dismiss autocomplete → cancel streaming → clear input → reset scroll ──
         (KeyModifiers::NONE, KeyCode::Esc) => {
+            // Vim: Escape enters normal mode (if vim enabled and in insert/visual)
+            if state.vim.enabled && state.vim.mode != super::widgets::figures::VimMode::Normal {
+                state.vim.enter_normal();
+                state.dirty = true;
+                return;
+            }
             if state.autocomplete.is_visible() {
                 state.autocomplete.dismiss();
                 return;
