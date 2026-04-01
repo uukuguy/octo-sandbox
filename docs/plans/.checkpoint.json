@@ -1,50 +1,80 @@
 {
-  "plan_file": "docs/plans/2026-04-01-phase-ao-server-completeness.md",
-  "phase": "complete",
-  "created_at": "2026-04-01T17:30:00+08:00",
-  "updated_at": "2026-04-01T19:30:00+08:00",
-  "completed_tasks": ["AO-T1", "AO-T2", "AO-T3", "AO-T4", "AO-T5", "AO-T6", "AO-T7", "AO-T8", "AO-T9", "AO-T10"],
+  "plan_file": "docs/plans/2026-04-01-phase-ap-chase-cc-oss.md",
+  "phase": "planning",
+  "created_at": "2026-04-01T20:00:00+08:00",
+  "updated_at": "2026-04-01T20:45:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 10,
-  "phase_name": "Phase AO — octo-server 功能完善",
-  "status": "All 10 tasks complete (3 waves)",
-  "execution_mode": "subagent-driven-development",
+  "total_tasks": 18,
+  "phase_name": "Phase AP — 追赶 CC-OSS",
+  "status": "Plan + execution plan created, design decisions confirmed, ready for Wave 1",
+  "execution_plan": "docs/plans/2026-04-01-phase-ap-execution-plan.md",
+  "design_decisions": {
+    "prompt_language": "English (A)",
+    "tool_descriptions": "Centralized tools/prompts.rs (B)",
+    "compact_model": "Configurable compact_model, default reuse (B)",
+    "permission_engine": "Parallel with SecurityPolicy, UseToolDefault fallback (C)",
+    "tui_scope": "Full T16+T17+T18 (A)"
+  },
+  "execution_mode": "dependency-graph-topological",
   "branch": "main",
   "baseline": {
     "tests": 2476,
-    "commit": "3948530",
+    "commit": "cba4767",
     "db_version": 13
   },
   "waves": {
     "wave1": {
-      "tasks": ["AO-T1", "AO-T2"],
-      "description": "P1: Metering API + Knowledge Graph API",
-      "status": "complete",
-      "commit": "757ddc8"
+      "tasks": ["AP-T1", "AP-T2"],
+      "description": "零依赖高ROI: 提示词增强 + 工具描述升级",
+      "status": "pending"
     },
     "wave2": {
-      "tasks": ["AO-T3", "AO-T4", "AO-T5", "AO-T6", "AO-T7"],
-      "description": "P2: Hooks + Security + Secrets + Sandbox",
-      "status": "complete",
-      "commit": "9b3075b"
+      "tasks": ["AP-T3", "AP-T4", "AP-T5"],
+      "description": "核心上下文: PTL恢复 + Tool trait + 微压缩",
+      "status": "pending"
     },
     "wave3": {
-      "tasks": ["AO-T8", "AO-T9", "AO-T10"],
-      "description": "P2-P3: Config update + Audit enhance + Context observability",
-      "status": "complete",
-      "commit": "a660366"
+      "tasks": ["AP-T6"],
+      "description": "LLM摘要压缩 + 状态重建 + Reactive Compact",
+      "status": "pending"
+    },
+    "wave4": {
+      "tasks": ["AP-T8", "AP-T9", "AP-T10", "AP-T11"],
+      "description": "权限引擎 + Collapse + Snip + Hook增强",
+      "status": "pending"
+    },
+    "wave5": {
+      "tasks": ["AP-T12", "AP-T13"],
+      "description": "多Agent工具 + TeamManager",
+      "status": "pending"
+    },
+    "wave6": {
+      "tasks": ["AP-T14", "AP-T15"],
+      "description": "自主运行模式 + 成本追踪",
+      "status": "pending"
+    },
+    "tui": {
+      "tasks": ["AP-T16", "AP-T17", "AP-T18"],
+      "description": "TUI体验层 (并行线)",
+      "status": "pending"
     }
   },
-  "deferred": {
-    "phase_ao": ["AO-D1 metering WS stream", "AO-D2 KG graph algorithms", "AO-D3 hook online editor", "AO-D4 secret rotation"],
-    "previous": {
-      "AK": ["AK-D1 Rate limiter", "AK-D3 API Key rotation"],
-      "AL": ["AL-D1 KG visualization", "AL-D2 themes", "AL-D3 responsive", "AL-D4 i18n"],
-      "AM": ["AM-D3 OpenTelemetry"]
-    },
-    "phase_an": "octo-platform-server — 独立规划，暂缓"
-  },
-  "roadmap": {
-    "next_phase": "Phase AO complete. Consider: deferred items, Phase AN (platform), or new features"
-  }
+  "deferred": [
+    "AP-D1 工具结果外部持久化",
+    "AP-D2 max_output_tokens自动升级",
+    "AP-D3 Fallback剥离thinking签名",
+    "AP-D4 Teleport自动生成branch",
+    "AP-D5 Session Memory持续提取",
+    "AP-D6 会话抄本",
+    "AP-D7 会话fork/rewind",
+    "AP-D8 MCP OAuth",
+    "AP-D9 自主模式Phase2",
+    "AP-D10 自主模式Phase3",
+    "AP-D11 Bash AST分析",
+    "AP-D12 plan_mode工具",
+    "AP-D13 tool_search工具",
+    "AP-D14 ask_user工具",
+    "AP-D15 toolUseSummary"
+  ]
 }
