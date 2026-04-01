@@ -3,11 +3,11 @@
   "phase": "planning",
   "created_at": "2026-04-01T20:00:00+08:00",
   "updated_at": "2026-04-01T20:45:00+08:00",
-  "completed_tasks": [],
+  "completed_tasks": ["AP-T1", "AP-T2", "AP-T3", "AP-T4", "AP-T5"],
   "current_task": null,
   "total_tasks": 18,
   "phase_name": "Phase AP — 追赶 CC-OSS",
-  "status": "Plan + execution plan created, design decisions confirmed, ready for Wave 1",
+  "status": "Wave 1-2 complete (5/18 tasks). Wave 3 (T6 CompactionPipeline) next.",
   "execution_plan": "docs/plans/2026-04-01-phase-ap-execution-plan.md",
   "design_decisions": {
     "prompt_language": "English (A)",
@@ -27,12 +27,14 @@
     "wave1": {
       "tasks": ["AP-T1", "AP-T2"],
       "description": "零依赖高ROI: 提示词增强 + 工具描述升级",
-      "status": "pending"
+      "status": "complete",
+      "commits": ["dca72da", "ab4a961"]
     },
     "wave2": {
       "tasks": ["AP-T3", "AP-T4", "AP-T5"],
       "description": "核心上下文: PTL恢复 + Tool trait + 微压缩",
-      "status": "pending"
+      "status": "complete",
+      "commits": ["044a3ec", "76573c7", "f9b869b"]
     },
     "wave3": {
       "tasks": ["AP-T6"],

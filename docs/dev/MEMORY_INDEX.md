@@ -7,6 +7,9 @@
 
 ## [Active Work]
 
+- 2026-04-01 22:00 | **Wave 1-2 COMPLETE** — 5/18 tasks done. T3 PTL recovery @ 044a3ec, T4 Tool trait @ 76573c7, T5 ObservationMasker @ f9b869b. Checkpoint updated. Wave 3 (T6 CompactionPipeline) next.
+- 2026-04-01 21:35 | **AP-T2 COMPLETE** — Tool descriptions upgraded to detailed usage manuals in tools/prompts.rs (9 tools) @ ab4a961. Wave 1 done. Wave 2 (T3+T4+T5) launched.
+- 2026-04-01 21:25 | **AP-T1 COMPLETE** — System prompt enhanced with 6 behavioral sections (System, Code Style, Actions, Using Tools, Output Efficiency, Output Format) + with_git_status() builder @ dca72da. 21 tests pass. Wave 1 T2 in progress.
 - 2026-04-01 18:45 | **Phase AO Wave 2 COMPLETE** — Hooks + Security + Secrets + Sandbox APIs (T3-T7) @ 9b3075b. 5 new API modules, 20 endpoints, 21 tests. hooks.rs(5ep/4t), security.rs(7ep/9t for T4+T5), secrets.rs(4ep/4t), sandbox.rs(4ep/4t). Engine: HookRegistry::list_all(), CredentialVault::list()+delete(), CredentialResolver::vault(), AgentRuntime::session_sandbox_manager(). 7/10 tasks done. Wave 3 next (T8-T10).
 - 2026-04-01 17:55 | **Phase AO Wave 1 COMPLETE** — Metering API (T1) + Knowledge Graph API (T2) @ 757ddc8. 13 new endpoints: metering (snapshot/summary/by-session/reset) + KG (entity CRUD/relations/stats/traverse/path). 12 E2E tests. Added metering_arc() to AgentRuntime, metering_storage() to AppState. Wave 2 next (T3-T7).
 - 2026-04-01 17:45 | **Phase AO 设计完成** — octo-server 功能完善 (10 tasks, 3 waves). 缺口分析: engine 有 7 个模块能力未暴露 API (metering, KG, hooks, security, secrets, sandbox, context). Wave1: Metering+KG(P1). Wave2: Hooks+Security+Secrets+Sandbox(P2). Wave3: Config热更+Audit导出+Context快照(P2-P3). Phase AN(平台版)暂缓. 文档: `docs/plans/2026-04-01-phase-ao-server-completeness.md`.
