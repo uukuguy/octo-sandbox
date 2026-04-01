@@ -29,6 +29,11 @@ impl CredentialResolver {
         }
     }
 
+    /// Get a reference to the underlying vault (if configured)
+    pub fn vault(&self) -> Option<&CredentialVault> {
+        self.vault.as_ref()
+    }
+
     /// Set vault for resolution
     pub fn with_vault(mut self, vault: CredentialVault) -> Self {
         self.vault = Some(vault);

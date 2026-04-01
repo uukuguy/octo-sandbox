@@ -143,6 +143,15 @@ impl HookRegistry {
         let handlers = self.handlers.read().await;
         handlers.get(&point).map_or(0, |h| h.len())
     }
+
+    /// List all registered hook points with their handler counts
+    pub async fn list_all(&self) -> Vec<(HookPoint, usize)> {
+        let handlers = self.handlers.read().await;
+        handlers
+            .iter()
+            .map(|(point, handlers)| (*point, handlers.len()))
+            .collect()
+    }
 }
 
 impl std::fmt::Debug for HookRegistry {

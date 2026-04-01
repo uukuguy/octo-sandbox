@@ -5,6 +5,7 @@ pub mod collaboration;
 pub mod error;
 pub mod eval_sessions;
 pub mod events;
+pub mod hooks;
 pub mod config;
 pub mod executions;
 pub mod knowledge_graph;
@@ -15,7 +16,10 @@ pub mod memories;
 pub mod metering;
 pub mod metrics;
 pub mod providers;
+pub mod sandbox;
 pub mod scheduler;
+pub mod secrets;
+pub mod security;
 pub mod sessions;
 pub mod skills;
 pub mod sync;
@@ -114,4 +118,12 @@ pub fn routes() -> Router<Arc<AppState>> {
         .merge(eval_sessions::router())
         // Knowledge Graph (AO-T2)
         .merge(knowledge_graph::router())
+        // Hooks Management (AO-T3)
+        .merge(hooks::router())
+        // Secret Vault (AO-T6)
+        .merge(secrets::router())
+        // Sandbox Management (AO-T7)
+        .merge(sandbox::router())
+        // Security Policy + AI Defence (AO-T4 + T5)
+        .merge(security::router())
 }

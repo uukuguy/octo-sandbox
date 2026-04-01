@@ -123,6 +123,19 @@ impl CredentialVault {
         entries.get(key).map(|v| Zeroizing::new(v.clone()))
     }
 
+    /// List all stored credential keys (never exposes values)
+    pub fn list(&self) -> Vec<String> {
+        let entries = self.entries.read().unwrap();
+        entries.keys().cloned().collect()
+    }
+
+    /// Delete a credential by key
+    pub fn delete(&self, key: &str) -> Result<(), String> {
+        let mut entries = self.entries.write().map_err(|e| e.to_string())?;
+        entries.remove(key);
+        Ok(())
+    }
+
     /// Encrypt entries to store
     pub fn encrypt(&self) -> Result<(), String> {
         let entries = self.entries.read().map_err(|e| e.to_string())?;

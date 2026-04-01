@@ -936,6 +936,11 @@ impl AgentRuntime {
         &self.credential_resolver
     }
 
+    /// Get session sandbox manager (if initialized)
+    pub fn session_sandbox_manager(&self) -> Option<&Arc<crate::sandbox::SessionSandboxManager>> {
+        self.session_sandbox.as_ref()
+    }
+
     /// Get shared approval gate (if any) — T7
     pub fn approval_gate(&self) -> Option<&crate::tools::approval::ApprovalGate> {
         self.approval_gate.as_ref()

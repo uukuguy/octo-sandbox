@@ -209,6 +209,17 @@ impl TestApp {
         self.send(req).await
     }
 
+    /// Send a PUT request with JSON body.
+    pub async fn put_json(&self, uri: &str, body: Value) -> (StatusCode, Value) {
+        let req = Request::builder()
+            .method(Method::PUT)
+            .uri(uri)
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&body).unwrap()))
+            .expect("failed to build request");
+        self.send(req).await
+    }
+
     /// Send a DELETE request.
     pub async fn delete(&self, uri: &str) -> (StatusCode, Value) {
         let req = Request::builder()
