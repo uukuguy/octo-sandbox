@@ -370,4 +370,19 @@ impl SessionStore for SqliteSessionStore {
             .await;
         result.ok().flatten()
     }
+
+    async fn count_all_sessions(&self) -> usize {
+        let result = self
+            .conn
+            .call(|conn| {
+                let count: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM sessions",
+                    [],
+                    |row| row.get(0),
+                )?;
+                Ok(count as usize)
+            })
+            .await;
+        result.unwrap_or(0)
+    }
 }

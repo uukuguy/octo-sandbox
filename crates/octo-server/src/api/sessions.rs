@@ -4,7 +4,7 @@ use axum::extract::{Extension, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use octo_engine::agent::AgentId;
+use octo_engine::agent::{AgentId, SessionMetrics};
 use octo_engine::auth::UserContext;
 use octo_types::{SandboxId, SessionId, UserId};
 use serde::{Deserialize, Serialize};
@@ -161,4 +161,12 @@ pub async fn get_session_status(
         "session_id": id,
         "active": active,
     }))
+}
+
+/// GET /api/v1/sessions/metrics — Session monitoring metrics (AM-T3)
+pub async fn session_metrics(
+    State(state): State<Arc<AppState>>,
+) -> Json<SessionMetrics> {
+    let metrics = state.agent_supervisor.session_metrics().await;
+    Json(metrics)
 }

@@ -1,4 +1,4 @@
-import type { Setter } from "jotai";
+import type { Getter, Setter } from "jotai";
 import type { ServerMessage } from "./types";
 import {
   sessionIdAtom,
@@ -7,6 +7,8 @@ import {
   streamingTextAtom,
   streamingThinkingAtom,
   toolExecutionsAtom,
+  sessionsAtom,
+  migrateFallbackMessagesAtom,
 } from "../atoms/session";
 import {
   executionRecordsAtom,
@@ -19,11 +21,24 @@ import { addToastAtom } from "../atoms/ui";
 let streamBuffer = "";
 let thinkingBuffer = "";
 
-export function handleWsEvent(msg: ServerMessage, set: Setter) {
+export function handleWsEvent(msg: ServerMessage, set: Setter, get?: Getter) {
   switch (msg.type) {
-    case "session_created":
+    case "session_created": {
       set(sessionIdAtom, msg.session_id);
+      // Register the session in the multi-session list if not already present
+      if (get) {
+        const existing = get(sessionsAtom);
+        if (!existing.some((s) => s.id === msg.session_id)) {
+          set(sessionsAtom, [
+            ...existing,
+            { id: msg.session_id, createdAt: new Date().toISOString() },
+          ]);
+        }
+      }
+      // Migrate any pre-session messages into this session's slot
+      set(migrateFallbackMessagesAtom);
       break;
+    }
 
     case "text_delta":
       streamBuffer += msg.text;

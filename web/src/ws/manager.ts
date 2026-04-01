@@ -13,26 +13,38 @@ class WsManager {
   private maxReconnectAttempts = 5;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private intentionalDisconnect = false;
+  private currentSessionId: string | null = null;
 
   constructor() {}
 
   /**
-   * Get WebSocket URL from config or fallback
+   * Get WebSocket URL from config or fallback.
+   * Appends ?session_id=xxx when a session is active.
    */
-  private getUrl(): string {
+  private getUrl(sessionId?: string | null): string {
+    let base: string;
     if (isConfigReady()) {
       try {
-        return getWsUrl() + '/ws';
+        base = getWsUrl() + '/ws';
       } catch {
-        // Config not ready, use fallback
+        const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+        base = `${proto}//${window.location.host}/ws`;
       }
+    } else {
+      const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+      base = `${proto}//${window.location.host}/ws`;
     }
-    // Fallback to window.location if config not ready
-    const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
-    return `${proto}//${window.location.host}/ws`;
+    const sid = sessionId ?? this.currentSessionId;
+    if (sid) {
+      base += `?session_id=${encodeURIComponent(sid)}`;
+    }
+    return base;
   }
 
-  connect() {
+  connect(sessionId?: string | null) {
+    if (sessionId !== undefined) {
+      this.currentSessionId = sessionId ?? null;
+    }
     // Get URL on each connect to support dynamic config
     this.url = this.getUrl();
 
@@ -52,7 +64,7 @@ class WsManager {
     this.ws = new WebSocket(this.url);
 
     this.ws.onopen = () => {
-      console.log("[WS] Connected");
+      console.log("[WS] Connected", this.currentSessionId ? `(session: ${this.currentSessionId})` : "");
       this.reconnectAttempts = 0;
     };
 
@@ -76,6 +88,29 @@ class WsManager {
     this.ws.onerror = (err) => {
       console.error("[WS] Error:", err);
     };
+  }
+
+  /**
+   * Switch to a different session. Disconnects the current WS and
+   * reconnects with the new session_id query parameter.
+   */
+  switchSession(sessionId: string) {
+    console.log(`[WS] Switching to session ${sessionId}`);
+    this.currentSessionId = sessionId;
+
+    // Tear down the current connection without triggering auto-reconnect
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.intentionalDisconnect = true;
+    this.ws?.close();
+    this.ws = null;
+
+    // Reset reconnect state and connect fresh
+    this.reconnectAttempts = 0;
+    this.intentionalDisconnect = false;
+    this.connect(sessionId);
   }
 
   disconnect() {

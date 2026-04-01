@@ -48,7 +48,7 @@ function WsEventBridge() {
   useEffect(() => {
     wsManager.connect();
     wsManager.onMessage((msg) => {
-      handleWsEvent(msg, store.set);
+      handleWsEvent(msg, store.set, store.get);
     });
     wsManager.onDisconnect(() => {
       store.set(addToastAtom, {

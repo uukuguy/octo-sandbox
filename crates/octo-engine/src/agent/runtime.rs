@@ -114,6 +114,34 @@ pub struct SessionEntry {
     pub last_activity: Arc<StdMutex<Instant>>,
 }
 
+/// Idle-time distribution buckets for session monitoring (AM-T3).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct IdleDistribution {
+    /// Active sessions with idle time < 1 minute
+    pub active_lt_1m: usize,
+    /// Sessions idle 1–10 minutes
+    pub idle_1m_to_10m: usize,
+    /// Sessions idle 10 minutes–1 hour
+    pub idle_10m_to_1h: usize,
+    /// Sessions idle > 1 hour
+    pub idle_gt_1h: usize,
+}
+
+/// Session monitoring metrics (AM-T3).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct SessionMetrics {
+    /// Number of currently active sessions
+    pub active_count: usize,
+    /// Maximum concurrent sessions allowed
+    pub max_concurrent: usize,
+    /// Total sessions ever created (from persistent store)
+    pub total_created: usize,
+    /// Distribution of active sessions by idle time
+    pub idle_distribution: IdleDistribution,
+    /// Average lifetime of active sessions in seconds
+    pub avg_lifetime_secs: f64,
+}
+
 /// Session → AgentExecutorHandle 的注册表，同时持有所有共享运行时依赖
 pub struct AgentRuntime {
     /// 单一主 executor（单用户场景）- 使用 Mutex 实现内部可变性
@@ -875,6 +903,11 @@ impl AgentRuntime {
         &self.hook_registry
     }
 
+    /// Get telemetry event bus (if enabled)
+    pub fn event_bus(&self) -> Option<&Arc<TelemetryBus>> {
+        self.event_bus.as_ref()
+    }
+
     /// Get event store (if any)
     pub fn event_store(&self) -> Option<&Arc<EventStore>> {
         self.event_store.as_ref()
@@ -1031,6 +1064,65 @@ impl AgentRuntime {
             self.stop_session(&sid).await;
         }
         count
+    }
+
+    /// Compute session monitoring metrics (AM-T3).
+    ///
+    /// Returns a struct with active count, max concurrent, total created,
+    /// idle-time distribution buckets, and average lifetime in seconds.
+    pub async fn session_metrics(&self) -> SessionMetrics {
+        let active_count = self.sessions.len();
+        let max_concurrent = self.max_concurrent_sessions;
+
+        // Total sessions ever created (from persistent store)
+        let total_created = self.session_store.count_all_sessions().await;
+
+        // Idle distribution — classify active sessions by elapsed since last_activity
+        let now = Instant::now();
+        let mut active_lt_1m: usize = 0;
+        let mut idle_1m_to_10m: usize = 0;
+        let mut idle_10m_to_1h: usize = 0;
+        let mut idle_gt_1h: usize = 0;
+
+        let mut lifetime_sum_secs: f64 = 0.0;
+
+        for entry in self.sessions.iter() {
+            let last = entry.last_activity.lock().unwrap_or_else(|e| e.into_inner());
+            let idle = now.duration_since(*last);
+            drop(last);
+
+            if idle.as_secs() < 60 {
+                active_lt_1m += 1;
+            } else if idle.as_secs() < 600 {
+                idle_1m_to_10m += 1;
+            } else if idle.as_secs() < 3600 {
+                idle_10m_to_1h += 1;
+            } else {
+                idle_gt_1h += 1;
+            }
+
+            // Lifetime = time since session was created
+            lifetime_sum_secs += now.duration_since(entry.created_at).as_secs_f64();
+        }
+
+        let avg_lifetime_secs = if active_count > 0 {
+            lifetime_sum_secs / active_count as f64
+        } else {
+            0.0
+        };
+
+        SessionMetrics {
+            active_count,
+            max_concurrent,
+            total_created,
+            idle_distribution: IdleDistribution {
+                active_lt_1m,
+                idle_1m_to_10m,
+                idle_10m_to_1h,
+                idle_gt_1h,
+            },
+            avg_lifetime_secs,
+        }
     }
 
     /// Get primary session ID (if set)

@@ -51,6 +51,12 @@ pub trait SessionStore: Send + Sync {
 
     /// Get the most recent session for a specific user
     async fn most_recent_session_for_user(&self, user_id: &UserId) -> Option<SessionData>;
+
+    /// Count total sessions ever created (all users).
+    /// Default implementation falls back to list_sessions with a large limit.
+    async fn count_all_sessions(&self) -> usize {
+        self.list_sessions(usize::MAX, 0).await.len()
+    }
 }
 
 /// A conversation thread within a session.

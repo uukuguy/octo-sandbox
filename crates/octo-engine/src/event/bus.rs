@@ -35,6 +35,20 @@ pub enum TelemetryEvent {
     },
 }
 
+impl TelemetryEvent {
+    /// Extract the session_id from any variant.
+    pub fn session_id(&self) -> &str {
+        match self {
+            TelemetryEvent::LoopTurnStarted { session_id, .. }
+            | TelemetryEvent::ToolCallStarted { session_id, .. }
+            | TelemetryEvent::ToolCallCompleted { session_id, .. }
+            | TelemetryEvent::ContextDegraded { session_id, .. }
+            | TelemetryEvent::LoopGuardTriggered { session_id, .. }
+            | TelemetryEvent::TokenBudgetUpdated { session_id, .. } => session_id,
+        }
+    }
+}
+
 /// 内部事件广播总线
 ///
 /// 设计：broadcast::Sender（1000 容量）+ 环形缓冲区历史（最近 1000 条）

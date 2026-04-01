@@ -52,6 +52,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         // More specific routes first — multi-session lifecycle (AJ-T9)
         .route("/sessions/start", post(sessions::start_session))
         .route("/sessions/active", get(sessions::list_active_sessions))
+        .route("/sessions/metrics", get(sessions::session_metrics))
         .route(
             "/sessions/{id}/stop",
             delete(sessions::stop_session),

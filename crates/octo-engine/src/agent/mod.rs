@@ -57,7 +57,7 @@ pub use loop_config::AgentLoopConfig;
 pub use manifest_loader::AgentManifestLoader;
 pub use queue::{MessageQueue, QueueKind, QueueMode};
 pub use router::{AgentProfile, AgentRouter, RouteAlternative, RouteResult};
-pub use runtime::{AgentRuntime, AgentRuntimeConfig, SessionEntry};
+pub use runtime::{AgentRuntime, AgentRuntimeConfig, IdleDistribution, SessionEntry, SessionMetrics};
 pub use store::AgentStore;
 pub use subagent::{SubAgentHandle, SubAgentManager, SubAgentResult, SubAgentStatus, SubAgentTask};
 pub use tenant::TenantContext;
