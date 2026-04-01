@@ -69,6 +69,19 @@ fn tool_result_budget(context_window: usize) -> (usize, usize) {
     (soft, hard)
 }
 
+/// Detect prompt-too-long errors from various LLM providers.
+fn is_prompt_too_long(err: &anyhow::Error) -> bool {
+    let s = err.to_string().to_lowercase();
+    s.contains("prompt_too_long")
+        || s.contains("prompt is too long")
+        || (s.contains("400") && s.contains("too many tokens"))
+        || s.contains("maximum context length")
+        || s.contains("context_length_exceeded")
+}
+
+/// Maximum number of PTL compact attempts before giving up.
+const MAX_COMPACT_ATTEMPTS: u32 = 3;
+
 /// Extract context window from an `AgentLoopConfig`, falling back to default.
 fn context_window_from_config(config: &AgentLoopConfig) -> usize {
     config
@@ -287,6 +300,7 @@ async fn run_agent_loop_inner(
     // --- Context management objects ---
     let mut budget = config.budget.clone().unwrap_or_default();
     let pruner = config.pruner.clone().unwrap_or_default();
+    let mut compact_attempts: u32 = 0;
     let mut loop_guard = config.loop_guard.clone().unwrap_or_default();
 
     // --- Dynamic tool result budget (W8-T8) ---
@@ -658,6 +672,29 @@ async fn run_agent_loop_inner(
             Some(s) => s,
             None => {
                 let e = last_err.unwrap_or_else(|| anyhow::anyhow!("stream failed"));
+
+                // PTL recovery — compact and retry instead of terminating
+                if is_prompt_too_long(&e) && compact_attempts < MAX_COMPACT_ATTEMPTS {
+                    compact_attempts += 1;
+                    warn!(
+                        attempt = compact_attempts,
+                        max = MAX_COMPACT_ATTEMPTS,
+                        "prompt_too_long detected, applying emergency truncation"
+                    );
+
+                    // Emergency truncation via pruner
+                    let freed = pruner.apply(&mut messages, DegradationLevel::OverflowCompaction);
+                    let _ = tx
+                        .send(AgentEvent::ContextCompacted {
+                            strategy: "truncate_ptl".into(),
+                            pre_tokens: 0,
+                            post_tokens: freed,
+                        })
+                        .await;
+                    // Do NOT trigger Stop hooks — prevents death spiral
+                    continue; // Re-enter loop with truncated messages
+                }
+
                 let _ = tx
                     .send(AgentEvent::Error {
                         message: e.to_string(),

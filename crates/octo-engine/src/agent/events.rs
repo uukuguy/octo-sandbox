@@ -98,6 +98,15 @@ pub enum AgentEvent {
         /// The original event from the sub-agent.
         inner: Box<AgentEvent>,
     },
+    /// Context was compacted (compressed) to recover from overflow
+    ContextCompacted {
+        /// Strategy used: "truncate_ptl", "llm_summary", "truncate_fallback"
+        strategy: String,
+        /// Token count before compaction
+        pre_tokens: usize,
+        /// Token count after compaction
+        post_tokens: usize,
+    },
 }
 
 /// Structured return result for AgentLoop (Opus §3.2)
