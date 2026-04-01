@@ -30,8 +30,14 @@ pub struct PolicyResponse {
 
 #[derive(Deserialize)]
 pub struct PolicyUpdateRequest {
-    #[allow(dead_code)]
     pub autonomy_level: Option<String>,
+    pub require_approval_for_medium_risk: Option<bool>,
+    pub block_high_risk_commands: Option<bool>,
+}
+
+#[derive(Serialize)]
+pub struct PolicyUpdateResponse {
+    pub updated_fields: Vec<String>,
 }
 
 #[derive(Serialize)]
@@ -101,28 +107,73 @@ pub fn router() -> Router<Arc<AppState>> {
 
 async fn get_policy(State(state): State<Arc<AppState>>) -> Json<PolicyResponse> {
     let policy = state.agent_supervisor.security_policy();
+    let overrides = state.runtime_overrides.read().await;
+
+    let autonomy_level = overrides
+        .autonomy_level
+        .clone()
+        .unwrap_or_else(|| format!("{:?}", policy.autonomy));
+    let require_approval = overrides
+        .require_approval_for_medium_risk
+        .unwrap_or(policy.require_approval_for_medium_risk);
+    let block_high_risk = overrides
+        .block_high_risk_commands
+        .unwrap_or(policy.block_high_risk_commands);
+
     Json(PolicyResponse {
-        autonomy_level: format!("{:?}", policy.autonomy),
+        autonomy_level,
         workspace_only: policy.workspace_only,
         allowed_commands: policy.allowed_commands.clone(),
         forbidden_paths: policy.forbidden_paths.clone(),
         max_actions_per_hour: policy.max_actions_per_hour,
-        require_approval_for_medium_risk: policy.require_approval_for_medium_risk,
-        block_high_risk_commands: policy.block_high_risk_commands,
+        require_approval_for_medium_risk: require_approval,
+        block_high_risk_commands: block_high_risk,
     })
 }
 
 async fn update_policy(
-    Json(_body): Json<PolicyUpdateRequest>,
-) -> (StatusCode, Json<serde_json::Value>) {
-    // SecurityPolicy is behind Arc — direct mutation is not possible.
-    // Runtime policy updates require server restart for P2 scope.
-    (
-        StatusCode::NOT_IMPLEMENTED,
-        Json(serde_json::json!({
-            "error": "Runtime policy updates require server restart"
-        })),
-    )
+    State(state): State<Arc<AppState>>,
+    Json(body): Json<PolicyUpdateRequest>,
+) -> Result<Json<PolicyUpdateResponse>, (StatusCode, Json<serde_json::Value>)> {
+    // Validate autonomy_level if provided
+    if let Some(ref level) = body.autonomy_level {
+        match level.to_lowercase().as_str() {
+            "readonly" | "supervised" | "full" => {}
+            _ => {
+                return Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(serde_json::json!({
+                        "error": "invalid_value",
+                        "message": "autonomy_level must be 'readonly', 'supervised', or 'full'",
+                    })),
+                ));
+            }
+        }
+    }
+
+    let mut overrides = state.runtime_overrides.write().await;
+    let mut updated = Vec::new();
+
+    if let Some(ref level) = body.autonomy_level {
+        if overrides.autonomy_level.as_deref() != Some(level) {
+            overrides.autonomy_level = Some(level.clone());
+            updated.push("autonomy_level".to_string());
+        }
+    }
+
+    if let Some(val) = body.require_approval_for_medium_risk {
+        overrides.require_approval_for_medium_risk = Some(val);
+        updated.push("require_approval_for_medium_risk".to_string());
+    }
+
+    if let Some(val) = body.block_high_risk_commands {
+        overrides.block_high_risk_commands = Some(val);
+        updated.push("block_high_risk_commands".to_string());
+    }
+
+    Ok(Json(PolicyUpdateResponse {
+        updated_fields: updated,
+    }))
 }
 
 async fn get_tracker(State(state): State<Arc<AppState>>) -> Json<TrackerResponse> {

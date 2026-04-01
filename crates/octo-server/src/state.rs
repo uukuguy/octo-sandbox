@@ -20,6 +20,8 @@ pub struct RuntimeConfigOverrides {
     pub provider_name: Option<String>,
     pub provider_model: Option<String>,
     pub autonomy_level: Option<String>,
+    pub require_approval_for_medium_risk: Option<bool>,
+    pub block_high_risk_commands: Option<bool>,
 }
 
 pub struct AppState {

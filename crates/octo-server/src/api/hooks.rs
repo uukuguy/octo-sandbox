@@ -4,7 +4,6 @@ use std::sync::Arc;
 
 use axum::{
     extract::State,
-    http::StatusCode,
     routing::{get, post},
     Json, Router,
 };
@@ -130,18 +129,37 @@ async fn list_wasm_plugins() -> Json<Vec<WasmPluginInfo>> {
     }
 }
 
-/// POST /api/v1/hooks/wasm/:name/reload — reload a single WASM plugin
+/// POST /api/v1/hooks/wasm/:name/reload — validate and re-discover a single WASM plugin
 async fn reload_wasm_plugin(
-    axum::extract::Path(_name): axum::extract::Path<String>,
-) -> StatusCode {
+    axum::extract::Path(name): axum::extract::Path<String>,
+) -> Json<ReloadResponse> {
     #[cfg(feature = "sandbox-wasm")]
     {
-        // Individual WASM plugin reload requires engine-level support not yet wired
-        return StatusCode::NOT_IMPLEMENTED;
+        // Re-discover all plugins and check if the named one exists and is valid
+        let plugins = octo_engine::hooks::wasm::loader::discover_plugins(&[]);
+        if let Some(plugin) = plugins.iter().find(|p| p.manifest.name == name) {
+            return Json(ReloadResponse {
+                reloaded: true,
+                message: format!(
+                    "Plugin '{}' v{} validated at {}",
+                    plugin.manifest.name,
+                    plugin.manifest.version,
+                    plugin.wasm_path.display(),
+                ),
+            });
+        }
+        return Json(ReloadResponse {
+            reloaded: false,
+            message: format!("Plugin '{}' not found in plugin directories", name),
+        });
     }
 
     #[cfg(not(feature = "sandbox-wasm"))]
     {
-        StatusCode::NOT_FOUND
+        let _ = name; // suppress unused warning when WASM feature is disabled
+        Json(ReloadResponse {
+            reloaded: false,
+            message: "WASM plugin support not compiled (sandbox-wasm feature disabled)".to_string(),
+        })
     }
 }
