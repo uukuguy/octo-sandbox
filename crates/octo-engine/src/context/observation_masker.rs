@@ -1,6 +1,8 @@
 use octo_types::{ChatMessage, ContentBlock, MessageRole};
 use tracing::debug;
 
+use super::tool_use_summary;
+
 /// Tools whose output can be safely compressed (large, repetitive results).
 pub const DEFAULT_COMPACTABLE_TOOLS: &[&str] = &[
     "bash", "file_read", "file_write", "file_edit",
@@ -101,12 +103,12 @@ impl ObservationMasker {
         let mut result = Vec::with_capacity(messages.len());
         let mut masked_count = 0;
 
-        let tool_name_map: std::collections::HashMap<String, String> = messages
+        let tool_info_map: std::collections::HashMap<String, (String, String)> = messages
             .iter()
             .flat_map(|m| &m.content)
             .filter_map(|block| {
-                if let ContentBlock::ToolUse { id, name, .. } = block {
-                    Some((id.clone(), name.clone()))
+                if let ContentBlock::ToolUse { id, name, input } = block {
+                    Some((id.clone(), (name.clone(), input.to_string())))
                 } else {
                     None
                 }
@@ -115,7 +117,7 @@ impl ObservationMasker {
 
         for (i, msg) in messages.iter().enumerate() {
             if i < mask_before_index {
-                let (masked_msg, did_mask) = self.mask_message(msg, &tool_name_map);
+                let (masked_msg, did_mask) = self.mask_message(msg, &tool_info_map);
                 if did_mask {
                     masked_count += 1;
                 }
@@ -140,7 +142,7 @@ impl ObservationMasker {
     fn mask_message(
         &self,
         msg: &ChatMessage,
-        tool_name_map: &std::collections::HashMap<String, String>,
+        tool_info_map: &std::collections::HashMap<String, (String, String)>,
     ) -> (ChatMessage, bool) {
         let mut any_masked = false;
         let new_content: Vec<ContentBlock> = msg
@@ -154,7 +156,7 @@ impl ObservationMasker {
                 } => {
                     // Check tool whitelist
                     if let Some(ref whitelist) = self.config.compactable_tools {
-                        if let Some(tool_name) = tool_name_map.get(tool_use_id) {
+                        if let Some((tool_name, _)) = tool_info_map.get(tool_use_id) {
                             if !whitelist.contains(tool_name) {
                                 return block.clone();
                             }
@@ -163,10 +165,17 @@ impl ObservationMasker {
                     // Check minimum length
                     if content.len() >= self.config.min_mask_length {
                         any_masked = true;
-                        let placeholder = self
-                            .config
-                            .placeholder_template
-                            .replace("{chars}", &content.len().to_string());
+                        // Use heuristic summary if we can identify the tool
+                        let placeholder =
+                            if let Some((tool_name, tool_input)) = tool_info_map.get(tool_use_id) {
+                                tool_use_summary::summarize_tool_output(
+                                    tool_name, tool_input, content, *is_error,
+                                )
+                            } else {
+                                self.config
+                                    .placeholder_template
+                                    .replace("{chars}", &content.len().to_string())
+                            };
                         ContentBlock::ToolResult {
                             tool_use_id: tool_use_id.clone(),
                             content: placeholder,
@@ -303,7 +312,11 @@ mod tests {
         let user_msg = &masked[1];
 
         if let ContentBlock::ToolResult { content, .. } = &user_msg.content[0] {
-            assert!(content.contains("hidden"), "bash result should be masked");
+            // With tool_use_summary, bash output is replaced with a heuristic summary
+            assert!(
+                content.starts_with("[bash("),
+                "bash result should be masked with summary, got: {content}"
+            );
         }
         if let ContentBlock::ToolResult { content, .. } = &user_msg.content[1] {
             assert_eq!(content.len(), 200, "memory_store should not be masked");

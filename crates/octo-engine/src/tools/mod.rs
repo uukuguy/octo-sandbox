@@ -3,6 +3,7 @@ pub mod approval;
 pub mod bash;
 pub mod bash_classifier;
 pub mod cast_params;
+pub mod plan_mode;
 pub mod file_edit;
 pub mod file_read;
 pub mod file_write;

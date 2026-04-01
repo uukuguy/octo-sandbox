@@ -11,6 +11,7 @@ pub mod observation_masker;
 pub mod pruner;
 pub mod system_prompt; // Zone A: SystemPromptBuilder
 pub mod token_counter;
+pub mod tool_use_summary;
 
 pub use auto_compact::{AutoCompactConfig, AutoCompactSummary};
 pub use budget::{ContextBudgetManager, DegradationLevel};
