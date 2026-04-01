@@ -3,7 +3,7 @@ use std::sync::Arc;
 use octo_types::skill::SkillDefinition;
 use octo_types::{SandboxId, SessionId, ToolContext, UserId};
 
-use crate::context::{ContextBudgetManager, ContextPruner};
+use crate::context::{CompactionPipeline, ContextBudgetManager, ContextPruner};
 use crate::event::TelemetryBus;
 use crate::hooks::HookRegistry;
 use crate::memory::store_traits::MemoryStore;
@@ -58,6 +58,8 @@ pub struct AgentLoopConfig {
     pub pruner: Option<ContextPruner>,
     /// Loop guard to prevent infinite loops and detect repetition.
     pub loop_guard: Option<LoopGuard>,
+    /// LLM-based compaction pipeline for summarizing old messages on PTL (AP-T6).
+    pub compaction_pipeline: Option<Arc<CompactionPipeline>>,
 
     // === Optional components ===
     /// Tool execution recorder for observability.
@@ -147,6 +149,7 @@ impl Default for AgentLoopConfig {
             budget: None,
             pruner: None,
             loop_guard: None,
+            compaction_pipeline: None,
             recorder: None,
             event_bus: None,
             hook_registry: None,
@@ -274,6 +277,11 @@ impl AgentLoopConfigBuilder {
 
     pub fn loop_guard(mut self, v: LoopGuard) -> Self {
         self.config.loop_guard = Some(v);
+        self
+    }
+
+    pub fn compaction_pipeline(mut self, v: Arc<CompactionPipeline>) -> Self {
+        self.config.compaction_pipeline = Some(v);
         self
     }
 

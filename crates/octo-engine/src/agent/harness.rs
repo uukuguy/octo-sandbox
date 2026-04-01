@@ -24,7 +24,8 @@ use super::estop::EStopReason;
 use super::self_repair::RepairResult;
 
 use crate::context::{
-    ContextPruner, DegradationLevel, MemoryFlusher, NewSystemPromptBuilder as SystemPromptBuilder,
+    CompactionContext, ContextPruner, DegradationLevel, MemoryFlusher,
+    NewSystemPromptBuilder as SystemPromptBuilder,
 };
 use crate::hooks::{HookAction, HookContext, HookPoint};
 use crate::providers::{LlmErrorKind, RetryPolicy};
@@ -70,7 +71,7 @@ fn tool_result_budget(context_window: usize) -> (usize, usize) {
 }
 
 /// Detect prompt-too-long errors from various LLM providers.
-fn is_prompt_too_long(err: &anyhow::Error) -> bool {
+pub(crate) fn is_prompt_too_long(err: &anyhow::Error) -> bool {
     let s = err.to_string().to_lowercase();
     s.contains("prompt_too_long")
         || s.contains("prompt is too long")
@@ -679,14 +680,55 @@ async fn run_agent_loop_inner(
                     warn!(
                         attempt = compact_attempts,
                         max = MAX_COMPACT_ATTEMPTS,
-                        "prompt_too_long detected, applying emergency truncation"
+                        "prompt_too_long detected, attempting compaction"
                     );
 
-                    // Emergency truncation via pruner
+                    // Try LLM-based compaction first (AP-T6 reactive compact)
+                    if let Some(ref pipeline) = config.compaction_pipeline {
+                        if let Some(ref provider) = config.provider {
+                            let ctx = CompactionContext {
+                                memory: config.memory.clone(),
+                                memory_store: config.memory_store.clone(),
+                                active_skill: config.active_skill.clone(),
+                                hook_registry: config.hook_registry.clone(),
+                                session_summary_store: config.session_summary_store.clone(),
+                                user_id: config.user_id.clone(),
+                                sandbox_id: config.sandbox_id.clone(),
+                                custom_instructions: None,
+                            };
+                            match pipeline
+                                .compact(&messages, provider.as_ref(), &config.model, &ctx)
+                                .await
+                            {
+                                Ok(result) => {
+                                    messages.clear();
+                                    messages.push(result.boundary_marker);
+                                    messages.extend(result.summary_messages);
+                                    messages.extend(result.kept_messages);
+                                    messages.extend(result.reinjections);
+
+                                    let _ = tx
+                                        .send(AgentEvent::ContextCompacted {
+                                            strategy: "llm_summary".into(),
+                                            pre_tokens: result.pre_compact_tokens,
+                                            post_tokens: result.post_compact_tokens,
+                                        })
+                                        .await;
+                                    // Do NOT trigger Stop hooks — prevents death spiral
+                                    continue;
+                                }
+                                Err(compact_err) => {
+                                    warn!("LLM compaction failed: {compact_err}, falling back to truncate");
+                                }
+                            }
+                        }
+                    }
+
+                    // Fallback: emergency truncation via pruner
                     let freed = pruner.apply(&mut messages, DegradationLevel::OverflowCompaction);
                     let _ = tx
                         .send(AgentEvent::ContextCompacted {
-                            strategy: "truncate_ptl".into(),
+                            strategy: "truncate_fallback".into(),
                             pre_tokens: 0,
                             post_tokens: freed,
                         })

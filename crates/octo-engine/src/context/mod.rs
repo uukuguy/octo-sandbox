@@ -1,6 +1,8 @@
 pub mod auto_compact;
 pub mod budget;
 pub mod builder;
+pub mod compact_prompt;
+pub mod compaction_pipeline;
 pub mod flush;
 pub mod fork;
 pub mod manager;
@@ -12,6 +14,9 @@ pub mod token_counter;
 pub use auto_compact::{AutoCompactConfig, AutoCompactSummary};
 pub use budget::{ContextBudgetManager, DegradationLevel};
 pub use builder::{estimate_messages_tokens, BootstrapFile, ContextBuilder, SystemPromptBuilder};
+pub use compaction_pipeline::{
+    CompactionContext, CompactionPipeline, CompactionPipelineConfig, CompactionResult,
+};
 pub use flush::MemoryFlusher;
 pub use fork::ContextFork;
 pub use manager::{ContextBudgetSnapshot, ContextManager, EstimateCounter, TokenCounter};
