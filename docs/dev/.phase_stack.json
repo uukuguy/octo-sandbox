@@ -3,6 +3,14 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase AJ — 多会话复用（Multi-Session Multiplexing）",
+      "completed_at": "2026-04-01T10:50:00+08:00",
+      "progress": "100%",
+      "commit": "819973f",
+      "tasks": "13/13 (G1 隔离 4 + G2 注册表 3 + G3 WS+REST 3 + G4 测试 3)",
+      "tests": 14
+    },
+    {
       "name": "Phase AI — WASM Component Model Hook 插件生态",
       "completed_at": "2026-03-31T01:15:00+08:00",
       "progress": "100%",
