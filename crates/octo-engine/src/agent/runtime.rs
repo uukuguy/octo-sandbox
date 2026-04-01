@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex as StdMutex};
+use std::time::Instant;
 
 use anyhow::Result;
 use dashmap::DashMap;
@@ -61,6 +62,8 @@ pub struct AgentRuntimeConfig {
     pub octo_root: Option<crate::root::OctoRoot>,
     /// Sandbox profile override (development/staging/production)
     pub sandbox_profile: Option<String>,
+    /// Maximum concurrent sessions (Phase AJ-T5, default: 64)
+    pub max_concurrent_sessions: Option<usize>,
 }
 
 impl AgentRuntimeConfig {
@@ -83,6 +86,7 @@ impl AgentRuntimeConfig {
             agents_dir: None,
             octo_root: None,
             sandbox_profile: None,
+            max_concurrent_sessions: None,
         }
     }
 
@@ -93,10 +97,31 @@ impl AgentRuntimeConfig {
     }
 }
 
+/// Default maximum concurrent sessions
+const DEFAULT_MAX_CONCURRENT_SESSIONS: usize = 64;
+
+/// 多会话注册表中的会话条目（Phase AJ-T5）
+pub struct SessionEntry {
+    /// AgentExecutor handle for sending messages and subscribing to events
+    pub handle: AgentExecutorHandle,
+    /// User who owns this session
+    pub user_id: UserId,
+    /// When this session was created
+    pub created_at: Instant,
+    /// Session-level tool registry (isolated from other sessions)
+    pub tools: Arc<StdMutex<ToolRegistry>>,
+}
+
 /// Session → AgentExecutorHandle 的注册表，同时持有所有共享运行时依赖
 pub struct AgentRuntime {
     /// 单一主 executor（单用户场景）- 使用 Mutex 实现内部可变性
     pub(crate) primary_handle: Mutex<Option<AgentExecutorHandle>>,
+    /// Phase AJ-T5: 多会话注册表 — SessionId → SessionEntry
+    pub(crate) sessions: DashMap<SessionId, SessionEntry>,
+    /// Phase AJ-T5: Primary session ID（兼容单用户模式）
+    pub(crate) primary_session_id: Mutex<Option<SessionId>>,
+    /// Phase AJ-T5: 最大并发会话数
+    pub(crate) max_concurrent_sessions: usize,
     /// AgentId → CancellationToken，用于 stop/pause 时取消正在运行的 AgentExecutor
     pub(crate) agent_handles: DashMap<AgentId, CancellationToken>,
     // 定义层
@@ -502,6 +527,9 @@ impl AgentRuntime {
 
         let runtime = Self {
             primary_handle: Mutex::new(None),
+            sessions: DashMap::new(),
+            primary_session_id: Mutex::new(None),
+            max_concurrent_sessions: config.max_concurrent_sessions.unwrap_or(DEFAULT_MAX_CONCURRENT_SESSIONS),
             agent_handles: DashMap::new(),
             catalog,
             provider,
@@ -941,6 +969,33 @@ impl AgentRuntime {
             }
         }
         Ok(())
+    }
+
+    // ── Phase AJ-T5: Multi-session registry getters ─────────────────────
+
+    /// Get session handle by session ID
+    pub fn get_session_handle(&self, session_id: &SessionId) -> Option<AgentExecutorHandle> {
+        self.sessions.get(session_id).map(|e| e.handle.clone())
+    }
+
+    /// List all active session IDs
+    pub fn active_sessions(&self) -> Vec<SessionId> {
+        self.sessions.iter().map(|e| e.key().clone()).collect()
+    }
+
+    /// Number of active sessions
+    pub fn active_session_count(&self) -> usize {
+        self.sessions.len()
+    }
+
+    /// Maximum concurrent sessions allowed
+    pub fn max_concurrent_sessions(&self) -> usize {
+        self.max_concurrent_sessions
+    }
+
+    /// Get primary session ID (if set)
+    pub async fn primary_session_id(&self) -> Option<SessionId> {
+        self.primary_session_id.lock().await.clone()
     }
 
     /// 获取主 AgentExecutorHandle（如果已启动）
