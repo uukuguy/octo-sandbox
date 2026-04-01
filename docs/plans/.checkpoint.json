@@ -1,13 +1,24 @@
 {
   "plan_file": "docs/plans/2026-03-31-phase-aj-multi-session-multiplexing.md",
-  "phase": "planning",
+  "phase": "executing",
   "created_at": "2026-03-31T13:30:00+08:00",
-  "updated_at": "2026-03-31T14:00:00+08:00",
-  "completed_tasks": [],
+  "updated_at": "2026-04-01T09:30:00+08:00",
+  "completed_tasks": [
+    "T1: ToolRegistry 分层 — session 级快照 + MCP handle 隔离",
+    "T2: Knowledge Graph 会话隔离 — 每 session 独立 KG 实例",
+    "T3: Memory Search 会话过滤 — fts_search/vector_search 加 session_id 参数",
+    "T4: MCP Manager 会话跟踪 — server_owners 所有权追踪",
+    "T5: SessionRegistry 数据结构 — sessions DashMap + primary_session_id + max_concurrent_sessions",
+    "T6: start_session/stop_session/get_session_handle API — build_and_spawn_executor 提取 + 会话限额保护",
+    "T7: 重构 start_primary() 复用 start_session() — 内部调用 start_session + 更新 primary_session_id",
+    "T8: WS 协议 session_id 路由 — /ws?session_id=xxx 查询参数路由 + primary fallback",
+    "T9: AppState 解耦 + REST 会话端点 — POST/DELETE/GET sessions + resolve_session_handle",
+    "T10: 配置项 + 会话上限保护 — SessionsConfig + env var overrides + AgentRuntimeConfig wiring"
+  ],
   "current_task": null,
   "total_tasks": 13,
   "phase_name": "Phase AJ — 多会话复用（Multi-Session Multiplexing）",
-  "status": "PLAN READY — awaiting user approval",
+  "status": "G1+G2+G3 COMPLETE — 会话隔离 4/4 + 注册表 3/3 + WS路由+REST API 3/3",
   "execution_mode": "subagent-driven-development",
   "branch": "main",
   "baseline": {
@@ -16,12 +27,18 @@
     "db_version": 12
   },
   "groups": {
-    "G1": { "name": "会话隔离修复", "tasks": 4, "status": "pending", "priority": "P0" },
-    "G2": { "name": "多会话注册表", "tasks": 3, "status": "pending", "priority": "P0" },
-    "G3": { "name": "WS 路由 + REST API", "tasks": 3, "status": "pending", "priority": "P1" },
+    "G1": { "name": "会话隔离修复", "tasks": 4, "status": "complete", "priority": "P0" },
+    "G2": { "name": "多会话注册表", "tasks": 3, "status": "complete", "priority": "P0" },
+    "G3": { "name": "WS 路由 + REST API", "tasks": 3, "status": "complete", "priority": "P1" },
     "G4": { "name": "测试", "tasks": 3, "status": "pending", "priority": "P1" }
   },
-  "commits": [],
+  "commits": [
+    "1ac1d7f feat(agent): session-scoped ToolRegistry snapshot (AJ-T1)",
+    "a17f052 feat(isolation): session-scoped KG, memory search filter, MCP ownership (AJ-T2/T3/T4)",
+    "f4cc987 feat(agent): add SessionRegistry data structure (AJ-T5)",
+    "857b884 feat(agent): multi-session lifecycle API with start_session/stop_session (AJ-T6/T7)",
+    "4dd05ed feat(server): WS session routing, REST session API, session config (AJ-T8/T9/T10)"
+  ],
   "deferred": [
     "AJ-D1: IPC 健康检查心跳",
     "AJ-D2: 崩溃恢复（EventStore 重放）",
