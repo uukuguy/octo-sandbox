@@ -3,6 +3,22 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase AM — 可观测性 + 运维工具",
+      "completed_at": "2026-04-01T17:00:00+08:00",
+      "progress": "100%",
+      "commits": ["e091341", "cfd4b50", "9a78665"],
+      "tasks": "6/6 (G1 Prometheus+JSON日志 2 + G2 Session监控+SSE 2 + G3 崩溃恢复+Provider监控 2)",
+      "db_version": 13
+    },
+    {
+      "name": "Phase AL — Web 前端完善 + 多会话 UI",
+      "completed_at": "2026-04-01T17:00:00+08:00",
+      "progress": "100%",
+      "commits": ["e091341", "cfd4b50", "17b4d63", "9a78665"],
+      "tasks": "7/7 (G1 SessionTab+WS状态 2 + G2 Markdown+消息交互 2 + G3 ErrorBoundary 1 + G4 MCP+Memory增强 2)",
+      "new_deps": ["react-markdown", "remark-gfm", "rehype-highlight", "highlight.js", "async-stream"]
+    },
+    {
       "name": "Phase AK — Server 安全加固 + 生产就绪",
       "completed_at": "2026-04-01T14:30:00+08:00",
       "progress": "100%",
