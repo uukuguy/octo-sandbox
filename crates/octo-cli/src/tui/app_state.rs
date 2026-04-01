@@ -226,6 +226,12 @@ pub struct TuiState {
     pub subagent_active_tools: Vec<ActiveTool>,
     /// Sub-agent completion summary (rounds, tool_calls) shown after completion.
     pub subagent_completed: Option<(u32, u32)>,
+
+    // ── Visual preferences ──
+    /// Reduced motion: suppress shimmer, breathing, and stalled color transitions.
+    pub reduced_motion: super::widgets::figures::ReducedMotion,
+    /// Reasoning effort level (0=low, 1=med, 2=high, 3=max) for status bar display.
+    pub effort_level: Option<u8>,
 }
 
 impl TuiState {
@@ -337,6 +343,8 @@ impl TuiState {
             subagent_thinking_text: String::new(),
             subagent_active_tools: Vec::new(),
             subagent_completed: None,
+            reduced_motion: super::widgets::figures::ReducedMotion::default(),
+            effort_level: None,
         }
     }
 

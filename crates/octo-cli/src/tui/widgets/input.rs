@@ -22,6 +22,9 @@ pub struct InputWidget<'a> {
     mode: &'a str,
     pending_count: usize,
     has_focus: bool,
+    is_streaming: bool,
+    has_overlay: bool,
+    has_approval: bool,
 }
 
 /// Result of rendering the input widget, including cursor position for IME.
@@ -38,7 +41,18 @@ impl<'a> InputWidget<'a> {
             mode,
             pending_count,
             has_focus: true,
+            is_streaming: false,
+            has_overlay: false,
+            has_approval: false,
         }
+    }
+
+    /// Set streaming/overlay/approval state for context-aware hotkey hints.
+    pub fn hint_context(mut self, is_streaming: bool, has_overlay: bool, has_approval: bool) -> Self {
+        self.is_streaming = is_streaming;
+        self.has_overlay = has_overlay;
+        self.has_approval = has_approval;
+        self
     }
 
     pub fn has_focus(mut self, focused: bool) -> Self {
@@ -155,8 +169,26 @@ impl Widget for InputWidget<'_> {
             ));
         }
 
-        let remaining_dashes = (area.width as usize).saturating_sub(used);
-        spans.push(Span::styled("\u{2500}".repeat(remaining_dashes), sep_style));
+        // Context-aware hotkey hints (right-aligned, middot-separated)
+        let hints = super::figures::hotkey_hints(self.is_streaming, self.has_overlay, self.has_approval);
+        let hint_text: String = hints
+            .iter()
+            .map(|(key, desc)| format!("{} {}", key, desc))
+            .collect::<Vec<_>>()
+            .join(&format!(" {} ", super::figures::separator::MIDDOT));
+        let hint_width = hint_text.len() + 2; // padding
+
+        let remaining = (area.width as usize).saturating_sub(used);
+        if remaining > hint_width + 4 {
+            let dash_count = remaining - hint_width;
+            spans.push(Span::styled("\u{2500}".repeat(dash_count), sep_style));
+            spans.push(Span::styled(
+                format!(" {} ", hint_text),
+                Style::default().fg(style_tokens::DIM_GREY),
+            ));
+        } else {
+            spans.push(Span::styled("\u{2500}".repeat(remaining), sep_style));
+        }
         let sep_line = Line::from(spans);
         buf.set_line(area.left(), area.top(), &sep_line, area.width);
 

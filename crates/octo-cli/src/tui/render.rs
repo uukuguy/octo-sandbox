@@ -153,7 +153,12 @@ fn render_input(state: &TuiState, frame: &mut Frame, area: Rect) {
         "NORMAL",
         0, // pending_count — future: message queue
     )
-    .has_focus(state.has_focus);
+    .has_focus(state.has_focus)
+    .hint_context(
+        state.is_streaming || state.is_thinking,
+        state.overlay != super::app_state::OverlayMode::None,
+        state.pending_approval.is_some(),
+    );
     let result = input_widget.render_with_cursor(area, frame.buffer_mut());
 
     // Set terminal cursor position for IME (Chinese input method) placement
@@ -172,7 +177,8 @@ fn render_status_bar(state: &TuiState, frame: &mut Frame, area: Rect) {
     .git_status(state.git_staged, state.git_modified, state.git_untracked, state.git_unpushed)
     .context_usage_pct(state.context_usage_pct)
     .session_elapsed(Some(state.session_start_time.elapsed()))
-    .tokens(state.total_input_tokens, state.total_output_tokens);
+    .tokens(state.total_input_tokens, state.total_output_tokens)
+    .effort_level(state.effort_level);
 
     frame.render_widget(widget, area);
 }

@@ -37,6 +37,8 @@ pub struct StatusBarWidget<'a> {
     output_tokens: u64,
     /// Sandbox profile name (e.g., "development", "staging", "production")
     sandbox_profile: Option<&'a str>,
+    /// Reasoning effort level (0=low, 1=med, 2=high, 3=max)
+    effort_level: Option<u8>,
 }
 
 /// Standalone activity indicator widget (1 row, shown between conversation and input).
@@ -75,21 +77,34 @@ impl ActivityIndicatorWidget {
 
 impl Widget for ActivityIndicatorWidget {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        use super::figures;
+
         if area.height == 0 {
             return;
         }
 
         let mut spans: Vec<Span> = Vec::new();
 
-        // Breathing animation: cycle amber hue based on elapsed milliseconds
         let elapsed_ms = self
             .task_elapsed
             .map(|d| d.as_millis() as u64)
             .unwrap_or(0);
+        let elapsed_secs = elapsed_ms / 1000;
+
+        // Stalled detection: shift color from amber → yellow → red
+        let stalled = figures::StalledState::from_elapsed_secs(elapsed_secs);
+        let (hue, sat, lightness_base) = stalled.breathing_params();
+
+        // Breathing animation with stalled-aware color
         let phase = (elapsed_ms as f64 / 2000.0) * std::f64::consts::TAU;
-        let lightness = 0.55 + 0.15 * phase.sin();
-        let (r, g, b) = hsl_to_rgb(35.0, 1.0, lightness);
+        let lightness = lightness_base + 0.15 * phase.sin();
+        let (r, g, b) = hsl_to_rgb(hue, sat, lightness);
         let breathing_color = ratatui::style::Color::Rgb(r, g, b);
+
+        // Thinking shimmer color (gentle blue-purple wave)
+        let shimmer_phase = (elapsed_ms as f64 / 3000.0) * std::f64::consts::TAU;
+        let (sr, sg, sb) = figures::shimmer_color(shimmer_phase);
+        let shimmer_color = ratatui::style::Color::Rgb(sr, sg, sb);
 
         // Spinner frame (braille dots)
         let spinner_frames = ['\u{28F7}', '\u{28EF}', '\u{28DF}', '\u{287F}', '\u{28BF}',
@@ -97,10 +112,22 @@ impl Widget for ActivityIndicatorWidget {
         let frame_idx = (elapsed_ms / 100) as usize % spinner_frames.len();
         let spinner = spinner_frames[frame_idx];
 
-        // Mode label
+        // Tick count for verb rotation (~10 ticks/sec at 100ms interval)
+        let tick_count = elapsed_ms / 100;
+
+        // Mode label: use spinner verbs for Thinking, static for Streaming
         let (mode_label, mode_color) = match self.agent_state {
-            AgentStateDisplay::Streaming => ("\u{25B8} Streaming", style_tokens::GREEN_LIGHT),
-            AgentStateDisplay::Thinking => ("\u{25E6} Thinking", style_tokens::MAGENTA),
+            AgentStateDisplay::Streaming => (
+                format!("{} Streaming", figures::arrow::RIGHT),
+                style_tokens::GREEN_LIGHT,
+            ),
+            AgentStateDisplay::Thinking => {
+                let verb = figures::spinner_verb(tick_count);
+                (
+                    format!("{} {}", figures::circle::EMPTY, verb),
+                    shimmer_color,
+                )
+            }
             AgentStateDisplay::Idle => return,
         };
 
@@ -113,10 +140,10 @@ impl Widget for ActivityIndicatorWidget {
             Style::default().fg(mode_color).add_modifier(Modifier::BOLD),
         ));
 
-        // Elapsed time
+        // Elapsed time with sub-second precision
         if let Some(elapsed) = self.task_elapsed {
             spans.push(Span::styled(
-                StatusBarWidget::format_elapsed(elapsed),
+                figures::format_elapsed_precise(elapsed),
                 Style::default().fg(breathing_color),
             ));
             spans.push(Span::styled("  ", Style::default()));
@@ -136,7 +163,7 @@ impl Widget for ActivityIndicatorWidget {
             let ti = StatusBarWidget::format_tokens(self.task_input_tokens);
             let to = StatusBarWidget::format_tokens(self.task_output_tokens);
             spans.push(Span::styled(
-                format!("\u{25B8}{ti} \u{25BE}{to}"),
+                format!("{}{ti} {}{to}", figures::arrow::RIGHT, figures::arrow::DOWN),
                 Style::default().fg(style_tokens::SUBTLE),
             ));
         }
@@ -162,12 +189,19 @@ impl<'a> StatusBarWidget<'a> {
             input_tokens: 0,
             output_tokens: 0,
             sandbox_profile: None,
+            effort_level: None,
         }
     }
 
     /// Set the sandbox profile to display.
     pub fn sandbox_profile(mut self, profile: Option<&'a str>) -> Self {
         self.sandbox_profile = profile;
+        self
+    }
+
+    /// Set the reasoning effort level (0=low, 1=med, 2=high, 3=max).
+    pub fn effort_level(mut self, level: Option<u8>) -> Self {
+        self.effort_level = level;
         self
     }
 
@@ -294,6 +328,16 @@ impl Widget for StatusBarWidget<'_> {
                 spans.push(Span::styled(
                     format!("\u{25CF} {}", profile),
                     Style::default().fg(profile_color),
+                ));
+                spans.push(sep.clone());
+            }
+
+            // Effort indicator (○◐●◉)
+            if let Some(level) = self.effort_level {
+                let (symbol, label) = super::figures::effort_indicator(level);
+                spans.push(Span::styled(
+                    format!("{} {}", symbol, label),
+                    Style::default().fg(style_tokens::SUBTLE),
                 ));
                 spans.push(sep.clone());
             }
@@ -496,7 +540,7 @@ mod tests {
 
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
         assert!(content.contains("Streaming"), "Should show Streaming label");
-        assert!(content.contains("5s"), "Should show elapsed time");
+        assert!(content.contains("5.0s"), "Should show elapsed time with sub-second precision");
         assert!(content.contains("2r 3t"), "Should show rounds and tool calls");
     }
 
@@ -514,7 +558,8 @@ mod tests {
         widget.render(area, &mut buf);
 
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
-        assert!(content.contains("Thinking"), "Should show Thinking label");
+        // At 12s (120 ticks), spinner_verb selects VERBS[120/80 = 1] = "Reasoning"
+        assert!(content.contains("Reasoning"), "Should show rotating spinner verb at 12s");
         assert!(content.contains("12s"), "Should show elapsed time");
     }
 
