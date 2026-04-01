@@ -896,6 +896,11 @@ impl AgentRuntime {
         self.metering.snapshot()
     }
 
+    /// Get raw metering Arc for reset operations
+    pub fn metering_arc(&self) -> &Arc<Metering> {
+        &self.metering
+    }
+
     /// Get security policy
     pub fn security_policy(&self) -> &Arc<SecurityPolicy> {
         &self.security_policy

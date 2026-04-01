@@ -70,6 +70,12 @@ impl AppState {
         octo_engine::audit::AuditStorage::new(&self.db_path).ok()
     }
 
+    /// Get metering storage on-demand (creates new async DB connection each time)
+    pub async fn metering_storage(&self) -> Option<octo_engine::metering::storage::MeteringStorage> {
+        let db = octo_engine::Database::open(self.db_path.to_str()?).await.ok()?;
+        Some(octo_engine::metering::storage::MeteringStorage::new(db))
+    }
+
     /// Resolve a session handle: if session_id is given, look up in agent_supervisor;
     /// otherwise return the primary agent_handle.
     #[allow(dead_code)]

@@ -7,10 +7,12 @@ pub mod eval_sessions;
 pub mod events;
 pub mod config;
 pub mod executions;
+pub mod knowledge_graph;
 pub mod mcp_logs;
 pub mod mcp_servers;
 pub mod mcp_tools;
 pub mod memories;
+pub mod metering;
 pub mod metrics;
 pub mod providers;
 pub mod scheduler;
@@ -87,6 +89,7 @@ pub fn routes() -> Router<Arc<AppState>> {
         .route("/budget", get(budget::get_budget))
         // Metrics, Audit, and Events
         .merge(metrics::router())
+        .merge(metering::router())
         .merge(audit::router())
         .merge(events::router())
         // MCP servers
@@ -109,4 +112,6 @@ pub fn routes() -> Router<Arc<AppState>> {
         .merge(sync::router())
         // Eval session endpoints (Phase G2)
         .merge(eval_sessions::router())
+        // Knowledge Graph (AO-T2)
+        .merge(knowledge_graph::router())
 }
