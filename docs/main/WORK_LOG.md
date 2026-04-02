@@ -1,5 +1,109 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-04-02 — Phase AS Deferred: 4 项遗留解决 @ 6acb2d1
+
+### 会话概要
+
+解决 Phase AS 全部 4 项 deferred items：InteractionGate 接线、SystemPromptBuilder 死代码清理、NotebookEdit 工具、Zone B+ importance 保底通道。总计 16 文件、+625/-281 行变更。
+
+### 完成内容
+
+**T1: InteractionGate 接线**
+- `AgentRuntime` 新增共享 `interaction_gate: Arc<InteractionGate>` 字段
+- `AgentExecutor` 使用 runtime 共享 gate（替代每 turn 新建）
+- `AskUserTool` + `ToolSearchTool` 注册到 runtime 默认工具
+- `ToolSearchTool` 从 `tokio::RwLock` 改为 `std::Mutex`（匹配 runtime 类型）
+- `octo-server/ws.rs`: 新增 `ClientMessage::InteractionResponse` + `ServerMessage::InteractionRequested`
+- `octo-platform-server/ws.rs`: 同步添加
+- `octo-cli/tui`: 处理 `InteractionRequested` 事件（显示提示，等待超时）
+
+**T2: SystemPromptBuilder 死代码清理**
+- 删除 `builder.rs` 中旧 `SystemPromptBuilder` + `ContextBuilder`（260+ 行）
+- 保留 `estimate_messages_tokens` 函数
+- 更新 `mod.rs`、`lib.rs`、`agent/context.rs` re-exports
+- 活跃 builder 在 `system_prompt.rs`（已有完整 PromptParts 支持）
+
+**T3: NotebookEdit 工具**
+- 新增 `tools/notebook_edit.rs`：.ipynb cell 编辑（insert/replace/delete）
+- 路径安全验证 + symlink 防御
+- 注册到 `default_tools()`
+- 3 个测试覆盖全部操作
+
+**T4: Zone B+ importance 保底通道**
+- `MemoryInjector::build_pinned_memories()` 按 importance≥0.8 取 top-5 记忆
+- 不依赖 FTS query，纯按重要性排序
+- 在 harness 初始化和 compaction rebuild 两处注入
+- 4 个新测试
+
+### 文件变更
+
+- `crates/octo-engine/src/agent/runtime.rs` — +interaction_gate 字段, AskUser/ToolSearch 注册
+- `crates/octo-engine/src/agent/executor.rs` — 共享 gate, 构造函数扩展
+- `crates/octo-engine/src/agent/harness.rs` — Zone B+ pinned 注入
+- `crates/octo-engine/src/context/builder.rs` — 删除旧 builder（-260 行）
+- `crates/octo-engine/src/context/mod.rs` — 更新 re-exports
+- `crates/octo-engine/src/lib.rs` — 更新 re-exports
+- `crates/octo-engine/src/memory/memory_injector.rs` — +build_pinned_memories +4 tests
+- `crates/octo-engine/src/tools/notebook_edit.rs` — 新文件
+- `crates/octo-engine/src/tools/mod.rs` — 注册 NotebookEditTool
+- `crates/octo-engine/src/tools/tool_search.rs` — StdMutex 替代 RwLock
+- `crates/octo-server/src/state.rs` — +interaction_gate
+- `crates/octo-server/src/ws.rs` — InteractionRequest/Response 消息
+- `crates/octo-platform-server/src/ws.rs` — 同上
+- `crates/octo-cli/src/tui/mod.rs` — InteractionRequested 事件处理
+
+### Phase AS 遗留状态
+
+所有 4 项已解决 ✅。Phase AS 完结。
+
+---
+
+## 2026-04-02 — Phase AS: CC-OSS 差距修复 + 记忆系统修复 + TUI 改善
+
+### 会话概要
+
+系统性审查 CC-OSS 功能差距并修复。发现并修复了 6 个未接线/设计偏差问题、3 个记忆系统 bug、多个 TUI 问题、以及 stream 错误处理缺陷。总计 5 个 commit、41 文件、~365 行变更。
+
+### 完成内容
+
+**Phase AS: CC-OSS 差距修复 @ 852e185**（6 项）:
+- P0: PermissionEngine 接入 harness 工具执行前 evaluate 检查
+- P0: CLAUDE.md/bootstrap 文件注入 LLM system prompt（with_bootstrap_dir）
+- P0: Blob 持久化修复 — 当前轮 LLM 看完整内容，历史存 blob 引用
+- P0: file_read 防御 blob 引用路径（清晰错误提示）
+- P1: Git context（branch/status/commits）注入 system prompt
+- P1: AgentLoopConfig 新增 working_dir + GitContext 字段
+
+**记忆系统修复 @ 9ab46fe**（3 项）:
+- user_id 统一 — ToolContext 新增 user_id 字段，消除 "default" vs "cli-user" 不一致
+- 定义 DEFAULT_USER_ID 常量，所有 memory_* 工具 + CLI 统一使用
+- FTS5 中文分词 — 新增 tokenize_for_fts()，CJK 逐字拆分 + Latin 按词拆分
+- 修复旧数据迁移（cli-user → default）
+
+**TUI 改善 @ 9ab46fe**:
+- 空闲状态无提示，流式仅 "Esc interrupt"
+- 修复分隔线缺口（空 hints 时填满横线）
+- Esc 中断整轮 — 工具执行共享 config.cancel_token
+
+**构建优化 @ 00c6dc2**:
+- Cargo workspace default-members 排除 octo-desktop（Tauri build.rs 重编译问题）
+- make cli-tui 依赖 build-cli 而非 build
+- 增量编译从 ~30s → <1s
+
+**Stream 错误重试 @ 7650365**:
+- consume_stream 错误新增重试机制（MAX_STREAM_ERROR_RETRIES=2，1s 间隔）
+- 避免 JSON 解析失败/连接中断时直接终止对话
+
+### 其他修复
+- rust-analyzer proc-macro 版本不匹配：wrapper 脚本 /usr/local/bin/rust-analyzer
+- 旧 DB 记忆迁移：./data/octo.db → ~/.octo/projects/.../octo.db
+
+### 遗留问题
+- P1-#4: InteractionGate 未接线（ask_user 有独立 channel，需更大重构）
+- P2-#8: 双 SystemPromptBuilder 共存（builder.rs 死代码）
+- P3-#7: 缺少 NotebookEdit 工具
+- 记忆系统：Zone B+ 仅靠 FTS 搜索注入，高 importance 记忆无保底通道
+
 ## 2026-04-01 — Phase AO: octo-server 功能完善（10/10 + 2 stubs）
 
 ### 会话概要
