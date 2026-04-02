@@ -1,5 +1,58 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-04-02 — Phase AT: 提示词体系增强 + 编译优化 @ c1fad3d
+
+### 会话概要
+
+完成 Octo 提示词体系增强（4 大领域），修复 pinned memories 回显 bug，实施编译优化。23 文件，+886/-55 行。
+
+### 完成内容
+
+**T1: System Prompt 静态段增强**
+- 新增 `GIT_WORKFLOW_SECTION`：commit/PR 安全协议（~25 行）
+- 新增 `CYBER_RISK_SECTION`：安全约束（URL 禁令、授权测试范围）
+- 新增 `PERMISSION_SECTION`：权限模式说明（Development/Preferred/Strict）
+- 新增 `SUBAGENT_SECTION`：子智能体专属行为指导
+- `with_subagent_mode()` builder 方法
+
+**T2: System Prompt 动态段增强**
+- `with_environment_info(platform, shell, os, model)` — 运行环境注入
+- `with_token_budget(max_output, context_window)` — token 预算注入
+- Harness 从 `builder.build()` 切换到 `builder.build_separated().merge()` 为 prompt caching 做准备
+
+**T3: Tool Description 接线**
+- 8 个核心工具接线到 `prompts.rs` 详细描述：bash, file_read, file_edit, file_write, grep, glob, web_search, web_fetch
+- 每个工具从 1 行短描述升级为 CC-OSS 风格的完整使用手册（含 When to use / NOT to use / Best practices）
+
+**T4: Pinned Memories 修复**
+- Cross-session 和 pinned memories 从 user message 移至 system prompt（防止 LLM 在工具结果中回显）
+- `CompactionResult` 新增 `system_prompt_additions` 字段
+- `rebuild_state()` 返回 `(Vec<ChatMessage>, String)` 元组
+- XML 标签包裹 `<pinned-memories>` / `<cross-session-memory>`
+
+**T5: 编译优化**
+- Feature gate：WASM/Docker/PDF 从 default 移除，加 `full` feature（cold build 112s → 83s）
+- `codegen-units` 256 → 16（匹配 M3 Max 16 核）
+- Makefile 新增 `build-full`、`build-cli-full`，`release` 自动带 `--features full`
+- `PhantomData` import 修复（docker.rs 在 sandbox-docker feature 关闭时）
+- 更新 `RUST_BUILD_OPTIMIZATION.md` 编译瓶颈分析
+
+### 测试结果
+- `cargo check --workspace` 通过
+- 21 个 system_prompt 相关测试全部通过
+- 13 个 memory_injector 测试全部通过
+
+### Deferred
+| ID | 内容 | 前置条件 |
+|----|------|----------|
+| AT-D1 | MCP instructions 从 rmcp InitializeResult 提取 | rmcp 0.16 instructions 字段确认 |
+| AT-D2 | SecurityPolicy 当前值动态注入 | SecurityPolicy 可序列化为人类可读文本 |
+| AT-D3 | Coordinator prompt（多 agent 编排模式） | Coordinator 架构设计 |
+| AT-D4 | 补全所有 memory/skill 工具的详细 description | 当前 9 个核心工具优先 |
+| AT-D5 | Anthropic prompt caching API（cache_control） | ApiRequest.system 改为数组格式 |
+
+---
+
 ## 2026-04-02 — Phase AS Deferred: 4 项遗留解决 @ 6acb2d1
 
 ### 会话概要

@@ -1,8 +1,8 @@
 # octo-sandbox 下一会话指南
 
-**最后更新**: 2026-04-02 08:30 GMT+8
+**最后更新**: 2026-04-02 21:30 GMT+8
 **当前分支**: `main`
-**当前状态**: Phase AR 完成，无活跃 Phase
+**当前状态**: Phase AT 完成，无活跃 Phase
 
 ---
 
@@ -28,28 +28,30 @@
 - Phase AP: 追赶 CC-OSS (18 tasks + 4 deferred resolved)
 - Phase AQ: 自主能力 + 智能交互 (6 tasks + integration wiring)
 - **Phase AR: CC-OSS 缺口补齐 (7 tasks, 3 waves) @ beb741b**
+- **Phase AT: 提示词体系增强 + 编译优化 (T1-T5) @ c1fad3d**
 
 ### 最新提交
 ```
-12e6a20 docs: Phase AR complete — checkpoint + memory index updated
-beb741b feat(engine): Phase AR — CC-OSS gap closure (7 tasks, 3 waves, ~660 lines)
-c0d3b4e checkpoint: save Phase AR design checkpoint
-e0de3c2 docs: Phase AR design — CC-OSS gap closure (7 tasks, 3 waves, ~660 lines)
+c1fad3d feat(engine): Phase AT — prompt system enhancement + build optimization
+886d1b3 perf(runtime): parallelize MCP server connections for instant TUI startup
+a30617a docs: update WORK_LOG with Phase AS deferred resolution
+6acb2d1 feat(engine): Phase AS deferred — InteractionGate wiring, dead code cleanup, NotebookEdit, Zone B+ pinned
 ```
 
 ### 测试基线
 - 2476+ tests passing（建议跑全量确认：`cargo test --workspace -- --test-threads=1`）
 - DB Version: 13
-- 新增 29 个测试覆盖 Phase AR 功能
+- System prompt 相关 21 测试通过，memory injector 13 测试通过
 
 ---
 
 ## 下一步优先级
 
-1. **功能整合测试** — 验证 TokenEscalation、TranscriptWriter、BlobGc 在实际 LLM 交互中的端到端行为
-2. **前端跟进** — Fork/Rewind UI 组件（AR-D2），MCP 工具面板增强
-3. **部署管道** — CI/CD pipeline，容器镜像发布
-4. **平台分支** — octo-platform-server 多租户功能
+1. **Anthropic Prompt Caching API** — AT-D5: ApiRequest.system 改为数组格式 + cache_control 标记
+2. **MCP Instructions 注入** — AT-D1: 从 rmcp InitializeResult 提取 server instructions
+3. **前端跟进** — Fork/Rewind UI 组件（AR-D2），MCP 工具面板增强
+4. **部署管道** — CI/CD pipeline，容器镜像发布
+5. **平台分支** — octo-platform-server 多租户功能
 
 ---
 
@@ -59,6 +61,11 @@ e0de3c2 docs: Phase AR design — CC-OSS gap closure (7 tasks, 3 waves, ~660 lin
 
 | 来源计划 | ID | 内容 | 前置条件 |
 |---------|----|----|---------|
+| Phase AT | AT-D1 | MCP instructions 从 rmcp InitializeResult 提取 | rmcp 0.16 instructions 字段确认 |
+| Phase AT | AT-D2 | SecurityPolicy 当前值动态注入 | SecurityPolicy 可序列化为人类可读文本 |
+| Phase AT | AT-D3 | Coordinator prompt（多 agent 编排模式） | Coordinator 架构设计 |
+| Phase AT | AT-D4 | 补全所有 memory/skill 工具的详细 description | 当前 9 个核心工具优先 |
+| Phase AT | AT-D5 | Anthropic prompt caching API（cache_control） | ApiRequest.system 改为数组格式 |
 | Phase AR | AR-D1 | TranscriptWriter 压缩归档（gzip 老 transcript） | T2 完成 + 存储策略确定 |
 | Phase AR | AR-D2 | Fork API 前端 UI（分支可视化） | T4 完成 + 前端 thread 组件 |
 | Phase AR | AR-D3 | TriggerSource Redis/NATS 具体实现 | T6 完成 + 消息队列部署 |

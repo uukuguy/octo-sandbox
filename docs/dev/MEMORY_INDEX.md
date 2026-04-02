@@ -7,6 +7,8 @@
 
 ## [Active Work]
 
+- 2026-04-02 21:30 | **PHASE AT COMPLETE** — Prompt system enhancement: +4 static sections (Git/Cyber/Permission/SubAgent), +2 dynamic (env info/token budget), harness→build_separated(), 8 tools wired to prompts.rs. Build optimization: feature-gate WASM/Docker/PDF (112s→83s), codegen-units 16. Memory fix: pinned→system prompt. 23 files, +886/-55 lines @ c1fad3d.
+- 2026-04-02 14:10 | **PHASE AS DEFERRED ALL RESOLVED** — InteractionGate wired (runtime→executor, WS handlers, TUI), SystemPromptBuilder dead code removed (-260 lines), NotebookEdit tool added, Zone B+ pinned memories (importance≥0.8). 16 files, +625/-281 lines, 40 tests @ 6acb2d1. Phase AS fully complete.
 - 2026-04-02 08:30 | **PHASE AR COMPLETE (7/7 tasks)** — W1: TokenEscalation+TranscriptWriter+BlobGc. W2: Fork/Rewind API+REST endpoints. W3: TriggerSource+ChannelTrigger+PollingTrigger+TriggerListener+hybrid tool search. 29 tests, 1250 lines @ beb741b. Resolved AP-D2/D6/D7, AQ-D2/D3/D4/D5. Deferred: AR-D1~D4.
 - 2026-04-02 08:00 | **Phase AR 设计完成** — CC-OSS 缺口补齐 (7 tasks, 3 waves, ~660 lines). T1 TokenEscalation, T2 SessionTranscript, T3 BlobGC, T4 Fork/Rewind, T5 Webhook, T6 MQ trigger, T7 semantic search. 解锁 AP-D2/D6/D7 + AQ-D2/D3/D4/D5.
 - 2026-04-02 07:00 | **Phase AQ 接线完成** — BlobStore 自动 blob 化接入 harness (>4KB→blob ref)。自主 tick 外循环接入 harness (sleep→tick msg→continue)。InteractionGate+BlobStore 在 executor 中创建并传入 loop_config @ 4f15000。44 tests pass.
