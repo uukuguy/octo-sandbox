@@ -343,6 +343,9 @@ impl AgentExecutor {
                         ))
                     };
 
+                    // --- Phase AS: Collect git context for system prompt ---
+                    let git_context = collect_git_context(&self.working_dir);
+
                     // Build AgentLoopConfig directly (D5 Stage 3)
                     let loop_config = AgentLoopConfig {
                         max_iterations: if self.config.max_rounds == 0 {
@@ -375,6 +378,8 @@ impl AgentExecutor {
                         interaction_gate: Some(interaction_gate),
                         blob_store: Some(blob_store),
                         transcript_writer: Some(transcript_writer.clone()),
+                        working_dir: Some(self.working_dir.clone()),
+                        git_context,
                         ..AgentLoopConfig::default()
                     };
 
@@ -685,4 +690,47 @@ impl AgentExecutor {
             }
         }
     }
+}
+
+/// Collect git context (branch, status, recent commits) from the working directory.
+/// Returns None if not a git repo or git is unavailable.
+fn collect_git_context(working_dir: &std::path::Path) -> Option<super::loop_config::GitContext> {
+    use std::process::Command;
+
+    // Quick check: is this a git repo?
+    let branch = Command::new("git")
+        .args(["rev-parse", "--abbrev-ref", "HEAD"])
+        .current_dir(working_dir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())?;
+
+    let status = Command::new("git")
+        .args(["status", "--short"])
+        .current_dir(working_dir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| {
+            let s = String::from_utf8_lossy(&o.stdout);
+            // Limit to first 20 lines to avoid bloating system prompt
+            s.lines().take(20).collect::<Vec<_>>().join("\n")
+        })
+        .unwrap_or_default();
+
+    let recent_commits = Command::new("git")
+        .args(["log", "--oneline", "-5"])
+        .current_dir(working_dir)
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .unwrap_or_default();
+
+    Some(super::loop_config::GitContext {
+        branch,
+        status,
+        recent_commits,
+    })
 }

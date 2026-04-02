@@ -247,6 +247,14 @@ async fn run_agent_loop_inner(
         if let Some(ref active_skill) = config.active_skill {
             builder = builder.with_active_skill(active_skill);
         }
+        // Phase AS: Load CLAUDE.md and other bootstrap files from working directory
+        if let Some(ref wd) = config.working_dir {
+            builder = builder.with_bootstrap_dir(wd);
+        }
+        // Phase AS: Inject git status into system prompt
+        if let Some(ref git) = config.git_context {
+            builder = builder.with_git_status(&git.branch, &git.status, &git.recent_commits);
+        }
         let mut prompt = builder.build();
         // Canary injection: append token AFTER build to prevent override
         if let Some(ref canary) = config.canary_token {
@@ -1174,6 +1182,46 @@ async fn run_agent_loop_inner(
             .map(|m| m.clone())
             .unwrap_or_else(|| Arc::new(ApprovalManager::dev_mode()));
 
+        // --- Phase AS: PermissionEngine pre-check (before ApprovalManager) ---
+        // Deny rules block immediately; Ask rules fall through to ApprovalManager.
+        let mut permission_blocked = false;
+        if let Some(ref perm_engine) = config.permission_engine {
+            for (tu, input) in &parsed_tools {
+                let decision = perm_engine.evaluate(&tu.name, input);
+                match decision {
+                    crate::security::permission_types::PermissionDecision::Deny { reason, .. } => {
+                        warn!(tool = %tu.name, %reason, "Tool denied by PermissionEngine");
+                        let _ = tx
+                            .send(AgentEvent::Error {
+                                message: format!("Tool '{}' denied by permission policy: {reason}", tu.name),
+                            })
+                            .await;
+                        permission_blocked = true;
+                        break;
+                    }
+                    _ => {
+                        // Allow, Ask, UseToolDefault — proceed to ApprovalManager
+                    }
+                }
+            }
+        }
+        if permission_blocked {
+            // Return a tool error so the LLM can retry with different approach
+            let error_results: Vec<ContentBlock> = parsed_tools
+                .iter()
+                .map(|(tu, _)| ContentBlock::ToolResult {
+                    tool_use_id: tu.id.clone(),
+                    content: "Tool execution denied by permission policy.".to_string(),
+                    is_error: true,
+                })
+                .collect();
+            messages.push(ChatMessage {
+                role: MessageRole::User,
+                content: error_results,
+            });
+            continue;
+        }
+
         let tool_outputs: Vec<_> = if config.agent_config.enable_parallel {
             // --- T3-4: Approval check for parallel tools (before batch execution) ---
             let mut approval_blocked = false;
@@ -1441,6 +1489,7 @@ async fn run_agent_loop_inner(
 
         // --- Process tool results ---
         let mut tool_results: Vec<ContentBlock> = Vec::new();
+        let mut blob_replacements: Vec<(usize, String)> = Vec::new();
         for (tu, input, result) in tool_outputs {
             total_tool_calls += 1;
 
@@ -1578,9 +1627,10 @@ async fn run_agent_loop_inner(
             }
 
             // --- BlobStore: externalize large tool results (AQ-T3) ---
-            // Current round sees full output (trimmed_output). Blob reference replaces
-            // the content for future session reloads to save context tokens.
-            let stored_output = if let Some(ref blob_store) = config.blob_store {
+            // Current round: LLM sees full output (trimmed_output) so it can reason.
+            // After push to messages: replace with blob reference to save context tokens
+            // on future rounds and session reloads.
+            let blob_ref = if let Some(ref blob_store) = config.blob_store {
                 if trimmed_output.len() > crate::storage::blob_store::BLOB_THRESHOLD_BYTES {
                     match blob_store.store(trimmed_output.as_bytes()) {
                         Ok(hash) => {
@@ -1590,31 +1640,48 @@ async fn run_agent_loop_inner(
                                 original_size = trimmed_output.len(),
                                 "Tool output externalized to blob store"
                             );
-                            crate::storage::blob_store::BlobStore::format_blob_ref(&hash)
+                            Some(crate::storage::blob_store::BlobStore::format_blob_ref(&hash))
                         }
                         Err(e) => {
                             warn!(tool = %tu.name, error = %e, "Failed to store blob, keeping inline");
-                            trimmed_output
+                            None
                         }
                     }
                 } else {
-                    trimmed_output
+                    None
                 }
             } else {
-                trimmed_output
+                None
             };
 
             tool_results.push(ContentBlock::ToolResult {
                 tool_use_id: tu.id.clone(),
-                content: stored_output,
+                content: trimmed_output,  // LLM sees full content this round
                 is_error: result.is_error,
             });
+            // Track which tool_results indices need blob replacement after LLM sees them
+            if let Some(ref_str) = blob_ref {
+                blob_replacements.push((tool_results.len() - 1, ref_str));
+            }
         }
 
         messages.push(ChatMessage {
             role: MessageRole::User,
             content: tool_results,
         });
+
+        // Replace large tool outputs with blob references in the persisted history.
+        // The LLM has already seen the full content above; subsequent rounds and
+        // session reloads will see compact blob refs instead.
+        if !blob_replacements.is_empty() {
+            if let Some(last_msg) = messages.last_mut() {
+                for (idx, ref_str) in blob_replacements.drain(..) {
+                    if let Some(ContentBlock::ToolResult { content, .. }) = last_msg.content.get_mut(idx) {
+                        *content = ref_str;
+                    }
+                }
+            }
+        }
 
         // --- Per-round memory extraction (AP-D5) ---
         if let (Some(ref mut extractor), Some(ref store)) =

@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use std::sync::Arc;
 
 use octo_types::skill::SkillDefinition;
@@ -163,6 +164,22 @@ pub struct AgentLoopConfig {
     // === Transcript Writer (Phase AR-T2) ===
     /// Append-only JSONL transcript for session audit trail.
     pub transcript_writer: Option<Arc<crate::session::TranscriptWriter>>,
+
+    // === Working Directory (Phase AS) ===
+    /// Working directory for bootstrap file discovery (CLAUDE.md etc.) and git context.
+    pub working_dir: Option<PathBuf>,
+
+    // === Git Context (Phase AS) ===
+    /// Pre-collected git context (branch, status, recent commits) for system prompt injection.
+    pub git_context: Option<GitContext>,
+}
+
+/// Pre-collected git information for system prompt injection.
+#[derive(Debug, Clone)]
+pub struct GitContext {
+    pub branch: String,
+    pub status: String,
+    pub recent_commits: String,
 }
 
 impl Default for AgentLoopConfig {
@@ -214,6 +231,8 @@ impl Default for AgentLoopConfig {
             interaction_gate: None,
             blob_store: None,
             transcript_writer: None,
+            working_dir: None,
+            git_context: None,
         }
     }
 }
@@ -475,6 +494,16 @@ impl AgentLoopConfigBuilder {
 
     pub fn transcript_writer(mut self, v: Arc<crate::session::TranscriptWriter>) -> Self {
         self.config.transcript_writer = Some(v);
+        self
+    }
+
+    pub fn working_dir(mut self, v: PathBuf) -> Self {
+        self.config.working_dir = Some(v);
+        self
+    }
+
+    pub fn git_context(mut self, v: GitContext) -> Self {
+        self.config.git_context = Some(v);
         self
     }
 

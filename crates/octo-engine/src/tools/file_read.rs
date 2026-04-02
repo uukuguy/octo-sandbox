@@ -112,6 +112,20 @@ impl Tool for FileReadTool {
         let offset = params["offset"].as_u64().unwrap_or(1).max(1) as usize;
         let limit = params["limit"].as_u64().unwrap_or(2000) as usize;
 
+        // Defensive: detect blob references passed as file paths.
+        // This can happen if the LLM sees a [blob:sha256:...] reference from a prior
+        // turn and mistakenly tries to read it as a file.
+        if crate::storage::BlobStore::parse_blob_ref(path_str).is_some()
+            || path_str.starts_with("blob:")
+        {
+            return Ok(ToolOutput::error(
+                "This path is a blob reference, not a file path. \
+                 The original content was already shown in the tool result above. \
+                 Do not attempt to file_read blob references."
+                    .to_string(),
+            ));
+        }
+
         let path = if std::path::Path::new(path_str).is_absolute() {
             std::path::PathBuf::from(path_str)
         } else {
