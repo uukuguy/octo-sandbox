@@ -3,6 +3,15 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase AR — CC-OSS 缺口补齐",
+      "completed_at": "2026-04-02T08:30:00+08:00",
+      "progress": "100%",
+      "commits": ["beb741b"],
+      "tasks": "7/7 (W1: TokenEscalation+TranscriptWriter+BlobGc, W2: Fork/Rewind API, W3: TriggerSource+Webhook+MQ+HybridSearch)",
+      "tests": 29,
+      "deferred": ["AR-D1", "AR-D2", "AR-D3", "AR-D4"]
+    },
+    {
       "name": "Phase AQ — 自主能力 + 智能交互",
       "completed_at": "2026-04-02T06:30:00+08:00",
       "progress": "100%",
