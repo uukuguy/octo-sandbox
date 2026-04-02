@@ -238,6 +238,7 @@ impl AgentRuntime {
         tenant_context: Option<TenantContext>,
     ) -> Result<Self, AgentError> {
         // 1. Open database
+        let _rt_start = std::time::Instant::now();
         let db = Database::open(&config.db_path)
             .await
             .map_err(|e| AgentError::Internal(format!("Failed to open database: {}", e)))?;
@@ -318,6 +319,7 @@ impl AgentRuntime {
         ));
 
         // 7. Create ToolRegistry with default + memory + knowledge graph + skills
+
         let mut tools = default_tools();
         register_memory_tools(&mut tools, memory_store.clone(), provider.clone());
         register_working_memory_tools(&mut tools, memory.clone());
@@ -335,6 +337,7 @@ impl AgentRuntime {
         register_scheduler_tools(&mut tools, scheduler_storage);
 
         // 8. Create and load SkillRegistry
+
         let skill_registry = Arc::new(SkillRegistry::new());
         // Determine skills loading paths from OctoRoot (if available) or legacy config
         let should_load_skills = config.octo_root.is_some() || !config.skills_dirs.is_empty();
@@ -393,6 +396,7 @@ impl AgentRuntime {
         };
 
         // 10. TelemetryBus + EventStore initialization
+
         let db2 = Database::open(&config.db_path)
             .await
             .map_err(|e| AgentError::Internal(format!("Failed to open event DB: {}", e)))?;
@@ -416,8 +420,9 @@ impl AgentRuntime {
         };
 
         // 11. McpManager initialization — auto-load from mcp.json if available
+
         let (mcp_manager, deferred_mcp_configs) = {
-            let mut mgr = McpManager::new();
+            let mgr = McpManager::new();
 
             // Collect config paths to load (highest priority first):
             // 1. $PROJECT/.octo/mcp.json    (octo-native, project-level)
@@ -445,15 +450,6 @@ impl AgentRuntime {
                 match McpManager::load_config(path) {
                     Ok(configs) => {
                         for server_config in configs {
-                            if !server_config.auto_start {
-                                tracing::info!(
-                                    server = %server_config.name,
-                                    config = %path.display(),
-                                    "Deferring MCP server with autoStart=false (will connect in background)"
-                                );
-                                deferred_configs.push(server_config);
-                                continue;
-                            }
                             if loaded_names.contains(&server_config.name) {
                                 tracing::debug!(
                                     server = %server_config.name,
@@ -462,26 +458,10 @@ impl AgentRuntime {
                                 );
                                 continue;
                             }
-                            let name = server_config.name.clone();
-                            match mgr.add_server(server_config).await {
-                                Ok(tools) => {
-                                    tracing::info!(
-                                        server = %name,
-                                        tools = tools.len(),
-                                        config = %path.display(),
-                                        "Auto-loaded MCP server from config"
-                                    );
-                                    loaded_names.insert(name);
-                                }
-                                Err(e) => {
-                                    tracing::warn!(
-                                        server = %name,
-                                        config = %path.display(),
-                                        error = %e,
-                                        "Failed to auto-load MCP server (will continue without it)"
-                                    );
-                                }
-                            }
+                            // All servers connect in background for fast startup.
+                            // autoStart=true servers are prioritized but still non-blocking.
+                            loaded_names.insert(server_config.name.clone());
+                            deferred_configs.push(server_config);
                         }
                     }
                     Err(e) => {
@@ -498,7 +478,7 @@ impl AgentRuntime {
                 tracing::info!(
                     count = loaded_names.len(),
                     servers = ?loaded_names,
-                    "MCP servers auto-loaded from config"
+                    "MCP servers will connect in background"
                 );
             }
 
@@ -506,6 +486,7 @@ impl AgentRuntime {
         };
 
         // 12. Working directory
+
         let working_dir = config.working_dir.unwrap_or_else(|| {
             std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/tmp/octo-sandbox"))
         });
@@ -715,6 +696,7 @@ impl AgentRuntime {
             team_manager: Arc::new(TeamManager::new()),
         };
 
+
         // 17. Load declarative YAML agent definitions (if configured)
         if let Some(ref dir) = config.agents_dir {
             let loader = crate::agent::AgentManifestLoader::new(dir);
@@ -758,16 +740,17 @@ impl AgentRuntime {
             tools_guard.register(crate::tools::tool_search::ToolSearchTool::new(runtime.tools.clone()));
         }
 
-        // 19. Spawn background tasks for deferred MCP servers (autoStart=false)
+        // 19. Spawn background tasks for MCP servers (parallel, non-blocking)
+        // All servers now connect in background for instant startup.
         if !deferred_mcp_configs.is_empty() {
-            let mcp_mgr = runtime.mcp_manager.clone();
-            let tools_registry = runtime.tools.clone();
             let count = deferred_mcp_configs.len();
-            tracing::info!(count, "Spawning background connection for deferred MCP servers");
-            tokio::spawn(async move {
-                for config in deferred_mcp_configs {
-                    let name = config.name.clone();
-                    tracing::debug!(server = %name, "Background: connecting deferred MCP server");
+            tracing::info!(count, "Spawning parallel background connections for MCP servers");
+            for server_config in deferred_mcp_configs {
+                let mcp_mgr = runtime.mcp_manager.clone();
+                let tools_registry = runtime.tools.clone();
+                let name = server_config.name.clone();
+                tokio::spawn(async move {
+                    tracing::debug!(server = %name, "Background: connecting MCP server");
 
                     // Mark as starting
                     {
@@ -779,14 +762,14 @@ impl AgentRuntime {
                     }
 
                     // Connect outside the lock
-                    let mut client = StdioMcpClient::new(config.clone());
+                    let mut client = StdioMcpClient::new(server_config);
                     match client.connect().await {
                         Ok(()) => {}
                         Err(e) => {
                             tracing::warn!(
                                 server = %name,
                                 error = %e,
-                                "Background: failed to connect deferred MCP server"
+                                "Background: failed to connect MCP server"
                             );
                             let mut guard = mcp_mgr.lock().await;
                             guard.set_runtime_state(
@@ -795,7 +778,7 @@ impl AgentRuntime {
                                     message: e.to_string(),
                                 },
                             );
-                            continue;
+                            return;
                         }
                     }
 
@@ -806,7 +789,7 @@ impl AgentRuntime {
                             tracing::warn!(
                                 server = %name,
                                 error = %e,
-                                "Background: failed to list tools from deferred MCP server"
+                                "Background: failed to list tools from MCP server"
                             );
                             let mut guard = mcp_mgr.lock().await;
                             guard.set_runtime_state(
@@ -815,14 +798,14 @@ impl AgentRuntime {
                                     message: e.to_string(),
                                 },
                             );
-                            continue;
+                            return;
                         }
                     };
 
                     tracing::info!(
                         server = %name,
                         tool_count = tools.len(),
-                        "Background: deferred MCP server connected"
+                        "Background: MCP server connected"
                     );
 
                     let client_arc: Arc<tokio::sync::RwLock<Box<dyn crate::mcp::traits::McpClient>>> =
@@ -846,10 +829,11 @@ impl AgentRuntime {
                             tools_guard.register(bridge);
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
+        tracing::info!("AgentRuntime::new() completed in {:?}", _rt_start.elapsed());
         Ok(runtime)
     }
 
