@@ -1,5 +1,55 @@
 # octo-sandbox 工作日志
 
+## Phase AR — CC-OSS 缺口补齐 (2026-04-02)
+
+### 完成内容
+
+解锁 7 个追赶 CC-OSS 的必选 deferred 项，分 3 个 Wave 交付。
+
+**Wave 1: 基础设施增强 (T1+T2+T3)**
+- `token_escalation.rs`: 阶梯式 max_tokens 自动升级器（4096→8192→16384→32768→65536），截断时先升档再重试，省一轮 ContinuationTracker 调用
+- `transcript.rs`: 追加式 JSONL 会话抄本，每轮结束写入 TranscriptEntry（preview+blob_ref+tokens）
+- `blob_gc.rs`: BlobStore GC，TTL（7天）+ 容量（1GB）双重策略清理
+
+**Wave 2: 会话管理增强 (T4)**
+- `executor.rs`: AgentMessage::Rewind/Fork 变体 + handle 方法
+- `harness.rs`: `rewind_messages()` 按 turn 截断对话历史
+- `sessions.rs`: POST /sessions/{id}/rewind 和 /fork REST 端点
+
+**Wave 3: 外部集成 (T5+T6+T7)**
+- `autonomous_trigger.rs`: TriggerSource trait + ChannelTriggerSource（webhook→内部调度）+ PollingTriggerSource（MQ 轮询适配）+ TriggerListener 后台统一监听
+- `autonomous.rs` (server): POST /autonomous/trigger webhook 端点
+- `tool_search.rs`: hybrid_search_tools() 混合搜索 — 子串匹配 + Jaccard token-overlap 语义 fallback
+
+### 技术变更
+- 新增 5 个文件，修改 9 个文件，+1250 行
+- AgentLoopConfig 新增 transcript_writer 字段
+- harness.rs 在 MaxTokens 分支前插入 TokenEscalation 逻辑
+- executor.rs 每轮结束调用 write_transcript() 写入新消息
+
+### 测试结果
+- 29 个新测试全部通过
+  - token_escalation: 4, transcript: 6, blob_gc: 4, rewind: 4
+  - autonomous_trigger: 4, hybrid_search: 3, tokenize: 1, jaccard: 2, dedup: 1, plus extras
+- workspace 编译通过（0 errors）
+
+### 解决的 Deferred 项
+- AP-D2 → TokenEscalation (T1)
+- AP-D6 → TranscriptWriter (T2)
+- AP-D7 → Rewind/Fork API (T4)
+- AQ-D2 → BlobGc (T3)
+- AQ-D3 → hybrid_search_tools (T7)
+- AQ-D4 → ChannelTriggerSource + webhook (T5)
+- AQ-D5 → PollingTriggerSource + TriggerListener (T6)
+
+### 新增 Deferred 项
+- AR-D1: TranscriptWriter 压缩归档（gzip 老 transcript）
+- AR-D2: Fork API 前端 UI（分支可视化）
+- AR-D3: TriggerSource Redis/NATS 具体实现
+- AR-D4: 语义搜索 index 持久化（避免每次重建）
+
+---
+
 ## Phase AH — Hook 系统增强：三层混合架构 (2026-03-30)
 
 ### 完成内容
