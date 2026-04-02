@@ -1,16 +1,24 @@
 {
-  "active_phases": [
-    {
-      "name": "Phase AP — 追赶 CC-OSS",
-      "started_at": "2026-04-01T20:00:00+08:00",
-      "checkpoint": "docs/plans/.checkpoint.json",
-      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "78% + 4 deferred",
-      "last_updated": "2026-04-02T03:15:00+08:00"
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase AQ — 自主能力 + 智能交互",
+      "completed_at": "2026-04-02T06:30:00+08:00",
+      "progress": "100%",
+      "commits": ["dcb10f1", "6288dc2", "bf051f5"],
+      "tasks": "6/6 (W1: InteractionGate+AskUserTool+ToolSearchTool, W2: BlobStore, W3: AutonomousTick+PauseResume, W4: AuditLog)",
+      "tests": 29,
+      "deferred": ["AQ-D1", "AQ-D2", "AQ-D3", "AQ-D4", "AQ-D5"]
+    },
+    {
+      "name": "Phase AP — 追赶 CC-OSS",
+      "completed_at": "2026-04-02T04:30:00+08:00",
+      "progress": "100%",
+      "commits": ["dca72da", "ab4a961", "044a3ec", "76573c7", "f9b869b", "b8bdebb", "eec4847", "d8b77e6", "a780041", "efe0718"],
+      "tasks": "18/18 + 4 deferred resolved",
+      "tests": 50
+    },
     {
       "name": "Phase AO — octo-server 功能完善",
       "completed_at": "2026-04-01T19:30:00+08:00",
