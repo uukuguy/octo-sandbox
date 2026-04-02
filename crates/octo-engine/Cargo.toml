@@ -58,7 +58,9 @@ tiktoken-rs = { version = "0.6", optional = true }
 rcgen = { version = "0.13", optional = true }
 
 [features]
-default = ["sandbox-wasm", "sandbox-docker", "tiktoken", "file-parsing"]
+default = ["tiktoken"]
+# Enable all optional heavy features (WASM sandbox, Docker sandbox, PDF/Excel parsing)
+full = ["sandbox-wasm", "sandbox-docker", "file-parsing"]
 file-parsing = ["dep:calamine", "dep:pdf-extract", "dep:zip"]
 sandbox-wasm = ["dep:wasmtime", "dep:wasmtime-wasi", "dep:base64"]
 sandbox-docker = ["dep:bollard", "dep:base64"]

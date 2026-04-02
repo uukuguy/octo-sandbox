@@ -62,8 +62,12 @@ pub struct CompactionResult {
     pub summary_messages: Vec<ChatMessage>,
     /// Recent messages kept verbatim (not compacted).
     pub kept_messages: Vec<ChatMessage>,
-    /// Re-injected state messages (Zone B, Zone B+, skill context).
+    /// Re-injected state messages (Zone B, skill context).
     pub reinjections: Vec<ChatMessage>,
+    /// Text to append to system prompt (cross-session memory, pinned memories).
+    /// Kept in system prompt so LLM treats them as background context
+    /// and does not repeat them in tool results or responses.
+    pub system_prompt_additions: String,
     /// Estimated token count before compaction.
     pub pre_compact_tokens: usize,
     /// Estimated token count after compaction.
@@ -159,7 +163,7 @@ impl CompactionPipeline {
         let formatted = Self::format_summary(&summary_text);
 
         // 5. Rebuild state
-        let reinjections = Self::rebuild_state(context).await;
+        let (reinjections, sys_additions) = Self::rebuild_state(context).await;
 
         // 6. Assemble result
         let boundary_marker = ChatMessage {
@@ -194,6 +198,7 @@ impl CompactionPipeline {
             summary_messages: vec![summary_msg],
             kept_messages: kept,
             reinjections,
+            system_prompt_additions: sys_additions,
             pre_compact_tokens: pre_tokens,
             post_compact_tokens: post_tokens,
         })
@@ -358,9 +363,10 @@ impl CompactionPipeline {
     // State rebuild
     // -----------------------------------------------------------------------
 
-    /// Re-inject Zone B (working memory), Zone B+ (cross-session), Zone B++
-    /// (session summaries), active skill context, and fire SessionStart hooks.
-    async fn rebuild_state(ctx: &CompactionContext) -> Vec<ChatMessage> {
+    /// Re-inject Zone B (working memory), Zone B++ (session summaries),
+    /// active skill context, and fire SessionStart hooks.
+    /// Returns (reinjection_messages, system_prompt_additions).
+    async fn rebuild_state(ctx: &CompactionContext) -> (Vec<ChatMessage>, String) {
         let mut reinjections = Vec::new();
 
         // Zone B: working memory
@@ -378,18 +384,17 @@ impl CompactionPipeline {
             }
         }
 
-        // Zone B+: cross-session memory (FTS search + importance pinned)
+        // Zone B+: cross-session memory + pinned memories → system prompt additions
+        // (NOT user messages, so LLM treats them as background context)
+        let mut sys_additions = String::new();
         if let Some(ref store) = ctx.memory_store {
             let injector = MemoryInjector::with_defaults();
             let cross = injector
                 .build_memory_context(store.as_ref(), ctx.user_id.as_str(), "")
                 .await;
             if !cross.is_empty() {
-                reinjections.push(ChatMessage {
-                    role: MessageRole::User,
-                    content: vec![ContentBlock::Text { text: cross }],
-                });
-                debug!("Reinjected Zone B+ cross-session memory");
+                sys_additions.push_str(&cross);
+                debug!("System prompt addition: cross-session memory {} chars", cross.len());
             }
 
             // Phase AS: Importance-based pinned memories (safety net for high-importance entries)
@@ -397,11 +402,8 @@ impl CompactionPipeline {
                 .build_pinned_memories(store.as_ref(), ctx.user_id.as_str(), 0.8, 5, &[])
                 .await;
             if !pinned.is_empty() {
-                reinjections.push(ChatMessage {
-                    role: MessageRole::User,
-                    content: vec![ContentBlock::Text { text: pinned }],
-                });
-                debug!("Reinjected Zone B+ pinned high-importance memories");
+                sys_additions.push_str(&pinned);
+                debug!("System prompt addition: pinned memories {} chars", pinned.len());
             }
         }
 
@@ -448,7 +450,7 @@ impl CompactionPipeline {
             debug!("Fired SessionStart hooks for state rebuild");
         }
 
-        reinjections
+        (reinjections, sys_additions)
     }
 }
 

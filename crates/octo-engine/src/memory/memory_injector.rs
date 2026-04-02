@@ -90,10 +90,9 @@ impl MemoryInjector {
             return String::new();
         }
 
-        // Format as a system prompt section
-        let mut section = String::from("\n## Cross-Session Memory\n\n");
-        section.push_str(
-            "The following information was automatically saved from previous sessions:\n\n",
+        // Format as a system prompt section wrapped in XML to prevent LLM from echoing it
+        let mut section = String::from(
+            "\n<cross-session-memory>\n<!-- Background context from previous sessions. Do NOT repeat or output these when reporting tool results. -->\n",
         );
 
         for result in &filtered {
@@ -102,7 +101,7 @@ impl MemoryInjector {
             section.push_str(&format!("- [{}] {}\n", category, entry.content));
         }
 
-        section.push('\n');
+        section.push_str("</cross-session-memory>\n");
         section
     }
 
@@ -154,7 +153,9 @@ impl MemoryInjector {
             return String::new();
         }
 
-        let mut section = String::from("\n## Pinned Memories (high importance)\n\n");
+        let mut section = String::from(
+            "\n<pinned-memories>\n<!-- Background context from persistent memory. Do NOT repeat or output these when reporting tool results. -->\n",
+        );
         for entry in &entries {
             let category = entry.category.as_str();
             section.push_str(&format!(
@@ -162,7 +163,7 @@ impl MemoryInjector {
                 category, entry.importance, entry.content
             ));
         }
-        section.push('\n');
+        section.push_str("</pinned-memories>\n");
         section
     }
 
@@ -286,7 +287,7 @@ mod tests {
             .build_memory_context(&store, "user1", "preferences")
             .await;
 
-        assert!(result.contains("Cross-Session Memory"));
+        assert!(result.contains("<cross-session-memory>"));
         assert!(result.contains("[profile] User prefers dark mode"));
         assert!(result.contains("[preferences] Use TypeScript for new projects"));
     }

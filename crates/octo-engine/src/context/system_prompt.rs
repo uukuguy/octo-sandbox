@@ -15,7 +15,7 @@ use octo_types::skill::SkillDefinition;
 
 use crate::agent::entry::AgentManifest;
 
-const CORE_INSTRUCTIONS: &str = r#"You are Octo, an AI coding assistant running inside a sandboxed environment.
+const CORE_INSTRUCTIONS: &str = r#"You are Octo, an AI autonomous agent running inside a sandboxed environment.
 
 You have access to tools for executing commands, reading and writing files, searching codebases, and browsing the web. Use these tools to help users with software engineering tasks.
 
@@ -138,6 +138,46 @@ Focus text output on:
 If you can say it in one sentence, don't use three. This does not apply to code or tool calls.
 "#;
 
+const GIT_WORKFLOW_SECTION: &str = r#"## Git Operations
+
+### Committing Changes
+- Only create commits when requested by the user. If unclear, ask first.
+- Summarize the nature of the changes in the commit message (feat/fix/refactor/docs).
+- Do not commit files that likely contain secrets (.env, credentials.json, etc.).
+- Prefer specific `git add <files>` over `git add -A` to avoid committing sensitive files.
+- NEVER amend published commits without explicit user approval.
+
+### Safety Protocol
+- NEVER force-push to main/master — warn the user if they request it.
+- NEVER skip hooks (--no-verify) unless the user explicitly requests it.
+- NEVER run destructive git commands (push --force, reset --hard, checkout .) unless explicitly requested.
+- When pre-commit hooks fail, fix the issue and create a NEW commit instead of amending.
+- Before destructive operations, check for uncommitted work that could be lost.
+
+### Pull Requests
+- Keep PR titles short (under 70 chars), use the body for details.
+- Include a summary section and test plan in the PR body.
+- Always push to remote before creating a PR.
+"#;
+
+const CYBER_RISK_SECTION: &str = r#"## Security Constraints
+
+- Assist with authorized security testing, defensive security, CTF challenges, and educational contexts.
+- Refuse requests for destructive techniques, DoS attacks, mass targeting, supply chain compromise, or detection evasion for malicious purposes.
+- NEVER generate or guess URLs unless confident they help with programming tasks.
+- When working with sensitive data, flag potential privacy or security concerns to the user.
+"#;
+
+const PERMISSION_SECTION: &str = r#"## Permission Awareness
+
+The system enforces a security policy that controls which tools you can use and what actions are auto-approved.
+- **Development mode**: Most operations auto-approved. Destructive operations still require confirmation.
+- **Preferred mode**: Standard operations auto-approved. File writes, git operations require approval.
+- **Strict mode**: All operations require explicit user approval.
+
+When a tool call is denied, do NOT re-attempt the exact same call. Adjust your approach or ask the user for guidance. The current security policy level will be communicated via system tags when relevant.
+"#;
+
 const AUTONOMOUS_PROMPT: &str = r#"## Autonomous Running Mode
 
 You are running autonomously. You will receive `<tick>` prompts as heartbeats — treat them as "you're awake, check if there's work to do."
@@ -159,6 +199,22 @@ You are running autonomously. You will receive `<tick>` prompts as heartbeats �
 ### User Presence
 - When user is online: more collaborative — confirm before major decisions
 - When user is offline: fully autonomous — decide, execute, commit
+"#;
+
+const SUBAGENT_SECTION: &str = r#"## Sub-Agent Mode
+
+You are running as a sub-agent spawned by a parent agent. Your scope is limited to the delegated task.
+
+### Behavior
+- Focus exclusively on the delegated task. Do not explore unrelated code or make unsolicited changes.
+- Return results concisely — the parent agent will synthesize your output with other sub-agents.
+- Do not ask the user questions directly — if you need clarification, include it in your result and let the parent decide.
+- Do not commit code or push to remote — the parent agent handles git operations.
+
+### Communication
+- Your text output goes back to the parent agent, not directly to the user.
+- Be factual and structured in your responses (use bullet points, code blocks).
+- If you encounter an error or blocker, describe it clearly so the parent can decide next steps.
 "#;
 
 /// Bootstrap file that gets loaded into system prompt
@@ -229,6 +285,8 @@ pub struct SystemPromptBuilder {
     user_context: Option<String>,
     /// Whether autonomous mode prompt section should be included.
     autonomous_mode: bool,
+    /// Whether sub-agent mode prompt section should be included.
+    subagent_mode: bool,
 }
 
 impl SystemPromptBuilder {
@@ -242,6 +300,7 @@ impl SystemPromptBuilder {
             skill_index_section: None,
             active_skill_section: None,
             autonomous_mode: false,
+            subagent_mode: false,
             datetime: None,
             mcp_status: None,
             session_state: None,
@@ -355,6 +414,12 @@ impl SystemPromptBuilder {
         self
     }
 
+    /// Enable the sub-agent mode prompt section.
+    pub fn with_subagent_mode(mut self, enabled: bool) -> Self {
+        self.subagent_mode = enabled;
+        self
+    }
+
     // -- Dynamic content setters --
 
     /// Set current date/time string (routed to `dynamic_context` in `build_separated`).
@@ -399,6 +464,45 @@ impl SystemPromptBuilder {
             branch, status, recent_commits
         );
         self.session_state = Some(git_info);
+        self
+    }
+
+    /// Inject runtime environment information as dynamic context.
+    pub fn with_environment_info(
+        mut self,
+        platform: &str,
+        shell: &str,
+        os_version: &str,
+        model: &str,
+    ) -> Self {
+        let info = format!(
+            "## Environment\n- Platform: {}\n- Shell: {}\n- OS: {}\n- Model: {}",
+            platform, shell, os_version, model
+        );
+        // Append to session_state (which also holds git status)
+        match self.session_state {
+            Some(ref mut ss) => {
+                ss.push_str("\n\n");
+                ss.push_str(&info);
+            }
+            None => self.session_state = Some(info),
+        }
+        self
+    }
+
+    /// Inject token budget awareness as dynamic context.
+    pub fn with_token_budget(mut self, max_output_tokens: usize, context_window: usize) -> Self {
+        let info = format!(
+            "## Token Budget\n- Model context window: {} tokens\n- Max output tokens per response: {}",
+            context_window, max_output_tokens
+        );
+        match self.session_state {
+            Some(ref mut ss) => {
+                ss.push_str("\n\n");
+                ss.push_str(&info);
+            }
+            None => self.session_state = Some(info),
+        }
         self
     }
 
@@ -492,10 +596,18 @@ impl SystemPromptBuilder {
         parts.push(ACTIONS_SECTION.to_string());
         parts.push(USING_TOOLS_SECTION.to_string());
         parts.push(OUTPUT_EFFICIENCY_SECTION.to_string());
+        parts.push(GIT_WORKFLOW_SECTION.to_string());
+        parts.push(CYBER_RISK_SECTION.to_string());
+        parts.push(PERMISSION_SECTION.to_string());
 
         // Autonomous mode section (appended when enabled)
         if self.autonomous_mode {
             parts.push(AUTONOMOUS_PROMPT.to_string());
+        }
+
+        // Sub-agent mode section (appended when enabled)
+        if self.subagent_mode {
+            parts.push(SUBAGENT_SECTION.to_string());
         }
 
         let mut output = parts.join("\n\n");

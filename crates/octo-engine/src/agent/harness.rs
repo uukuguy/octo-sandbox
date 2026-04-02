@@ -238,7 +238,7 @@ async fn run_agent_loop_inner(
         }
     }
 
-    // --- Zone A: Build system prompt ---
+    // --- Zone A: Build system prompt (static + dynamic separated for prompt caching) ---
     let mut system_prompt = {
         let mut builder = SystemPromptBuilder::new();
         if let Some(ref manifest) = config.manifest {
@@ -254,11 +254,21 @@ async fn run_agent_loop_inner(
         if let Some(ref wd) = config.working_dir {
             builder = builder.with_bootstrap_dir(wd);
         }
-        // Phase AS: Inject git status into system prompt
+        // Phase AS: Inject git status into system prompt (dynamic)
         if let Some(ref git) = config.git_context {
             builder = builder.with_git_status(&git.branch, &git.status, &git.recent_commits);
         }
-        let mut prompt = builder.build();
+        // Phase AT: Inject environment info (dynamic)
+        let platform = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
+        let shell = std::env::var("SHELL").unwrap_or_else(|_| "unknown".into());
+        let os_version = std::env::var("OSTYPE").unwrap_or_else(|_| std::env::consts::OS.to_string());
+        builder = builder.with_environment_info(&platform, &shell, &os_version, &config.model);
+        // Phase AT: Inject token budget (dynamic)
+        builder = builder.with_token_budget(config.max_tokens as usize, 200_000);
+
+        // Use build_separated() for future prompt caching support
+        let parts = builder.build_separated();
+        let mut prompt = parts.merge();
         // Canary injection: append token AFTER build to prevent override
         if let Some(ref canary) = config.canary_token {
             prompt.push_str("\n\n<!-- CANARY: ");
@@ -279,7 +289,9 @@ async fn run_agent_loop_inner(
         debug!("Zone B injected: working memory {} chars", memory_xml.len());
     }
 
-    // --- Zone B+: Cross-session memory injection (Phase AG) ---
+    // --- Zone B+: Cross-session memory injection into system prompt (Phase AG) ---
+    // Inject into system_prompt (not user messages) so LLM treats them as background
+    // context and does not repeat them in tool results or responses.
     if let Some(ref store) = config.memory_store {
         let first_user_query = messages
             .iter()
@@ -292,9 +304,9 @@ async fn run_agent_loop_inner(
                 .build_memory_context(store.as_ref(), config.user_id.as_str(), &first_user_query)
                 .await;
             if !cross_session.is_empty() {
-                loop_steps::inject_zone_b(&mut messages, &cross_session);
+                system_prompt.push_str(&cross_session);
                 debug!(
-                    "Zone B+ injected: cross-session memory {} chars",
+                    "System prompt: cross-session memory appended, {} chars",
                     cross_session.len()
                 );
             }
@@ -304,8 +316,8 @@ async fn run_agent_loop_inner(
                 .build_pinned_memories(store.as_ref(), config.user_id.as_str(), 0.8, 5, &[])
                 .await;
             if !pinned.is_empty() {
-                loop_steps::inject_zone_b(&mut messages, &pinned);
-                debug!("Zone B+ injected: pinned high-importance memories {} chars", pinned.len());
+                system_prompt.push_str(&pinned);
+                debug!("System prompt: pinned memories appended, {} chars", pinned.len());
             }
         }
     }
@@ -748,6 +760,11 @@ async fn run_agent_loop_inner(
                                     messages.extend(result.summary_messages);
                                     messages.extend(result.kept_messages);
                                     messages.extend(result.reinjections);
+
+                                    // Append cross-session + pinned memories to system prompt
+                                    if !result.system_prompt_additions.is_empty() {
+                                        system_prompt.push_str(&result.system_prompt_additions);
+                                    }
 
                                     let _ = tx
                                         .send(AgentEvent::ContextCompacted {

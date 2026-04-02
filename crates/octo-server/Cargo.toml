@@ -5,6 +5,7 @@ version.workspace = true
 
 [features]
 default = []
+full = ["octo-engine/full"]
 sandbox-wasm = ["octo-engine/sandbox-wasm"]
 sandbox-docker = ["octo-engine/sandbox-docker"]
 tls = ["octo-engine/tls", "dep:axum-server"]

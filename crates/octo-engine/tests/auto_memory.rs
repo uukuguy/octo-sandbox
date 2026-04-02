@@ -286,7 +286,7 @@ async fn test_memory_injector_output_format() {
         .await;
 
     assert!(
-        result.contains("Cross-Session Memory"),
+        result.contains("<cross-session-memory>"),
         "Output should contain header"
     );
     assert!(
@@ -298,8 +298,8 @@ async fn test_memory_injector_output_format() {
         "Should include second entry"
     );
     assert!(
-        result.contains("automatically saved from previous sessions"),
-        "Should contain explanatory text"
+        result.contains("Do NOT repeat or output these"),
+        "Should contain instruction text"
     );
 }
 

@@ -85,8 +85,8 @@ octo-sandbox = { path = "crates/octo-sandbox" }
 # split-debuginfo: macOS 上可加速 linking ~70%
 # "unpacked" 将 debug info 拆分为独立文件，避免链接器处理大量 DWARF 数据
 split-debuginfo = "unpacked"
-# 最大化 codegen 并行度 (dev 构建不需要优化质量)
-codegen-units = 256
+# codegen 并行度匹配 M3 Max 16 核 (256 过高会增加 linker 合并开销)
+codegen-units = 16
 # 增量编译 (默认开启，显式声明确保不被覆盖)
 incremental = true
 
@@ -94,4 +94,4 @@ incremental = true
 # 第三方依赖用 opt-level=1: 编译时间增加很小，但运行速度提升明显
 # 依赖只编译一次，之后都走缓存
 opt-level = 1
-codegen-units = 256
+codegen-units = 16

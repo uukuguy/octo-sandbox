@@ -3,6 +3,10 @@ name = "octo-platform-server"
 edition.workspace = true
 version.workspace = true
 
+[features]
+default = []
+full = ["octo-engine/full"]
+
 [dependencies]
 octo-types = { workspace = true }
 octo-engine = { workspace = true }

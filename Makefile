@@ -43,16 +43,23 @@ config-gen:
 check:
 	cargo check --workspace
 
-# 编译构建
+# 编译构建 (日常开发, 不含 WASM/Docker/PDF)
 build:
 	cargo build
+
+# 完整构建 (含 WASM/Docker/PDF 等全部功能)
+build-full:
+	cargo build --features full
 
 build-cli:
 	cargo build -p octo-cli --bin octo
 
-# 编译构建 (release)
+build-cli-full:
+	cargo build -p octo-cli --bin octo --features full
+
+# 编译构建 (release, 含全部功能)
 release:
-	cargo build --release
+	cargo build --release --features full
 
 # 运行后端服务器 (exec ensures Ctrl+C reaches the server directly)
 server:

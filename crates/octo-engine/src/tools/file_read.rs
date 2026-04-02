@@ -78,9 +78,7 @@ impl Tool for FileReadTool {
     }
 
     fn description(&self) -> &str {
-        "Read the contents of a file. Supports text files (with line numbers), CSV/TSV, \
-         Excel spreadsheets (xlsx/xls/ods), PDF documents, ZIP archives, and JSON/JSONL. \
-         For unsupported binary formats, returns file info and suggests alternative approaches."
+        super::prompts::FILE_READ_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {

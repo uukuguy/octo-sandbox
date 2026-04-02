@@ -226,7 +226,7 @@ impl Tool for BashTool {
     }
 
     fn description(&self) -> &str {
-        "Execute a bash command. Returns stdout, stderr, and exit code."
+        super::prompts::BASH_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {

@@ -28,7 +28,7 @@ impl Tool for FileWriteTool {
     }
 
     fn description(&self) -> &str {
-        "Write content to a file. Creates the file if it doesn't exist, or overwrites it if it does. Creates parent directories as needed."
+        super::prompts::FILE_WRITE_DESCRIPTION
     }
 
     fn parameters(&self) -> Value {
