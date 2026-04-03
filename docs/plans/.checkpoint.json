@@ -1,8 +1,8 @@
 {
   "plan_file": "docs/plans/2026-04-03-phase-au-autonomous-mode-completion.md",
-  "phase": "planned",
+  "phase": "complete",
   "created_at": "2026-04-03T10:45:00+08:00",
-  "updated_at": "2026-04-03T10:45:00+08:00",
+  "updated_at": "2026-04-03T11:30:00+08:00",
   "completed_tasks": ["G1-AutonomousControl+harness-select", "G2-AutonomousScheduler", "G3-WS-event-forwarding", "G4-session-pause-resume-api", "G5-webhook-trigger-wiring"],
   "current_task": null,
   "total_tasks": 5,
@@ -14,7 +14,7 @@
     "tests": "TBD (run after prior session commit)",
     "commit": "uncommitted (prior session changes pending)",
     "db_version": 13,
-    "notes": "Phase AQ/AR autonomous foundation complete. 5 gaps remain from AUTONOMOUS_MODE_DESIGN.md"
+    "notes": "Phase AU complete. All 5 gaps resolved. Additional: TUI completeness audit done, fix design saved, CLI autonomous entry deferred."
   },
   "waves": {
     "wave1": {
