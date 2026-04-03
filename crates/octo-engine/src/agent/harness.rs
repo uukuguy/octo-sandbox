@@ -1034,6 +1034,23 @@ async fn run_agent_loop_inner(
         // Reset stream error counter on successful stream consumption
         stream_error_count = 0;
 
+        // AV-D1: Finalize streaming executor and cache results to avoid re-execution.
+        // Safe tools that were already executed during streaming will be served from cache.
+        let mut streaming_cache: HashMap<String, ToolOutput> = if let Some(exec) = streaming_exec.take() {
+            let results = exec.finalize().await;
+            let count = results.len();
+            let cache: HashMap<String, ToolOutput> = results
+                .into_iter()
+                .map(|(tool_use_id, _name, output)| (tool_use_id, output))
+                .collect();
+            if !cache.is_empty() {
+                debug!(cached = count, "AV-D1: Streaming executor finalized, cached results");
+            }
+            cache
+        } else {
+            HashMap::new()
+        };
+
         // Update budget with actual usage
         budget.update_actual_usage(stream_result.input_tokens, messages.len());
 
@@ -1833,6 +1850,20 @@ async fn run_agent_loop_inner(
                         outputs.push((tu, input.clone(), result));
                         continue;
                     }
+                }
+
+                // AV-D1: Use cached streaming result if available (skip re-execution).
+                if let Some(cached) = streaming_cache.remove(&tu.id) {
+                    debug!(tool = %tu.name, "AV-D1: Using cached streaming execution result");
+                    let result = postprocess_tool_output(
+                        cached,
+                        &tu.name,
+                        config.session_id.as_str(),
+                        0, // duration already elapsed during streaming
+                        tool_hard_limit,
+                    );
+                    outputs.push((tu, input.clone(), result));
+                    continue;
                 }
 
                 let exec_start = std::time::Instant::now();

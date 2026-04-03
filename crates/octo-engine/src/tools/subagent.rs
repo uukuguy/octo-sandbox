@@ -109,15 +109,39 @@ impl Tool for SpawnSubAgentTool {
         }
 
         // Build child config from parent template
+        // AV-D4: If parent is a coordinator, enforce worker tool restrictions
+        let coordinator_filter = self
+            .parent_config
+            .manifest
+            .as_ref()
+            .filter(|m| m.coordinator)
+            .map(|m| {
+                if m.worker_allowed_tools.is_empty() {
+                    crate::agent::coordinator::CoordinatorConfig::default_worker_tools()
+                } else {
+                    m.worker_allowed_tools.clone()
+                }
+            });
+
         let tools = if let Some(whitelist) = params["tools_whitelist"].as_array() {
-            let names: Vec<String> = whitelist
+            let mut names: Vec<String> = whitelist
                 .iter()
                 .filter_map(|v| v.as_str().map(String::from))
                 .collect();
+            // If coordinator, intersect LLM's whitelist with coordinator's allowed tools
+            if let Some(ref allowed) = coordinator_filter {
+                names.retain(|n| allowed.contains(n));
+            }
             self.parent_config
                 .tools
                 .as_ref()
                 .map(|t| Arc::new(t.snapshot_filtered(&names)))
+        } else if let Some(ref allowed) = coordinator_filter {
+            // No whitelist from LLM, but coordinator has restrictions → enforce them
+            self.parent_config
+                .tools
+                .as_ref()
+                .map(|t| Arc::new(t.snapshot_filtered(allowed)))
         } else {
             self.parent_config.tools.clone()
         };
