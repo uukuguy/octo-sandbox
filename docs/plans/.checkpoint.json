@@ -1,51 +1,43 @@
 {
-  "plan_file": "docs/plans/2026-04-03-phase-ax-builtin-agents.md",
+  "plan_file": "docs/plans/2026-04-03-phase-ay-subagent-runtime.md",
   "phase": "design",
-  "created_at": "2026-04-03T16:30:00+08:00",
-  "updated_at": "2026-04-03T17:10:00+08:00",
-  "completed_tasks": ["T1-manifest-fields", "T2-builtin-registry", "T3-snapshot-excluded", "T4-agent-type-routing"],
-  "current_task": "T5-skill-preloading",
+  "created_at": "2026-04-03T18:30:00+08:00",
+  "updated_at": "2026-04-03T18:30:00+08:00",
+  "completed_tasks": [],
+  "current_task": null,
   "total_tasks": 7,
-  "phase_name": "Phase AX — Builtin Agents",
-  "status": "W1+W2 complete (T1-T4), W3 next (T5-T7)",
+  "phase_name": "Phase AY — SubAgent Runtime 完整生命周期",
+  "status": "Design complete, ready for execution",
   "execution_mode": null,
   "branch": "main",
   "baseline": {
-    "tests": "2576+ (Phase AW)",
-    "commit": "26733d8",
+    "tests": "2576+ (Phase AW) + 17 (Phase AX)",
+    "commit": "d0b1990",
     "db_version": 13,
-    "notes": "Phase AX design complete. 7 tasks across 3 waves targeting ~750 lines, ~16 tests."
+    "notes": "Phase AY design complete. 7 tasks across 2 waves. SubAgentRuntime + AgentTool rename + ExecuteSkillTool convergence."
   },
   "waves": {
     "wave1": {
-      "description": "AgentManifest 扩展 + BuiltinAgentRegistry",
-      "tasks": ["T1-manifest-fields", "T2-builtin-registry"],
-      "status": "complete",
-      "commit": "489edb7"
+      "description": "SubAgentRuntime 核心 + 工具重命名 + 清理 agents/ YAML",
+      "tasks": ["T1-subagent-runtime", "T2-agent-tool-rename", "T3-skill-convergence", "T4-delete-agents-yaml"],
+      "status": "pending"
     },
     "wave2": {
-      "description": "SpawnSubAgentTool agent_type 路由",
-      "tasks": ["T3-snapshot-excluded", "T4-agent-type-routing"],
-      "status": "complete",
-      "commit": "68a49a7"
-    },
-    "wave3": {
-      "description": "Skill preloading + 集成验证",
-      "tasks": ["T5-skill-preloading", "T6-description-enhance", "T7-verify"],
+      "description": "生命周期增强：事件转发 + Drop guard + 验证",
+      "tasks": ["T5-event-sender", "T6-drop-guard", "T7-verify"],
       "status": "pending"
     }
   },
   "deferred": {
-    "AX-D1": { "status": "pending", "description": "per-agent permissionMode" },
-    "AX-D2": { "status": "pending", "description": "per-agent MCP servers" },
-    "AX-D3": { "status": "pending", "description": "per-agent hooks" },
-    "AX-D4": { "status": "pending", "description": "ExecuteSkillTool background mode" },
-    "AX-D5": { "status": "pending", "description": "YAML agent files directory" },
-    "AX-D6": { "status": "pending", "description": "omit_context_docs in SystemPromptBuilder" },
-    "AX-D7": { "status": "pending", "description": "Agent-level effort control" }
+    "AY-D1": { "status": "pending", "description": "Worktree isolation" },
+    "AY-D2": { "status": "pending", "description": "Transcript recording" },
+    "AY-D3": { "status": "pending", "description": "CancellationToken passing" },
+    "AY-D4": { "status": "pending", "description": "MCP scoped lifecycle (AX-D2)" },
+    "AY-D5": { "status": "pending", "description": "Hook scoping (AX-D3)" },
+    "AY-D6": { "status": "pending", "description": "Permission mode (AX-D1)" }
   },
   "previous_phase": {
-    "name": "Phase AW — CC-OSS 工具体系对齐",
-    "status": "COMPLETE — 9/9 tasks in 3 waves, 39 new tests @ 4d92ca4"
+    "name": "Phase AX — Builtin Agents",
+    "status": "COMPLETE — 7/7 tasks + 3 deferred resolved + wiring @ d0b1990"
   }
 }
