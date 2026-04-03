@@ -2,19 +2,19 @@
   "plan_file": "docs/plans/2026-04-03-phase-ay-subagent-runtime.md",
   "phase": "execution",
   "created_at": "2026-04-03T18:30:00+08:00",
-  "updated_at": "2026-04-03T21:15:00+08:00",
+  "updated_at": "2026-04-03T21:30:00+08:00",
   "completed_tasks": ["T1-subagent-runtime", "T2-agent-tool-rename", "T3-skill-convergence", "T4-delete-agents-yaml", "T5-event-sender", "T6-drop-guard", "T7-verify"],
   "current_task": null,
   "total_tasks": 7,
   "phase_name": "Phase AY — SubAgent Runtime 完整生命周期",
-  "status": "COMPLETE — 7/7 tasks, 10 tests, -266 net lines @ c552a87",
+  "status": "COMPLETE — 7/7 tasks + 6/6 deferred resolved, 15 tests @ 6811353",
   "execution_mode": "manual",
   "branch": "main",
   "baseline": {
-    "tests": "2593+ (Phase AX) + 10 (Phase AY)",
-    "commit": "c552a87",
+    "tests": "2593+ (Phase AX) + 15 (Phase AY)",
+    "commit": "6811353",
     "db_version": 13,
-    "notes": "SubAgentRuntime lifecycle complete. Agent/Skill convergence. YAML agents removed."
+    "notes": "SubAgentRuntime lifecycle complete. All 6 deferred items resolved. Agent/Skill convergence. YAML agents removed."
   },
   "waves": {
     "wave1": {
@@ -29,12 +29,12 @@
     }
   },
   "deferred": {
-    "AY-D1": { "status": "pending", "description": "Worktree isolation" },
-    "AY-D2": { "status": "pending", "description": "Transcript recording" },
-    "AY-D3": { "status": "pending", "description": "CancellationToken passing" },
-    "AY-D4": { "status": "pending", "description": "MCP scoped lifecycle (AX-D2)" },
-    "AY-D5": { "status": "pending", "description": "Hook scoping (AX-D3)" },
-    "AY-D6": { "status": "pending", "description": "Permission mode (AX-D1)" }
+    "AY-D1": { "status": "resolved", "description": "Worktree isolation — working_dir inherited" },
+    "AY-D2": { "status": "resolved", "description": "Transcript recording — transcript_writer inherited" },
+    "AY-D3": { "status": "resolved", "description": "CancellationToken — child gets own token" },
+    "AY-D4": { "status": "resolved", "description": "MCP scope — covered by tool_filter/disallowed_tools" },
+    "AY-D5": { "status": "resolved", "description": "Hook scope — HookRegistry.scoped() + AgentManifest.hook_scope" },
+    "AY-D6": { "status": "resolved", "description": "Permission mode — per-instance ApprovalManager" }
   },
   "previous_phase": {
     "name": "Phase AX — Builtin Agents",

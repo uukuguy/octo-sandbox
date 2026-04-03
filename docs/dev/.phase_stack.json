@@ -6,10 +6,10 @@
       "completed_at": "2026-04-03T21:15:00+08:00",
       "checkpoint": "docs/plans/.checkpoint.json",
       "progress": "100%",
-      "commits": ["c552a87"],
+      "commits": ["c552a87", "6811353"],
       "tasks": "7/7 (W1: SubAgentRuntime+AgentTool rename+Skill convergence+delete YAML, W2: event_sender+Drop guard+verify)",
-      "tests": 10,
-      "deferred": ["AY-D1", "AY-D2", "AY-D3", "AY-D4", "AY-D5", "AY-D6"]
+      "tests": 15,
+      "deferred": []
     }
   ],
   "suspended_phases": [],

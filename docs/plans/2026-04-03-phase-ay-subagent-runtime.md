@@ -425,11 +425,11 @@ cargo test --workspace -- --test-threads=1 -q
 
 ## Deferred Items
 
-| ID | 描述 | 前置条件 |
-|----|------|---------|
-| AY-D1 | Worktree 隔离 (git worktree for file isolation) | Worktree tool 实现 |
-| AY-D2 | Transcript recording (独立 sidechain 记录) | TranscriptWriter per-session |
-| AY-D3 | CancellationToken 传递 (cooperative cancel for sync agents) | AgentLoopConfig.cancel_token wiring |
-| AY-D4 | SubAgentRuntime MCP scoped lifecycle (AX-D2 对接) | McpManager scoped API |
-| AY-D5 | SubAgentRuntime Hook scoping (AX-D3 对接) | HookHandler agent_scope |
-| AY-D6 | SubAgentRuntime Permission mode (AX-D1 对接) | ApprovalManager per-instance |
+| ID | 描述 | 前置条件 | 状态 |
+|----|------|---------|------|
+| AY-D1 | Worktree 隔离 (working_dir 继承) | Worktree tool 实现 | ✅ 已补 @ 6811353 |
+| AY-D2 | Transcript recording (transcript_writer 继承) | TranscriptWriter per-session | ✅ 已补 @ 6811353 |
+| AY-D3 | CancellationToken 传递 (子 agent 独立 token) | AgentLoopConfig.cancel_token | ✅ 已补 @ 6811353 |
+| AY-D4 | MCP scope (tool_filter/disallowed_tools 已覆盖) | 既有 resolve_tools 机制 | ✅ 已补 (no code needed) |
+| AY-D5 | Hook scoping (HookRegistry.scoped() + AgentManifest.hook_scope) | HookHandler trait | ✅ 已补 @ 6811353 |
+| AY-D6 | Permission mode (per-instance ApprovalManager) | AgentManifest.permission_mode | ✅ 已补 @ 6811353 |
