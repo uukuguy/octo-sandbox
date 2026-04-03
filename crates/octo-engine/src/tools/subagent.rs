@@ -32,6 +32,8 @@ pub struct SpawnSubAgentTool {
     catalog: Option<Arc<AgentCatalog>>,
     /// Skill registry for preloading skill content into agent system prompts.
     skill_registry: Option<Arc<SkillRegistry>>,
+    /// Dynamic description including agent listing from catalog.
+    dynamic_description: String,
 }
 
 impl SpawnSubAgentTool {
@@ -41,13 +43,79 @@ impl SpawnSubAgentTool {
             parent_config: config,
             catalog: None,
             skill_registry: None,
+            dynamic_description: super::prompts::SUBAGENT_DESCRIPTION.to_string(),
         }
     }
 
     /// Attach an agent catalog for agent_type lookup.
+    /// Also rebuilds the dynamic description with agent listings.
     pub fn with_catalog(mut self, catalog: Arc<AgentCatalog>) -> Self {
-        self.catalog = Some(catalog);
+        self.catalog = Some(catalog.clone());
+        self.rebuild_description(&catalog);
         self
+    }
+
+    /// Rebuild description with dynamic agent listing from catalog.
+    fn rebuild_description(&mut self, catalog: &AgentCatalog) {
+        use crate::agent::builtin_agents::builtin_agent_manifests;
+
+        let mut lines = Vec::new();
+        for manifest in builtin_agent_manifests() {
+            if let Some(ref when) = manifest.when_to_use {
+                let tools_desc = if !manifest.disallowed_tools.is_empty() {
+                    format!(
+                        "All tools except {}",
+                        manifest.disallowed_tools.join(", ")
+                    )
+                } else if !manifest.tool_filter.is_empty() {
+                    manifest.tool_filter.join(", ")
+                } else {
+                    "All tools".to_string()
+                };
+                lines.push(format!(
+                    "- {}: {} (Tools: {})",
+                    manifest.name, when, tools_desc
+                ));
+            }
+        }
+
+        // Also include YAML-loaded agents from catalog (non-builtin)
+        for entry in catalog.list_all() {
+            if entry.manifest.source != crate::agent::entry::AgentSource::BuiltIn {
+                if let Some(ref when) = entry.manifest.when_to_use {
+                    lines.push(format!("- {}: {}", entry.manifest.name, when));
+                }
+            }
+        }
+
+        if lines.is_empty() {
+            return; // Keep static description
+        }
+
+        self.dynamic_description = format!(
+            r#"Launch a new agent to handle complex, multi-step tasks autonomously.
+
+The Agent tool launches specialized agents that autonomously handle complex tasks. Each agent type has specific capabilities and tools available to it.
+
+Available agent types and the tools they have access to:
+{}
+
+When using the Agent tool, specify a subagent_type parameter to select which agent type to use. If omitted, the general-purpose agent is used.
+
+When NOT to use the Agent tool:
+- If you want to read a specific file path, use file_read directly
+- If you are searching for a specific class definition, use grep/glob directly
+- If you are searching for code within 2-3 specific files, use file_read directly
+- Tasks that need <3 tool calls — do it yourself
+
+Usage notes:
+- Always include a short description (3-5 words) summarizing what the agent will do
+- The agent starts with zero context. Write prompts like briefing a colleague who just walked in.
+- Explain WHAT you want and WHY, describe what you've already learned or ruled out.
+- The agent's outputs should generally be trusted
+- Clearly tell the agent whether you expect it to write code or just to do research"#,
+            lines.join("\n")
+        );
     }
 
     /// Attach a skill registry for preloading skills into agent system prompts.
@@ -119,7 +187,7 @@ impl Tool for SpawnSubAgentTool {
     }
 
     fn description(&self) -> &str {
-        super::prompts::SUBAGENT_DESCRIPTION
+        &self.dynamic_description
     }
 
     fn parameters(&self) -> serde_json::Value {
