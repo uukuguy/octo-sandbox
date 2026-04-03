@@ -9,6 +9,7 @@ pub mod catalog;
 pub mod collaboration;
 pub mod config;
 pub mod context;
+pub mod coordinator;
 pub mod continuation;
 pub mod dual;
 pub mod deferred_action;
@@ -54,6 +55,7 @@ pub use collaboration::{
     Vote,
 };
 pub use config::AgentConfig;
+pub use coordinator::{CoordinatorConfig, build_coordinator_prompt};
 pub use continuation::{ContinuationConfig, ContinuationTracker};
 pub use dual::{AgentSlot, DualAgentManager, DualAgentProfile, PlanStep, ToolFilterMode};
 pub use deferred_action::{

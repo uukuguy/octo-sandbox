@@ -61,6 +61,13 @@ pub struct AgentManifest {
     /// Priority level hint (e.g. "high", "medium", "low")
     #[serde(default)]
     pub priority: Option<String>,
+    /// When true, this agent runs in Coordinator mode with orchestration prompt.
+    #[serde(default)]
+    pub coordinator: bool,
+    /// Tools available to worker agents spawned by this coordinator.
+    /// Empty = use default worker tools. Only relevant when coordinator=true.
+    #[serde(default)]
+    pub worker_allowed_tools: Vec<String>,
 }
 
 impl AgentManifest {

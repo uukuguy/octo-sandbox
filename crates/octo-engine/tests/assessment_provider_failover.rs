@@ -139,6 +139,7 @@ async fn retry_then_succeed_preserves_response() {
         base_delay: Duration::from_millis(1),
         max_delay: Duration::from_millis(10),
         backoff_factor: 1.0,
+        ..Default::default()
     };
 
     let provider = RetryProvider::new(Box::new(ArcProvider(Arc::clone(&mock))), policy);
@@ -176,6 +177,7 @@ async fn all_retries_exhausted_returns_error() {
         base_delay: Duration::from_millis(1),
         max_delay: Duration::from_millis(10),
         backoff_factor: 1.0,
+        ..Default::default()
     };
 
     let provider = RetryProvider::new(Box::new(ArcProvider(Arc::clone(&mock))), policy);
@@ -208,6 +210,7 @@ async fn zero_failures_passes_through() {
         base_delay: Duration::from_millis(1),
         max_delay: Duration::from_millis(10),
         backoff_factor: 1.0,
+        ..Default::default()
     };
 
     let provider = RetryProvider::new(Box::new(ArcProvider(Arc::clone(&mock))), policy);

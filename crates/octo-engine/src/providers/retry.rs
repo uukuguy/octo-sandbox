@@ -233,6 +233,11 @@ pub struct RetryPolicy {
     pub max_delay: Duration,
     /// 指数退避系数（默认 2.0）
     pub backoff_factor: f64,
+    /// When true, retries indefinitely for transient errors (RateLimit, Overloaded, etc.).
+    /// AuthError and other non-retryable errors still fail immediately.
+    pub unattended: bool,
+    /// Max delay between retries in unattended mode (default 5 min).
+    pub unattended_max_delay: Duration,
 }
 
 impl Default for RetryPolicy {
@@ -242,11 +247,26 @@ impl Default for RetryPolicy {
             base_delay: Duration::from_secs(1),
             max_delay: Duration::from_secs(60),
             backoff_factor: 2.0,
+            unattended: false,
+            unattended_max_delay: Duration::from_secs(300),
         }
     }
 }
 
 impl RetryPolicy {
+    /// Create an unattended retry policy for autonomous agents.
+    /// Retries indefinitely for transient errors with 5-min max backoff.
+    pub fn unattended() -> Self {
+        Self {
+            max_retries: u32::MAX,
+            base_delay: Duration::from_secs(2),
+            max_delay: Duration::from_secs(60),
+            backoff_factor: 2.0,
+            unattended: true,
+            unattended_max_delay: Duration::from_secs(300),
+        }
+    }
+
     /// 计算第 attempt 次重试的等待时间（指数退避）
     pub fn delay_for(&self, attempt: u32) -> Duration {
         let delay_secs = self.base_delay.as_secs_f64() * self.backoff_factor.powi(attempt as i32);
@@ -257,20 +277,23 @@ impl RetryPolicy {
     /// 使用 RetryInfo 判断是否重试，并计算延迟
     /// 如果有 Retry-After header，优先使用其值
     pub fn should_retry_with_info(&self, info: &RetryInfo, attempt: u32) -> Option<Duration> {
-        if attempt >= self.max_retries {
+        // Non-retryable errors always fail immediately
+        if !info.kind.is_retryable() {
             return None;
         }
-        if !info.kind.is_retryable() {
+        // Check attempt limit (unattended mode ignores this)
+        if !self.unattended && attempt >= self.max_retries {
             return None;
         }
         // 优先使用 Retry-After，否则用指数退避
         let delay = info.retry_after.unwrap_or_else(|| self.delay_for(attempt));
-        Some(delay.min(self.max_delay))
+        let cap = if self.unattended { self.unattended_max_delay } else { self.max_delay };
+        Some(delay.min(cap))
     }
 
     /// 判断给定错误和重试次数是否应该继续重试
     pub fn should_retry_str(&self, error_msg: &str, attempt: u32) -> bool {
-        if attempt >= self.max_retries {
+        if !self.unattended && attempt >= self.max_retries {
             return false;
         }
         LlmErrorKind::classify_from_str(error_msg).is_retryable()

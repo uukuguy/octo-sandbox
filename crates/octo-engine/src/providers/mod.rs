@@ -18,7 +18,7 @@ pub use metering_provider::MeteringProvider;
 pub use openai::create_openai_provider;
 pub use pipeline::{CircuitBreakerConfig, CircuitState, CostBudget, ProviderPipelineBuilder};
 pub use response_cache::ResponseCacheProvider;
-pub use retry::{ErrorStrategy, LlmErrorKind, ProviderError, RetryPolicy};
+pub use retry::{ErrorStrategy, LlmErrorKind, ProviderError, RetryInfo, RetryPolicy};
 pub use smart_router::{
     AnalyzerThresholds, QueryAnalyzer, QueryComplexity, RouteDecision, SmartRouterProvider,
     SmartRoutingConfig, TierConfig,

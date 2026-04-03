@@ -106,6 +106,8 @@ impl AgentYamlDef {
             config: AgentConfig::default(),
             max_concurrent_tasks: self.max_concurrent_tasks,
             priority: self.priority,
+            coordinator: false,
+            worker_allowed_tools: Vec::new(),
         })
     }
 }

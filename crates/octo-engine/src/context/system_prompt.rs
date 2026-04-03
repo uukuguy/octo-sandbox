@@ -673,6 +673,22 @@ impl SystemPromptBuilder {
             parts.push(SUBAGENT_SECTION.to_string());
         }
 
+        // AV-T5: Coordinator mode prompt injection
+        if let Some(ref manifest) = self.manifest {
+            if manifest.coordinator {
+                use crate::agent::coordinator::{build_coordinator_prompt, CoordinatorConfig};
+                let coordinator_config = CoordinatorConfig {
+                    worker_tools: if manifest.worker_allowed_tools.is_empty() {
+                        CoordinatorConfig::default_worker_tools()
+                    } else {
+                        manifest.worker_allowed_tools.clone()
+                    },
+                    mcp_servers: Vec::new(), // MCP servers injected separately
+                };
+                parts.push(build_coordinator_prompt(&coordinator_config));
+            }
+        }
+
         let mut output = parts.join("\n\n");
 
         // Add output guidelines
@@ -777,6 +793,8 @@ mod tests {
             config: crate::agent::config::AgentConfig::default(),
             max_concurrent_tasks: 0,
             priority: None,
+            coordinator: false,
+            worker_allowed_tools: Vec::new(),
         };
 
         let builder = SystemPromptBuilder::new().with_manifest(manifest);
@@ -799,6 +817,8 @@ mod tests {
             config: crate::agent::config::AgentConfig::default(),
             max_concurrent_tasks: 0,
             priority: None,
+            coordinator: false,
+            worker_allowed_tools: Vec::new(),
         };
 
         let builder = SystemPromptBuilder::new().with_manifest(manifest);
@@ -991,6 +1011,8 @@ mod prompt_parts_tests {
             config: crate::agent::config::AgentConfig::default(),
             max_concurrent_tasks: 0,
             priority: None,
+            coordinator: false,
+            worker_allowed_tools: Vec::new(),
         };
 
         let builder = SystemPromptBuilder::new()

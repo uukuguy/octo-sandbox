@@ -320,6 +320,8 @@ impl AgentExecutor {
                         config: AgentConfig::default(),
                         max_concurrent_tasks: 0,
                         priority: None,
+                        coordinator: false,
+                        worker_allowed_tools: Vec::new(),
                     });
 
                     let tool_ctx = ToolContext {
