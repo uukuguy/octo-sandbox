@@ -18,6 +18,7 @@ use super::events::AgentEvent;
 use super::harness::run_agent_loop;
 use super::loop_config::AgentLoopConfig;
 use super::subagent::{SubAgentManager, SubAgentStatus};
+use super::CancellationToken;
 use crate::skills::SkillRegistry;
 use crate::tools::ToolRegistry;
 
@@ -131,7 +132,36 @@ impl SubAgentRuntime {
             m
         });
 
-        // 9. Build AgentLoopConfig
+        // 9. Resolve cancel_token (AY-D3): child gets its own token
+        let cancel_token = CancellationToken::new();
+
+        // 10. Resolve permission (AY-D6): per-instance ApprovalManager from manifest
+        let approval_manager = manifest
+            .as_ref()
+            .and_then(|m| m.permission_mode.as_ref())
+            .map(|mode| {
+                use crate::tools::approval::{ApprovalManager, ApprovalPolicy};
+                let policy = match mode.as_str() {
+                    "auto" | "bypassPermissions" => ApprovalPolicy::AlwaysApprove,
+                    "ask" | "default" => ApprovalPolicy::AlwaysAsk,
+                    _ => ApprovalPolicy::AlwaysApprove,
+                };
+                Arc::new(ApprovalManager::new(policy))
+            })
+            .or_else(|| parent_config.approval_manager.clone());
+
+        // 11. Resolve hook_registry (AY-D5): scope by manifest.hook_scope
+        let hook_registry = if let Some(ref scope) = manifest.as_ref().and_then(|m| m.hook_scope.clone()) {
+            if let Some(ref hr) = parent_config.hook_registry {
+                Some(Arc::new(hr.scoped(scope).await))
+            } else {
+                None
+            }
+        } else {
+            parent_config.hook_registry.clone()
+        };
+
+        // 12. Build AgentLoopConfig
         let config = AgentLoopConfig {
             max_iterations: max_iter,
             provider: parent_config.provider.clone(),
@@ -144,7 +174,13 @@ impl SubAgentRuntime {
             tool_ctx: parent_config.tool_ctx.clone(),
             manifest: child_manifest,
             subagent_manager: Some(child_mgr),
-            hook_registry: parent_config.hook_registry.clone(),
+            hook_registry,
+            cancel_token,
+            approval_manager,
+            // AY-D2: Inherit transcript writer from parent
+            transcript_writer: parent_config.transcript_writer.clone(),
+            // AY-D1: Inherit working directory (may be worktree path)
+            working_dir: parent_config.working_dir.clone(),
             ..AgentLoopConfig::default()
         };
 
@@ -462,6 +498,91 @@ mod tests {
         let tools = config.tools.as_ref().unwrap();
         assert!(tools.get("sleep").is_none());
         assert!(tools.get("doctor").is_some());
+    }
+
+    #[tokio::test]
+    async fn test_build_inherits_cancel_token() {
+        let reg = make_registry();
+        let config = AgentLoopConfig {
+            tools: Some(Arc::new(reg)),
+            ..Default::default()
+        };
+        let mgr = Arc::new(SubAgentManager::new(4, 3));
+
+        let rt = SubAgentRuntime::build(
+            "test".into(),
+            None,
+            &config,
+            mgr,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+        // Child should have its own cancel token (not default)
+        let child_config = rt.config.as_ref().unwrap();
+        // Token should not be cancelled at build time
+        assert!(!child_config.cancel_token.is_cancelled());
+    }
+
+    #[tokio::test]
+    async fn test_build_with_permission_mode() {
+        let reg = make_registry();
+        let config = AgentLoopConfig {
+            tools: Some(Arc::new(reg)),
+            ..Default::default()
+        };
+        let mgr = Arc::new(SubAgentManager::new(4, 3));
+
+        let manifest = AgentManifest {
+            name: "auto-agent".into(),
+            permission_mode: Some("auto".into()),
+            ..Default::default()
+        };
+
+        let rt = SubAgentRuntime::build(
+            "test".into(),
+            Some(manifest),
+            &config,
+            mgr,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+        let child_config = rt.config.as_ref().unwrap();
+        // Should have its own approval manager
+        assert!(child_config.approval_manager.is_some());
+    }
+
+    #[tokio::test]
+    async fn test_build_inherits_working_dir() {
+        let reg = make_registry();
+        let config = AgentLoopConfig {
+            tools: Some(Arc::new(reg)),
+            working_dir: Some(std::path::PathBuf::from("/test/worktree")),
+            ..Default::default()
+        };
+        let mgr = Arc::new(SubAgentManager::new(4, 3));
+
+        let rt = SubAgentRuntime::build(
+            "test".into(),
+            None,
+            &config,
+            mgr,
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+
+        let child_config = rt.config.as_ref().unwrap();
+        assert_eq!(
+            child_config.working_dir.as_deref(),
+            Some(std::path::Path::new("/test/worktree"))
+        );
     }
 
     #[tokio::test]

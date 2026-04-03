@@ -128,6 +128,8 @@ impl AgentYamlDef {
             max_turns: self.max_turns,
             source: AgentSource::Yaml,
             skills: self.skills,
+            permission_mode: None,
+            hook_scope: None,
         })
     }
 }

@@ -114,6 +114,20 @@ pub struct AgentManifest {
     /// Skill names to preload into the agent's system prompt.
     #[serde(default)]
     pub skills: Vec<String>,
+
+    // ── SubAgent lifecycle fields (Phase AY deferred) ──
+
+    /// Permission mode for this agent (AY-D6).
+    /// "auto"/"bypassPermissions" = auto-approve, "ask"/"default" = require approval.
+    /// None = inherit from parent.
+    #[serde(default)]
+    pub permission_mode: Option<String>,
+
+    /// Hook scope filter (AY-D5).
+    /// When set, only hooks matching these tags/names are active for this agent.
+    /// None = inherit all parent hooks.
+    #[serde(default)]
+    pub hook_scope: Option<Vec<String>>,
 }
 
 impl AgentManifest {

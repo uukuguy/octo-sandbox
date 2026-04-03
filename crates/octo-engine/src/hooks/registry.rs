@@ -181,6 +181,30 @@ impl HookRegistry {
         handlers.get(&point).map_or(0, |h| h.len())
     }
 
+    /// Create a scoped copy of this registry, keeping only handlers whose
+    /// names match any of the provided scope tags (AY-D5).
+    ///
+    /// The returned registry is independent and does not share state with the original.
+    pub async fn scoped(&self, scope: &[String]) -> Self {
+        let handlers = self.handlers.read().await;
+        let mut scoped_handlers: HashMap<HookPoint, Vec<Arc<dyn HookHandler>>> = HashMap::new();
+
+        for (point, handler_list) in handlers.iter() {
+            let filtered: Vec<Arc<dyn HookHandler>> = handler_list
+                .iter()
+                .filter(|h| scope.iter().any(|s| h.name().contains(s.as_str())))
+                .cloned()
+                .collect();
+            if !filtered.is_empty() {
+                scoped_handlers.insert(*point, filtered);
+            }
+        }
+
+        Self {
+            handlers: RwLock::new(scoped_handlers),
+        }
+    }
+
     /// List all registered hook points with their handler counts
     pub async fn list_all(&self) -> Vec<(HookPoint, usize)> {
         let handlers = self.handlers.read().await;
@@ -290,6 +314,32 @@ mod tests {
             "expected Continue, got {:?}",
             action
         );
+    }
+
+    #[tokio::test]
+    async fn test_scoped_filters_by_name() {
+        let registry = HookRegistry::new();
+        registry
+            .register(HookPoint::PreToolUse, Arc::new(BlockingHandler))
+            .await;
+        registry
+            .register(HookPoint::PreToolUse, Arc::new(ContinueHandler))
+            .await;
+
+        // Scope to only "blocker"
+        let scoped = registry.scoped(&["blocker".to_string()]).await;
+        assert_eq!(scoped.handler_count(HookPoint::PreToolUse).await, 1);
+    }
+
+    #[tokio::test]
+    async fn test_scoped_empty_scope_filters_all() {
+        let registry = HookRegistry::new();
+        registry
+            .register(HookPoint::PreToolUse, Arc::new(BlockingHandler))
+            .await;
+
+        let scoped = registry.scoped(&[]).await;
+        assert_eq!(scoped.handler_count(HookPoint::PreToolUse).await, 0);
     }
 
     // validate_redirect_target() tests
