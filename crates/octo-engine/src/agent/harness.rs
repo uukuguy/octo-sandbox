@@ -618,7 +618,24 @@ async fn run_agent_loop_inner(
                 }
             }
 
-            // Re-evaluate after potential collapse
+            // AV-D2: Auto-snip when budget is under pressure and conversation is long
+            let level_pre_snip =
+                budget.compute_degradation_level(&system_prompt, &messages, &tool_specs);
+            if level_pre_snip >= DegradationLevel::AutoCompaction && messages.len() > 20 {
+                let removed = CompactionPipeline::auto_snip(&mut messages, 10);
+                if removed > 0 {
+                    info!(removed, "Auto-snip triggered by budget pressure");
+                    let _ = tx
+                        .send(AgentEvent::ContextCompacted {
+                            strategy: "auto_snip".into(),
+                            pre_tokens: messages.len() + removed,
+                            post_tokens: messages.len(),
+                        })
+                        .await;
+                }
+            }
+
+            // Re-evaluate after potential collapse + auto-snip
             let level =
                 budget.compute_degradation_level(&system_prompt, &messages, &tool_specs);
 
@@ -822,7 +839,12 @@ async fn run_agent_loop_inner(
         };
 
         // --- Call provider with retry (P0-5) ---
-        let retry_policy = RetryPolicy::default();
+        // AV-D3: Use unattended retry for autonomous agents
+        let retry_policy = if config.autonomous.as_ref().map_or(false, |a| a.enabled) {
+            RetryPolicy::unattended()
+        } else {
+            RetryPolicy::default()
+        };
         let mut llm_stream = None;
         let mut last_err = None;
         let mut attempt = 0u32;
