@@ -251,14 +251,59 @@ impl ExecuteSkillTool {
             ..AgentLoopConfig::default()
         };
 
-        // Run synchronously — wait for SubAgent to complete
+        // Build context messages for the sub-agent
         let messages = vec![octo_types::ChatMessage::user(request)];
-        let mut stream = run_agent_loop(child_config, messages);
-        let mut final_output = String::new();
-        let mut iterations_used = 0u32;
 
         // Short display name for TUI (e.g. "skill-review" from "skill-review-<uuid>")
         let display_id = format!("skill-{}", skill.name);
+
+        // AX-D4: Background mode — fire-and-forget, return session_id immediately
+        if skill.background {
+            let mgr = ctx.manager.clone();
+            let sa_id = subagent_id.clone();
+            let skill_name = skill.name.clone();
+            tokio::spawn(async move {
+                let mut stream = run_agent_loop(child_config, messages);
+                let mut final_output = String::new();
+
+                while let Some(event) = stream.next().await {
+                    if let AgentEvent::Completed(result) = event {
+                        final_output = result
+                            .final_messages
+                            .iter()
+                            .rev()
+                            .find(|m| m.role == MessageRole::Assistant)
+                            .and_then(|m| {
+                                m.content.iter().find_map(|c| {
+                                    if let ContentBlock::Text { text } = c {
+                                        Some(text.clone())
+                                    } else {
+                                        None
+                                    }
+                                })
+                            })
+                            .unwrap_or_default();
+                    }
+                }
+
+                if final_output.is_empty() {
+                    let _ = mgr.fail(&sa_id, "No output produced".into()).await;
+                } else {
+                    let _ = mgr.complete(&sa_id, Some(final_output)).await;
+                }
+                tracing::debug!(skill = %skill_name, id = %sa_id, "Background skill completed");
+            });
+
+            return Ok(ToolOutput::success(format!(
+                "Skill '{}' launched in background. Use query_subagent with session_id '{}' to check status.",
+                skill.name, subagent_id
+            )));
+        }
+
+        // Foreground mode — wait for SubAgent to complete
+        let mut stream = run_agent_loop(child_config, messages);
+        let mut final_output = String::new();
+        let mut iterations_used = 0u32;
 
         while let Some(event) = stream.next().await {
             match event {

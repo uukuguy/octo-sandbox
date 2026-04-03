@@ -119,6 +119,10 @@ pub struct SkillDefinition {
     #[serde(default, rename = "denied-tools")]
     pub denied_tools: Option<Vec<String>>,
 
+    /// Run playbook in background (fire-and-forget, return session_id immediately).
+    #[serde(default)]
+    pub background: bool,
+
     /// Source type.
     #[serde(default, skip)]
     pub source_type: SkillSourceType,
