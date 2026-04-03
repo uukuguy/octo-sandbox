@@ -147,4 +147,8 @@ impl Tool for FindTool {
     fn is_read_only(&self) -> bool {
         true
     }
+
+    fn is_concurrency_safe(&self) -> bool {
+        true
+    }
 }

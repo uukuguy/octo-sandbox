@@ -103,6 +103,10 @@ impl Tool for DoctorTool {
         true
     }
 
+    fn is_concurrency_safe(&self) -> bool {
+        true
+    }
+
     fn category(&self) -> &str {
         "diagnostics"
     }

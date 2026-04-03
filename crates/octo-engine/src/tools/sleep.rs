@@ -58,6 +58,10 @@ impl Tool for SleepTool {
         true
     }
 
+    fn is_concurrency_safe(&self) -> bool {
+        true
+    }
+
     fn execution_timeout(&self) -> Duration {
         // Sleep tool returns instantly (the actual wait is external).
         Duration::from_secs(5)

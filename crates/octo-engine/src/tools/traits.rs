@@ -67,8 +67,9 @@ pub trait Tool: Send + Sync {
     }
 
     /// Whether this tool can safely run concurrently with others.
+    /// Default: false (fail-closed). Read-only tools should override to return true.
     fn is_concurrency_safe(&self) -> bool {
-        true
+        false
     }
 
     /// Validate input parameters before execution.
@@ -156,8 +157,8 @@ mod tests {
     }
 
     #[test]
-    fn test_default_is_concurrency_safe() {
+    fn test_default_is_concurrency_safe_false() {
         let tool = MockTool;
-        assert!(tool.is_concurrency_safe());
+        assert!(!tool.is_concurrency_safe()); // fail-closed: default unsafe
     }
 }

@@ -260,6 +260,10 @@ impl Tool for FileReadTool {
     fn is_read_only(&self) -> bool {
         true
     }
+
+    fn is_concurrency_safe(&self) -> bool {
+        true
+    }
 }
 
 /// Read a text file with line numbers
