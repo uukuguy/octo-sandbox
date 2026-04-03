@@ -2,12 +2,12 @@
   "plan_file": "docs/plans/2026-04-03-phase-ax-builtin-agents.md",
   "phase": "design",
   "created_at": "2026-04-03T16:30:00+08:00",
-  "updated_at": "2026-04-03T16:30:00+08:00",
-  "completed_tasks": [],
-  "current_task": null,
+  "updated_at": "2026-04-03T16:50:00+08:00",
+  "completed_tasks": ["T1-manifest-fields", "T2-builtin-registry"],
+  "current_task": "T3-snapshot-excluded",
   "total_tasks": 7,
   "phase_name": "Phase AX — Builtin Agents",
-  "status": "Design complete, ready for execution",
+  "status": "W1 complete (T1+T2), W2 next (T3+T4)",
   "execution_mode": null,
   "branch": "main",
   "baseline": {
@@ -20,7 +20,8 @@
     "wave1": {
       "description": "AgentManifest 扩展 + BuiltinAgentRegistry",
       "tasks": ["T1-manifest-fields", "T2-builtin-registry"],
-      "status": "pending"
+      "status": "complete",
+      "commit": "489edb7"
     },
     "wave2": {
       "description": "SpawnSubAgentTool agent_type 路由",

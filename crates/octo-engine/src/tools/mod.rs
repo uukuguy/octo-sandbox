@@ -148,6 +148,19 @@ impl ToolRegistry {
         }
         registry
     }
+
+    /// Create a snapshot excluding the named tools (blacklist filter).
+    pub fn snapshot_excluded(&self, exclude: &[String]) -> ToolRegistry {
+        let exclude_set: std::collections::HashSet<&str> =
+            exclude.iter().map(|s| s.as_str()).collect();
+        let mut registry = ToolRegistry::new();
+        for (name, tool) in self.tools.iter() {
+            if !exclude_set.contains(name.as_str()) {
+                registry.tools.insert(name.clone(), tool.clone());
+            }
+        }
+        registry
+    }
 }
 
 impl Default for ToolRegistry {
