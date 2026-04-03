@@ -3,6 +3,8 @@ pub mod approval;
 pub mod bash;
 pub mod bash_classifier;
 pub mod cast_params;
+pub mod dev_commands;
+pub mod doctor;
 pub mod plan_mode;
 pub mod interaction;
 pub mod ask_user;
@@ -25,6 +27,7 @@ pub mod memory_search;
 pub mod memory_store;
 pub mod memory_timeline;
 pub mod memory_update;
+pub mod notifier;
 pub mod rate_limiter;
 pub mod recorder;
 pub mod scheduler;
@@ -46,6 +49,8 @@ pub use interceptor::ToolCallInterceptor;
 pub use traits::Tool;
 
 use self::bash::BashTool;
+use self::dev_commands::{GitCommitTool, GitDiffTool, SecurityReviewTool};
+use self::doctor::DoctorTool;
 use self::file_edit::FileEditTool;
 use self::file_read::FileReadTool;
 use self::file_write::FileWriteTool;
@@ -61,6 +66,7 @@ use self::memory_edit::MemoryEditTool;
 use self::memory_store::MemoryStoreTool;
 use self::memory_timeline::MemoryTimelineTool;
 use self::memory_update::MemoryUpdateTool;
+use self::notifier::NotifierTool;
 use self::sleep::SleepTool;
 use self::web_fetch::WebFetchTool;
 use self::web_search::WebSearchTool;
@@ -163,6 +169,11 @@ pub fn default_tools_with_search_priority(search_priority: &[String]) -> ToolReg
     registry.register(search_tool);
     registry.register(SleepTool);
     registry.register(NotebookEditTool::new());
+    registry.register(GitDiffTool);
+    registry.register(GitCommitTool);
+    registry.register(SecurityReviewTool);
+    registry.register(DoctorTool);
+    registry.register(NotifierTool);
     registry
 }
 
