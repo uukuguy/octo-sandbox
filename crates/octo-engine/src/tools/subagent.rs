@@ -8,7 +8,8 @@ use futures_util::StreamExt;
 use serde_json::json;
 
 use octo_types::{
-    ChatMessage, ContentBlock, MessageRole, RiskLevel, ToolContext, ToolOutput, ToolSource,
+    ChatMessage, ContentBlock, MessageRole, RiskLevel, ToolContext, ToolOutput, ToolProgress,
+    ToolSource,
 };
 
 use crate::agent::events::AgentEvent;
@@ -181,6 +182,22 @@ impl Tool for SpawnSubAgentTool {
             })
             .to_string()))
     }
+
+    async fn execute_with_progress(
+        &self,
+        params: serde_json::Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::indeterminate("spawning sub-agent..."));
+        }
+        let result = self.execute(params, ctx).await;
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::percent(1.0, "sub-agent spawned"));
+        }
+        result
+    }
 }
 
 /// Tool that queries the status/result of a previously spawned sub-agent.
@@ -262,5 +279,17 @@ impl Tool for QuerySubAgentTool {
                 })
                 .to_string()))
         }
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: serde_json::Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::indeterminate("querying sub-agent..."));
+        }
+        self.execute(params, ctx).await
     }
 }

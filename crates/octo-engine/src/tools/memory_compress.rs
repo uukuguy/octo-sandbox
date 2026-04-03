@@ -12,7 +12,7 @@ use tracing::debug;
 
 use octo_types::{
     ChatMessage, CompletionRequest, ContentBlock, MemoryCategory, MemoryEntry, MemoryFilter,
-    MemorySource, ToolContext, ToolOutput, ToolSource,
+    MemorySource, ToolContext, ToolOutput, ToolProgress, ToolSource,
 };
 
 use crate::memory::store_traits::MemoryStore;
@@ -190,6 +190,23 @@ impl Tool for MemoryCompressTool {
             entries.len(),
             category_str,
         )))
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            let cat = params["category"].as_str().unwrap_or("?");
+            cb(ToolProgress::indeterminate(format!("compressing '{cat}' memories...")));
+        }
+        let result = self.execute(params, ctx).await;
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::percent(1.0, "compression complete"));
+        }
+        result
     }
 
     fn source(&self) -> ToolSource {

@@ -14,6 +14,7 @@ use super::command_executor;
 use super::config::{FailureMode, HookActionConfig, HooksConfig};
 use crate::hooks::{HookAction, HookContext, HookFailureMode, HookHandler, HookPoint};
 use crate::providers::Provider;
+use crate::security::PermissionRule;
 
 /// Bridge handler that dispatches declarative hook actions from hooks.yaml.
 pub struct DeclarativeHookBridge {
@@ -126,6 +127,20 @@ impl HookHandler for DeclarativeHookBridge {
         for entry in entries {
             if !Self::matches_tool(&entry.matcher, tool_name) {
                 continue;
+            }
+
+            // P2-H3: `if` condition filtering using PermissionRule syntax
+            if let Some(ref condition) = entry.if_condition {
+                if let Ok(rule) = PermissionRule::parse(condition) {
+                    let tool_input = ctx
+                        .tool_input
+                        .as_ref()
+                        .cloned()
+                        .unwrap_or(serde_json::Value::Null);
+                    if !rule.matches(tool_name, &tool_input) {
+                        continue;
+                    }
+                }
             }
 
             for action in &entry.actions {

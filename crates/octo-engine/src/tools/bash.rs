@@ -3,10 +3,11 @@ use std::sync::Arc;
 use anyhow::Result;
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tracing::debug;
 
-use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolOutput, ToolSource};
+use octo_types::{ApprovalRequirement, RiskLevel, ToolContext, ToolOutput, ToolProgress, ToolSource};
 
 use super::bash_classifier::{classify_command, CommandRisk};
 use super::traits::Tool;
@@ -325,6 +326,118 @@ impl Tool for BashTool {
         // No resolver configured — default direct local execution
         self.execute_local(command, &ctx.working_dir, timeout_secs, true)
             .await
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        // If no progress callback or we're routing to sandbox, fall back to normal execute
+        if on_progress.is_none() || self.target_resolver.is_some() {
+            return self.execute(params, ctx).await;
+        }
+
+        let cb = on_progress.unwrap();
+        let command = params["command"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("missing 'command' parameter"))?;
+        let timeout_secs = params["timeout"].as_u64().unwrap_or(30).min(120);
+
+        debug!(command, timeout_secs, "executing bash command with progress");
+
+        cb(ToolProgress::indeterminate("running..."));
+
+        let env_vars: Vec<(String, String)> = std::env::vars()
+            .filter(|(k, _)| PASSTHROUGH_ENV_VARS.contains(&k.as_str()))
+            .collect();
+
+        let mut child = Command::new("bash")
+            .arg("-c")
+            .arg(command)
+            .current_dir(&ctx.working_dir)
+            .stdin(std::process::Stdio::null())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped())
+            .env_clear()
+            .envs(env_vars)
+            .spawn()?;
+
+        let stdout = child.stdout.take().expect("stdout piped");
+        let stderr = child.stderr.take().expect("stderr piped");
+
+        // Merge stdout and stderr into a single output stream
+        let cb_out = cb.clone();
+        let stdout_handle = tokio::spawn(async move {
+            let mut lines = Vec::new();
+            let mut reader = BufReader::new(stdout).lines();
+            let mut last_report = std::time::Instant::now();
+            let start = std::time::Instant::now();
+            while let Ok(Some(line)) = reader.next_line().await {
+                lines.push(line.clone());
+                // Throttle progress reports to at most once per 2 seconds
+                if last_report.elapsed() >= std::time::Duration::from_secs(2) {
+                    let elapsed = start.elapsed().as_millis() as u64;
+                    cb_out(ToolProgress::indeterminate(&line).with_elapsed(elapsed));
+                    last_report = std::time::Instant::now();
+                }
+            }
+            lines
+        });
+
+        let stderr_handle = tokio::spawn(async move {
+            let mut lines = Vec::new();
+            let mut reader = BufReader::new(stderr).lines();
+            while let Ok(Some(line)) = reader.next_line().await {
+                lines.push(line);
+            }
+            lines
+        });
+
+        // Wait for process with timeout
+        let result = tokio::time::timeout(
+            std::time::Duration::from_secs(timeout_secs),
+            child.wait(),
+        )
+        .await;
+
+        match result {
+            Ok(Ok(status)) => {
+                let stdout_lines = stdout_handle.await.unwrap_or_default();
+                let stderr_lines = stderr_handle.await.unwrap_or_default();
+                let exit_code = status.code().unwrap_or(-1);
+
+                let stdout_str = stdout_lines.join("\n");
+                let stderr_str = stderr_lines.join("\n");
+
+                let combined = if stderr_str.is_empty() {
+                    stdout_str
+                } else if stdout_str.is_empty() {
+                    format!("STDERR:\n{stderr_str}")
+                } else {
+                    format!("{stdout_str}\nSTDERR:\n{stderr_str}")
+                };
+
+                let output_text = truncate_output(combined);
+                cb(ToolProgress::percent(1.0, "done").with_elapsed(0));
+
+                if exit_code == 0 {
+                    Ok(ToolOutput::success(output_text))
+                } else {
+                    Ok(ToolOutput::error(format!(
+                        "Exit code: {exit_code}\n{output_text}"
+                    )))
+                }
+            }
+            Ok(Err(e)) => Ok(ToolOutput::error(format!("Failed to execute command: {e}"))),
+            Err(_) => {
+                let _ = child.kill().await;
+                Ok(ToolOutput::error(format!(
+                    "Command timed out after {timeout_secs} seconds"
+                )))
+            }
+        }
     }
 
     fn source(&self) -> ToolSource {

@@ -35,22 +35,39 @@ impl Tool for TeamCreateTool {
         r#"Create a named team for coordinating multiple specialized agents.
 
 ## When to use teams
-- 3+ agents need to work on different aspects of the same problem
+- 3+ agents need to work on different aspects of the same problem (e.g., research + implement + test)
 - Agents need to discover each other by role name
 - You need leader/worker coordination with shared context
+- A task is complex enough to benefit from parallel work by multiple agents
 
 ## When NOT to use teams
 - Simple parent→child delegation (use session_create directly)
 - Only 1-2 sub-agents needed
 - Tasks are independent and don't need coordination
 
+## Team Workflow
+1. `team_create` — you become the team leader
+2. `session_create` with `team_name` — spawn worker agents (they auto-join the team with teammate communication instructions)
+3. `task_create` with `team` — create tasks for the team's task board
+4. `session_message` — assign tasks and coordinate work
+5. Receive results from workers via session_message
+6. `session_stop` each worker when done
+7. `team_dissolve` — clean up team resources
+
+## Task Coordination
+- Use `task_create` to define work items visible to all team members
+- Use `task_update` to assign ownership and track status
+- Workers should claim unassigned tasks and mark them completed
+- Prefer assigning tasks in order (earlier tasks set up context for later ones)
+
+## Communication Rules
+- Your plain text output is NOT visible to team members — always use `session_message`
+- Workers communicate back via `session_message` — their results arrive automatically
+- Do not poll session_status repeatedly — trust workers to report back
+
 ## Parameters
 - name (required): Unique team name (e.g., "backend-team", "review-squad")
 - description (optional): What this team is working on
-
-## Behavior
-The current session becomes the team leader automatically.
-Use team_add_member to add worker agents to the team.
 
 ## Example
 {"name": "refactor-team", "description": "Coordinate the auth system refactor"}"#

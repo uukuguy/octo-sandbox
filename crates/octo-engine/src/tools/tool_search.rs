@@ -152,17 +152,20 @@ fn tokenize(s: &str) -> std::collections::HashSet<String> {
         .collect()
 }
 
-/// Compute Jaccard similarity between two token sets (0.0 to 1.0).
+/// Compute query coverage: fraction of query tokens found in candidate (0.0 to 1.0).
+///
+/// Uses query coverage (intersection / query_size) instead of Jaccard
+/// (intersection / union) because queries are typically short while tool
+/// descriptions are long, making symmetric Jaccard unfairly penalize matches.
 fn jaccard_similarity(
-    a: &std::collections::HashSet<String>,
-    b: &std::collections::HashSet<String>,
+    query_tokens: &std::collections::HashSet<String>,
+    candidate_tokens: &std::collections::HashSet<String>,
 ) -> f64 {
-    if a.is_empty() || b.is_empty() {
+    if query_tokens.is_empty() || candidate_tokens.is_empty() {
         return 0.0;
     }
-    let intersection = a.intersection(b).count() as f64;
-    let union = a.union(b).count() as f64;
-    intersection / union
+    let intersection = query_tokens.intersection(candidate_tokens).count() as f64;
+    intersection / query_tokens.len() as f64
 }
 
 /// Hybrid search: substring match first, then token-overlap fallback

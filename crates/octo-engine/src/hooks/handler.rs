@@ -60,6 +60,11 @@ pub trait HookHandler: Send + Sync {
         HookFailureMode::FailOpen
     }
 
+    /// Whether this hook executes asynchronously (fire-and-forget, not blocking the main loop).
+    fn is_async(&self) -> bool {
+        false
+    }
+
     /// Execute the hook
     async fn execute(&self, context: &HookContext) -> anyhow::Result<HookAction>;
 }

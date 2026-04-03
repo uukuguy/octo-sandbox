@@ -3,7 +3,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tracing::{debug, warn};
 
-use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolProgress, ToolSource};
 
 use super::traits::Tool;
 
@@ -166,6 +166,23 @@ impl Tool for WebSearchTool {
 
         // All engines skipped (no API keys configured)
         Ok(ToolOutput::success("No search engines available. Set JINA_API_KEY or TAVILY_API_KEY.".to_string()))
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            let query = params["query"].as_str().unwrap_or("?");
+            cb(ToolProgress::indeterminate(format!("searching: {query}")));
+        }
+        let result = self.execute(params, ctx).await;
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::percent(1.0, "search complete"));
+        }
+        result
     }
 
     fn source(&self) -> ToolSource {

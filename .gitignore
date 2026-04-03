@@ -47,3 +47,4 @@ data-platform/*.db-wal
 .claude/skills/
 .swarm/
 eval_output/
+.octo/

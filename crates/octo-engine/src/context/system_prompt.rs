@@ -620,6 +620,14 @@ impl SystemPromptBuilder {
                      Your text output is not visible to sub-sessions.\n",
                 );
             }
+            if self.available_tools.iter().any(|t| t == "team_create") {
+                guidance.push_str(
+                    "- Use `team_create` when 3+ agents need to collaborate on different aspects of the same problem. \
+                     For simple parent→child delegation (1-2 sub-agents), use `session_create` directly instead.\n\
+                     - Team workflow: `team_create` → `session_create` per role → `team_add_member` → \
+                     `session_message` to assign work → `team_dissolve` when done.\n",
+                );
+            }
             if self.available_tools.iter().any(|t| t == "task_create") {
                 guidance.push_str(
                     "- Use `task_create` to track progress on complex work (3+ steps). \

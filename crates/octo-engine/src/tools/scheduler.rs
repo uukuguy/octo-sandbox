@@ -8,7 +8,7 @@ use chrono::Utc;
 use serde_json::{json, Value};
 use uuid::Uuid;
 
-use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolProgress, ToolSource};
 
 use super::traits::Tool;
 use crate::scheduler::{AgentTaskConfig, CronParser, ScheduledTask, SchedulerStorage};
@@ -266,6 +266,19 @@ impl Tool for ScheduleTaskTool {
                 other
             ))),
         }
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            let action = params["action"].as_str().unwrap_or("?");
+            cb(ToolProgress::indeterminate(format!("scheduling: {action}...")));
+        }
+        self.execute(params, ctx).await
     }
 
     fn source(&self) -> ToolSource {

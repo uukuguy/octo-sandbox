@@ -24,10 +24,10 @@ use super::estop::EStopReason;
 use super::self_repair::RepairResult;
 
 use crate::context::{
-    CompactionContext, ContextPruner, DegradationLevel, MemoryFlusher,
-    NewSystemPromptBuilder as SystemPromptBuilder,
+    CompactionContext, CompactionPipeline, ContextCollapser, ContextPruner, DegradationLevel,
+    MemoryFlusher, NewSystemPromptBuilder as SystemPromptBuilder, SNIP_MARKER,
 };
-use crate::hooks::{HookAction, HookContext, HookPoint};
+use crate::hooks::{HookAction, HookContext, HookPoint, PermissionHookDecision};
 use crate::providers::{LlmErrorKind, RetryPolicy};
 
 use super::continuation::{ContinuationConfig, ContinuationTracker};
@@ -393,6 +393,9 @@ async fn run_agent_loop_inner(
     // Stream consumption error counter — retries on JSON parse errors, connection drops, etc.
     let mut stream_error_count: u32 = 0;
 
+    // P2-H1: Pending context injections from hooks (InjectContext action)
+    let mut pending_context_injections: Vec<String> = Vec::new();
+
     // P1-4: DeferredActionDetector for detecting deferred actions in text
     let deferred_detector = DeferredActionDetector::new();
     let tool_ctx = match config.tool_ctx.clone() {
@@ -456,6 +459,36 @@ async fn run_agent_loop_inner(
                     return;
                 }
             }
+
+            // --- P2-H2: UserPromptSubmit hook (round 0, after PreTask) ---
+            if let Some(ref hooks) = config.hook_registry {
+                let user_text = messages
+                    .last()
+                    .filter(|m| m.role == MessageRole::User)
+                    .map(|m| m.text_content())
+                    .unwrap_or_default();
+                let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
+                    .with_user_query(&user_text);
+                match hooks
+                    .execute(HookPoint::UserPromptSubmit, &ctx)
+                    .await
+                {
+                    HookAction::Abort(reason) => {
+                        let _ = tx
+                            .send(AgentEvent::Error {
+                                message: reason.clone(),
+                            })
+                            .await;
+                        let _ = tx.send(AgentEvent::Done).await;
+                        fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
+                        return;
+                    }
+                    HookAction::InjectContext(extra) => {
+                        pending_context_injections.push(extra);
+                    }
+                    _ => {}
+                }
+            }
         }
 
         // --- LoopTurnStart hook ---
@@ -490,10 +523,103 @@ async fn run_agent_loop_inner(
             break;
         }
 
+        // --- P1-3: Snip Compact — detect [SNIP] marker and truncate history ---
+        {
+            let has_snip = messages.iter().any(|m| {
+                m.content.iter().any(|b| {
+                    if let ContentBlock::Text { text } = b {
+                        text.contains(SNIP_MARKER)
+                    } else {
+                        false
+                    }
+                })
+            });
+            if has_snip {
+                let snip_provider = config.provider.as_deref();
+                let snip_pipeline = config.compaction_pipeline.as_deref();
+                let snip_ctx = config.compaction_pipeline.as_ref().map(|_| CompactionContext {
+                    memory: config.memory.clone(),
+                    memory_store: config.memory_store.clone(),
+                    active_skill: config.active_skill.clone(),
+                    hook_registry: config.hook_registry.clone(),
+                    session_summary_store: config.session_summary_store.clone(),
+                    user_id: config.user_id.clone(),
+                    sandbox_id: config.sandbox_id.clone(),
+                    custom_instructions: None,
+                });
+                match CompactionPipeline::snip_compact(
+                    &mut messages,
+                    snip_provider,
+                    &config.model,
+                    snip_pipeline,
+                    snip_ctx.as_ref(),
+                )
+                .await
+                {
+                    Ok(removed) if removed > 0 => {
+                        debug!(removed, "Snip compact removed messages");
+                        let _ = tx
+                            .send(AgentEvent::ContextCompacted {
+                                strategy: "snip_compact".into(),
+                                pre_tokens: 0,
+                                post_tokens: removed,
+                            })
+                            .await;
+                    }
+                    Err(e) => {
+                        warn!("Snip compact failed: {e}");
+                    }
+                    _ => {}
+                }
+            }
+        }
+
         // --- Context management (P0-7) ---
         let level = budget.compute_degradation_level(&system_prompt, &messages, &tool_specs);
         if level != DegradationLevel::None {
             debug!(?level, "Applying context degradation");
+
+            // --- P1-2: Context Collapse — try granularity-level folding before heavy compaction ---
+            if level >= DegradationLevel::AutoCompaction
+                && level < DegradationLevel::OverflowCompaction
+            {
+                let collapser = ContextCollapser::default();
+                let ctx_window = context_window_from_config(&config);
+                let target = (ctx_window as f64 * 0.7) as usize;
+                let current =
+                    budget.estimate_total_usage(&system_prompt, &messages, &tool_specs) as usize;
+                let collapsed = collapser.collapse(&mut messages, target, current);
+                if collapsed > 0 {
+                    debug!(collapsed, "Context collapse freed messages");
+                    let _ = tx
+                        .send(AgentEvent::ContextCompacted {
+                            strategy: "context_collapse".into(),
+                            pre_tokens: current,
+                            post_tokens: collapsed,
+                        })
+                        .await;
+                    // Re-check: if collapse freed enough, skip further degradation
+                    let new_level =
+                        budget.compute_degradation_level(&system_prompt, &messages, &tool_specs);
+                    if new_level < DegradationLevel::AutoCompaction {
+                        // Collapse was sufficient — emit event and skip heavy compaction
+                        let _ = tx
+                            .send(AgentEvent::ContextDegraded {
+                                level: format!("{:?}", new_level),
+                                usage_pct: (budget
+                                    .usage_ratio(&system_prompt, &messages, &tool_specs)
+                                    * 100.0)
+                                    as f32,
+                            })
+                            .await;
+                        // Skip the rest of degradation handling for this round
+                    }
+                }
+            }
+
+            // Re-evaluate after potential collapse
+            let level =
+                budget.compute_degradation_level(&system_prompt, &messages, &tool_specs);
 
             if level >= DegradationLevel::OverflowCompaction
                 && level != DegradationLevel::FinalError
@@ -641,6 +767,18 @@ async fn run_agent_loop_inner(
                 }
             }
             debug!("Canary rotated for round {}", round);
+        }
+
+        // --- P2-H1: Inject pending context from hooks ---
+        if !pending_context_injections.is_empty() {
+            let injection = pending_context_injections.join("\n\n");
+            messages.push(ChatMessage {
+                role: MessageRole::User,
+                content: vec![ContentBlock::Text {
+                    text: format!("<system-reminder>\n{}\n</system-reminder>", injection),
+                }],
+            });
+            pending_context_injections.clear();
         }
 
         // --- Build CompletionRequest ---
@@ -1421,7 +1559,10 @@ async fn run_agent_loop_inner(
                 .collect()
         } else {
             let mut outputs = Vec::new();
-            for (tu, input) in &parsed_tools {
+            for (tu, orig_input) in &parsed_tools {
+                // P2-H1: Allow hooks to modify tool input
+                let mut input = orig_input.clone();
+
                 // --- T3-4: Approval check for sequential tools ---
                 if let Some(tool) = tools.get(&tu.name) {
                     let requirement = tool.approval();
@@ -1470,24 +1611,63 @@ async fn run_agent_loop_inner(
                     }
                 }
 
-                // PreToolUse hook
+                // PreToolUse hook (P2-H1: expanded action handling)
                 if let Some(ref hooks) = config.hook_registry {
                     let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
                         .with_tool(&tu.name, input.clone());
-                    if let HookAction::Block(reason) =
-                        hooks.execute(HookPoint::PreToolUse, &ctx).await
-                    {
-                        warn!(tool = %tu.name, reason = %reason, "PreToolUse hook blocked tool");
-                        let _ = tx
-                            .send(AgentEvent::Error {
-                                message: format!(
-                                    "Tool '{}' blocked by security policy: {reason}",
-                                    tu.name
-                                ),
-                            })
+                    match hooks.execute(HookPoint::PreToolUse, &ctx).await {
+                        HookAction::Block(reason) => {
+                            warn!(tool = %tu.name, reason = %reason, "PreToolUse hook blocked tool");
+                            let _ = tx
+                                .send(AgentEvent::Error {
+                                    message: format!(
+                                        "Tool '{}' blocked by security policy: {reason}",
+                                        tu.name
+                                    ),
+                                })
+                                .await;
+                            let _ = tx.send(AgentEvent::Done).await;
+                            return;
+                        }
+                        HookAction::Abort(reason) => {
+                            warn!(tool = %tu.name, reason = %reason, "PreToolUse hook aborted");
+                            let _ = tx.send(AgentEvent::Error { message: reason }).await;
+                            let _ = tx.send(AgentEvent::Done).await;
+                            return;
+                        }
+                        HookAction::ModifyInput(new_input) => {
+                            debug!(tool = %tu.name, "Hook modified tool input");
+                            input = new_input;
+                        }
+                        HookAction::InjectContext(extra) => {
+                            pending_context_injections.push(extra);
+                        }
+                        HookAction::PermissionOverride(PermissionHookDecision::Deny(reason)) => {
+                            warn!(tool = %tu.name, %reason, "Hook denied tool execution");
+                            let result =
+                                ToolOutput::error(format!("Hook denied: {reason}"));
+                            outputs.push((tu, input.clone(), result));
+                            continue;
+                        }
+                        HookAction::PermissionOverride(PermissionHookDecision::Ask) => {
+                            // Delegate to ApprovalGate for human confirmation
+                            let approved = request_approval(
+                                &tu.name,
+                                &tu.id,
+                                octo_types::RiskLevel::HighRisk,
+                                &tx,
+                                &config.approval_gate,
+                            )
                             .await;
-                        let _ = tx.send(AgentEvent::Done).await;
-                        return;
+                            if !approved {
+                                let result = ToolOutput::error(
+                                    "Tool execution not approved".to_string(),
+                                );
+                                outputs.push((tu, input.clone(), result));
+                                continue;
+                            }
+                        }
+                        _ => {} // Continue, Redirect, PermissionOverride::Allow
                     }
                 }
 
@@ -1507,8 +1687,36 @@ async fn run_agent_loop_inner(
 
                 let exec_start = std::time::Instant::now();
 
+                // --- P1-4: validate_input before execution ---
+                if let Some(tool) = tools.get(&tu.name) {
+                    if let Err(e) = tool.validate_input(&input, &tool_ctx).await {
+                        warn!(tool = %tu.name, "Input validation failed: {e}");
+                        let result = ToolOutput::error(format!("Validation error: {e}"));
+                        outputs.push((tu, input.clone(), result));
+                        continue;
+                    }
+                }
+
                 let result = if let Some(tool) = tools.get(&tu.name) {
-                    match tool.execute(input.clone(), &tool_ctx).await {
+                    // Build progress callback that forwards ToolProgress → AgentEvent
+                    let progress_tx = tx.clone();
+                    let progress_tool_id = tu.id.clone();
+                    let progress_tool_name = tu.name.clone();
+                    let on_progress: crate::tools::traits::ProgressCallback =
+                        Arc::new(move |p: octo_types::ToolProgress| {
+                            let event = AgentEvent::ToolProgress {
+                                tool_id: progress_tool_id.clone(),
+                                tool_name: progress_tool_name.clone(),
+                                progress: p,
+                            };
+                            // Use try_send to avoid blocking — progress is best-effort
+                            let _ = progress_tx.try_send(event);
+                        });
+
+                    match tool
+                        .execute_with_progress(input.clone(), &tool_ctx, Some(on_progress))
+                        .await
+                    {
                         Ok(r) => r,
                         Err(e) => ToolOutput::error(format!("Tool error: {e}")),
                     }

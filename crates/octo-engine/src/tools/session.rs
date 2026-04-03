@@ -15,7 +15,7 @@ use serde_json::{json, Value};
 use super::traits::Tool;
 use crate::agent::executor::{AgentExecutorHandle, AgentMessage};
 use crate::agent::runtime::SessionEntry;
-use octo_types::{RiskLevel, SessionId, ToolContext, ToolOutput, ToolSource};
+use octo_types::{RiskLevel, SessionId, ToolContext, ToolOutput, ToolProgress, ToolSource};
 
 // ─── Tool descriptions ───
 
@@ -32,13 +32,29 @@ const SESSION_CREATE_DESCRIPTION: &str = r#"Create a new agent sub-session to ha
 - Searching within 2-3 files (use grep/glob directly)
 
 ## Writing good prompts
-Sub-sessions start with zero context. Write prompts like you're briefing a smart colleague who just walked in:
+Sub-sessions start with zero context — they cannot see your conversation. Write prompts like briefing a smart colleague who just walked in:
 - Explain what you want done and why
+- Include specific file paths, line numbers, and error messages — don't assume shared context
 - Describe what you already know and what you've ruled out
-- Give enough background for the sub-session to make judgments, not just follow orders mechanically
+- Add a purpose statement so the sub-session can calibrate depth (e.g., "This research will inform an implementation — report file paths and type signatures")
+- State what "done" looks like
 - If you need a brief response, say so explicitly
 
-Do NOT push synthesis to sub-sessions. "Fix the bug based on your findings" is a bad prompt — specify what file and what change to make.
+## Anti-patterns
+- "Fix the bug based on your findings" — DO NOT push synthesis to sub-sessions. Specify what file and what change to make.
+- "Based on your findings, implement the fix" — lazy delegation. Read the research findings yourself, understand the problem, then write a concrete spec.
+- "Something went wrong with the tests, can you look?" — no error message, no file path, no direction.
+
+## Continue vs. spawn fresh
+- High context overlap with previous work → use session_message to continue
+- Low overlap or fresh verification needed → spawn a new session
+- Correcting a failure → continue (worker has error context)
+- Verifying another session's work → spawn fresh (avoid confirmation bias)
+
+## Parameters
+- prompt (required): Self-contained task instruction
+- name (optional): Human-readable name (also used as session ID)
+- team_name (optional): Team to associate this session with as a worker member
 
 ## Example
 session_create(prompt: "Investigate all token-counting code in crates/octo-engine/src/context/. List each function's location, parameters, and return value. Under 200 words.")
@@ -113,6 +129,10 @@ impl Tool for SessionCreateTool {
                 "run_in_background": {
                     "type": "boolean",
                     "description": "If true, return immediately without waiting for result"
+                },
+                "team_name": {
+                    "type": "string",
+                    "description": "Team to join as a worker member. The session gets teammate communication instructions."
                 }
             }
         })
@@ -124,6 +144,7 @@ impl Tool for SessionCreateTool {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("Missing required parameter: prompt"))?;
         let name = params.get("name").and_then(|v| v.as_str());
+        let team_name = params.get("team_name").and_then(|v| v.as_str());
 
         // Generate session ID from name or random
         let session_id = match name {
@@ -134,8 +155,37 @@ impl Tool for SessionCreateTool {
         let user_id = ctx.user_id.clone();
         let sandbox_id = ctx.sandbox_id.clone();
 
-        // Send the prompt as the initial user message
-        let initial_message = octo_types::ChatMessage::user(prompt);
+        // Build the initial message, injecting teammate context if part of a team
+        let effective_prompt = if let Some(team) = team_name {
+            let member_name = name.unwrap_or(session_id.as_str());
+            format!(
+                "<system-reminder>\n\
+                 # Agent Teammate Communication\n\n\
+                 You are running as agent \"{member_name}\" in team \"{team}\".\n\
+                 To communicate with anyone on your team:\n\
+                 - Use `session_message` with `to: \"<name>\"` to send messages to specific teammates\n\
+                 - Your plain text output is NOT visible to other agents — you MUST use `session_message`\n\
+                 - The team lead coordinates through the task system and messaging\n\
+                 - When your work is done, report results via `session_message` to the team lead\n\
+                 </system-reminder>\n\n\
+                 {prompt}"
+            )
+        } else {
+            prompt.to_string()
+        };
+
+        let initial_message = octo_types::ChatMessage::user(&effective_prompt);
+
+        // If team_name is provided, register as a team member
+        if let Some(team) = team_name {
+            let member_name = name.unwrap_or(session_id.as_str());
+            let _ = self.runtime.team_manager().add_member(
+                team,
+                member_name,
+                session_id.clone(),
+                None,
+            );
+        }
 
         match self
             .runtime
@@ -150,8 +200,11 @@ impl Tool for SessionCreateTool {
         {
             Ok(_handle) => {
                 let display_name = name.unwrap_or(session_id.as_str());
+                let team_info = team_name
+                    .map(|t| format!(" Joined team '{t}' as worker."))
+                    .unwrap_or_default();
                 Ok(ToolOutput::success(format!(
-                    "Sub-session created: {display_name} (id: {}). \
+                    "Sub-session created: {display_name} (id: {}).{team_info} \
                      The session is processing your prompt. \
                      Use session_message to send follow-up instructions, \
                      or session_status to check progress.",
@@ -162,6 +215,22 @@ impl Tool for SessionCreateTool {
                 "Failed to create sub-session: {e}"
             ))),
         }
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::indeterminate("creating session..."));
+        }
+        let result = self.execute(params, ctx).await;
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::percent(1.0, "session created"));
+        }
+        result
     }
 
     fn source(&self) -> ToolSource {
@@ -249,6 +318,22 @@ impl Tool for SessionMessageTool {
                 "Session not found: {to}. Use session_status to check active sessions."
             ))),
         }
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::indeterminate("sending message..."));
+        }
+        let result = self.execute(params, ctx).await;
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::percent(1.0, "message delivered"));
+        }
+        result
     }
 
     fn source(&self) -> ToolSource {

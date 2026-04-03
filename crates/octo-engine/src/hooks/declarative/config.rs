@@ -20,11 +20,15 @@ pub struct HooksConfig {
     pub hooks: HashMap<String, Vec<HookEntry>>,
 }
 
-/// A single hook entry: a matcher pattern + a list of actions.
+/// A single hook entry: a matcher pattern + optional condition + a list of actions.
 #[derive(Debug, Clone, Deserialize)]
 pub struct HookEntry {
     /// Regex or glob pattern to match tool names. `"*"` matches all.
     pub matcher: String,
+    /// Optional condition using PermissionRule syntax, e.g. `"bash(git *)"`.
+    /// When present, the hook only triggers if the tool input matches this pattern.
+    #[serde(default, rename = "if")]
+    pub if_condition: Option<String>,
     /// Actions to execute when the matcher hits.
     pub actions: Vec<HookActionConfig>,
 }

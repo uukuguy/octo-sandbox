@@ -51,6 +51,18 @@ impl HookRegistry {
         let mut current_context = context.clone();
 
         for handler in handlers {
+            // P2-H4: Async hooks — fire-and-forget, don't block the main loop
+            if handler.is_async() {
+                let ctx = current_context.clone();
+                let h = Arc::clone(handler);
+                tokio::spawn(async move {
+                    if let Err(e) = h.execute(&ctx).await {
+                        warn!(hook = h.name(), "Async hook error: {e}");
+                    }
+                });
+                continue;
+            }
+
             match handler.execute(&current_context).await {
                 Ok(HookAction::Continue) => {
                     // Continue to next handler

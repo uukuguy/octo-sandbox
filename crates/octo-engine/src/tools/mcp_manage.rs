@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 use tokio::sync::Mutex;
 
-use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolSource};
+use octo_types::{RiskLevel, ToolContext, ToolOutput, ToolProgress, ToolSource};
 
 use super::traits::Tool;
 use super::ToolRegistry;
@@ -197,6 +197,23 @@ impl Tool for McpInstallTool {
         )))
     }
 
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            let name = params["name"].as_str().unwrap_or("?");
+            cb(ToolProgress::indeterminate(format!("installing MCP server '{name}'...")));
+        }
+        let result = self.execute(params, ctx).await;
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::percent(1.0, "MCP server installed"));
+        }
+        result
+    }
+
     fn source(&self) -> ToolSource {
         ToolSource::BuiltIn
     }
@@ -316,6 +333,23 @@ impl Tool for McpRemoveTool {
         )))
     }
 
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            let name = params["name"].as_str().unwrap_or("?");
+            cb(ToolProgress::indeterminate(format!("removing MCP server '{name}'...")));
+        }
+        let result = self.execute(params, ctx).await;
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::percent(1.0, "MCP server removed"));
+        }
+        result
+    }
+
     fn source(&self) -> ToolSource {
         ToolSource::BuiltIn
     }
@@ -396,6 +430,18 @@ impl Tool for McpListTool {
             states.len(),
             lines.join("\n")
         )))
+    }
+
+    async fn execute_with_progress(
+        &self,
+        params: Value,
+        ctx: &ToolContext,
+        on_progress: Option<super::traits::ProgressCallback>,
+    ) -> Result<ToolOutput> {
+        if let Some(ref cb) = on_progress {
+            cb(ToolProgress::indeterminate("listing MCP servers..."));
+        }
+        self.execute(params, ctx).await
     }
 
     fn source(&self) -> ToolSource {
