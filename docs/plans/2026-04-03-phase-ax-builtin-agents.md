@@ -1145,7 +1145,7 @@ feat(agent): Phase AX — builtin agents with CC-OSS alignment
 | AX-D1 | per-agent permissionMode (InteractionGate 覆盖) | InteractionGate 支持 per-session 模式 |
 | AX-D2 | per-agent MCP servers (附加专属 MCP) | McpManager 支持 scoped connections |
 | AX-D3 | per-agent hooks (agent 级 hook 注册/清理) | Hook 系统支持 scoped registration |
-| AX-D4 | ExecuteSkillTool 后台模式 (fire-and-forget playbook) | background 标记 + QuerySubAgentTool 集成 |
+| AX-D4 | ExecuteSkillTool 后台模式 (fire-and-forget playbook) | background 标记 + QuerySubAgentTool 集成 | ✅ 已补 @ 4b1bc91 |
 | AX-D5 | YAML agent 文件目录创建 (agents/*.yaml) | Phase AX 代码稳定后 | ✅ 已补 @ f941325 |
 | AX-D6 | omit_context_docs 在 SystemPromptBuilder 中实现 | SystemPromptBuilder 重构支持条件段 | ✅ 已补 @ 25d1568 |
 | AX-D7 | Agent 级 effort 控制 | Effort 系统实现 |
