@@ -1,43 +1,41 @@
 {
-  "plan_file": "docs/plans/2026-04-03-phase-ay-subagent-runtime.md",
-  "phase": "execution",
-  "created_at": "2026-04-03T18:30:00+08:00",
-  "updated_at": "2026-04-03T21:40:00+08:00",
-  "completed_tasks": ["T1-subagent-runtime", "T2-agent-tool-rename", "T3-skill-convergence", "T4-delete-agents-yaml", "T5-event-sender", "T6-drop-guard", "T7-verify"],
+  "plan_file": null,
+  "phase": "complete",
+  "created_at": "2026-04-04T00:00:00+08:00",
+  "updated_at": "2026-04-04T00:30:00+08:00",
+  "completed_tasks": ["P1-transcript-parent-chain", "P0-cleanup-chain-hardening", "P2-completion-callback"],
   "current_task": null,
-  "total_tasks": 7,
-  "phase_name": "Phase AY — SubAgent Runtime 完整生命周期",
-  "status": "COMPLETE — 7/7 tasks + 6/6 deferred + wiring audit (4 fixes), 15 tests @ e80679f",
+  "total_tasks": 3,
+  "phase_name": "Phase AZ — Cleanup Chain + Transcript Chain + Completion Callback",
+  "status": "COMPLETE — 3/3 tasks, 11 transcript tests pass, workspace clean @ 81f3eaa",
   "execution_mode": "manual",
   "branch": "main",
   "baseline": {
-    "tests": "2593+ (Phase AX) + 15 (Phase AY)",
-    "commit": "e80679f",
+    "tests": "2593+ (Phase AY) + 2 new transcript tests",
+    "commit": "81f3eaa",
     "db_version": 13,
-    "notes": "SubAgentRuntime lifecycle complete. All 6 deferred resolved. Wiring audit: safety_pipeline, canary_token, recorder, loop_guard fixed."
+    "notes": "CC-OSS runAgent.ts alignment: cleanup chain, transcript parent chain, completion callback. Also removed deprecated agents_dir, fixed session.rs test import."
   },
-  "waves": {
-    "wave1": {
-      "description": "SubAgentRuntime 核心 + 工具重命名 + 清理 agents/ YAML",
-      "tasks": ["T1-subagent-runtime", "T2-agent-tool-rename", "T3-skill-convergence", "T4-delete-agents-yaml"],
-      "status": "complete"
+  "tasks": {
+    "P1-transcript-parent-chain": {
+      "description": "TranscriptEntry uuid/parent_uuid + append_chained + cross-turn writer",
+      "status": "complete",
+      "files": ["session/transcript.rs", "agent/executor.rs"]
     },
-    "wave2": {
-      "description": "生命周期增强：事件转发 + Drop guard + 验证",
-      "tasks": ["T5-event-sender", "T6-drop-guard", "T7-verify"],
-      "status": "complete"
+    "P0-cleanup-chain-hardening": {
+      "description": "8 harness exit paths patched with fire_session_end + transcript compress on session end",
+      "status": "complete",
+      "files": ["agent/harness.rs", "agent/executor.rs", "agent/runtime.rs"]
+    },
+    "P2-completion-callback": {
+      "description": "CompletionCallback type + on_completion field in AgentLoopConfig",
+      "status": "complete",
+      "files": ["agent/loop_config.rs", "agent/harness.rs"]
     }
   },
-  "deferred": {
-    "AY-D1": { "status": "resolved", "description": "Worktree isolation — working_dir inherited" },
-    "AY-D2": { "status": "resolved", "description": "Transcript recording — transcript_writer inherited" },
-    "AY-D3": { "status": "resolved", "description": "CancellationToken — child gets own token" },
-    "AY-D4": { "status": "resolved", "description": "MCP scope — covered by tool_filter/disallowed_tools" },
-    "AY-D5": { "status": "resolved", "description": "Hook scope — HookRegistry.scoped() + AgentManifest.hook_scope" },
-    "AY-D6": { "status": "resolved", "description": "Permission mode — per-instance ApprovalManager" }
-  },
+  "deferred": {},
   "previous_phase": {
-    "name": "Phase AX — Builtin Agents",
-    "status": "COMPLETE — 7/7 tasks + 3 deferred resolved + wiring @ d0b1990"
+    "name": "Phase AY — SubAgent Runtime",
+    "status": "COMPLETE — 7/7 tasks + 6/6 deferred + wiring audit @ e80679f"
   }
 }

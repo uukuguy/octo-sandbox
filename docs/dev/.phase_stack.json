@@ -3,6 +3,15 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase AZ — Cleanup Chain + Transcript Chain + Completion Callback",
+      "completed_at": "2026-04-04T00:30:00+08:00",
+      "progress": "100%",
+      "commits": ["81f3eaa"],
+      "tasks": "3/3 (P1: transcript parent chain, P0: cleanup chain hardening, P2: completion callback)",
+      "tests": 2,
+      "deferred": []
+    },
+    {
       "name": "Phase AY — SubAgent Runtime",
       "completed_at": "2026-04-03T21:40:00+08:00",
       "progress": "100%",
