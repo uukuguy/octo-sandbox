@@ -8,6 +8,7 @@ use tracing::info;
 use octo_types::{ChatMessage, PathValidator, SandboxId, SessionId, ToolContext, UserId};
 
 use crate::agent::{AgentConfig, AgentEvent, AgentLoopConfig};
+use crate::agent::catalog::AgentCatalog;
 use crate::context::{ContextBudgetManager, ContextPruner};
 use crate::agent::subagent::SubAgentManager;
 use crate::memory::store_traits::MemoryStore;
@@ -157,6 +158,8 @@ pub struct AgentExecutor {
     session_sandbox: Option<Arc<SessionSandboxManager>>,
     // Session summary store for episodic memory (Phase AG)
     session_summary_store: Option<Arc<SessionSummaryStore>>,
+    // Agent catalog for SpawnSubAgentTool agent_type routing (Phase AX)
+    catalog: Option<Arc<AgentCatalog>>,
     // Shared interaction gate for agent-to-user communication (Phase AS)
     interaction_gate: Arc<crate::tools::interaction::InteractionGate>,
 }
@@ -190,6 +193,7 @@ impl AgentExecutor {
         session_sandbox: Option<Arc<SessionSandboxManager>>,
         session_summary_store: Option<Arc<SessionSummaryStore>>,
         interaction_gate: Arc<crate::tools::interaction::InteractionGate>,
+        catalog: Option<Arc<AgentCatalog>>,
     ) -> Self {
         Self {
             session_id,
@@ -220,6 +224,7 @@ impl AgentExecutor {
             session_sandbox,
             session_summary_store,
             interaction_gate,
+            catalog,
         }
     }
 
@@ -304,6 +309,45 @@ impl AgentExecutor {
                                 );
                             }
                         }
+                        // Phase AX: Register SpawnSubAgentTool for direct agent spawning
+                        {
+                            let subagent_mgr = Arc::new(SubAgentManager::new(4, 3));
+                            let parent_config = Arc::new(AgentLoopConfig {
+                                provider: Some(self.provider.clone()),
+                                tools: Some(Arc::new({
+                                    let mut parent = ToolRegistry::new();
+                                    for (n, t) in registry.iter() {
+                                        parent.register_arc(n.clone(), t);
+                                    }
+                                    parent
+                                })),
+                                model: model.clone(),
+                                user_id: self.user_id.clone(),
+                                sandbox_id: self.sandbox_id.clone(),
+                                tool_ctx: Some(ToolContext {
+                                    sandbox_id: self.sandbox_id.clone(),
+                                    user_id: self.user_id.clone(),
+                                    working_dir: self.working_dir.clone(),
+                                    path_validator: self.path_validator.clone(),
+                                }),
+                                ..AgentLoopConfig::default()
+                            });
+                            let mut spawn_tool = crate::tools::subagent::SpawnSubAgentTool::new(
+                                subagent_mgr.clone(),
+                                parent_config,
+                            );
+                            if let Some(ref cat) = self.catalog {
+                                spawn_tool = spawn_tool.with_catalog(cat.clone());
+                            }
+                            if let Some(ref sr) = self.skill_registry {
+                                spawn_tool = spawn_tool.with_skill_registry(sr.clone());
+                            }
+                            registry.register(spawn_tool);
+                            registry.register(
+                                crate::tools::subagent::QuerySubAgentTool::new(subagent_mgr),
+                            );
+                        }
+
                         Arc::new(registry)
                     };
 

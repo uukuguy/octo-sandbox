@@ -879,6 +879,7 @@ mod tests {
             execution_mode: Default::default(),
             source_type: Default::default(),
             max_rounds: 0,
+            background: false,
         }
     }
 

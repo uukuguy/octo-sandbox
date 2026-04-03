@@ -1432,6 +1432,7 @@ impl AgentRuntime {
             self.session_sandbox.clone(),
             self.session_summary_store.clone(),
             self.interaction_gate.clone(),
+            Some(self.catalog.clone()),
         );
 
         // Spawn 持久化主循环
