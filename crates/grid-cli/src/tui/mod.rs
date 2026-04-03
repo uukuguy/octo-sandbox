@@ -85,13 +85,13 @@ pub async fn run_tui_conversation(state: &AppState) -> Result<()> {
     }
 
     // Sync builtin commands to ~/.grid/commands/ (never overwrites existing)
-    if let Err(e) = grid_engine::commands::sync_builtin_commands(&state.octo_root.global_commands_dir()) {
+    if let Err(e) = grid_engine::commands::sync_builtin_commands(&state.grid_root.global_commands_dir()) {
         tracing::warn!(error = %e, "Failed to sync builtin commands");
     }
 
     // Load custom commands from ~/.grid/commands/ and .grid/commands/
     {
-        let custom_cmds = grid_engine::commands::load_commands(&state.octo_root.commands_dirs());
+        let custom_cmds = grid_engine::commands::load_commands(&state.grid_root.commands_dirs());
         if !custom_cmds.is_empty() {
             let slash_cmds: Vec<autocomplete::SlashCommand> = custom_cmds
                 .iter()

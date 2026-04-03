@@ -12,11 +12,27 @@ path = "src/lib.rs"
 name = "grid"
 path = "src/main.rs"
 
+[[bin]]
+name = "grid-studio"
+path = "src/studio_main.rs"
+required-features = ["studio"]
+
 [features]
 default = []
+# Studio mode: TUI + Dashboard (adds ratatui, crossterm, axum, tower-http)
+studio = [
+    "dep:ratatui",
+    "dep:crossterm",
+    "dep:axum",
+    "dep:tower",
+    "dep:tower-http",
+    "dep:ignore",
+    "dep:unicode-width",
+    "dep:dirs",
+]
 # Enable all heavy features (WASM, Docker, PDF) for production builds
-full = ["grid-engine/full"]
-dashboard-tls = ["axum-server", "rcgen"]
+full = ["grid-engine/full", "studio"]
+dashboard-tls = ["studio", "axum-server", "rcgen"]
 
 [dependencies]
 # Internal crates
@@ -59,35 +75,39 @@ chrono = { workspace = true }
 # Interactive input
 dialoguer = "0.11"
 
-# Terminal rendering
+# Terminal rendering (shared by CLI and Studio)
 termimad = "0.31"
 indicatif = "0.17"
 owo-colors = "4"
-crossterm = { version = "0.28", features = ["event-stream"] }
-ratatui = { workspace = true }
 
 # Database
 rusqlite = { workspace = true }
 
-# REPL / line editing
+# REPL / line editing (CLI mode)
 rustyline = { version = "17", features = ["with-file-history"] }
 
 # XDG paths
 directories = "6"
 
-# Home directory detection (for path shortener)
-dirs = "6"
+# ── Studio-only dependencies (gated by "studio" feature) ──
 
-# Unicode character width calculation
-unicode-width = "0.2"
-
-# Gitignore-aware file traversal (for autocomplete)
-ignore = "0.4"
+# TUI framework
+crossterm = { version = "0.28", features = ["event-stream"], optional = true }
+ratatui = { workspace = true, optional = true }
 
 # Web server (for embedded dashboard)
-axum = { workspace = true }
-tower = { workspace = true }
-tower-http = { workspace = true }
+axum = { workspace = true, optional = true }
+tower = { workspace = true, optional = true }
+tower-http = { workspace = true, optional = true }
+
+# Home directory detection (for TUI path shortener)
+dirs = { version = "6", optional = true }
+
+# Unicode character width calculation (for TUI)
+unicode-width = { version = "0.2", optional = true }
+
+# Gitignore-aware file traversal (for TUI autocomplete)
+ignore = { version = "0.4", optional = true }
 
 # TLS support (optional, for dashboard remote access)
 axum-server = { version = "0.7", features = ["tls-rustls"], optional = true }

@@ -179,7 +179,7 @@ async fn add_server(
     };
 
     // Persist to .grid/mcp.json
-    let config_path = state.octo_root.project_root().join("mcp.json");
+    let config_path = state.grid_root.project_root().join("mcp.json");
     McpManager::add_to_config_file(&config_path, &config)?;
 
     // Connect the server at runtime
@@ -207,7 +207,7 @@ async fn remove_server(name: String, state: &AppState) -> Result<()> {
     drop(guard);
 
     // Remove from config file
-    let config_path = state.octo_root.project_root().join("mcp.json");
+    let config_path = state.grid_root.project_root().join("mcp.json");
     McpManager::remove_from_config_file(&config_path, &name)?;
 
     let out = McpRemoveOutput { name };

@@ -1,6 +1,7 @@
-//! Octo CLI - Local CLI for interacting with Octo agents
+//! Grid CLI - Local CLI for interacting with Grid agents
 //!
-//! This CLI provides commands for managing agents, sessions, memories, and tools.
+//! This is the lightweight CLI binary (`grid`).
+//! For the full-screen TUI + Dashboard, use `grid-studio` (requires "studio" feature).
 
 use anyhow::Result;
 use clap::Parser;
@@ -13,64 +14,35 @@ use grid_cli::commands::{
     handle_skill, handle_tools, run_doctor, AppState, CompletionsCommands,
 };
 use grid_cli::output;
-use grid_cli::tui;
 use grid_cli::{Cli, Commands};
 
-fn init_logging(verbose: bool, tui_mode: bool) {
+fn init_logging(verbose: bool) {
     let filter = if verbose {
-        // -v: respect RUST_LOG if set, otherwise use debug level
         EnvFilter::try_from_default_env()
             .unwrap_or_else(|_| EnvFilter::new("grid_cli=info,grid_engine=debug,grid_eval=debug"))
     } else {
-        // Default: always quiet, ignore RUST_LOG from .env
         EnvFilter::new("grid_cli=warn,grid_engine=warn,grid_eval=warn")
     };
 
-    if tui_mode {
-        // In TUI mode, writing to stderr corrupts the ratatui alternate screen.
-        // Redirect all tracing output to a log file instead.
-        let log_dir = dirs::data_local_dir()
-            .unwrap_or_else(|| std::path::PathBuf::from("."))
-            .join("grid");
-        let _ = std::fs::create_dir_all(&log_dir);
-        let log_file = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(log_dir.join("tui.log"))
-            .expect("Failed to open TUI log file");
-        fmt()
-            .with_env_filter(filter)
-            .with_target(false)
-            .with_thread_ids(false)
-            .with_file(true)
-            .with_line_number(true)
-            .with_ansi(false)
-            .with_writer(std::sync::Mutex::new(log_file))
-            .init();
-    } else {
-        fmt()
-            .with_env_filter(filter)
-            .with_target(false)
-            .with_thread_ids(false)
-            .with_file(true)
-            .with_line_number(true)
-            .init();
-    }
+    fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .with_thread_ids(false)
+        .with_file(true)
+        .with_line_number(true)
+        .init();
 }
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Load .env file if present
     dotenvy::dotenv().ok();
 
     let cli = Cli::parse();
-    let is_tui = matches!(cli.command, Commands::Tui { .. });
-    init_logging(cli.verbose, is_tui);
+    init_logging(cli.verbose);
 
-    info!("Starting Octo CLI");
+    info!("Starting Grid CLI");
 
-    // Discover GridRoot for unified path management
-    let octo_root = if let Some(ref project_path) = cli.project {
+    let grid_root = if let Some(ref project_path) = cli.project {
         grid_engine::GridRoot::with_project_dir(project_path)
             .unwrap_or_else(|e| {
                 eprintln!("Error: {}", e);
@@ -85,17 +57,14 @@ async fn main() -> Result<()> {
             })
     };
 
-    // Ensure directories exist
-    if let Err(e) = octo_root.ensure_dirs() {
+    if let Err(e) = grid_root.ensure_dirs() {
         tracing::warn!("Failed to ensure GridRoot directories: {}", e);
     }
 
-    // Determine database path: CLI flag > GridRoot resolution
     let db_path = cli.db.unwrap_or_else(|| {
-        octo_root.resolve_db_path().to_string_lossy().to_string()
+        grid_root.resolve_db_path().to_string_lossy().to_string()
     });
 
-    // Build output config from CLI flags
     let output_config = output::OutputConfig {
         format: match cli.output.as_str() {
             "json" => output::OutputFormat::Json,
@@ -106,8 +75,7 @@ async fn main() -> Result<()> {
         quiet: cli.quiet,
     };
 
-    // Initialize app state with GridRoot
-    let state = AppState::with_octo_root(db_path.into(), output_config, octo_root).await?;
+    let state = AppState::with_grid_root(db_path.into(), output_config, grid_root).await?;
 
     match cli.command {
         Commands::Run {
@@ -153,35 +121,11 @@ async fn main() -> Result<()> {
         Commands::Mcp { action } => handle_mcp(action, &state).await?,
         Commands::Config { action } => handle_config(action, &state).await?,
         Commands::Auth { action } => commands::handle_auth(action, &state).await?,
-        Commands::Tui { theme: _ } => {
-            tui::run_tui_conversation(&state).await?;
-        }
         Commands::Init => execute_init(&state).await?,
         Commands::Doctor { repair } => run_doctor(repair, &state).await?,
         Commands::Completions { action } => match action {
             CompletionsCommands::Generate { shell } => generate_completions(shell)?,
         },
-        Commands::Dashboard { port, host, open, enable_tls, cert_path, key_path, require_auth, allowed_origins, generate_cert } => {
-            let (cert_path, key_path, tls_enabled) = if generate_cert {
-                let cert_dir = state.octo_root.tls_dir();
-                let (cp, kp) = commands::dashboard_cert::generate_self_signed_cert(&cert_dir)?;
-                (Some(cp), Some(kp), true)
-            } else {
-                (cert_path, key_path, enable_tls)
-            };
-
-            let opts = commands::dashboard::DashboardOptions {
-                port,
-                host,
-                open,
-                tls_enabled,
-                cert_path,
-                key_path,
-                require_auth,
-                allowed_origins,
-            };
-            commands::dashboard::run_dashboard(&opts).await?;
-        }
         Commands::Skill { action } => handle_skill(action, &state).await?,
         Commands::Root { action } => handle_root(action, &state).await?,
         Commands::Sandbox { action } => handle_sandbox(action, &state).await?,

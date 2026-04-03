@@ -1,4 +1,4 @@
-//! Embedded HTTP server for Octo Desktop.
+//! Embedded HTTP server for Grid Desktop.
 //!
 //! Starts an Axum server on a random port, serving the Dashboard UI.
 //! The WebView connects to this local server.

@@ -68,18 +68,18 @@ async fn main() -> Result<()> {
     dotenvy::dotenv_override().ok();
 
     // Discover GridRoot for unified path management (needed by Config::load)
-    let octo_root = grid_engine::GridRoot::discover()
+    let grid_root = grid_engine::GridRoot::discover()
         .unwrap_or_else(|e| {
             eprintln!("Warning: Failed to discover GridRoot: {}, using defaults", e);
             let wd = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
             grid_engine::GridRoot::with_working_dir(&wd).expect("GridRoot fallback failed")
         });
-    if let Err(e) = octo_root.ensure_dirs() {
+    if let Err(e) = grid_root.ensure_dirs() {
         eprintln!("Warning: Failed to ensure GridRoot directories: {}", e);
     }
 
     // Load configuration with layered merge: global → project → local → env
-    let cfg = config::Config::load(config_path.as_ref(), cli_port, cli_host, &octo_root);
+    let cfg = config::Config::load(config_path.as_ref(), cli_port, cli_host, &grid_root);
 
     // Apply logging config: GRID_LOG > config.yaml > fallback info
     // Note: RUST_LOG from .env is intentionally ignored to avoid SSE debug noise.
@@ -110,7 +110,7 @@ async fn main() -> Result<()> {
     // Database: SQLite with WAL mode
     // If config has non-empty path, use it; otherwise resolve from GridRoot
     let db_path = if cfg.database.path.is_empty() {
-        octo_root.resolve_db_path().to_string_lossy().to_string()
+        grid_root.resolve_db_path().to_string_lossy().to_string()
     } else {
         cfg.database.path.clone()
     };
@@ -138,7 +138,7 @@ async fn main() -> Result<()> {
         cfg.working_dir.clone().map(PathBuf::from),
         cfg.enable_event_bus,
     )
-    .with_octo_root(octo_root);
+    .with_grid_root(grid_root);
     let runtime_config = AgentRuntimeConfig {
         max_concurrent_sessions: Some(cfg.sessions.max_concurrent),
         ..runtime_config
@@ -332,7 +332,7 @@ async fn main() -> Result<()> {
                 .tls
                 .self_signed_dir
                 .clone()
-                .unwrap_or_else(|| octo_root.tls_dir());
+                .unwrap_or_else(|| grid_root.tls_dir());
             tracing::info!("Generating self-signed TLS certificate in {:?}", tls_dir);
             grid_engine::tls::generate_self_signed_cert("localhost", &tls_dir)?
         } else {

@@ -59,7 +59,7 @@ pub struct AgentRuntimeConfig {
     /// Enable event bus for observability
     pub enable_event_bus: bool,
     /// Optional GridRoot for unified path management
-    pub octo_root: Option<crate::root::GridRoot>,
+    pub grid_root: Option<crate::root::GridRoot>,
     /// Sandbox profile override (development/staging/production)
     pub sandbox_profile: Option<String>,
     /// Maximum concurrent sessions (Phase AJ-T5, default: 64)
@@ -83,15 +83,15 @@ impl AgentRuntimeConfig {
             provider_chain,
             working_dir,
             enable_event_bus,
-            octo_root: None,
+            grid_root: None,
             sandbox_profile: None,
             max_concurrent_sessions: None,
         }
     }
 
     /// Set the GridRoot for unified path management.
-    pub fn with_octo_root(mut self, root: crate::root::GridRoot) -> Self {
-        self.octo_root = Some(root);
+    pub fn with_grid_root(mut self, root: crate::root::GridRoot) -> Self {
+        self.grid_root = Some(root);
         self
     }
 }
@@ -283,7 +283,7 @@ impl AgentRuntime {
                 }
             }
             // Wire credentials.yaml from GridRoot (populated by `octo auth login`)
-            if let Some(ref root) = config.octo_root {
+            if let Some(ref root) = config.grid_root {
                 let creds = root.credentials_path();
                 if creds.exists() {
                     tracing::debug!(path = %creds.display(), "Loading credentials.yaml");
@@ -341,10 +341,10 @@ impl AgentRuntime {
 
         let skill_registry = Arc::new(SkillRegistry::new());
         // Determine skills loading paths from GridRoot (if available) or legacy config
-        let should_load_skills = config.octo_root.is_some() || !config.skills_dirs.is_empty();
+        let should_load_skills = config.grid_root.is_some() || !config.skills_dirs.is_empty();
         if should_load_skills {
             // Resolve project_dir and home_dir from GridRoot or fallback
-            let (project_dir, home_dir) = if let Some(ref root) = config.octo_root {
+            let (project_dir, home_dir) = if let Some(ref root) = config.grid_root {
                 (
                     Some(root.working_dir().to_path_buf()),
                     Some(
@@ -359,7 +359,7 @@ impl AgentRuntime {
             };
 
             // Sync builtin skills to global ~/.grid/skills/ (never overwrites existing)
-            let global_skills_dir = if let Some(ref root) = config.octo_root {
+            let global_skills_dir = if let Some(ref root) = config.grid_root {
                 root.global_skills_dir()
             } else {
                 home_dir
@@ -430,7 +430,7 @@ impl AgentRuntime {
             // 2. $PROJECT/.mcp.json         (CC-compatible, project-level)
             // 3. ~/.grid/mcp/mcp.json       (octo-native, global)
             let mut config_paths = Vec::new();
-            if let Some(ref root) = config.octo_root {
+            if let Some(ref root) = config.grid_root {
                 let project_mcp = root.project_root().join("mcp.json");
                 let cc_compat_mcp = root.working_dir().join(".mcp.json");
                 let global_mcp = root.global_mcp_dir().join("mcp.json");
@@ -710,7 +710,7 @@ impl AgentRuntime {
         // 18. Register MCP management tools (mcp_install, mcp_remove, mcp_list)
         {
             let mcp_config_path = config
-                .octo_root
+                .grid_root
                 .as_ref()
                 .map(|r| r.project_root().join("mcp.json"))
                 .unwrap_or_else(|| PathBuf::from(".grid/mcp.json"));

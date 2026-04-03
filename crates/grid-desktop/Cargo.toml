@@ -16,7 +16,7 @@ tauri-plugin-updater = "2"
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = ["full"] }
-grid-cli = { path = "../grid-cli" }
+grid-cli = { path = "../grid-cli", features = ["studio"] }
 grid-engine = { workspace = true }
 grid-types = { workspace = true }
 axum = { workspace = true }

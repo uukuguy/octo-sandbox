@@ -1,13 +1,17 @@
-//! Commands module for Octo CLI
+//! Commands module for Grid CLI
 
 pub mod agent;
 pub mod ask;
 pub mod auth;
 pub mod completions;
 pub mod config;
+#[cfg(feature = "studio")]
 pub mod dashboard;
+#[cfg(feature = "studio")]
 pub mod dashboard_auth;
+#[cfg(feature = "studio")]
 pub mod dashboard_cert;
+#[cfg(feature = "studio")]
 pub mod dashboard_security;
 pub mod doctor;
 pub mod eval_cmd;

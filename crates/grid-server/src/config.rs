@@ -285,7 +285,7 @@ impl Config {
         explicit_config: Option<&PathBuf>,
         cli_port: Option<u16>,
         cli_host: Option<&str>,
-        octo_root: &grid_engine::GridRoot,
+        grid_root: &grid_engine::GridRoot,
     ) -> Self {
         let mut config = if let Some(path) = explicit_config {
             // Explicit --config: use only this file, skip auto-discovery
@@ -295,26 +295,26 @@ impl Config {
             let mut cfg = Config::default();
 
             // Layer 1: Global config
-            if let Some(global) = load_yaml_config(&octo_root.global_config()) {
-                tracing::debug!("Loaded global config: {}", octo_root.global_config().display());
+            if let Some(global) = load_yaml_config(&grid_root.global_config()) {
+                tracing::debug!("Loaded global config: {}", grid_root.global_config().display());
                 cfg = merge_configs(cfg, global);
             }
 
             // Layer 2: Project config
-            if let Some(project) = load_yaml_config(&octo_root.project_config()) {
-                tracing::debug!("Loaded project config: {}", octo_root.project_config().display());
+            if let Some(project) = load_yaml_config(&grid_root.project_config()) {
+                tracing::debug!("Loaded project config: {}", grid_root.project_config().display());
                 cfg = merge_configs(cfg, project);
             }
 
             // Layer 3: Project local config
-            if let Some(local) = load_yaml_config(&octo_root.project_local_config()) {
-                tracing::debug!("Loaded local config: {}", octo_root.project_local_config().display());
+            if let Some(local) = load_yaml_config(&grid_root.project_local_config()) {
+                tracing::debug!("Loaded local config: {}", grid_root.project_local_config().display());
                 cfg = merge_configs(cfg, local);
             }
 
             // Legacy fallback: $PWD/config.yaml (if no project config was found)
-            let legacy_path = octo_root.working_dir().join("config.yaml");
-            if !octo_root.project_config().exists() && legacy_path.exists() {
+            let legacy_path = grid_root.working_dir().join("config.yaml");
+            if !grid_root.project_config().exists() && legacy_path.exists() {
                 tracing::warn!(
                     "Found config.yaml at project root (legacy location). \
                      Please move it to .grid/config.yaml: \
@@ -338,7 +338,7 @@ impl Config {
 
         // Credentials file: between config merge and env overrides
         // Priority: env vars > credentials.yaml > config.yaml
-        let cred_path = octo_root.credentials_path();
+        let cred_path = grid_root.credentials_path();
         if cred_path.exists() {
             if let Ok(content) = std::fs::read_to_string(&cred_path) {
                 match serde_yaml::from_str::<CredentialsFile>(&content) {

@@ -47,7 +47,7 @@ fn login(provider: &str, key: Option<String>, state: &AppState) -> Result<()> {
         anyhow::bail!("API key cannot be empty");
     }
 
-    let creds_path = state.octo_root.credentials_path();
+    let creds_path = state.grid_root.credentials_path();
 
     // Ensure parent directory exists
     if let Some(parent) = creds_path.parent() {
@@ -74,7 +74,7 @@ fn login(provider: &str, key: Option<String>, state: &AppState) -> Result<()> {
 
 /// Show all stored credentials (masked)
 fn status(state: &AppState) -> Result<()> {
-    let creds_path = state.octo_root.credentials_path();
+    let creds_path = state.grid_root.credentials_path();
 
     println!("Credentials file: {}", creds_path.display());
     println!();
@@ -128,7 +128,7 @@ fn logout(provider: &str, state: &AppState) -> Result<()> {
         anyhow::anyhow!("Unknown provider '{}'. Use the env var name directly if needed.", provider)
     })?;
 
-    let creds_path = state.octo_root.credentials_path();
+    let creds_path = state.grid_root.credentials_path();
     if !creds_path.exists() {
         println!("No credentials file found. Nothing to remove.");
         return Ok(());

@@ -1,7 +1,10 @@
-//! Octo CLI library — exposes dashboard and other modules for reuse.
+//! Grid CLI library — exposes dashboard and other modules for reuse.
 //!
-//! The primary consumer is `octo-desktop`, which needs `commands::dashboard::build_router`
+//! The primary consumer is `grid-desktop`, which needs `commands::dashboard::build_router`
 //! to embed the dashboard HTTP server inside the Tauri app.
+//!
+//! Feature flags:
+//! - `studio`: Enables TUI (ratatui) and Dashboard (axum) modules
 
 use clap::Parser;
 
@@ -11,9 +14,11 @@ use commands::{
 };
 
 pub mod commands;
+#[cfg(feature = "studio")]
 pub mod dashboard;
 pub mod output;
 pub mod repl;
+#[cfg(feature = "studio")]
 pub mod tui;
 pub(crate) mod ui;
 
@@ -22,7 +27,7 @@ pub(crate) mod ui;
 #[derive(Parser)]
 #[command(name = "grid")]
 #[command(version = env!("CARGO_PKG_VERSION"))]
-#[command(about = "Octo — AI Agent Workbench CLI", long_about = None)]
+#[command(about = "Grid — Autonomous AI Agent Platform CLI", long_about = None)]
 pub struct Cli {
     #[command(subcommand)]
     pub command: Commands,
@@ -160,7 +165,7 @@ pub enum Commands {
         action: SandboxCommands,
     },
 
-    /// Initialize Octo project in current directory
+    /// Initialize Grid project in current directory
     Init,
 
     /// Run health diagnostics
@@ -170,17 +175,22 @@ pub enum Commands {
         repair: bool,
     },
 
-    /// Start full-screen TUI mode
-    Tui {
-        /// Color theme
-        #[arg(long, default_value = "cyan")]
-        theme: String,
-    },
-
     /// Generate shell completions
     Completions {
         #[command(subcommand)]
         action: CompletionsCommands,
+    },
+}
+
+/// Studio-only commands (TUI + Dashboard), only available with "studio" feature
+#[cfg(feature = "studio")]
+#[derive(Parser)]
+pub enum StudioCommands {
+    /// Start full-screen TUI mode
+    Tui {
+        /// Color theme
+        #[arg(long, default_value = "indigo")]
+        theme: String,
     },
 
     /// Launch embedded web dashboard

@@ -184,7 +184,7 @@ async fn show_skill(name: String, state: &AppState) -> Result<()> {
 }
 
 async fn create_skill(name: String, state: &AppState) -> Result<()> {
-    let skill_dir = state.octo_root.project_skills_dir().join(&name);
+    let skill_dir = state.grid_root.project_skills_dir().join(&name);
     if skill_dir.exists() {
         eprintln!("Skill directory already exists: {}", skill_dir.display());
         return Ok(());

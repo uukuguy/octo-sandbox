@@ -14,7 +14,7 @@ pub async fn handle_root(action: RootCommands, state: &AppState) -> Result<()> {
 }
 
 fn show_root(state: &AppState) -> Result<()> {
-    let root = &state.octo_root;
+    let root = &state.grid_root;
 
     println!("GridRoot Path Summary");
     println!("=====================");
@@ -42,7 +42,7 @@ fn show_root(state: &AppState) -> Result<()> {
 }
 
 fn init_root(state: &AppState) -> Result<()> {
-    state.octo_root.ensure_dirs()?;
+    state.grid_root.ensure_dirs()?;
     println!("GridRoot directories initialized.");
     println!();
     show_root(state)?;

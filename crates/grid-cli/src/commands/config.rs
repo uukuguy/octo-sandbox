@@ -150,7 +150,7 @@ impl TextOutput for ConfigInitOutput {
 // ── Handlers ──────────────────────────────────────────────────
 
 async fn show_config(state: &AppState) -> Result<()> {
-    let root = &state.octo_root;
+    let root = &state.grid_root;
 
     // Show config source chain
     println!("Configuration Sources (highest priority first):");
@@ -411,7 +411,7 @@ async fn set_config(key: String, value: String, state: &AppState) -> Result<()> 
 }
 
 async fn show_paths(state: &AppState) -> Result<()> {
-    let root = &state.octo_root;
+    let root = &state.grid_root;
     let global_cfg = root.global_config();
     let project_cfg = root.project_config();
     let local_cfg = root.project_local_config();

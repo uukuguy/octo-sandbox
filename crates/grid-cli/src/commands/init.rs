@@ -6,7 +6,7 @@ use std::path::Path;
 
 /// Run `octo init` to set up project structure.
 pub async fn execute_init(state: &AppState) -> Result<()> {
-    let root = &state.octo_root;
+    let root = &state.grid_root;
     let project_root = root.project_root();
 
     println!("Initializing Octo project...\n");

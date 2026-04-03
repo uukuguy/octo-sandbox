@@ -1,4 +1,4 @@
-//! Application state for Octo CLI
+//! Application state for Grid CLI
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -24,24 +24,23 @@ pub struct AppState {
     /// Working directory
     pub working_dir: PathBuf,
     /// GridRoot for unified path management
-    pub octo_root: GridRoot,
+    pub grid_root: GridRoot,
 }
 
 impl AppState {
     /// Create new app state with GridRoot
     pub async fn new(db_path: PathBuf, output_config: OutputConfig) -> Result<Self> {
-        // Discover GridRoot (caller may have already done this, but it's cheap)
-        let octo_root = GridRoot::discover()?;
-        Self::with_octo_root(db_path, output_config, octo_root).await
+        let grid_root = GridRoot::discover()?;
+        Self::with_grid_root(db_path, output_config, grid_root).await
     }
 
     /// Create new app state with an explicit GridRoot
-    pub async fn with_octo_root(
+    pub async fn with_grid_root(
         db_path: PathBuf,
         output_config: OutputConfig,
-        octo_root: GridRoot,
+        grid_root: GridRoot,
     ) -> Result<Self> {
-        let working_dir = octo_root.working_dir().to_path_buf();
+        let working_dir = grid_root.working_dir().to_path_buf();
 
         // Initialize AgentStore
         let agent_conn = {
@@ -53,8 +52,7 @@ impl AppState {
         let loaded = agent_catalog.load_from_store()?;
         tracing::info!("Loaded {loaded} persisted agents");
 
-        // Create runtime config with GridRoot — fixes skills_dirs: vec![] BUG
-        let skills_dirs: Vec<String> = octo_root
+        let skills_dirs: Vec<String> = grid_root
             .skills_dirs()
             .iter()
             .map(|p| p.to_string_lossy().to_string())
@@ -64,23 +62,20 @@ impl AppState {
             db_path.to_string_lossy().to_string(),
             grid_engine::providers::ProviderConfig::default(),
             skills_dirs,
-            None,   // provider chain
+            None,
             Some(working_dir.clone()),
-            false,  // enable event bus
+            false,
         )
-        .with_octo_root(octo_root.clone());
+        .with_grid_root(grid_root.clone());
 
-        // Create tenant context
         let tenant_context = TenantContext::for_single_user(
             TenantId::from_string("default"),
             UserId::from_string(grid_types::id::DEFAULT_USER_ID),
         );
 
-        // Create runtime
         let agent_runtime = Arc::new(
             AgentRuntime::new(agent_catalog.clone(), runtime_config, Some(tenant_context)).await?,
         );
-        // T-G1: Register session_create tool (needs Arc<Self>, so post-init)
         agent_runtime.register_session_create_tool();
 
         Ok(Self {
@@ -89,7 +84,7 @@ impl AppState {
             agent_runtime,
             output_config,
             working_dir,
-            octo_root,
+            grid_root,
         })
     }
 }
