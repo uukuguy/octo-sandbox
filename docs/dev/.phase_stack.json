@@ -3,6 +3,15 @@
   "suspended_phases": [],
   "archived_phases": [
     {
+      "name": "Phase AU — Autonomous Mode Completion (5 gaps)",
+      "completed_at": "2026-04-03T11:10:00+08:00",
+      "progress": "100%",
+      "commits": ["d36a779", "4d4373c", "9f5f675"],
+      "tasks": "5/5 (W1: G1 AutonomousControl+harness select! + G2 AutonomousScheduler + G3 WS events, W2: G4 Session pause/resume API + G5 Webhook trigger wiring)",
+      "tests": 30,
+      "deferred": ["AU-D1", "AU-D2", "AU-D3", "AU-D4", "AU-D5"]
+    },
+    {
       "name": "Phase AT — Octo System Prompt 增强 + 编译优化",
       "completed_at": "2026-04-02T21:30:00+08:00",
       "progress": "100%",

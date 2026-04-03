@@ -3,11 +3,11 @@
   "phase": "planned",
   "created_at": "2026-04-03T10:45:00+08:00",
   "updated_at": "2026-04-03T10:45:00+08:00",
-  "completed_tasks": ["G1-AutonomousControl+harness-select", "G2-AutonomousScheduler", "G3-WS-event-forwarding"],
-  "current_task": "G4-session-pause-resume-api",
+  "completed_tasks": ["G1-AutonomousControl+harness-select", "G2-AutonomousScheduler", "G3-WS-event-forwarding", "G4-session-pause-resume-api", "G5-webhook-trigger-wiring"],
+  "current_task": null,
   "total_tasks": 5,
   "phase_name": "Phase AU — Autonomous Mode Completion (5 gaps: harness select!, Scheduler, WS events, Session API, Webhook wiring)",
-  "status": "IN_PROGRESS — 3/5 tasks (Wave 1 complete @ 4d4373c)",
+  "status": "COMPLETE — 5/5 tasks (Wave 1 @ 4d4373c, Wave 2 @ 9f5f675)",
   "execution_mode": "wave-parallel",
   "branch": "main",
   "baseline": {
@@ -27,7 +27,8 @@
     "wave2": {
       "description": "API wiring (parallel)",
       "tasks": ["G4-session-pause-resume-api", "G5-webhook-trigger-wiring"],
-      "status": "in_progress",
+      "status": "complete",
+      "commit": "9f5f675",
       "dependencies": "G4←G1, G5←G2"
     }
   },
