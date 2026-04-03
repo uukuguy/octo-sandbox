@@ -734,6 +734,7 @@ async fn run_agent_loop_inner(
                                 reason: format!("Input security check failed: {violation}"),
                             })
                             .await;
+                        fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                         let _ = tx.send(AgentEvent::Done).await;
                         return;
                     }
@@ -764,6 +765,7 @@ async fn run_agent_loop_inner(
                                     reason: format!("Safety pipeline blocked input: {reason}"),
                                 })
                                 .await;
+                            fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                             let _ = tx.send(AgentEvent::Done).await;
                             return;
                         }
@@ -1214,6 +1216,7 @@ async fn run_agent_loop_inner(
                                 reason: format!("Output security check failed: {violation}"),
                             })
                             .await;
+                        fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                         let _ = tx.send(AgentEvent::Done).await;
                         return;
                     }
@@ -1231,6 +1234,7 @@ async fn run_agent_loop_inner(
                                     reason: format!("Safety pipeline blocked output: {reason}"),
                                 })
                                 .await;
+                            fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                             let _ = tx.send(AgentEvent::Done).await;
                             return;
                         }
@@ -1378,16 +1382,19 @@ async fn run_agent_loop_inner(
                 }
             }
 
-            let _ = tx
-                .send(AgentEvent::Completed(AgentLoopResult {
-                    rounds: round + 1,
-                    tool_calls: total_tool_calls,
-                    stop_reason: NormalizedStopReason::from(stop_reason),
-                    input_tokens: total_input_tokens,
-                    output_tokens: total_output_tokens,
-                    final_messages: messages.clone(),
-                }))
-                .await;
+            let result = AgentLoopResult {
+                rounds: round + 1,
+                tool_calls: total_tool_calls,
+                stop_reason: NormalizedStopReason::from(stop_reason),
+                input_tokens: total_input_tokens,
+                output_tokens: total_output_tokens,
+                final_messages: messages.clone(),
+            };
+            // Phase AZ: Invoke completion callback if registered
+            if let Some(ref cb) = config.on_completion {
+                cb(&result);
+            }
+            let _ = tx.send(AgentEvent::Completed(result)).await;
             let _ = tx.send(AgentEvent::Done).await;
             return;
         }
@@ -1801,12 +1808,14 @@ async fn run_agent_loop_inner(
                                     ),
                                 })
                                 .await;
+                            fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                             let _ = tx.send(AgentEvent::Done).await;
                             return;
                         }
                         HookAction::Abort(reason) => {
                             warn!(tool = %tu.name, reason = %reason, "PreToolUse hook aborted");
                             let _ = tx.send(AgentEvent::Error { message: reason }).await;
+                            fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                             let _ = tx.send(AgentEvent::Done).await;
                             return;
                         }
@@ -2018,6 +2027,7 @@ async fn run_agent_loop_inner(
                             ),
                         })
                         .await;
+                    fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                     let _ = tx.send(AgentEvent::Done).await;
                     return;
                 }
@@ -2036,6 +2046,7 @@ async fn run_agent_loop_inner(
                                 ),
                             })
                             .await;
+                        fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
                         let _ = tx.send(AgentEvent::Done).await;
                         return;
                     }
@@ -2185,16 +2196,19 @@ async fn run_agent_loop_inner(
             message: format!("Max rounds ({max_rounds}) exceeded"),
         })
         .await;
-    let _ = tx
-        .send(AgentEvent::Completed(AgentLoopResult {
-            rounds: max_rounds,
-            tool_calls: total_tool_calls,
-            stop_reason: NormalizedStopReason::MaxIterations,
-            input_tokens: total_input_tokens,
-            output_tokens: total_output_tokens,
-            final_messages: messages.clone(),
-        }))
-        .await;
+    let result = AgentLoopResult {
+        rounds: max_rounds,
+        tool_calls: total_tool_calls,
+        stop_reason: NormalizedStopReason::MaxIterations,
+        input_tokens: total_input_tokens,
+        output_tokens: total_output_tokens,
+        final_messages: messages.clone(),
+    };
+    // Phase AZ: Invoke completion callback if registered
+    if let Some(ref cb) = config.on_completion {
+        cb(&result);
+    }
+    let _ = tx.send(AgentEvent::Completed(result)).await;
     fire_session_end(&config, &tx, total_tool_calls, &recent_tools).await;
     let _ = tx.send(AgentEvent::Done).await;
 }

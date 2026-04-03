@@ -13,7 +13,7 @@ use dashmap::DashMap;
 use serde_json::{json, Value};
 
 use super::traits::Tool;
-use crate::agent::executor::{AgentExecutorHandle, AgentMessage};
+use crate::agent::executor::AgentMessage;
 use crate::agent::runtime::SessionEntry;
 use octo_types::{RiskLevel, SessionId, ToolContext, ToolOutput, ToolProgress, ToolSource};
 
@@ -506,6 +506,7 @@ impl Tool for SessionStopTool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::agent::executor::AgentExecutorHandle;
     use std::time::Instant;
     use tokio::sync::broadcast;
 

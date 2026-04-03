@@ -19,11 +19,18 @@ use crate::tools::ToolRegistry;
 use super::autonomous::{AutonomousConfig, AutonomousControl};
 use super::config::AgentConfig;
 use super::entry::AgentManifest;
+use super::events::AgentLoopResult;
 use super::estop::EmergencyStop;
 use super::self_repair::SelfRepairManager;
 use super::loop_guard::LoopGuard;
 use super::subagent::SubAgentManager;
 use super::CancellationToken;
+
+/// Completion callback type — invoked after agent loop ends with a result (Phase AZ).
+///
+/// Allows agent definitions to register post-completion logic (e.g. cleanup,
+/// metrics, chaining). Receives the final `AgentLoopResult` by reference.
+pub type CompletionCallback = Arc<dyn Fn(&AgentLoopResult) + Send + Sync>;
 
 /// Agent Loop configuration — serves as the complete dependency injection container
 /// for `run_agent_loop()`. Inspired by IronClaw AgentDeps + ZeroClaw run_agent_loop().
@@ -177,6 +184,11 @@ pub struct AgentLoopConfig {
     // === Git Context (Phase AS) ===
     /// Pre-collected git context (branch, status, recent commits) for system prompt injection.
     pub git_context: Option<GitContext>,
+
+    // === Completion Callback (Phase AZ) ===
+    /// Optional callback invoked when the agent loop completes with a result.
+    /// Enables agent definitions to register post-completion logic.
+    pub on_completion: Option<CompletionCallback>,
 }
 
 /// Pre-collected git information for system prompt injection.
@@ -239,6 +251,7 @@ impl Default for AgentLoopConfig {
             transcript_writer: None,
             working_dir: None,
             git_context: None,
+            on_completion: None,
         }
     }
 }

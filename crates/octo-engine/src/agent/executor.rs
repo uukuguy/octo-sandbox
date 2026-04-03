@@ -162,6 +162,8 @@ pub struct AgentExecutor {
     catalog: Option<Arc<AgentCatalog>>,
     // Shared interaction gate for agent-to-user communication (Phase AS)
     interaction_gate: Arc<crate::tools::interaction::InteractionGate>,
+    // Persistent transcript writer for parent chain continuity across turns (Phase AZ)
+    transcript_writer: Arc<crate::session::TranscriptWriter>,
 }
 
 impl AgentExecutor {
@@ -195,6 +197,13 @@ impl AgentExecutor {
         interaction_gate: Arc<crate::tools::interaction::InteractionGate>,
         catalog: Option<Arc<AgentCatalog>>,
     ) -> Self {
+        // Create persistent transcript writer for parent chain continuity (Phase AZ)
+        let transcripts_dir = working_dir.join(".octo").join("transcripts");
+        let transcript_writer = Arc::new(crate::session::TranscriptWriter::new(
+            transcripts_dir,
+            session_id.as_str(),
+        ));
+
         Self {
             session_id,
             user_id,
@@ -225,6 +234,7 @@ impl AgentExecutor {
             session_summary_store,
             interaction_gate,
             catalog,
+            transcript_writer,
         }
     }
 
@@ -384,14 +394,8 @@ impl AgentExecutor {
                         Arc::new(crate::storage::BlobStore::new(blobs_dir))
                     };
 
-                    // --- AR-T2: Create TranscriptWriter for session audit trail ---
-                    let transcript_writer = {
-                        let transcripts_dir = self.working_dir.join(".octo").join("transcripts");
-                        Arc::new(crate::session::TranscriptWriter::new(
-                            transcripts_dir,
-                            self.session_id.as_str(),
-                        ))
-                    };
+                    // AR-T2 / Phase AZ: Reuse persistent transcript writer for chain continuity
+                    let transcript_writer = self.transcript_writer.clone();
 
                     // --- Phase AS: Collect git context for system prompt ---
                     let git_context = collect_git_context(&self.working_dir);
@@ -559,6 +563,9 @@ impl AgentExecutor {
         // Release session sandbox container before stopping (AC-T7)
         self.shutdown_sandbox().await;
 
+        // Phase AZ: Compress transcript JSONL to gzip archive on session end
+        self.compress_transcript();
+
         info!(session_id = %self.session_id.as_str(), "AgentExecutor stopped (channel closed)");
     }
 
@@ -713,6 +720,27 @@ impl AgentExecutor {
         }
     }
 
+    /// Phase AZ: Compress transcript JSONL to gzip archive for storage efficiency.
+    fn compress_transcript(&self) {
+        match self.transcript_writer.compress() {
+            Ok(Some(path)) => {
+                info!(
+                    session_id = %self.session_id.as_str(),
+                    path = %path.display(),
+                    "Transcript compressed"
+                );
+            }
+            Ok(None) => {} // no transcript file exists
+            Err(e) => {
+                tracing::debug!(
+                    session_id = %self.session_id.as_str(),
+                    error = %e,
+                    "Transcript compression skipped"
+                );
+            }
+        }
+    }
+
     /// Release the session sandbox container, if any.
     async fn shutdown_sandbox(&self) {
         if let Some(ref ssm) = self.session_sandbox {
@@ -737,6 +765,7 @@ impl AgentExecutor {
     }
 
     /// AR-T2: Write new messages (since `from_idx`) to the transcript.
+    /// Uses `append_chained` for automatic UUID generation and parent chain tracking.
     fn write_transcript(
         writer: &Arc<crate::session::TranscriptWriter>,
         history: &[ChatMessage],
@@ -758,8 +787,10 @@ impl AgentExecutor {
             if text.is_empty() {
                 continue;
             }
-            let entry = TranscriptEntry {
+            let mut entry = TranscriptEntry {
                 timestamp: Utc::now(),
+                uuid: String::new(),
+                parent_uuid: None,
                 role: format!("{:?}", msg.role).to_lowercase(),
                 content_preview: make_preview(&text),
                 blob_ref: None,
@@ -767,7 +798,7 @@ impl AgentExecutor {
                 input_tokens: None,
                 output_tokens: None,
             };
-            if let Err(e) = writer.append(&entry) {
+            if let Err(e) = writer.append_chained(&mut entry) {
                 tracing::debug!(error = %e, "TranscriptWriter: failed to append entry");
             }
         }

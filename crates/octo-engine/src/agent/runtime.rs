@@ -58,9 +58,6 @@ pub struct AgentRuntimeConfig {
     pub working_dir: Option<PathBuf>,
     /// Enable event bus for observability
     pub enable_event_bus: bool,
-    /// Removed: agents_dir (Phase AY — builtin agents are code-only).
-    #[deprecated(note = "Phase AY: agents_dir removed, builtin agents are code-only")]
-    pub agents_dir: Option<std::path::PathBuf>,
     /// Optional OctoRoot for unified path management
     pub octo_root: Option<crate::root::OctoRoot>,
     /// Sandbox profile override (development/staging/production)
@@ -86,7 +83,6 @@ impl AgentRuntimeConfig {
             provider_chain,
             working_dir,
             enable_event_bus,
-            agents_dir: None,
             octo_root: None,
             sandbox_profile: None,
             max_concurrent_sessions: None,
@@ -666,7 +662,7 @@ impl AgentRuntime {
                             // Register DeclarativeHookBridge for each configured hook point
                             let hook_points = collect_declarative_hook_points(&hc);
                             for hp in hook_points {
-                                let mut bridge = crate::hooks::declarative::DeclarativeHookBridge::new(hc.clone(), hp);
+                                let bridge = crate::hooks::declarative::DeclarativeHookBridge::new(hc.clone(), hp);
                                 // Wire WASM handlers into bridge
                                 #[cfg(feature = "sandbox-wasm")]
                                 for (name, handler) in &wasm_handlers {

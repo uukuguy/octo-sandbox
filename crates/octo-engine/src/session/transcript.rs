@@ -15,6 +15,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TranscriptEntry {
     pub timestamp: DateTime<Utc>,
+    /// Unique identifier for this entry (for parent chain tracking).
+    #[serde(default)]
+    pub uuid: String,
+    /// UUID of the previous entry in the conversation chain.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent_uuid: Option<String>,
     pub role: String,
     /// First 500 characters of the content (for quick scanning).
     pub content_preview: String,
@@ -45,16 +51,21 @@ pub fn make_preview(content: &str) -> String {
     }
 }
 
-/// Append-only JSONL transcript writer.
+/// Append-only JSONL transcript writer with parent chain tracking.
 pub struct TranscriptWriter {
     file_path: PathBuf,
+    /// Tracks the UUID of the last recorded entry for parent chain continuity.
+    last_uuid: std::sync::Mutex<Option<String>>,
 }
 
 impl TranscriptWriter {
     /// Create a new writer. The file is created lazily on first `append`.
     pub fn new(session_dir: PathBuf, session_id: &str) -> Self {
         let file_path = session_dir.join(format!("{}.transcript.jsonl", session_id));
-        Self { file_path }
+        Self {
+            file_path,
+            last_uuid: std::sync::Mutex::new(None),
+        }
     }
 
     /// Append a single entry as a JSONL line.
@@ -68,6 +79,23 @@ impl TranscriptWriter {
             .open(&self.file_path)?;
         let line = serde_json::to_string(entry)?;
         writeln!(file, "{}", line)?;
+        Ok(())
+    }
+
+    /// Append an entry with automatic UUID generation and parent chain tracking.
+    ///
+    /// Assigns a new UUID to the entry, sets `parent_uuid` to the previous
+    /// entry's UUID (if any), and updates the internal chain state.
+    pub fn append_chained(&self, entry: &mut TranscriptEntry) -> anyhow::Result<()> {
+        let new_uuid = uuid::Uuid::new_v4().to_string();
+        entry.uuid = new_uuid.clone();
+        entry.parent_uuid = self
+            .last_uuid
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        self.append(entry)?;
+        *self.last_uuid.lock().unwrap_or_else(|e| e.into_inner()) = Some(new_uuid);
         Ok(())
     }
 
@@ -94,7 +122,7 @@ impl TranscriptWriter {
     /// Creates a `.transcript.jsonl.gz` file and removes the original JSONL.
     /// Returns the path to the compressed file, or None if no transcript exists.
     pub fn compress(&self) -> anyhow::Result<Option<PathBuf>> {
-        use std::io::Read;
+        
 
         if !self.file_path.exists() {
             return Ok(None);
@@ -160,6 +188,8 @@ mod tests {
     fn sample_entry(role: &str, content: &str) -> TranscriptEntry {
         TranscriptEntry {
             timestamp: Utc::now(),
+            uuid: String::new(),
+            parent_uuid: None,
             role: role.to_string(),
             content_preview: make_preview(content),
             blob_ref: None,
@@ -249,6 +279,42 @@ mod tests {
         let (writer, _dir) = test_writer();
         let result = writer.compress().unwrap();
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_chained_entries_have_parent_uuid() {
+        let (writer, _dir) = test_writer();
+
+        let mut e1 = sample_entry("user", "Hello");
+        writer.append_chained(&mut e1).unwrap();
+        assert!(!e1.uuid.is_empty());
+        assert!(e1.parent_uuid.is_none()); // first entry has no parent
+
+        let mut e2 = sample_entry("assistant", "Hi there");
+        writer.append_chained(&mut e2).unwrap();
+        assert!(!e2.uuid.is_empty());
+        assert_eq!(e2.parent_uuid.as_deref(), Some(e1.uuid.as_str()));
+
+        let mut e3 = sample_entry("user", "Follow up");
+        writer.append_chained(&mut e3).unwrap();
+        assert_eq!(e3.parent_uuid.as_deref(), Some(e2.uuid.as_str()));
+
+        // Verify chain is intact when reading back
+        let entries = writer.read_all().unwrap();
+        assert_eq!(entries.len(), 3);
+        assert!(entries[0].parent_uuid.is_none());
+        assert_eq!(entries[1].parent_uuid.as_deref(), Some(entries[0].uuid.as_str()));
+        assert_eq!(entries[2].parent_uuid.as_deref(), Some(entries[1].uuid.as_str()));
+    }
+
+    #[test]
+    fn test_old_entries_deserialize_without_uuid() {
+        // Simulate old JSONL format without uuid/parent_uuid fields
+        let old_json = r#"{"timestamp":"2025-01-01T00:00:00Z","role":"user","content_preview":"hello"}"#;
+        let entry: TranscriptEntry = serde_json::from_str(old_json).unwrap();
+        assert_eq!(entry.uuid, ""); // serde default
+        assert!(entry.parent_uuid.is_none());
+        assert_eq!(entry.role, "user");
     }
 
     #[test]
