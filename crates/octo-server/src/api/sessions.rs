@@ -4,7 +4,7 @@ use axum::extract::{Extension, Path, Query, State};
 use axum::http::StatusCode;
 use axum::response::IntoResponse;
 use axum::Json;
-use octo_engine::agent::{AgentId, SessionMetrics};
+use octo_engine::agent::{AgentId, AgentMessage, SessionMetrics};
 use octo_engine::auth::UserContext;
 use octo_types::{SandboxId, SessionId, UserId};
 use serde::{Deserialize, Serialize};
@@ -214,6 +214,82 @@ pub async fn rewind_session(
 #[derive(Deserialize)]
 pub struct ForkRequest {
     pub at_turn: usize,
+}
+
+// ---------------------------------------------------------------------------
+// AU-G4: Session-level pause/resume for autonomous mode
+// ---------------------------------------------------------------------------
+
+/// POST /api/v1/sessions/{id}/pause — Pause an autonomous session.
+pub async fn pause_session(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let session_id = SessionId::from_string(&id);
+    if let Some(handle) = state.agent_supervisor.get_session_handle(&session_id) {
+        if handle.send(AgentMessage::Pause).await.is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "Failed to send pause message" })),
+            );
+        }
+        // Update scheduler state
+        state
+            .agent_supervisor
+            .autonomous_scheduler()
+            .update_status(
+                &session_id,
+                octo_engine::agent::AutonomousStatus::Paused,
+            );
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "session_id": id,
+                "status": "paused",
+            })),
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Session not found or not active" })),
+        )
+    }
+}
+
+/// POST /api/v1/sessions/{id}/resume — Resume a paused autonomous session.
+pub async fn resume_session(
+    State(state): State<Arc<AppState>>,
+    Path(id): Path<String>,
+) -> impl IntoResponse {
+    let session_id = SessionId::from_string(&id);
+    if let Some(handle) = state.agent_supervisor.get_session_handle(&session_id) {
+        if handle.send(AgentMessage::Resume).await.is_err() {
+            return (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(serde_json::json!({ "error": "Failed to send resume message" })),
+            );
+        }
+        // Update scheduler state
+        state
+            .agent_supervisor
+            .autonomous_scheduler()
+            .update_status(
+                &session_id,
+                octo_engine::agent::AutonomousStatus::Running,
+            );
+        (
+            StatusCode::OK,
+            Json(serde_json::json!({
+                "session_id": id,
+                "status": "resumed",
+            })),
+        )
+    } else {
+        (
+            StatusCode::NOT_FOUND,
+            Json(serde_json::json!({ "error": "Session not found or not active" })),
+        )
+    }
 }
 
 /// POST /api/v1/sessions/{id}/fork — Fork conversation at a turn into a new session.

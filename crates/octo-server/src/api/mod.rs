@@ -78,6 +78,9 @@ pub fn routes() -> Router<Arc<AppState>> {
         // AR-T4: Session fork/rewind
         .route("/sessions/{id}/rewind", post(sessions::rewind_session))
         .route("/sessions/{id}/fork", post(sessions::fork_session))
+        // AU-G4: Session-level pause/resume for autonomous mode
+        .route("/sessions/{id}/pause", post(sessions::pause_session))
+        .route("/sessions/{id}/resume", post(sessions::resume_session))
         // Then less specific
         .route("/sessions", get(sessions::list_sessions))
         .route("/executions", get(executions::list_user_executions))
