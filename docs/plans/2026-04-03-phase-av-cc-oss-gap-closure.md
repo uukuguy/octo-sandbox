@@ -1111,7 +1111,7 @@ Co-Authored-By: claude-flow <ruv@ruv.net>"
 
 | ID | 内容 | 前置条件 | 状态 |
 |----|------|---------|------|
-| AV-D1 | StreamingToolExecutor finalize() 结果替换 harness 正常工具执行路径（当前 safe 工具在流期间执行但结果未复用，harness 仍重新执行所有工具） | T6 infrastructure 稳定 + 性能基准测试 | ⏳ |
+| AV-D1 | StreamingToolExecutor finalize() 结果缓存 + 命中检查（sequential 分支跳过已执行的 safe 工具） | T6 infrastructure 稳定 | ✅ 已补 @ 7216b87 |
 | AV-D2 | T3 auto_snip 集成到 harness budget 检查路径 | T3 完成 + budget 监控稳定 | ✅ 已补 @ 6c85074 |
 | AV-D3 | T4 unattended retry 自动启用 | T4 完成 + autonomous mode 功能完善 | ✅ 已补 @ 6c85074 |
-| AV-D4 | T5 Coordinator worker 工具过滤实际生效（当前只注入系统提示，未在 ToolRegistry 层面限制 worker 可用工具） | T5 完成 + SubAgentManager 支持 tool_filter | ⏳ |
+| AV-D4 | T5 Coordinator worker 工具过滤（SpawnSubAgentTool 强制 intersect worker_allowed_tools） | T5 完成 + snapshot_filtered 支持 | ✅ 已补 @ 7216b87 |
