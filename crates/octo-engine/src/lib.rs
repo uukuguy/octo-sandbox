@@ -30,8 +30,8 @@ pub use agent::{
     AgentExecutor, AgentExecutorHandle, AgentId, AgentLoop, AgentLoopConfig, AgentLoopResult,
     AgentManifest, AgentMessage, AgentProfile, AgentRouter, AgentRuntime, AgentRuntimeConfig,
     AgentSlot, AgentStatus, AgentStore, DualAgentManager, DualAgentProfile,
-    NormalizedStopReason, PlanStep, RouteAlternative, RouteResult, TenantContext, ToolFilterMode,
-    TurnGate,
+    NormalizedStopReason, PlanStep, RouteAlternative, RouteResult, StreamingToolExecutor,
+    TenantContext, ToolFilterMode, TurnGate,
 };
 pub use audit::{AuditEvent, AuditRecord, AuditStorage};
 pub use auth::{

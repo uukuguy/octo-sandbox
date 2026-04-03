@@ -28,6 +28,7 @@ pub mod queue;
 pub mod router;
 pub mod runtime;
 pub mod self_repair;
+pub mod streaming_executor;
 mod runtime_lifecycle;
 mod runtime_mcp;
 mod runtime_scheduler;
@@ -79,5 +80,6 @@ pub use subagent::{SubAgentHandle, SubAgentManager, SubAgentResult, SubAgentStat
 pub use tenant::TenantContext;
 pub use self_repair::{RepairResult, SelfRepairManager, StuckDetector};
 pub use token_escalation::TokenEscalation;
+pub use streaming_executor::StreamingToolExecutor;
 pub use turn_gate::TurnGate;
 pub use yaml_def::AgentYamlDef;

@@ -37,6 +37,7 @@ use super::loop_config::AgentLoopConfig;
 use super::loop_guard::LoopGuardVerdict;
 use super::loop_steps;
 use super::parallel::execute_parallel;
+use super::streaming_executor::StreamingToolExecutor;
 // use super::CancellationToken;
 
 const TOOL_RESULT_SOFT_LIMIT: usize = 30_000;
@@ -948,7 +949,19 @@ async fn run_agent_loop_inner(
         };
 
         // --- Consume stream (P0-5) ---
-        let stream_result = consume_stream(&mut llm_stream, &tx, &config.agent_config).await;
+        // AV-T6: Create streaming executor if enabled — dispatches safe tools during streaming.
+        let mut streaming_exec = if config.agent_config.enable_streaming_execution {
+            Some(StreamingToolExecutor::new(tools.clone(), tool_ctx.clone()))
+        } else {
+            None
+        };
+        let stream_result = consume_stream(
+            &mut llm_stream,
+            &tx,
+            &config.agent_config,
+            streaming_exec.as_mut(),
+        )
+        .await;
 
         let stream_result = match stream_result {
             Ok(r) => r,
@@ -971,10 +984,18 @@ async fn run_agent_loop_inner(
                             ),
                         })
                         .await;
+                    // AV-T6: Discard any in-flight streaming tool tasks on retry.
+                    if let Some(exec) = streaming_exec.take() {
+                        exec.discard();
+                    }
                     // Brief delay before retry
                     tokio::time::sleep(std::time::Duration::from_secs(1)).await;
                     let _ = tx.send(AgentEvent::IterationEnd { round, input_tokens: total_input_tokens, output_tokens: total_output_tokens }).await;
                     continue; // Re-enter loop to retry LLM call
+                }
+                // AV-T6: Discard any in-flight streaming tool tasks on exhaustion.
+                if let Some(exec) = streaming_exec.take() {
+                    exec.discard();
                 }
                 warn!("Stream error retries exhausted ({MAX_STREAM_ERROR_RETRIES}): {err_str}");
                 let _ = tx
@@ -2122,6 +2143,7 @@ async fn consume_stream(
     stream: &mut BoxStream<'_, anyhow::Result<StreamEvent>>,
     tx: &mpsc::Sender<AgentEvent>,
     agent_config: &super::config::AgentConfig,
+    mut streaming_executor: Option<&mut StreamingToolExecutor>,
 ) -> anyhow::Result<StreamResult> {
     let mut full_text = String::new();
     let mut full_thinking = String::new();
@@ -2166,6 +2188,10 @@ async fn consume_stream(
             Ok(StreamEvent::ToolUseComplete {
                 id, name, input, ..
             }) => {
+                // AV-T6: If streaming execution is enabled, dispatch safe tools immediately
+                if let Some(ref mut executor) = streaming_executor {
+                    executor.on_tool_block_complete(&id, &name, input.clone());
+                }
                 tool_uses.push(PendingToolUse {
                     id,
                     name,

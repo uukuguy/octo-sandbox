@@ -16,6 +16,10 @@ pub struct AgentConfig {
     pub tool_timeout_secs: u64,
     /// Enable typing indicator signal
     pub enable_typing_signal: bool,
+    /// Enable streaming tool execution (safe tools start during API stream).
+    /// Default: false (gradual rollout).
+    #[serde(default)]
+    pub enable_streaming_execution: bool,
 }
 
 impl Default for AgentConfig {
@@ -26,6 +30,7 @@ impl Default for AgentConfig {
             max_parallel_tools: 8,
             tool_timeout_secs: 60,
             enable_typing_signal: true,
+            enable_streaming_execution: false,
         }
     }
 }
@@ -42,6 +47,7 @@ mod tests {
         assert_eq!(config.max_parallel_tools, 8);
         assert_eq!(config.tool_timeout_secs, 60);
         assert!(config.enable_typing_signal);
+        assert!(!config.enable_streaming_execution);
     }
 
     #[test]
@@ -49,8 +55,10 @@ mod tests {
         let config = AgentConfig::default();
         let json = serde_json::to_string(&config).unwrap();
         assert!(json.contains("max_rounds"));
+        assert!(json.contains("enable_streaming_execution"));
 
         let decoded: AgentConfig = serde_json::from_str(&json).unwrap();
         assert_eq!(decoded.max_rounds, 50);
+        assert!(!decoded.enable_streaming_execution);
     }
 }
