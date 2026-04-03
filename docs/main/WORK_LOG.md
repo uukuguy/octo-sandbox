@@ -1,5 +1,65 @@
 # Octo Sandbox 开发工作日志
 
+## 2026-04-03 — Phase AY: SubAgent Runtime 完整生命周期 @ e80679f
+
+### 会话概要
+
+实现 SubAgentRuntime 完整生命周期架构，对齐 CC-OSS 的 AgentTool + runAgent 模式。Agent 和 Skill Playbook 执行路径统一。所有 6 个 deferred items 清零，并完成全面接线审计修复。
+
+### 完成内容
+
+**W1: SubAgentRuntime 核心 + 工具重命名**
+- `SubAgentRuntime` 结构体 (build/run_sync/run_async/Drop lifecycle)
+- `SpawnSubAgentTool` → `AgentTool`，tool name: `spawn_subagent` → `agent`
+- `QuerySubAgentTool` → `QueryAgentTool`，tool name: `query_subagent` → `query_agent`
+- `ExecuteSkillTool` Playbook 模式复用 SubAgentRuntime（Agent/Skill 共享执行路径）
+- 删除 `agents/` YAML 目录（builtin agents 只在代码中定义）
+
+**W2: 生命周期增强**
+- event_sender 从 AgentExecutor broadcast_tx 注入
+- Drop guard: config 未消费时自动 cancel 已注册的 sub-agent
+
+**Deferred D1-D6 全部解决**
+- D1: working_dir 继承（worktree 隔离）
+- D2: transcript_writer 继承
+- D3: 子 agent 独立 CancellationToken
+- D4: MCP scope 由既有 tool_filter/disallowed_tools 覆盖
+- D5: `HookRegistry.scoped()` + `AgentManifest.hook_scope`
+- D6: `AgentManifest.permission_mode` → per-instance `ApprovalManager`
+
+**接线审计修复（4 个 landmine）**
+- safety_pipeline 传入 parent_config + SubAgentRuntime
+- canary_token 同上
+- recorder 同上
+- loop_guard 在 SubAgentRuntime 中创建
+
+### 技术变更
+
+| 文件 | 变更 |
+|------|------|
+| `crates/octo-engine/src/agent/subagent_runtime.rs` | 新增 ~300 行 |
+| `crates/octo-engine/src/tools/subagent.rs` | 重写 AgentTool/QueryAgentTool |
+| `crates/octo-engine/src/skills/execute_tool.rs` | 重写使用 SubAgentRuntime |
+| `crates/octo-engine/src/agent/executor.rs` | AgentTool 注册 + 接线修复 |
+| `crates/octo-engine/src/agent/entry.rs` | +permission_mode, +hook_scope 字段 |
+| `crates/octo-engine/src/hooks/registry.rs` | +scoped() 方法 |
+| `crates/octo-engine/src/agent/runtime.rs` | 移除 agents_dir 加载 |
+| `crates/octo-engine/src/agent/builtin_agents.rs` | tool name 更新 |
+| `crates/octo-cli/src/tui/formatters/tool_registry.rs` | TUI tool name 更新 |
+| `agents/*.yaml` | 删除 6 个文件 |
+
+### 测试结果
+- 15 个新测试全部通过（13 subagent + 2 hook scoped）
+- 全量编译通过
+
+### 未清项
+- 无（6/6 deferred 全部解决）
+
+### 下一步
+- 待定：新 Phase 规划
+
+---
+
 ## 2026-04-03 — CC-OSS 分析报告缺陷全部清零 + P3-5/P3-6/P3-7 @ efaa230
 
 ### 会话概要
