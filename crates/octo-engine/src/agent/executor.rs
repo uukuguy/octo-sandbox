@@ -333,8 +333,11 @@ impl AgentExecutor {
                                 hook_registry: self.hook_registry.clone(),
                                 // AY-D1: Pass working_dir for worktree isolation
                                 working_dir: Some(self.working_dir.clone()),
-                                // AY-D2: transcript_writer passed as None here;
-                                // sub-agents get their own transcript in run_agent_loop harness.
+                                // Security: inherit safety pipeline for sub-agents
+                                safety_pipeline: self.safety_pipeline.clone(),
+                                canary_token: self.canary_token.clone(),
+                                // Observability: inherit recorder for tool execution tracking
+                                recorder: self.recorder.clone(),
                                 ..AgentLoopConfig::default()
                             });
                             let mut agent_tool = crate::tools::subagent::AgentTool::new(

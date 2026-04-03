@@ -181,6 +181,13 @@ impl SubAgentRuntime {
             transcript_writer: parent_config.transcript_writer.clone(),
             // AY-D1: Inherit working directory (may be worktree path)
             working_dir: parent_config.working_dir.clone(),
+            // Safety: inherit security pipeline
+            safety_pipeline: parent_config.safety_pipeline.clone(),
+            canary_token: parent_config.canary_token.clone(),
+            // Observability: inherit recorder
+            recorder: parent_config.recorder.clone(),
+            // Guard: loop detection for sub-agents
+            loop_guard: Some(super::loop_guard::LoopGuard::new()),
             ..AgentLoopConfig::default()
         };
 
