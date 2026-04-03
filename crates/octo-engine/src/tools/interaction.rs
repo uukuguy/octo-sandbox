@@ -13,6 +13,16 @@ use tracing::{debug, warn};
 /// Default timeout for waiting on user interaction (60 seconds).
 const INTERACTION_TIMEOUT_SECS: u64 = 60;
 
+/// Message status for fire-and-forget notifications.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum MessageStatus {
+    /// Normal response to user action.
+    Normal,
+    /// Proactive/unsolicited update from agent.
+    Proactive,
+}
+
 /// Interaction request types that the agent can send to the user.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
@@ -29,6 +39,11 @@ pub enum InteractionRequest {
     },
     /// Yes/No confirmation
     Confirm { prompt: String },
+    /// Fire-and-forget message (no response expected).
+    Message {
+        content: String,
+        status: MessageStatus,
+    },
 }
 
 /// User's response to an interaction request.
@@ -38,6 +53,8 @@ pub enum InteractionResponse {
     Text(String),
     Selected { index: usize, value: String },
     Confirmed(bool),
+    /// Acknowledgement that a fire-and-forget message was delivered.
+    Delivered,
     Timeout,
 }
 
@@ -108,6 +125,16 @@ impl InteractionGate {
                 InteractionResponse::Timeout
             }
         }
+    }
+
+    /// Send a fire-and-forget message. Does not wait for a response.
+    /// The request is registered and immediately auto-responded with `Delivered`.
+    pub async fn send_message(&self, id: &str, content: String, status: MessageStatus) {
+        let req = InteractionRequest::Message { content, status };
+        let _rx = self.request(id, req).await;
+        // Auto-respond immediately — the consumer sees the Message event,
+        // but the sender doesn't block.
+        self.respond(id, InteractionResponse::Delivered).await;
     }
 
     /// Check if there are any pending requests.

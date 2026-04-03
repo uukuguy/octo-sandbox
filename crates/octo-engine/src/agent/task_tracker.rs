@@ -18,6 +18,7 @@ pub enum TaskStatus {
     InProgress,
     Completed,
     Blocked,
+    Cancelled,
 }
 
 impl fmt::Display for TaskStatus {
@@ -27,6 +28,7 @@ impl fmt::Display for TaskStatus {
             Self::InProgress => write!(f, "in_progress"),
             Self::Completed => write!(f, "completed"),
             Self::Blocked => write!(f, "blocked"),
+            Self::Cancelled => write!(f, "cancelled"),
         }
     }
 }
@@ -38,6 +40,7 @@ impl TaskStatus {
             "in_progress" => Some(Self::InProgress),
             "completed" => Some(Self::Completed),
             "blocked" => Some(Self::Blocked),
+            "cancelled" => Some(Self::Cancelled),
             _ => None,
         }
     }
@@ -137,6 +140,26 @@ impl TaskTracker {
         self.tasks.get(id).map(|e| e.value().clone())
     }
 
+    /// Cancel a task. Only pending/in_progress/blocked tasks can be cancelled.
+    pub fn cancel(&self, id: &str) -> Result<TrackedTask, String> {
+        let mut entry = self
+            .tasks
+            .get_mut(id)
+            .ok_or_else(|| format!("Task '{}' not found", id))?;
+        match entry.status {
+            TaskStatus::Completed => {
+                return Err(format!("Task '{}' is already completed", id));
+            }
+            TaskStatus::Cancelled => {
+                return Err(format!("Task '{}' is already cancelled", id));
+            }
+            _ => {}
+        }
+        entry.status = TaskStatus::Cancelled;
+        entry.updated_at = Utc::now().to_rfc3339();
+        Ok(entry.clone())
+    }
+
     /// Count tasks by status.
     pub fn count_by_status(&self) -> (usize, usize, usize, usize) {
         let mut pending = 0;
@@ -149,6 +172,7 @@ impl TaskTracker {
                 TaskStatus::InProgress => in_progress += 1,
                 TaskStatus::Completed => completed += 1,
                 TaskStatus::Blocked => blocked += 1,
+                TaskStatus::Cancelled => {} // not counted in 4-tuple
             }
         }
         (pending, in_progress, completed, blocked)

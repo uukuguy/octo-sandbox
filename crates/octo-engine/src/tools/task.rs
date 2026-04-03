@@ -260,6 +260,220 @@ Array of task objects with id, subject, status, owner, team."#
     }
 }
 
+// ─── task_get ──────────────────────────────────────────────────────────────
+
+pub struct TaskGetTool {
+    tracker: Arc<TaskTracker>,
+}
+
+impl TaskGetTool {
+    pub fn new(tracker: Arc<TaskTracker>) -> Self {
+        Self { tracker }
+    }
+}
+
+#[async_trait]
+impl Tool for TaskGetTool {
+    fn name(&self) -> &str {
+        "task_get"
+    }
+
+    fn description(&self) -> &str {
+        r#"Retrieve a single task by its ID.
+
+## Parameters
+- task_id (required): The task ID (e.g., "task-1")
+
+## Returns
+The task object with id, subject, description, status, owner, team.
+Returns null if the task does not exist."#
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "The task ID to retrieve"
+                }
+            },
+            "required": ["task_id"]
+        })
+    }
+
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+        let task_id = params["task_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing required parameter: task_id"))?;
+
+        match self.tracker.get(task_id) {
+            Some(task) => Ok(ToolOutput::success(serde_json::to_string_pretty(&task)?)),
+            None => Ok(ToolOutput::success("null".to_string())),
+        }
+    }
+
+    fn source(&self) -> ToolSource {
+        ToolSource::BuiltIn
+    }
+
+    fn is_read_only(&self) -> bool {
+        true
+    }
+
+    fn is_concurrency_safe(&self) -> bool {
+        true
+    }
+
+    fn category(&self) -> &str {
+        "coordination"
+    }
+}
+
+// ─── task_stop ─────────────────────────────────────────────────────────────
+
+pub struct TaskStopTool {
+    tracker: Arc<TaskTracker>,
+}
+
+impl TaskStopTool {
+    pub fn new(tracker: Arc<TaskTracker>) -> Self {
+        Self { tracker }
+    }
+}
+
+#[async_trait]
+impl Tool for TaskStopTool {
+    fn name(&self) -> &str {
+        "task_stop"
+    }
+
+    fn description(&self) -> &str {
+        r#"Stop/cancel a running or pending task.
+
+## Parameters
+- task_id (required): The task ID to stop (e.g., "task-1")
+
+## Behavior
+- Cancels tasks in pending, in_progress, or blocked status
+- Cannot cancel already completed or cancelled tasks
+- Returns the updated task with status "cancelled""#
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "The task ID to stop"
+                }
+            },
+            "required": ["task_id"]
+        })
+    }
+
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+        let task_id = params["task_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing required parameter: task_id"))?;
+
+        match self.tracker.cancel(task_id) {
+            Ok(task) => Ok(ToolOutput::success(serde_json::to_string_pretty(&task)?)),
+            Err(e) => Ok(ToolOutput::error(e)),
+        }
+    }
+
+    fn source(&self) -> ToolSource {
+        ToolSource::BuiltIn
+    }
+
+    fn category(&self) -> &str {
+        "coordination"
+    }
+}
+
+// ─── task_output ───────────────────────────────────────────────────────────
+
+pub struct TaskOutputTool {
+    tracker: Arc<TaskTracker>,
+}
+
+impl TaskOutputTool {
+    pub fn new(tracker: Arc<TaskTracker>) -> Self {
+        Self { tracker }
+    }
+}
+
+#[async_trait]
+impl Tool for TaskOutputTool {
+    fn name(&self) -> &str {
+        "task_output"
+    }
+
+    fn description(&self) -> &str {
+        r#"Retrieve a task's current status and details as structured output.
+
+## Parameters
+- task_id (required): The task ID to retrieve output for
+
+## Returns
+Task object with id, status, subject, description, owner, team, timestamps."#
+    }
+
+    fn parameters(&self) -> serde_json::Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "task_id": {
+                    "type": "string",
+                    "description": "The task ID to get output for"
+                }
+            },
+            "required": ["task_id"]
+        })
+    }
+
+    async fn execute(&self, params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
+        let task_id = params["task_id"]
+            .as_str()
+            .ok_or_else(|| anyhow::anyhow!("Missing required parameter: task_id"))?;
+
+        match self.tracker.get(task_id) {
+            Some(task) => {
+                let output = json!({
+                    "task_id": task.id,
+                    "status": task.status,
+                    "subject": task.subject,
+                    "description": task.description,
+                    "owner": task.owner,
+                    "team": task.team,
+                    "created_at": task.created_at,
+                    "updated_at": task.updated_at,
+                });
+                Ok(ToolOutput::success(serde_json::to_string_pretty(&output)?))
+            }
+            None => Ok(ToolOutput::error(format!("Task '{}' not found", task_id))),
+        }
+    }
+
+    fn source(&self) -> ToolSource {
+        ToolSource::BuiltIn
+    }
+
+    fn is_read_only(&self) -> bool {
+        true
+    }
+
+    fn is_concurrency_safe(&self) -> bool {
+        true
+    }
+
+    fn category(&self) -> &str {
+        "coordination"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -317,5 +531,79 @@ mod tests {
             .await
             .unwrap();
         assert!(result.content.contains("\"total\": 2"));
+    }
+
+    #[tokio::test]
+    async fn test_task_get_found() {
+        let tracker = Arc::new(TaskTracker::new());
+        tracker.create("Test", "desc", None);
+        let tool = TaskGetTool::new(tracker);
+        let result = tool
+            .execute(json!({"task_id": "task-1"}), &test_ctx())
+            .await
+            .unwrap();
+        assert!(result.content.contains("task-1"));
+        assert!(result.content.contains("Test"));
+    }
+
+    #[tokio::test]
+    async fn test_task_get_not_found() {
+        let tracker = Arc::new(TaskTracker::new());
+        let tool = TaskGetTool::new(tracker);
+        let result = tool
+            .execute(json!({"task_id": "task-999"}), &test_ctx())
+            .await
+            .unwrap();
+        assert_eq!(result.content, "null");
+    }
+
+    #[tokio::test]
+    async fn test_task_stop_cancels() {
+        let tracker = Arc::new(TaskTracker::new());
+        tracker.create("Test", "desc", None);
+        let tool = TaskStopTool::new(tracker);
+        let result = tool
+            .execute(json!({"task_id": "task-1"}), &test_ctx())
+            .await
+            .unwrap();
+        assert!(result.content.contains("cancelled"));
+    }
+
+    #[tokio::test]
+    async fn test_task_stop_completed_fails() {
+        let tracker = Arc::new(TaskTracker::new());
+        tracker.create("Test", "desc", None);
+        tracker.update("task-1", Some(TaskStatus::Completed), None).unwrap();
+        let tool = TaskStopTool::new(tracker);
+        let result = tool
+            .execute(json!({"task_id": "task-1"}), &test_ctx())
+            .await
+            .unwrap();
+        assert!(result.is_error);
+    }
+
+    #[tokio::test]
+    async fn test_task_output_returns_details() {
+        let tracker = Arc::new(TaskTracker::new());
+        tracker.create("Build", "build project", Some("team-1"));
+        let tool = TaskOutputTool::new(tracker);
+        let result = tool
+            .execute(json!({"task_id": "task-1"}), &test_ctx())
+            .await
+            .unwrap();
+        assert!(result.content.contains("Build"));
+        assert!(result.content.contains("build project"));
+        assert!(result.content.contains("team-1"));
+    }
+
+    #[tokio::test]
+    async fn test_task_output_not_found() {
+        let tracker = Arc::new(TaskTracker::new());
+        let tool = TaskOutputTool::new(tracker);
+        let result = tool
+            .execute(json!({"task_id": "task-99"}), &test_ctx())
+            .await
+            .unwrap();
+        assert!(result.is_error);
     }
 }

@@ -116,6 +116,10 @@ impl Tool for AskUserTool {
             InteractionResponse::Confirmed(yes) => {
                 Ok(ToolOutput::success(if yes { "yes" } else { "no" }))
             }
+            InteractionResponse::Delivered => {
+                // Shouldn't happen for ask_user, but handle gracefully
+                Ok(ToolOutput::success("(message delivered)".to_string()))
+            }
             InteractionResponse::Timeout => {
                 if let Some(d) = default {
                     Ok(ToolOutput::success(format!(
