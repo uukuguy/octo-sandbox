@@ -1,52 +1,28 @@
 {
   "plan_file": "docs/plans/2026-04-04-grid-crate-split.md",
-  "phase": "active",
+  "phase": "complete",
   "created_at": "2026-04-04T01:30:00+08:00",
-  "updated_at": "2026-04-04T01:30:00+08:00",
-  "completed_tasks": [],
+  "updated_at": "2026-04-04T03:00:00+08:00",
+  "completed_tasks": ["BA-S1", "BA-S2", "BA-S3", "BA-S4", "BA-S5", "BA-S6"],
   "current_task": null,
   "total_tasks": 6,
   "phase_name": "Phase BA — Octo to Grid: Crate 拆分 + 品牌重命名",
-  "status": "STARTED — 0/6 steps",
+  "status": "COMPLETE — 6/6 steps, all tests pass",
   "execution_mode": "manual",
   "branch": "Grid",
   "baseline": {
-    "tests": "2593+ (Phase AZ baseline)",
-    "commit": "d43c0e0",
+    "tests": "2023+ workspace (default) + 496 studio, all pass",
+    "commit": "a50d2a9",
     "db_version": 13,
-    "notes": "Split octo-cli (24,160 lines) into grid-cli-common + grid-cli + grid-studio. Global rename octo→grid."
+    "notes": "Renamed 8 crates octo→grid, feature-flag CLI/Studio split, full rebrand. S1+S2 merged (crate+env rename), S3+S4 merged (feature flag approach instead of separate crate)."
   },
   "tasks": {
-    "BA-S1": {
-      "description": "全局 Crate 重命名: octo-* → grid-* (骨架)",
-      "status": "pending",
-      "subtasks": ["S1.1-workspace-toml", "S1.2-rename-dirs", "S1.3-dep-refs", "S1.4-use-paths", "S1.5-makefile", "S1.6-check", "S1.7-test"]
-    },
-    "BA-S2": {
-      "description": "环境变量 + 路径重命名: OCTO_* → GRID_*, .octo/ → .grid/",
-      "status": "pending",
-      "subtasks": ["S2.1-OctoRoot-rename", "S2.2-env-vars", "S2.3-dotocto-paths", "S2.4-db-name", "S2.5-config-files", "S2.6-check"]
-    },
-    "BA-S3": {
-      "description": "创建 grid-cli-common crate (共享层抽取)",
-      "status": "pending",
-      "subtasks": ["S3.1-create-crate", "S3.2-move-state-types", "S3.3-move-output", "S3.4-move-ui", "S3.5-move-shared-cmds", "S3.6-update-grid-cli", "S3.7-fix-paths", "S3.8-check"]
-    },
-    "BA-S4": {
-      "description": "创建 grid-studio crate (TUI + Dashboard 分离)",
-      "status": "pending",
-      "subtasks": ["S4.1-create-crate", "S4.2-move-tui", "S4.3-move-dashboard", "S4.4-new-main", "S4.5-new-lib", "S4.6-fix-paths", "S4.7-update-desktop", "S4.8-strip-cli-main", "S4.9-strip-cli-deps", "S4.10-check", "S4.11-test"]
-    },
-    "BA-S5": {
-      "description": "品牌视觉替换: Octo → Grid",
-      "status": "pending",
-      "subtasks": ["S5.1-cli-about", "S5.2-welcome-art", "S5.3-status-bar", "S5.4-default-theme", "S5.5-log-prefix", "S5.6-repl-prompt"]
-    },
-    "BA-S6": {
-      "description": "清理 + 全量验证",
-      "status": "pending",
-      "subtasks": ["S6.1-grep-residual", "S6.2-check", "S6.3-test", "S6.4-clippy", "S6.5-update-claude-md", "S6.6-update-makefile", "S6.7-commit"]
-    }
+    "BA-S1": { "description": "全局 Crate 重命名 octo-* → grid-*", "status": "complete", "commit": "9432e1e" },
+    "BA-S2": { "description": "环境变量 + 路径 OCTO_* → GRID_*", "status": "complete", "commit": "9432e1e" },
+    "BA-S3": { "description": "Feature-flag CLI/Studio 拆分", "status": "complete", "commit": "f5ca284" },
+    "BA-S4": { "description": "Merged into S3 (feature flag approach)", "status": "complete", "commit": "f5ca284" },
+    "BA-S5": { "description": "品牌视觉替换 Octo → Grid", "status": "complete", "commit": "c136dec" },
+    "BA-S6": { "description": "清理 + 全量验证", "status": "complete", "commit": "a50d2a9" }
   },
   "deferred": {},
   "previous_phase": {

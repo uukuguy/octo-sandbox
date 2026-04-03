@@ -33,9 +33,26 @@
 | 直接拆分而非 feature flag | 新项目无需过渡态 |
 | S1-S6 执行顺序 | 先重命名骨架 → 再拆分 → 最后品牌 |
 
+### 执行结果
+
+**Phase BA 完成** — 4 个 commits, 全部测试通过
+
+| Commit | Step | 内容 |
+|--------|------|------|
+| `9432e1e` | S1+S2 | 全局 crate 重命名 + 环境变量/路径重命名 (994 files) |
+| `f5ca284` | S3+S4 | Feature-flag 拆分 CLI/Studio (studio_main.rs + cfg gates) |
+| `c136dec` | S5 | 品牌视觉替换 (ASCII Art GRID, ◆ 图标, Indigo 主题) |
+| `a50d2a9` | S6 | 测试修复 + 残留清理 |
+
+**方案调整说明**：
+- S1+S2 合并执行（crate 重命名 + 环境变量在一个 commit 中完成）
+- S3+S4 方案调整：原计划创建独立 `grid-cli-common` crate，改为使用 Cargo feature flags 方案（`studio` feature 控制 TUI/Dashboard 编译），避免引入额外 crate 的复杂度
+- `cargo build -p grid-cli` → 轻量 `grid` 二进制（无 ratatui/crossterm/axum）
+- `cargo build -p grid-cli --features studio` → 完整 `grid-studio` 二进制
+
 ### 下一步
 
-执行 Phase BA Step 1：全局 crate 重命名（octo-* → grid-*）
+根据 GRID_PRODUCT_DESIGN.md Phase 2：Runtime API 定型
 
 ---
 
