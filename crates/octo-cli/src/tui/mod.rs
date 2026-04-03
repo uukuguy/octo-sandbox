@@ -394,8 +394,13 @@ fn handle_agent_event(state: &mut app_state::TuiState, event: octo_engine::agent
                 octo_engine::tools::interaction::InteractionRequest::Question { prompt, .. } => prompt.clone(),
                 octo_engine::tools::interaction::InteractionRequest::Select { prompt, .. } => prompt.clone(),
                 octo_engine::tools::interaction::InteractionRequest::Confirm { prompt } => prompt.clone(),
+                octo_engine::tools::interaction::InteractionRequest::Message { content, .. } => content.clone(),
             };
-            state.messages.push(ChatMessage::assistant(&format!("[ask_user] {}", prompt)));
+            let label = match &request {
+                octo_engine::tools::interaction::InteractionRequest::Message { .. } => "[message]",
+                _ => "[ask_user]",
+            };
+            state.messages.push(ChatMessage::assistant(&format!("{} {}", label, prompt)));
             state.dirty = true;
             // Note: response is handled by InteractionGate timeout (60s default)
             let _ = (request_id, request); // suppress unused warnings
