@@ -1,7 +1,33 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase AX — Builtin Agents",
+      "started_at": "2026-04-03T16:10:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "progress": "0%"
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase AW — CC-OSS 工具体系对齐",
+      "completed_at": "2026-04-03T17:10:00+08:00",
+      "progress": "100%",
+      "commits": ["c80b914", "f9fd4ec", "4d92ca4", "26733d8"],
+      "tasks": "9/9 (W1: SendMessage+TaskGet/Stop/Output+ConfigTool+TodoWrite, W2: MCP Resources+Worktree+LSP, W3: McpAuth+MCP Prompts)",
+      "tests": 39,
+      "deferred": ["AW-D1", "AW-D2", "AW-D3", "AW-D4", "AW-D5"]
+    },
+    {
+      "name": "Phase AV — CC-OSS Gap Closure + Security Parity",
+      "completed_at": "2026-04-03T15:30:00+08:00",
+      "progress": "100%",
+      "commits": ["4ce5be1", "73211a8", "6ba8619", "7216b87", "6c85074", "ad9cd9f", "3c63d90", "3cde61a", "a58e341"],
+      "tasks": "6/6 + 4D resolved + 4 security parity (fail-closed, input risk, BashGuard, Doing Tasks)",
+      "tests": 61,
+      "deferred": []
+    },
     {
       "name": "Phase AU — Autonomous Mode Completion (5 gaps)",
       "completed_at": "2026-04-03T11:10:00+08:00",

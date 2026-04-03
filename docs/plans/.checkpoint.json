@@ -1,66 +1,49 @@
 {
-  "plan_file": "docs/plans/2026-04-03-phase-aw-tool-parity.md",
-  "phase": "complete",
-  "created_at": "2026-04-03T16:00:00+08:00",
-  "updated_at": "2026-04-03T17:00:00+08:00",
-  "completed_tasks": [
-    "T1-send-message",
-    "T2-task-get-stop-output",
-    "T3-config-tool",
-    "T4-todo-write",
-    "T5-mcp-resource",
-    "T6-worktree",
-    "T7-lsp",
-    "T8-mcp-auth",
-    "T9-mcp-prompt"
-  ],
+  "plan_file": "docs/plans/2026-04-03-phase-ax-builtin-agents.md",
+  "phase": "design",
+  "created_at": "2026-04-03T16:30:00+08:00",
+  "updated_at": "2026-04-03T16:30:00+08:00",
+  "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 9,
-  "phase_name": "Phase AW — CC-OSS 工具体系对齐",
-  "status": "COMPLETE — 9/9 tasks in 3 waves, 39 new tests @ 4d92ca4",
-  "execution_mode": "wave-parallel",
+  "total_tasks": 7,
+  "phase_name": "Phase AX — Builtin Agents",
+  "status": "Design complete, ready for execution",
+  "execution_mode": null,
   "branch": "main",
   "baseline": {
-    "tests": "2537+ (Phase AV) + 39 new = 2576+",
-    "commit": "4d92ca4",
+    "tests": "2576+ (Phase AW)",
+    "commit": "26733d8",
     "db_version": 13,
-    "notes": "Phase AW complete. CC-OSS tool parity achieved for all active tools."
+    "notes": "Phase AX design complete. 7 tasks across 3 waves targeting ~750 lines, ~16 tests."
   },
   "waves": {
     "wave1": {
-      "description": "简单工具快速补齐 (并行)",
-      "tasks": ["T1-send-message", "T2-task-get-stop-output", "T3-config-tool", "T4-todo-write"],
-      "status": "complete",
-      "commit": "c80b914",
-      "new_tests": 24,
-      "new_lines": 1057
+      "description": "AgentManifest 扩展 + BuiltinAgentRegistry",
+      "tasks": ["T1-manifest-fields", "T2-builtin-registry"],
+      "status": "pending"
     },
     "wave2": {
-      "description": "中等复杂度工具",
-      "tasks": ["T5-mcp-resource", "T6-worktree", "T7-lsp"],
-      "status": "complete",
-      "commit": "f9fd4ec",
-      "new_tests": 12,
-      "new_lines": 1080
+      "description": "SpawnSubAgentTool agent_type 路由",
+      "tasks": ["T3-snapshot-excluded", "T4-agent-type-routing"],
+      "status": "pending"
     },
     "wave3": {
-      "description": "MCP 认证 + Prompt 集成",
-      "tasks": ["T8-mcp-auth", "T9-mcp-prompt"],
-      "status": "complete",
-      "commit": "4d92ca4",
-      "new_tests": 3,
-      "new_lines": 352
+      "description": "Skill preloading + 集成验证",
+      "tasks": ["T5-skill-preloading", "T6-description-enhance", "T7-verify"],
+      "status": "pending"
     }
   },
   "deferred": {
-    "AW-D1": { "status": "pending", "description": "LSP 额外操作 (goToImplementation, callHierarchy, workspaceSymbol)" },
-    "AW-D2": { "status": "pending", "description": "LSP 服务器自动发现与启动" },
-    "AW-D3": { "status": "pending", "description": "LSP 文件同步 (didOpen/didChange/didClose)" },
-    "AW-D4": { "status": "pending", "description": "MCP OAuth 后台完成回调 + 工具自动替换" },
-    "AW-D5": { "status": "pending", "description": "ConfigTool SET 操作配置持久化" }
+    "AX-D1": { "status": "pending", "description": "per-agent permissionMode" },
+    "AX-D2": { "status": "pending", "description": "per-agent MCP servers" },
+    "AX-D3": { "status": "pending", "description": "per-agent hooks" },
+    "AX-D4": { "status": "pending", "description": "ExecuteSkillTool background mode" },
+    "AX-D5": { "status": "pending", "description": "YAML agent files directory" },
+    "AX-D6": { "status": "pending", "description": "omit_context_docs in SystemPromptBuilder" },
+    "AX-D7": { "status": "pending", "description": "Agent-level effort control" }
   },
   "previous_phase": {
-    "name": "Phase AV — CC-OSS Gap Closure + Security Parity",
-    "status": "COMPLETE — 6/6 tasks + 4/4 deferred + 4 security parity commits @ a58e341"
+    "name": "Phase AW — CC-OSS 工具体系对齐",
+    "status": "COMPLETE — 9/9 tasks in 3 waves, 39 new tests @ 4d92ca4"
   }
 }
