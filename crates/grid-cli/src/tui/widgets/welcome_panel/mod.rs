@@ -184,7 +184,8 @@ impl<'a> WelcomePanel<'a> {
 
         let border_color = |idx: u16| -> Color {
             // Sweep: offset drives a focused bright spot orbiting the border
-            let t = ((idx as f64 / perimeter as f64) + offset as f64 / 360.0) % 1.0;
+            // Subtract offset so bright spot moves clockwise (same direction as idx)
+            let t = ((idx as f64 / perimeter as f64) - offset as f64 / 360.0).rem_euclid(1.0);
             // Hue: accent ±15° symmetric
             let hue = self.state.accent_hue + (t - 0.5).abs() * 30.0;
             // Focused cosine²: sharper bright spot with wider dim region
@@ -226,7 +227,7 @@ impl Widget for WelcomePanel<'_> {
 
         // Layout constants
         let subtitle = "Autonomous Agent Studio";
-        let help = "Enter: send  \u{2502}  Esc: interrupt  \u{2502}  /help  \u{2502}  Ctrl+C: quit";
+        let help = "Enter: send  \u{2502}  Esc: interrupt  \u{2502}  Ctrl+C: quit  \u{2502}  /help";
 
         if area.height < 5 {
             // ── Tier 1: tiny terminal — breathing brand line ──

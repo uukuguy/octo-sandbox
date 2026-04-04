@@ -6,7 +6,8 @@
       "progress": "0%",
       "plan_file": "docs/plans/2026-04-04-phase-bc-tui-deferred-items.md",
       "tasks": "0/5 (W1: MdPalette+ConversationWidget+StatusBar theming, W2: role separator+responsive statusbar)",
-      "sources": ["BB-D1", "BB-D2", "BB-D4"]
+      "sources": ["BB-D1", "BB-D2", "BB-D4"],
+      "note": "Welcome visual overhaul done independently @ 875255b (brand Coral, 🦑, animation). BC tasks still pending."
     }
   ],
   "suspended_phases": [],
