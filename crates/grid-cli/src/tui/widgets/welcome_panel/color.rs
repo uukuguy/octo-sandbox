@@ -23,6 +23,27 @@ pub(super) fn hsl_to_rgb(hue: f64, saturation: f64, lightness: f64) -> Color {
     )
 }
 
+/// Extract hue (0..360°) from an RGB color.
+pub(super) fn rgb_to_hue(r: u8, g: u8, b: u8) -> f64 {
+    let r = r as f64 / 255.0;
+    let g = g as f64 / 255.0;
+    let b = b as f64 / 255.0;
+    let max = r.max(g).max(b);
+    let min = r.min(g).min(b);
+    let delta = max - min;
+    if delta < 0.001 {
+        return 0.0;
+    }
+    let hue = if (max - r).abs() < 0.001 {
+        60.0 * (((g - b) / delta) % 6.0)
+    } else if (max - g).abs() < 0.001 {
+        60.0 * (((b - r) / delta) + 2.0)
+    } else {
+        60.0 * (((r - g) / delta) + 4.0)
+    };
+    if hue < 0.0 { hue + 360.0 } else { hue }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -35,6 +56,19 @@ mod tests {
         assert_eq!(r, 255);
         assert!(g < 5);
         assert!(b < 5);
+    }
+
+    #[test]
+    fn test_rgb_to_hue() {
+        // Pure red = 0°
+        let h = rgb_to_hue(255, 0, 0);
+        assert!((h - 0.0).abs() < 1.0, "red hue should be ~0, got {h}");
+        // Indigo (99, 102, 241) ≈ 239°
+        let h = rgb_to_hue(99, 102, 241);
+        assert!(h > 230.0 && h < 245.0, "indigo hue should be ~239, got {h}");
+        // Grey (equal channels) = 0°
+        let h = rgb_to_hue(128, 128, 128);
+        assert!((h - 0.0).abs() < 1.0, "grey hue should be ~0, got {h}");
     }
 
     #[test]

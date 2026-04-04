@@ -272,6 +272,10 @@ impl TuiState {
         let message_history = MessageHistory::with_file(100, history_path);
 
         let mut state = Self::with_history(session_id, handle, model_name, interrupt, message_history);
+        // Sync welcome panel accent hue with theme
+        if let ratatui::style::Color::Rgb(r, g, b) = state.theme.accent {
+            state.welcome_state.set_accent_hue(r, g, b);
+        }
         state.refresh_git_info();
         state
     }

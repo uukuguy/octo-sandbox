@@ -15,6 +15,8 @@ pub struct WelcomePanelState {
     pub is_fading: bool,
     /// Set to `true` once fade completes; panel should no longer render.
     pub fade_complete: bool,
+    /// Accent hue derived from TuiTheme (0..360°). Default: 235° (Indigo).
+    pub(super) accent_hue: f64,
 }
 
 impl WelcomePanelState {
@@ -25,7 +27,13 @@ impl WelcomePanelState {
             fade_progress: 1.0,
             is_fading: false,
             fade_complete: false,
+            accent_hue: 235.0, // Indigo default
         }
+    }
+
+    /// Update accent hue from theme accent color (call once at init or on theme change).
+    pub fn set_accent_hue(&mut self, r: u8, g: u8, b: u8) {
+        self.accent_hue = super::color::rgb_to_hue(r, g, b);
     }
 
     /// Advance animations by one tick (~60ms).
@@ -92,6 +100,16 @@ mod tests {
         }
         assert!(state.fade_complete);
         assert!(state.fade_progress <= 0.0);
+    }
+
+    #[test]
+    fn test_accent_hue_from_theme() {
+        let mut state = WelcomePanelState::new();
+        assert!((state.accent_hue - 235.0).abs() < 0.01);
+        // Set to cyan-ish (6, 182, 212)
+        state.set_accent_hue(6, 182, 212);
+        assert!(state.accent_hue > 180.0 && state.accent_hue < 200.0,
+            "cyan hue should be ~187, got {}", state.accent_hue);
     }
 
     #[test]

@@ -21,11 +21,12 @@ use color::hsl_to_rgb;
 /// Stateless widget that renders the welcome panel from `WelcomePanelState`.
 pub struct WelcomePanel<'a> {
     state: &'a WelcomePanelState,
+    model_name: &'a str,
 }
 
 impl<'a> WelcomePanel<'a> {
-    pub fn new(state: &'a WelcomePanelState, _model_name: &'a str) -> Self {
-        Self { state }
+    pub fn new(state: &'a WelcomePanelState, model_name: &'a str) -> Self {
+        Self { state, model_name }
     }
 
     #[inline]
@@ -72,7 +73,7 @@ impl<'a> WelcomePanel<'a> {
             // Subtract gradient_offset so the sweep visually flows left-to-right
             let sweep =
                 (i as u16 * 4 + line_offset * 12 + 360 - self.state.gradient_offset) % 360;
-            let hue = 25.0 + (sweep as f64 / 360.0) * 30.0;
+            let hue = self.state.accent_hue + (sweep as f64 / 360.0) * 30.0;
             let sat = 0.80 * fade;
             let lit = 0.55 * fade + 0.1 * (1.0 - fade);
             let color = hsl_to_rgb(hue, sat, lit);
@@ -80,16 +81,15 @@ impl<'a> WelcomePanel<'a> {
         }
     }
 
-    // 5-row ASCII art: "GRID" in dense block style (width 30)
-    // Matches grid-tui proportions: 6-wide letters, 2-col strokes, 2-space gaps
+    // 5-row rounded line-drawing "GRID" (from GRID_UI_UX_DESIGN §2.3)
     const LOGO_LINES: [&'static str; 5] = [
-        " \u{2588}\u{2588}\u{2588}\u{2588}\u{2588}  \u{2588}\u{2588}\u{2588}\u{2588}   \u{2588}\u{2588} \u{2588}\u{2588}\u{2588}\u{2588}  ",
-        "\u{2588}\u{2588}      \u{2588}\u{2588}  \u{2588}\u{2588} \u{2588}\u{2588} \u{2588}\u{2588}  \u{2588}\u{2588}",
-        "\u{2588}\u{2588}  \u{2588}\u{2588} \u{2588}\u{2588}\u{2588}\u{2588}   \u{2588}\u{2588} \u{2588}\u{2588}  \u{2588}\u{2588}",
-        "\u{2588}\u{2588}   \u{2588} \u{2588}\u{2588}  \u{2588}\u{2588} \u{2588}\u{2588} \u{2588}\u{2588}  \u{2588}\u{2588}",
-        " \u{2588}\u{2588}\u{2588}\u{2588}\u{2588} \u{2588}\u{2588}  \u{2588}\u{2588} \u{2588}\u{2588} \u{2588}\u{2588}\u{2588}\u{2588}  ",
+        "  \u{256d}\u{2500}\u{2500}\u{2500}\u{256e}  \u{256d}\u{2500}\u{2500}\u{2500}\u{256e}  \u{2576}\u{2500}\u{2500}\u{256e}  \u{256d}\u{2500}\u{2500}\u{2500}\u{256e}",
+        "  \u{2502}      \u{2502}   \u{2502}     \u{2502}  \u{2502}    \u{2502}",
+        "  \u{2502} \u{2500}\u{2500}\u{256e}  \u{251c}\u{2500}\u{2500}\u{2500}\u{2518}     \u{2502}  \u{2502}    \u{2502}",
+        "  \u{2502}   \u{2502}  \u{2502}  \u{2572}      \u{2502}  \u{2502}    \u{2502}",
+        "  \u{2570}\u{2500}\u{2500}\u{2500}\u{256f}  \u{2575}   \u{2572}  \u{2576}\u{2500}\u{2500}\u{256f}  \u{2570}\u{2500}\u{2500}\u{2500}\u{256f}",
     ];
-    const LOGO_WIDTH: usize = 30;
+    const LOGO_WIDTH: usize = 38;
     const LOGO_HEIGHT: usize = 5;
 
     /// Render the dot-grid background with pulsing intersections and GRID logo as negative space.
@@ -134,7 +134,7 @@ impl<'a> WelcomePanel<'a> {
                         if ch != ' ' {
                             // Uniform breathing: single amber hue, brightness oscillates
                             let b = 0.40 + 0.20 * (1.0 + breathe.sin());
-                            let color = hsl_to_rgb(35.0, 0.85 * fade, b * fade);
+                            let color = hsl_to_rgb(self.state.accent_hue, 0.85 * fade, b * fade);
                             Self::put(buf, area, ax, ay, ch, color);
                         }
                     }
@@ -157,7 +157,7 @@ impl<'a> WelcomePanel<'a> {
                     let wave = (breathe - norm_dist * 4.0).sin();
                     let intensity = 0.08 + 0.12 * (wave * 0.5 + 0.5);
 
-                    let dot_hue = 35.0 + norm_dist * 15.0;
+                    let dot_hue = self.state.accent_hue + norm_dist * 15.0;
                     let color = hsl_to_rgb(dot_hue, 0.4 * fade, intensity * fade);
                     Self::put(buf, area, ax, ay, '\u{00B7}', color);
                 }
@@ -173,7 +173,7 @@ impl<'a> WelcomePanel<'a> {
 
         let border_color = |idx: u16| -> Color {
             let t = ((idx as f64 / perimeter as f64) + (360 - offset) as f64 / 360.0) % 1.0;
-            let hue = 25.0 + t * 30.0;
+            let hue = self.state.accent_hue + t * 30.0;
             hsl_to_rgb(hue, 0.5 * fade, 0.30 * fade + 0.06 * (1.0 - fade))
         };
 
@@ -206,26 +206,28 @@ impl Widget for WelcomePanel<'_> {
         }
 
         let fade = self.state.fade_progress as f64;
-        let dim = hsl_to_rgb(40.0, 0.25 * fade, 0.35 * fade);
+        let dim = hsl_to_rgb(self.state.accent_hue + 5.0, 0.25 * fade, 0.35 * fade);
 
         // Layout constants
-        let subtitle = "Autonomous AI Workbench";
-        let help = "Enter: send  |  Ctrl+C: quit  |  /help: commands  |  Terminal native: select & copy text";
+        let subtitle = "Autonomous AI Agent Platform";
+        let help = "Enter: send  \u{2502}  /help: commands  \u{2502}  Ctrl+C: quit";
 
         if area.height < 5 {
             // ── Tier 1: tiny terminal — emoji brand ──
             let cy = area.y + area.height / 2;
-            Self::center_text(buf, area, cy, "\u{25C6} grid \u{2014} autonomous ai agent platform", dim);
+            Self::center_text(buf, area, cy, "\u{25C6} Grid \u{2014} Autonomous AI Agent Platform", dim);
         } else if area.height < 12 {
-            // ── Tier 2: small — border + spaced title + subtitle ──
+            // ── Tier 2: small — border + compact line-drawing logo + subtitle ──
             let box_w = (area.width.saturating_sub(4)).min(50);
-            let box_h = 5u16.min(area.height);
+            let box_h = 6u16.min(area.height);
             let bx = area.x + (area.width.saturating_sub(box_w)) / 2;
             let by = area.y + (area.height.saturating_sub(box_h)) / 2;
 
             self.draw_border(buf, area, bx, by, box_w, box_h);
-            self.write_gradient_line(buf, area, by + 1, "G R I D", 0);
-            Self::center_text(buf, area, by + 3, subtitle, dim);
+            self.write_gradient_line(buf, area, by + 1, "\u{2554}\u{2550}\u{2557}  \u{2566}\u{2550}\u{2557}  \u{2566}  \u{2554}\u{2550}\u{2550}\u{2557}", 0);
+            self.write_gradient_line(buf, area, by + 2, "\u{2551} \u{2557}  \u{2560}\u{2566}\u{2518}  \u{2551}  \u{2551}  \u{2551}", 1);
+            self.write_gradient_line(buf, area, by + 3, "\u{255a}\u{2550}\u{255d}  \u{2569}\u{255a}\u{2550}  \u{2569}  \u{255a}\u{2550}\u{2550}\u{255d}", 2);
+            Self::center_text(buf, area, by + 4, subtitle, dim);
         } else {
             // ── Tier 3: full — grid background with GRID logo + info box ──
             let box_w = (area.width.saturating_sub(4)).min(70);
@@ -233,8 +235,8 @@ impl Widget for WelcomePanel<'_> {
             let grid_h = (area.height.saturating_sub(box_h + 2)).clamp(5, 18) as usize;
             let grid_w = ((box_w as f32 * 0.9) as usize).clamp(Self::LOGO_WIDTH, 80);
 
-            // Center vertically: grid + 1 blank + subtitle + 1 blank + info box
-            let total_h = grid_h as u16 + 1 + 1 + 1 + box_h;
+            // Center vertically: grid + 1 blank + subtitle + model + 1 blank + info box
+            let total_h = grid_h as u16 + 1 + 1 + 1 + 1 + box_h;
             let start_y = area.y + area.height.saturating_sub(total_h) / 2;
             let center_x = area.x + (area.width.saturating_sub(box_w)) / 2;
 
@@ -246,8 +248,13 @@ impl Widget for WelcomePanel<'_> {
             let subtitle_y = start_y + grid_h as u16 + 1;
             self.write_gradient_line(buf, area, subtitle_y, subtitle, 1);
 
+            // Model name display
+            let model_y = subtitle_y + 1;
+            let model_display = format!("\u{2500}\u{2500}\u{2500} {} \u{2500}\u{2500}\u{2500}", self.model_name);
+            Self::center_text(buf, area, model_y, &model_display, dim);
+
             // Info box below with help text (1 blank line gap)
-            let by = subtitle_y + 2;
+            let by = model_y + 2;
             self.draw_border(buf, area, center_x, by, box_w, box_h);
 
             let max_inner = (box_w as usize).saturating_sub(4); // 2 border chars + 2 padding
@@ -303,7 +310,7 @@ mod tests {
         let mut buf = Buffer::empty(area);
         widget.render(area, &mut buf);
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
-        assert!(content.contains("grid"), "Tier 1 should contain 'octo' brand");
+        assert!(content.contains("Grid"), "Tier 1 should contain Grid brand");
     }
 
     #[test]
@@ -328,9 +335,9 @@ mod tests {
         let mut buf = Buffer::empty(area);
         widget.render(area, &mut buf);
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
-        // Grid background renders dot characters and block art
-        assert!(content.contains("\u{00B7}") || content.contains("\u{2588}"),
-            "Tier 3 should contain grid dots or block chars");
+        // Grid background renders dot characters and line-drawing art
+        assert!(content.contains("\u{00B7}") || content.contains("\u{256d}") || content.contains("\u{2502}"),
+            "Tier 3 should contain grid dots or line-drawing chars");
         assert!(!content.contains("AGENT"), "Should NOT contain AGENT");
     }
 
@@ -343,7 +350,8 @@ mod tests {
         widget.render(area, &mut buf);
 
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
-        assert!(content.contains("Autonomous AI Workbench"), "Should show subtitle");
+        assert!(content.contains("Autonomous AI Agent Platform"), "Should show subtitle");
+        assert!(content.contains("gpt-4o"), "Should show model name");
         assert!(content.contains("Enter"), "Should show help text");
     }
 }
