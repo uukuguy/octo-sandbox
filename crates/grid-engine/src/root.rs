@@ -1,4 +1,4 @@
-//! GridRoot — unified directory management for octo-sandbox.
+//! GridRoot — unified directory management for Grid platform.
 //!
 //! Provides a single source of truth for all file paths used by the system:
 //! - Global root: `~/.grid/` (user-level data, API keys, per-project databases)
@@ -26,12 +26,12 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result};
 
-/// Unified directory manager for octo-sandbox.
+/// Unified directory manager for Grid platform.
 #[derive(Debug, Clone)]
 pub struct GridRoot {
-    /// Global root directory (default: `~/.octo`)
+    /// Global root directory (default: `~/.grid`)
     global_root: PathBuf,
-    /// Project root directory (default: `$PWD/.octo`)
+    /// Project root directory (default: `$PWD/.grid`)
     project_root: PathBuf,
     /// Working directory for tool execution (default: `$PWD`)
     working_dir: PathBuf,
@@ -147,7 +147,7 @@ impl GridRoot {
         &self.global_root
     }
 
-    /// The project root directory (`$PWD/.octo`).
+    /// The project root directory (`$PWD/.grid`).
     pub fn project_root(&self) -> &Path {
         &self.project_root
     }
