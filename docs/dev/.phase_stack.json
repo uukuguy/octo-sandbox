@@ -1,15 +1,16 @@
 {
-  "active_phases": [
-    {
-      "name": "Phase BB — TUI 视觉升级",
-      "started_at": "2026-04-04T17:00:00+08:00",
-      "checkpoint": "docs/plans/.checkpoint.json",
-      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "0%"
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase BB — TUI 视觉升级",
+      "completed_at": "2026-04-04T17:45:00+08:00",
+      "progress": "100%",
+      "commits": ["4f5159a", "9b61990", "04a5f3b"],
+      "tasks": "11/11 (W1: TuiTheme 4-layer+style_tokens+Autocomplete+Approval themed, W2: welcome accent hue+line-drawing logo+model name, W3: 8-seg progress bar+status bar+input widget themed)",
+      "tests": 499,
+      "deferred": ["BB-D1", "BB-D2", "BB-D3", "BB-D4"]
+    },
     {
       "name": "Phase BA — Octo to Grid: Crate 拆分 + 品牌重命名 + TUI 完善",
       "completed_at": "2026-04-04T16:00:00+08:00",

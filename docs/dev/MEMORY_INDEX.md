@@ -7,7 +7,7 @@
 
 ## [Active Work]
 
-- 2026-04-04 17:30 | **Phase BB PLANNED (0/11)** — TUI 视觉升级. Plan: docs/plans/2026-04-04-phase-bb-tui-visual-upgrade.md. 3 waves: W1 色彩统一 (TuiTheme扩充+style_tokens迁移+Autocomplete/Approval主题化), W2 Welcome升级 (accent hue跟随主题+圆角线条Logo+文案更新), W3 Widget精细化 (进度条8段+状态栏+Input主题化). Deferred: BB-D1~D4.
+- 2026-04-04 17:45 | **Phase BB COMPLETE (11/11)** — TUI 视觉升级 @ 04a5f3b. W1: TuiTheme 4-layer surface+style_tokens aligned+popups themed. W2: accent hue follow+line-drawing logo+model name. W3: 8-seg progress+status bar+input themed. 499 tests (3 new). Deferred: BB-D1~D4.
 - 2026-04-03 21:30 | **Phase AY ALL DEFERRED RESOLVED (D1-D6)** — D1: working_dir inherit, D2: transcript_writer inherit, D3: child CancellationToken, D4: already covered by tool filter, D5: HookRegistry.scoped() + AgentManifest.hook_scope, D6: per-instance ApprovalManager via AgentManifest.permission_mode. 5 new tests @ 6811353.
 - 2026-04-03 21:15 | **Phase AY COMPLETE (7/7)** — SubAgentRuntime lifecycle. W1: SubAgentRuntime struct (build/run_sync/run_async/Drop), AgentTool rename (spawn_subagent→agent), ExecuteSkillTool Playbook convergence via SubAgentRuntime, delete agents/ YAML (AX-D5 rollback). W2: event_sender injection, Drop guard, 10 tests pass. -266 net lines @ c552a87. Deferred: AY-D1~D6.
 - 2026-04-03 18:30 | **Phase AY DESIGN COMPLETE** — SubAgentRuntime lifecycle. AgentTool rename, sync default, Skill convergence, delete agents/ YAML. 7 tasks, 2 waves. Plan @ ad3e7bb.
