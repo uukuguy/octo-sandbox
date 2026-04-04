@@ -1,5 +1,6 @@
 .PHONY: dev build check test clean fmt lint server web all install setup \
-        cli cli-run cli-ask cli-tui cli-agent cli-session cli-config cli-doctor \
+        cli cli-run cli-ask cli-agent cli-session cli-config cli-doctor \
+        studio studio-tui studio-dashboard build-studio \
         verify verify-runtime verify-api verify-api-mcp \
         eval-list eval-run eval-compare eval-benchmark eval-benchmark-mini \
         eval-history eval-report eval-trace eval-diagnose eval-diff eval-progress \
@@ -57,8 +58,11 @@ build-full:
 build-cli:
 	cargo build -p grid-cli --bin grid
 
+build-studio:
+	cargo build -p grid-cli --features studio
+
 build-cli-full:
-	cargo build -p grid-cli --bin grid --features full
+	cargo build -p grid-cli --features full
 
 # 编译构建 (release, 含全部功能)
 release:
@@ -157,13 +161,24 @@ cli-ask:
 	@if [ -z "$(QUERY)" ]; then echo "Usage: make cli-ask QUERY=\"your question\""; exit 1; fi
 	@cargo run --quiet -p grid-cli --bin grid -- --project $(TEST_PROJECT) ask "$(QUERY)" $(CLI_ARGS)
 
-# TUI 全屏模式 (uses pre-built binary if available, otherwise builds first)
-cli-tui: build-cli
-	@if [ -f target/debug/grid ]; then \
-		target/debug/grid --project $(TEST_PROJECT) tui $(CLI_ARGS); \
+# ============================================================
+# Studio 命令 (grid-studio = TUI + Dashboard, 需要 studio feature)
+# ============================================================
+
+# TUI 全屏模式
+studio-tui: build-studio
+	@if [ -f target/debug/grid-studio ]; then \
+		target/debug/grid-studio --project $(TEST_PROJECT) $(CLI_ARGS); \
 	else \
-		cargo run --quiet -p grid-cli --bin grid -- --project $(TEST_PROJECT) tui $(CLI_ARGS); \
+		cargo run --quiet -p grid-cli --features studio --bin grid-studio -- --project $(TEST_PROJECT) $(CLI_ARGS); \
 	fi
+
+# 启动 Web Dashboard
+studio-dashboard: build-studio
+	@cargo run --quiet -p grid-cli --features studio --bin grid-studio -- --project $(TEST_PROJECT) dashboard $(CLI_ARGS)
+
+# 别名: studio = studio-tui
+studio: studio-tui
 
 # Agent 管理
 cli-agent:
@@ -559,7 +574,7 @@ docker-clean:
 # ============================================================
 
 help:
-	@echo "grid-sandbox Makefile"
+	@echo "Grid Platform Makefile"
 	@echo ""
 	@echo "常用命令:"
 	@echo "  make dev              同时启动后端 + 前端开发服务器"
@@ -575,15 +590,19 @@ help:
 	@echo "  make verify-api       REST API 端点可用性检查 (需先 make server)"
 	@echo "  make verify-api-mcp ID=<id>  MCP server 专属端点检查"
 	@echo ""
-	@echo "CLI (grid-cli):"
+	@echo "CLI (grid — 轻量命令行):"
 	@echo "  make cli                             显示 CLI 帮助"
 	@echo "  make cli-run                         交互式 REPL 会话"
 	@echo "  make cli-ask QUERY=\"问题\"             单次提问 (headless)"
-	@echo "  make cli-tui                         TUI 全屏模式"
 	@echo "  make cli-agent                       列出 agents"
 	@echo "  make cli-session                     列出 sessions"
 	@echo "  make cli-config                      显示配置"
 	@echo "  make cli-doctor                      健康诊断"
+	@echo ""
+	@echo "Studio (grid-studio — TUI + Dashboard 工作台):"
+	@echo "  make studio                          TUI 全屏模式 (默认)"
+	@echo "  make studio-tui                      TUI 全屏模式"
+	@echo "  make studio-dashboard                Web Dashboard"
 	@echo ""
 	@echo "沙箱环境切换 (详细指南: docs/design/SANDBOX_ENVIRONMENT_GUIDE.md):"
 	@echo "  make sandbox-status                  查看当前沙箱状态"
@@ -595,6 +614,10 @@ help:
 	@echo "  make sandbox-shell                   进入容器内交互式 shell"
 	@echo ""
 	@echo "构建:"
+	@echo "  make build            Rust 编译构建 (日常开发)"
+	@echo "  make build-cli        仅构建 grid CLI (轻量, 无 TUI)"
+	@echo "  make build-studio     构建 grid-studio (含 TUI + Dashboard)"
+	@echo "  make build-cli-full   完整构建 (含 WASM/Docker/PDF + Studio)"
 	@echo "  make all              完整构建 (后端 + 前端)"
 	@echo "  make release          Release 构建"
 	@echo "  make web-build        前端生产构建"
