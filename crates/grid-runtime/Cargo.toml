@@ -1,0 +1,54 @@
+[package]
+name = "grid-runtime"
+edition.workspace = true
+version.workspace = true
+description = "EAASP L1 Agent Runtime — Tier 1 Harness implementation"
+
+[features]
+default = []
+full = ["grid-engine/full"]
+sandbox-wasm = ["grid-engine/sandbox-wasm"]
+sandbox-docker = ["grid-engine/sandbox-docker"]
+
+[dependencies]
+grid-types = { workspace = true }
+grid-engine = { workspace = true }
+grid-sandbox = { workspace = true }
+
+# Async runtime
+tokio = { workspace = true }
+tokio-stream = { workspace = true }
+futures-util = { workspace = true }
+async-stream = { workspace = true }
+
+# gRPC
+tonic = "0.12"
+prost = "0.13"
+prost-types = "0.13"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+
+# Identifiers
+uuid = { workspace = true }
+chrono = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+
+# Environment
+dotenvy = { workspace = true }
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+tempfile = "3"
+tokio = { workspace = true, features = ["test-util"] }
