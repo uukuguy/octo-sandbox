@@ -1,50 +1,40 @@
 # Grid Platform 下一会话指南
 
-**最后更新**: 2026-04-04 19:30 GMT+8
+**最后更新**: 2026-04-04 21:10 GMT+8
 **当前分支**: `Grid`
-**当前状态**: Welcome 视觉大修完成，Phase BC 待执行
+**当前状态**: Phase BC 完成，无活跃阶段
 
 ---
 
 ## 刚完成的工作
 
-**Welcome Panel 视觉大修 + 品牌重设计**
-- 🦑 Coral 品牌色系建立
-- 全组件同步呼吸动画（flat-top clamp, 8s 周期）
-- GRID logo I/D 字形修正
-- 状态栏/进度条/输入区视觉统一
-- UI/UX 评分 9.0/10
+**Phase BC — TUI Deferred Items 补齐** (5/5, @ 41a0fcf)
+- W1: MdPalette.from_theme() + ConversationWidget.theme() + StatusBar theme 化
+- W2: 消息角色分隔线 + 状态栏渐进式披露 (4 tier)
+- 499 studio tests pass, zero warnings
 
-## 待执行 Phase
+**Phase BB 和 Welcome Panel 视觉大修** (已完成)
+- TuiTheme 4-layer surface + 3-layer text + md colors
+- 🦑 Coral 品牌色系, GRID logo, 呼吸动画
+- Style tokens 对齐
 
-**Phase BC — TUI Deferred Items 补齐** (5 tasks, 2 waves)
-- 计划: `docs/plans/2026-04-04-phase-bc-tui-deferred-items.md`
-- 进度: 0/5 (0%)
-- 来源: BB-D1, BB-D2, BB-D4
+## 未解决 Deferred Items
 
-### Wave 1: Formatters 全量主题化
-1. BC-1: MdPalette + MarkdownRenderer 主题化
-2. BC-2: ConversationWidget 接受 TuiTheme
-3. BC-3: StatusBar/TodoPanel/Input/Progress 残留清理
+| ID | 内容 | 前置条件 |
+|----|------|---------|
+| BC-D1 | ToolFormatter trait 添加 theme 参数 | 确定 trait object 兼容方案 |
+| BC-D2 | Thinking block 专用 muted palette 调用路径 | conversation thinking 渲染重构 |
+| BC-D3 | style_tokens 颜色常量标记 deprecated 并移除 | 所有 formatter 迁移完成 |
 
-### Wave 2: 消息间距 + 状态栏响应式
-4. BC-4: 消息角色分隔线
-5. BC-5: 状态栏渐进式披露
+## 下一步建议
 
-## 下一步
-
-1. `/dev-phase-manager:resume-plan` — 继续 Phase BC
-2. 注意：本次 Welcome 改动未纳入 BC 计划，BC 的 5 个 task 仍全部待做
+1. 启动新 Phase（如 grid-runtime 或其他功能开发）
+2. BC-D1~D3 可在未来 formatter 重构时一并处理
 
 ## 关键代码路径
 
-- Welcome Panel: `crates/grid-cli/src/tui/widgets/welcome_panel/`
+- Theme: `crates/grid-cli/src/tui/theme.rs`
+- Markdown: `crates/grid-cli/src/tui/formatters/markdown.rs`
+- Conversation: `crates/grid-cli/src/tui/widgets/conversation/mod.rs`
 - Status Bar: `crates/grid-cli/src/tui/widgets/status_bar.rs`
-- Theme: `crates/grid-cli/src/tui/theme.rs` + `src/ui/theme.rs`
 - Style Tokens: `crates/grid-cli/src/tui/formatters/style_tokens.rs`
-
-## 注意事项
-
-- 默认主题已改为 Coral，style_tokens 常量已同步
-- 🦑 emoji 用作状态栏品牌图标（用户选择）
-- 呼吸动画参数在 state.rs（周期 133tick）和 mod.rs（breathe_ease flat-top clamp）

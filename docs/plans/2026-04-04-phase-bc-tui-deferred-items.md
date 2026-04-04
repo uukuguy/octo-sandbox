@@ -13,6 +13,7 @@
 - `crates/grid-cli/src/tui/theme.rs` — TuiTheme 结构
 
 **基线:** 499 studio tests pass @ commit `e4e3246`, branch `Grid`
+**完成:** 499 studio tests pass @ commit `41a0fcf`, 5/5 tasks done
 
 **来源 Deferred Items:**
 - BB-D1: 消息间距增强 + 角色分隔线 → BC-4

@@ -1,17 +1,16 @@
 {
-  "active_phases": [
-    {
-      "name": "Phase BC — TUI Deferred Items 补齐",
-      "started_at": "2026-04-04T17:55:00+08:00",
-      "progress": "0%",
-      "plan_file": "docs/plans/2026-04-04-phase-bc-tui-deferred-items.md",
-      "tasks": "0/5 (W1: MdPalette+ConversationWidget+StatusBar theming, W2: role separator+responsive statusbar)",
-      "sources": ["BB-D1", "BB-D2", "BB-D4"],
-      "note": "Welcome visual overhaul done independently @ 875255b (brand Coral, 🦑, animation). BC tasks still pending."
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase BC — TUI Deferred Items 补齐",
+      "completed_at": "2026-04-04T21:10:00+08:00",
+      "progress": "100%",
+      "commits": ["41a0fcf"],
+      "tasks": "5/5 (W1: MdPalette.from_theme+ConversationWidget.theme+StatusBar theme, W2: role separator+responsive statusbar)",
+      "tests": 499,
+      "deferred": ["BC-D1", "BC-D2", "BC-D3"]
+    },
     {
       "name": "Phase BB — TUI 视觉升级",
       "completed_at": "2026-04-04T17:45:00+08:00",
