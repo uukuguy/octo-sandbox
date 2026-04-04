@@ -227,7 +227,7 @@ impl Widget for WelcomePanel<'_> {
 
         // Layout constants
         let subtitle = "Autonomous Agent Studio";
-        let help = "Enter: send  \u{2502}  Esc: interrupt  \u{2502}  Ctrl+C: quit  \u{2502}  /help";
+        let help = "/help  \u{2502}  Enter: send  \u{2502}  Esc: interrupt  \u{2502}  Ctrl+C: quit";
 
         if area.height < 5 {
             // ── Tier 1: tiny terminal — breathing brand line ──
@@ -277,7 +277,8 @@ impl Widget for WelcomePanel<'_> {
             self.draw_border(buf, area, center_x, by, box_w, box_h);
 
             let max_inner = (box_w as usize).saturating_sub(4);
-            let display_text: String = if help.len() > max_inner {
+            let help_chars = help.chars().count();
+            let display_text: String = if help_chars > max_inner {
                 help.chars().take(max_inner - 1).chain(std::iter::once('\u{2026}')).collect()
             } else {
                 help.to_string()
