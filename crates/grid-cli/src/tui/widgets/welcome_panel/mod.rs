@@ -345,7 +345,7 @@ mod tests {
     fn welcome_panel_full_layout() {
         let state = WelcomePanelState::new();
         let widget = WelcomePanel::new(&state, "gpt-4o");
-        let area = Rect::new(0, 0, 100, 20);
+        let area = Rect::new(0, 0, 100, 24);
         let mut buf = Buffer::empty(area);
         widget.render(area, &mut buf);
 

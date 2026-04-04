@@ -180,6 +180,7 @@ fn render_input(state: &TuiState, frame: &mut Frame, area: Rect) {
             "NORMAL",
             0,
         )
+        .accent(state.theme.accent)
         .has_focus(state.has_focus)
         .hint_context(false, false, false);
         let result = input_widget.render_with_cursor(area, frame.buffer_mut());
@@ -196,6 +197,7 @@ fn render_input(state: &TuiState, frame: &mut Frame, area: Rect) {
         "NORMAL",
         0, // pending_count — future: message queue
     )
+    .accent(state.theme.accent)
     .has_focus(state.has_focus)
     .hint_context(
         state.is_streaming || state.is_thinking,
@@ -217,6 +219,7 @@ fn render_status_bar(state: &TuiState, frame: &mut Frame, area: Rect) {
         &state.working_dir,
         state.git_branch.as_deref(),
     )
+    .brand_color(state.theme.accent)
     .git_status(state.git_staged, state.git_modified, state.git_untracked, state.git_unpushed)
     .context_usage_pct(state.context_usage_pct)
     .session_elapsed(Some(state.session_start_time.elapsed()))

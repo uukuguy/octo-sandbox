@@ -25,6 +25,7 @@ pub struct InputWidget<'a> {
     is_streaming: bool,
     has_overlay: bool,
     has_approval: bool,
+    accent_color: Color,
 }
 
 /// Result of rendering the input widget, including cursor position for IME.
@@ -44,7 +45,14 @@ impl<'a> InputWidget<'a> {
             is_streaming: false,
             has_overlay: false,
             has_approval: false,
+            accent_color: style_tokens::ACCENT,
         }
+    }
+
+    /// Set accent color (from theme).
+    pub fn accent(mut self, color: Color) -> Self {
+        self.accent_color = color;
+        self
     }
 
     /// Set streaming/overlay/approval state for context-aware hotkey hints.
@@ -116,10 +124,10 @@ impl<'a> InputWidget<'a> {
     /// Get the accent color and optional mode label based on current mode.
     fn mode_style(&self) -> (ratatui::style::Color, &'static str) {
         match self.mode {
-            "Streaming" => (style_tokens::GREEN_LIGHT, "\u{25B8} Streaming"),
-            "Thinking" => (style_tokens::MAGENTA, "\u{25E6} Thinking"),
-            "PLAN" => (style_tokens::GREEN_LIGHT, "Plan"),
-            _ => (style_tokens::ACCENT, ""),  // no label when idle
+            "Streaming" => (style_tokens::SUCCESS, "\u{25B8} Streaming"),
+            "Thinking" => (self.accent_color, "\u{25E6} Thinking"),
+            "PLAN" => (style_tokens::SUCCESS, "Plan"),
+            _ => (self.accent_color, ""),  // no label when idle
         }
     }
 

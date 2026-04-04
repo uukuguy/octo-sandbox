@@ -41,6 +41,8 @@ pub struct StatusBarWidget<'a> {
     effort_level: Option<u8>,
     /// Extended thinking mode (E-11)
     extended_thinking: bool,
+    /// Brand accent color (from theme)
+    brand_color: Color,
 }
 
 /// Standalone activity indicator widget (1 row, shown between conversation and input).
@@ -193,12 +195,19 @@ impl<'a> StatusBarWidget<'a> {
             sandbox_profile: None,
             effort_level: None,
             extended_thinking: false,
+            brand_color: style_tokens::AMBER,
         }
     }
 
     /// Set extended thinking mode (E-11).
     pub fn extended_thinking(mut self, enabled: bool) -> Self {
         self.extended_thinking = enabled;
+        self
+    }
+
+    /// Set brand accent color (from theme).
+    pub fn brand_color(mut self, color: Color) -> Self {
+        self.brand_color = color;
         self
     }
 
@@ -292,7 +301,7 @@ impl Widget for StatusBarWidget<'_> {
             spans.push(Span::styled(
                 " \u{25C6} Grid",
                 Style::default()
-                    .fg(style_tokens::AMBER)
+                    .fg(self.brand_color)
                     .add_modifier(Modifier::BOLD),
             ));
             spans.push(sep.clone());
@@ -355,24 +364,24 @@ impl Widget for StatusBarWidget<'_> {
             if self.extended_thinking {
                 spans.push(Span::styled(
                     "\u{2728} Think+",
-                    Style::default().fg(Color::Rgb(180, 160, 255)),
+                    Style::default().fg(self.brand_color),
                 ));
                 spans.push(sep.clone());
             }
 
-            // Context remaining % with mini progress bar ▮▮▮▯▯
+            // Context remaining % with 8-segment progress bar ━━━━━───
             let context_left = (100.0 - self.context_usage_pct).max(0.0);
             let pct_color = if context_left > 50.0 {
-                style_tokens::GREEN_LIGHT
+                style_tokens::SUCCESS
             } else if context_left > 25.0 {
-                style_tokens::GOLD
+                style_tokens::WARNING
             } else {
-                style_tokens::ORANGE
+                style_tokens::ERROR
             };
 
-            let filled = ((context_left / 100.0) * 5.0).round() as usize;
-            let bar: String = "\u{25AE}".repeat(filled)
-                + &"\u{25AF}".repeat(5usize.saturating_sub(filled));
+            let filled = ((context_left / 100.0) * 8.0).round() as usize;
+            let bar: String = "\u{2501}".repeat(filled)
+                + &"\u{2500}".repeat(8usize.saturating_sub(filled));
             spans.push(Span::styled(
                 bar,
                 Style::default().fg(pct_color),
@@ -402,9 +411,9 @@ impl Widget for StatusBarWidget<'_> {
                 spans.push(sep.clone());
                 let has_changes = self.git_staged + self.git_modified + self.git_untracked > 0;
                 let branch_color = if has_changes {
-                    ratatui::style::Color::Rgb(255, 255, 100) // bright yellow — dirty
+                    style_tokens::WARNING // dirty
                 } else {
-                    style_tokens::GREEN_LIGHT // green — clean
+                    style_tokens::SUCCESS // clean
                 };
                 spans.push(Span::styled(
                     format!("\u{23C7} {}", branch),
@@ -419,7 +428,7 @@ impl Widget for StatusBarWidget<'_> {
                 if self.git_modified > 0 {
                     spans.push(Span::styled(
                         format!(" ~{}", self.git_modified),
-                        Style::default().fg(ratatui::style::Color::Rgb(255, 255, 100)),
+                        Style::default().fg(style_tokens::WARNING),
                     ));
                 }
                 if self.git_untracked > 0 {
@@ -665,7 +674,7 @@ mod tests {
 
         let content: String = buf.content().iter().map(|c| c.symbol()).collect();
         assert!(content.contains("60%"), "Should show context remaining percent");
-        assert!(content.contains("\u{25AE}"), "Should contain filled bar segment ▮");
-        assert!(content.contains("\u{25AF}"), "Should contain empty bar segment ▯");
+        assert!(content.contains("\u{2501}"), "Should contain filled bar segment ━");
+        assert!(content.contains("\u{2500}"), "Should contain empty bar segment ─");
     }
 }
