@@ -537,6 +537,27 @@ container-test: container-build
 	  echo "All checks passed."'
 
 # ============================================================
+# grid-runtime container (EAASP L1 Tier 1 Harness)
+# ============================================================
+
+# Build grid-runtime release binary
+runtime-build-binary:
+	@echo "Building grid-runtime binary..."
+	cargo build -p grid-runtime --release
+
+# Build grid-runtime container image
+runtime-build:
+	@echo "Building grid-runtime container image..."
+	docker build -f crates/grid-runtime/Dockerfile -t grid-runtime:latest .
+
+# Start grid-runtime container
+runtime-run:
+	@echo "Starting grid-runtime container..."
+	docker run --rm -p 50051:50051 \
+		-e ANTHROPIC_API_KEY=$${ANTHROPIC_API_KEY} \
+		grid-runtime:latest
+
+# ============================================================
 # Docker sandbox images (legacy per-language images from Phase J)
 # NOTE: These use docker/sandbox-images/ — the older per-language approach.
 #       Prefer container-* targets above for the unified base/dev images.
