@@ -1,43 +1,68 @@
 {
-  "plan_file": "docs/plans/2026-04-03-phase-ay-subagent-runtime.md",
+  "plan_file": "docs/plans/2026-04-06-be-w4w5w6-python-runtime.md",
   "phase": "execution",
-  "created_at": "2026-04-03T18:30:00+08:00",
-  "updated_at": "2026-04-03T21:40:00+08:00",
-  "completed_tasks": ["T1-subagent-runtime", "T2-agent-tool-rename", "T3-skill-convergence", "T4-delete-agents-yaml", "T5-event-sender", "T6-drop-guard", "T7-verify"],
+  "created_at": "2026-04-06T18:00:00+08:00",
+  "updated_at": "2026-04-06T19:30:00+08:00",
+  "completed_tasks": ["W4", "W5", "W6"],
   "current_task": null,
-  "total_tasks": 7,
-  "phase_name": "Phase AY — SubAgent Runtime 完整生命周期",
-  "status": "COMPLETE — 7/7 tasks + 6/6 deferred + wiring audit (4 fixes), 15 tests @ e80679f",
-  "execution_mode": "manual",
-  "branch": "main",
+  "total_tasks": 3,
+  "phase_name": "Phase BE W4-W6 — claude-code-runtime Python T1 Harness",
+  "status": "W4-W6 complete. Python T1 Harness with 16-method gRPC service, hook execution, telemetry, skill loading, state management. 39 Python tests + dual-runtime verification script.",
+  "execution_mode": "ruflo",
+  "branch": "Grid",
   "baseline": {
-    "tests": "2593+ (Phase AX) + 15 (Phase AY)",
-    "commit": "e80679f",
-    "db_version": 13,
-    "notes": "SubAgentRuntime lifecycle complete. All 6 deferred resolved. Wiring audit: safety_pipeline, canary_token, recorder, loop_guard fixed."
+    "tests": "39 Python (3 config + 11 hook + 15 service + 6 session + 4 telemetry) + 54 Rust (unchanged)",
+    "commit": null,
+    "notes": "W4-W6 complete — Python T1 Harness + dual-runtime verification"
   },
-  "waves": {
-    "wave1": {
-      "description": "SubAgentRuntime 核心 + 工具重命名 + 清理 agents/ YAML",
-      "tasks": ["T1-subagent-runtime", "T2-agent-tool-rename", "T3-skill-convergence", "T4-delete-agents-yaml"],
-      "status": "complete"
+  "tasks": {
+    "W4": {
+      "description": "Project skeleton + claude-agent-sdk wrapper + gRPC service stubs",
+      "status": "complete",
+      "commit": "5eba80a",
+      "sub_tasks": {
+        "T1": { "description": "uv project + pyproject.toml + config.py", "status": "complete" },
+        "T2": { "description": "build_proto.py + gRPC Python stubs", "status": "complete" },
+        "T3": { "description": "sdk_wrapper.py (claude-agent-sdk encapsulation)", "status": "complete" },
+        "T4": { "description": "service.py 16-method gRPC + __main__.py + tests", "status": "complete" }
+      }
     },
-    "wave2": {
-      "description": "生命周期增强：事件转发 + Drop guard + 验证",
-      "tasks": ["T5-event-sender", "T6-drop-guard", "T7-verify"],
-      "status": "complete"
+    "W5": {
+      "description": "Hook execution + telemetry + skill + state management",
+      "status": "complete",
+      "commit": "2958f37",
+      "sub_tasks": {
+        "T1": { "description": "SessionManager + Session dataclass", "status": "complete" },
+        "T2": { "description": "HookExecutor (T1 local, deny-always-wins)", "status": "complete" },
+        "T3": { "description": "TelemetryCollector (per-session, resource tracking)", "status": "complete" },
+        "T4": { "description": "SkillLoader + StateManager + Mapper", "status": "complete" },
+        "T5": { "description": "Service integration + full test suite", "status": "complete" }
+      }
+    },
+    "W6": {
+      "description": "Integration verification (dual-runtime certifier script)",
+      "status": "complete",
+      "commit": null,
+      "sub_tasks": {
+        "T1": { "description": "verify-dual-runtime.sh script", "status": "complete" },
+        "T2": { "description": "Makefile targets for Python runtime", "status": "complete" }
+      }
     }
   },
   "deferred": {
-    "AY-D1": { "status": "resolved", "description": "Worktree isolation — working_dir inherited" },
-    "AY-D2": { "status": "resolved", "description": "Transcript recording — transcript_writer inherited" },
-    "AY-D3": { "status": "resolved", "description": "CancellationToken — child gets own token" },
-    "AY-D4": { "status": "resolved", "description": "MCP scope — covered by tool_filter/disallowed_tools" },
-    "AY-D5": { "status": "resolved", "description": "Hook scope — HookRegistry.scoped() + AgentManifest.hook_scope" },
-    "AY-D6": { "status": "resolved", "description": "Permission mode — per-instance ApprovalManager" }
+    "BE-D1": "GrpcHookBridge 端到端集成测试（需要 HookBridge server 运行）",
+    "BE-D2": "✅ 已补 — verify-dual-runtime.sh 覆盖 (bf1daab)",
+    "BE-D3": "HookBridge 双向流集成测试",
+    "BE-D4": "common.proto 到 contract.rs 类型映射自动化",
+    "BE-D5": "certifier CLI mock-l3 子命令（L3 策略引擎 BH）",
+    "BE-D6": "✅ 已补 — Dockerfile 已实现 (bd2c967)",
+    "BE-D7": "MCP server 真实连接（当前记录名称）",
+    "BE-D8": "Skill frontmatter YAML hook 解析 + 注入到 SDK",
+    "BE-D9": "会话持久化（当前内存模式）",
+    "BE-D10": "ANTHROPIC_BASE_URL 端到端验证"
   },
   "previous_phase": {
-    "name": "Phase AX — Builtin Agents",
-    "status": "COMPLETE — 7/7 tasks + 3 deferred resolved + wiring @ d0b1990"
+    "name": "Phase BE W1-W3 — EAASP 协议层 + HookBridge + certifier",
+    "status": "COMPLETE — 3/3 tasks @ 40a231e"
   }
 }

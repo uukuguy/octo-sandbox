@@ -1,15 +1,16 @@
 {
-  "active_phases": [
-    {
-      "name": "Phase BE — EAASP 协议层 + 第二个 L1 Runtime",
-      "started_at": "2026-04-06T15:30:00+08:00",
-      "checkpoint": "docs/plans/.checkpoint.json",
-      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "50% (W1-W3 complete, W4-W6 pending user decision)"
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase BE — EAASP 协议层 + 第二个 L1 Runtime",
+      "completed_at": "2026-04-06T20:30:00+08:00",
+      "progress": "100%",
+      "commits": ["b5d7e54", "c6fdb68", "40a231e", "5eba80a", "2958f37", "bf1daab", "bd2c967", "7ffb37c"],
+      "tasks": "6/6 (W1: proto refactor ✅, W2: hook-bridge ✅, W3: certifier ✅, W4: Python skeleton ✅, W5: hooks+telemetry ✅, W6: verification+Docker ✅)",
+      "tests": "54 Rust + 39 Python = 93",
+      "deferred": ["BE-D1", "BE-D3", "BE-D4", "BE-D5", "BE-D7", "BE-D8", "BE-D9", "BE-D10"]
+    },
     {
       "name": "Phase BD — grid-runtime (EAASP L1)",
       "completed_at": "2026-04-06T16:00:00+08:00",
@@ -24,7 +25,7 @@
       "completed_at": "2026-04-04T21:10:00+08:00",
       "progress": "100%",
       "commits": ["41a0fcf"],
-      "tasks": "5/5 (W1: MdPalette.from_theme+ConversationWidget.theme+StatusBar theme, W2: role separator+responsive statusbar)",
+      "tasks": "5/5",
       "tests": 499,
       "deferred": ["BC-D1", "BC-D2", "BC-D3"]
     },
@@ -38,7 +39,7 @@
       "deferred": ["BB-D1", "BB-D2", "BB-D3", "BB-D4"]
     },
     {
-      "name": "Phase BA — Octo to Grid: Crate 拆分 + 品牌重命名 + TUI 完善",
+      "name": "Phase BA — Octo to Grid",
       "completed_at": "2026-04-04T16:00:00+08:00",
       "progress": "100%",
       "commits": ["9432e1e", "f5ca284", "c136dec", "a50d2a9", "dd0200f", "13678ff", "39de430", "4d1d7fe"],

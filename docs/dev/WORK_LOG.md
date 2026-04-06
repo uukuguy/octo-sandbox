@@ -1,5 +1,89 @@
 # Grid Sandbox 工作日志
 
+## Phase BE — EAASP 协议层 + claude-code-runtime (2026-04-06)
+
+### 完成内容
+
+Phase BE 共 6 个 Wave，分两批完成：W1-W3（Rust 协议层 + 工具）和 W4-W6（Python T1 Harness）。
+
+**W1: common.proto + hook.proto + runtime.proto 重构 (b5d7e54)**
+- 从 runtime.proto 提取共享类型到 common.proto（HookDecision, TelemetryEvent 等）
+- 新建 hook.proto（HookBridge 双向流协议：StreamHooks + EvaluateHook + ReportTelemetry + GetPolicySummary）
+- runtime.proto 重构为 import common.proto
+- grid-runtime build.rs 分步编译（common.proto 先编译，runtime.proto 用 extern_path）
+
+**W2: grid-hook-bridge crate (c6fdb68)**
+- HookBridge trait 抽象（evaluate_pre_tool_call/post_tool_result/stop + load_policies）
+- InProcessHookBridge（内存策略评估，deny-always-wins，测试用）
+- GrpcHookBridge（gRPC 客户端，连接外部 HookBridge sidecar）
+- HookBridgeGrpcServer（将 HookBridge trait 暴露为 gRPC server）
+- 11 个单元测试
+
+**W3: eaasp-certifier (40a231e)**
+- 16 方法逐一验证引擎（verify_health → verify_terminate）
+- VerificationReport 文本/JSON 输出 + Markdown 报告
+- MockL3 trait + 预留实现
+- CLI: `eaasp-certifier verify --endpoint <url> [--format json]`
+- 6 个单元测试
+
+**W4: claude-code-runtime Python 骨架 (5eba80a)**
+- uv + pyproject.toml + build_proto.py（Python proto stubs 编译）
+- RuntimeConfig: ANTHROPIC_BASE_URL / MODEL_NAME / API_KEY 环境变量支持
+- SdkWrapper: claude-agent-sdk query() 封装 + ChunkEvent 映射
+- 16 方法 gRPC RuntimeService 桩实现
+- CLI: `python -m claude_code_runtime --port 50052`
+- 16 个 Python 测试
+
+**W5: hooks + telemetry + skill + state management (2958f37)**
+- SessionManager: create/get/pause/resume/terminate/restore
+- HookExecutor: T1 本地 hook 评估（deny-always-wins，regex pattern matching）
+- TelemetryCollector: per-session 事件记录 + 资源用量
+- SkillLoader: SkillContent 解析 + system prompt 注入
+- StateManager: JSON 序列化/反序列化（python-json format）
+- Mapper: ChunkEvent/TelemetryEntry → gRPC proto 类型转换
+- service.py 全面集成，39 个 Python 测试
+
+**W6: 集成验证 + 容器化 (bf1daab, bd2c967)**
+- scripts/verify-dual-runtime.sh: 预编译 + 启动两个 runtime + certifier 验证
+- Dockerfile: 多阶段构建（Python 3.12 + Node.js 20 + Claude Code CLI）
+- Makefile: claude-runtime-{setup,proto,test,start,build,run}, verify-dual-runtime
+
+**额外收尾**
+- CapabilityManifest.deployment_mode 字段：shared (grid-runtime) vs per_session (claude-code-runtime) (7ffb37c)
+- EAASP_RUNTIME_GUIDE.md 操作指南 (459b42c)
+
+### 技术决策
+
+- **claude-agent-sdk 底层启动 Claude Code CLI 进程**（非直接调 API），通过 env 传递 ANTHROPIC_BASE_URL
+- **deployment_mode 区分**：grid-runtime 单进程多会话（shared），claude-code-runtime 每会话一容器（per_session）
+- **Python proto 编译**：grpcio-tools 生成后需 _fix_imports() 修正绝对 import 路径
+- **tonic extern_path**：common.proto 和 dependent proto 必须分步编译
+
+### 测试结果
+
+- Rust: 54 tests (grid-runtime 37 + hook-bridge 11 + certifier 6)
+- Python: 39 tests (config 3 + hook 11 + service 15 + session 6 + telemetry 4)
+- 总计: 93 tests
+
+### Deferred 未清项
+
+| ID | 内容 | 前置条件 |
+|----|------|---------|
+| BE-D1 | GrpcHookBridge 端到端集成测试 | HookBridge server 运行 |
+| BE-D3 | HookBridge 双向流集成测试 | server.rs StreamHooks |
+| BE-D4 | common.proto → contract.rs 映射自动化 | 手动同步足够 |
+| BE-D5 | certifier mock-l3 子命令 | BH L3 策略引擎 |
+| BE-D7 | MCP server 真实连接 | claude-agent-sdk MCP 支持 |
+| BE-D8 | Skill frontmatter YAML hook 解析 | Skill 规范稳定 |
+| BE-D9 | 会话持久化（当前内存） | L4 Session Store |
+| BE-D10 | ANTHROPIC_BASE_URL 端到端验证 | 手动测试 |
+
+### 下一步
+
+Phase BF — L2 技能资产层 + RuntimeSelector + 盲盒对比
+
+---
+
 ## Phase BD — grid-runtime EAASP L1 (2026-04-06)
 
 ### 完成内容
