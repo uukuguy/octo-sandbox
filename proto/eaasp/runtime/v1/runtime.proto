@@ -2,11 +2,15 @@ syntax = "proto3";
 
 package eaasp.runtime.v1;
 
-// EAASP L1 Runtime Contract — 13-method interface.
+import "eaasp/common/v1/common.proto";
+
+// EAASP L1 Runtime Contract — 16-method interface.
 //
 // Any agent runtime that implements this service can join the EAASP runtime pool.
 // Grid implements this natively via Rust trait (zero serialization).
 // External adapters (Python/TS) implement this via gRPC.
+//
+// Shared types (HookDecision, TelemetryEvent, etc.) live in common.proto.
 
 service RuntimeService {
   // Initialize a session with platform payload (user context, hooks, quotas).
@@ -19,13 +23,13 @@ service RuntimeService {
   rpc LoadSkill(LoadSkillRequest) returns (LoadSkillResponse);
 
   // Pre-tool-call hook interception point.
-  rpc OnToolCall(ToolCallEvent) returns (HookDecision);
+  rpc OnToolCall(eaasp.common.v1.ToolCallEvent) returns (eaasp.common.v1.HookDecision);
 
   // Post-tool-result hook interception point.
-  rpc OnToolResult(ToolResultEvent) returns (HookDecision);
+  rpc OnToolResult(eaasp.common.v1.ToolResultEvent) returns (eaasp.common.v1.HookDecision);
 
   // Agent stop event (exit-2 can force continue).
-  rpc OnStop(StopRequest) returns (StopDecision);
+  rpc OnStop(eaasp.common.v1.StopRequest) returns (eaasp.common.v1.StopDecision);
 
   // Serialize full session state for persistence.
   rpc GetState(GetStateRequest) returns (SessionState);
@@ -37,16 +41,16 @@ service RuntimeService {
   rpc ConnectMcp(ConnectMcpRequest) returns (ConnectMcpResponse);
 
   // Emit standardized telemetry events.
-  rpc EmitTelemetry(EmitTelemetryRequest) returns (TelemetryBatch);
+  rpc EmitTelemetry(EmitTelemetryRequest) returns (eaasp.common.v1.TelemetryBatch);
 
   // Return capability manifest.
-  rpc GetCapabilities(Empty) returns (CapabilityManifest);
+  rpc GetCapabilities(eaasp.common.v1.Empty) returns (CapabilityManifest);
 
   // Clean up resources, flush telemetry, emit SessionEnd.
   rpc Terminate(TerminateRequest) returns (TerminateResponse);
 
   // Health check.
-  rpc Health(Empty) returns (HealthStatus);
+  rpc Health(eaasp.common.v1.Empty) returns (HealthStatus);
 
   // Disconnect a specific MCP server.
   rpc DisconnectMcp(DisconnectMcpRequest) returns (DisconnectMcpResponse);
@@ -58,9 +62,7 @@ service RuntimeService {
   rpc ResumeSession(ResumeRequest) returns (ResumeResponse);
 }
 
-// ── Request / Response types ──
-
-message Empty {}
+// ── Request / Response types (runtime-specific) ──
 
 message InitializeRequest {
   SessionPayload payload = 1;
@@ -117,36 +119,6 @@ message LoadSkillResponse {
   string error = 2;
 }
 
-message ToolCallEvent {
-  string session_id = 1;
-  string tool_name = 2;
-  string tool_id = 3;
-  string input_json = 4;
-}
-
-message ToolResultEvent {
-  string session_id = 1;
-  string tool_name = 2;
-  string tool_id = 3;
-  string output = 4;
-  bool is_error = 5;
-}
-
-message HookDecision {
-  string decision = 1; // "allow" | "deny" | "modify"
-  string reason = 2;
-  string modified_input = 3; // only for "modify"
-}
-
-message StopRequest {
-  string session_id = 1;
-}
-
-message StopDecision {
-  string decision = 1; // "complete" | "continue"
-  string feedback = 2; // reason to continue (for exit-2)
-}
-
 message GetStateRequest {
   string session_id = 1;
 }
@@ -183,26 +155,6 @@ message EmitTelemetryRequest {
   string session_id = 1;
 }
 
-message TelemetryBatch {
-  repeated TelemetryEvent events = 1;
-}
-
-message TelemetryEvent {
-  string session_id = 1;
-  string runtime_id = 2;
-  string user_id = 3;
-  string event_type = 4;  // "tool_call" | "tool_result" | "hook_decision" | "session_end"
-  string timestamp = 5;   // ISO 8601
-  string payload_json = 6;
-  ResourceUsage resource_usage = 7;
-}
-
-message ResourceUsage {
-  uint64 input_tokens = 1;
-  uint64 output_tokens = 2;
-  uint64 compute_ms = 3;
-}
-
 message CapabilityManifest {
   string runtime_id = 1;
   string runtime_name = 2;
@@ -229,7 +181,7 @@ message TerminateRequest {
 
 message TerminateResponse {
   bool success = 1;
-  TelemetryBatch final_telemetry = 2;
+  eaasp.common.v1.TelemetryBatch final_telemetry = 2;
 }
 
 message HealthStatus {

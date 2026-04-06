@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tokio_stream::Stream;
 use tonic::{Request, Response, Status};
 
+use crate::common_proto;
 use crate::contract::{self, RuntimeContract};
 use crate::proto;
 use crate::proto::runtime_service_server::RuntimeService;
@@ -85,19 +86,19 @@ fn to_mcp_configs(servers: Vec<proto::McpServerConfig>) -> Vec<contract::McpServ
         .collect()
 }
 
-fn hook_decision_to_proto(d: contract::HookDecision) -> proto::HookDecision {
+fn hook_decision_to_proto(d: contract::HookDecision) -> common_proto::HookDecision {
     match d {
-        contract::HookDecision::Allow => proto::HookDecision {
+        contract::HookDecision::Allow => common_proto::HookDecision {
             decision: "allow".into(),
             reason: String::new(),
             modified_input: String::new(),
         },
-        contract::HookDecision::Deny { reason } => proto::HookDecision {
+        contract::HookDecision::Deny { reason } => common_proto::HookDecision {
             decision: "deny".into(),
             reason,
             modified_input: String::new(),
         },
-        contract::HookDecision::Modify { transformed_input } => proto::HookDecision {
+        contract::HookDecision::Modify { transformed_input } => common_proto::HookDecision {
             decision: "modify".into(),
             reason: String::new(),
             modified_input: serde_json::to_string(&transformed_input).unwrap_or_default(),
@@ -105,13 +106,13 @@ fn hook_decision_to_proto(d: contract::HookDecision) -> proto::HookDecision {
     }
 }
 
-fn stop_decision_to_proto(d: contract::StopDecision) -> proto::StopDecision {
+fn stop_decision_to_proto(d: contract::StopDecision) -> common_proto::StopDecision {
     match d {
-        contract::StopDecision::Complete => proto::StopDecision {
+        contract::StopDecision::Complete => common_proto::StopDecision {
             decision: "complete".into(),
             feedback: String::new(),
         },
-        contract::StopDecision::Continue { feedback } => proto::StopDecision {
+        contract::StopDecision::Continue { feedback } => common_proto::StopDecision {
             decision: "continue".into(),
             feedback,
         },
@@ -152,18 +153,18 @@ fn capability_to_proto(c: contract::CapabilityManifest) -> proto::CapabilityMani
     }
 }
 
-fn telemetry_to_proto(events: Vec<contract::TelemetryEvent>) -> proto::TelemetryBatch {
-    proto::TelemetryBatch {
+fn telemetry_to_proto(events: Vec<contract::TelemetryEvent>) -> common_proto::TelemetryBatch {
+    common_proto::TelemetryBatch {
         events: events
             .into_iter()
-            .map(|e| proto::TelemetryEvent {
+            .map(|e| common_proto::TelemetryEvent {
                 session_id: e.session_id,
                 runtime_id: e.runtime_id,
                 user_id: e.user_id.unwrap_or_default(),
                 event_type: e.event_type,
                 timestamp: e.timestamp.to_rfc3339(),
                 payload_json: serde_json::to_string(&e.payload).unwrap_or_default(),
-                resource_usage: Some(proto::ResourceUsage {
+                resource_usage: Some(common_proto::ResourceUsage {
                     input_tokens: e.resource_usage.input_tokens,
                     output_tokens: e.resource_usage.output_tokens,
                     compute_ms: e.resource_usage.compute_ms,
@@ -270,8 +271,8 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
 
     async fn on_tool_call(
         &self,
-        request: Request<proto::ToolCallEvent>,
-    ) -> Result<Response<proto::HookDecision>, Status> {
+        request: Request<common_proto::ToolCallEvent>,
+    ) -> Result<Response<common_proto::HookDecision>, Status> {
         let req = request.into_inner();
         let handle = contract::SessionHandle {
             session_id: req.session_id,
@@ -293,8 +294,8 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
 
     async fn on_tool_result(
         &self,
-        request: Request<proto::ToolResultEvent>,
-    ) -> Result<Response<proto::HookDecision>, Status> {
+        request: Request<common_proto::ToolResultEvent>,
+    ) -> Result<Response<common_proto::HookDecision>, Status> {
         let req = request.into_inner();
         let handle = contract::SessionHandle {
             session_id: req.session_id,
@@ -317,8 +318,8 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
 
     async fn on_stop(
         &self,
-        request: Request<proto::StopRequest>,
-    ) -> Result<Response<proto::StopDecision>, Status> {
+        request: Request<common_proto::StopRequest>,
+    ) -> Result<Response<common_proto::StopDecision>, Status> {
         let handle = contract::SessionHandle {
             session_id: request.into_inner().session_id,
         };
@@ -404,7 +405,7 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
     async fn emit_telemetry(
         &self,
         request: Request<proto::EmitTelemetryRequest>,
-    ) -> Result<Response<proto::TelemetryBatch>, Status> {
+    ) -> Result<Response<common_proto::TelemetryBatch>, Status> {
         let handle = contract::SessionHandle {
             session_id: request.into_inner().session_id,
         };
@@ -420,7 +421,7 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
 
     async fn get_capabilities(
         &self,
-        _request: Request<proto::Empty>,
+        _request: Request<common_proto::Empty>,
     ) -> Result<Response<proto::CapabilityManifest>, Status> {
         let manifest = self.contract.get_capabilities();
         Ok(Response::new(capability_to_proto(manifest)))
@@ -454,7 +455,7 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
 
     async fn health(
         &self,
-        _request: Request<proto::Empty>,
+        _request: Request<common_proto::Empty>,
     ) -> Result<Response<proto::HealthStatus>, Status> {
         let status = self
             .contract

@@ -8,6 +8,7 @@ use std::sync::Arc;
 use tonic::transport::{Channel, Server};
 use tokio::net::TcpListener;
 
+use grid_runtime::common_proto;
 use grid_runtime::harness::GridHarness;
 use grid_runtime::proto;
 use grid_runtime::proto::runtime_service_client::RuntimeServiceClient;
@@ -62,7 +63,7 @@ async fn test_health() {
     let mut client = setup_grpc().await;
 
     let response = client
-        .health(proto::Empty {})
+        .health(common_proto::Empty {})
         .await
         .expect("health failed");
 
@@ -76,7 +77,7 @@ async fn test_get_capabilities() {
     let mut client = setup_grpc().await;
 
     let response = client
-        .get_capabilities(proto::Empty {})
+        .get_capabilities(common_proto::Empty {})
         .await
         .expect("get_capabilities failed");
 
@@ -129,7 +130,7 @@ async fn test_on_tool_call_allows() {
     let mut client = setup_grpc().await;
 
     let response = client
-        .on_tool_call(proto::ToolCallEvent {
+        .on_tool_call(common_proto::ToolCallEvent {
             session_id: "test".into(),
             tool_name: "bash".into(),
             tool_id: "t1".into(),
@@ -146,7 +147,7 @@ async fn test_on_stop_completes() {
     let mut client = setup_grpc().await;
 
     let response = client
-        .on_stop(proto::StopRequest {
+        .on_stop(common_proto::StopRequest {
             session_id: "test".into(),
         })
         .await
@@ -282,7 +283,7 @@ async fn test_on_tool_result_allows() {
     let mut client = setup_grpc().await;
 
     let response = client
-        .on_tool_result(proto::ToolResultEvent {
+        .on_tool_result(common_proto::ToolResultEvent {
             session_id: "test".into(),
             tool_name: "bash".into(),
             tool_id: "t2".into(),
