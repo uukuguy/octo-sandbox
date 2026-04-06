@@ -320,6 +320,17 @@ make container-list            # List images and running containers
 make container-clean           # Remove stopped containers and images
 make container-test            # Build and verify base image tools
 
+# ── claude-code-runtime (Python EAASP L1 Runtime) ──
+make claude-runtime-setup  # Install Python deps (uv sync)
+make claude-runtime-proto  # Compile proto → Python stubs
+make claude-runtime-test   # Run Python tests (pytest)
+make claude-runtime-start  # Start gRPC server on :50052
+make claude-runtime-build  # Build Docker image
+make claude-runtime-run    # Run Docker container (needs ANTHROPIC_API_KEY)
+
+# ── EAASP Verification ──
+make verify-dual-runtime   # Build + start both runtimes + certifier verify
+
 # ── Cleanup ──
 make clean               # Clean Rust build artifacts
 make clean-web           # Clean frontend (node_modules, dist)
