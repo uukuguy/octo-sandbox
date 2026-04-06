@@ -879,13 +879,13 @@ git commit -m "feat(claude-code-runtime): W6 — integration verification + dual
 
 ## Deferred Items (Phase BE W4-W6)
 
-| ID | 内容 | 前置条件 |
-|----|------|---------|
-| BE-D6 | claude-code-runtime Dockerfile 容器化 | 基本功能稳定后 |
-| BE-D7 | MCP server 真实连接（当前是记录名称） | claude-agent-sdk MCP 支持 |
-| BE-D8 | Skill frontmatter YAML hook 解析 + 注入到 SDK | Skill 规范稳定 |
-| BE-D9 | 会话持久化（当前是内存） | L4 Session Store |
-| BE-D10 | ANTHROPIC_BASE_URL 端到端验证 | 手动测试 |
+| ID | 内容 | 前置条件 | 状态 |
+|----|------|---------|------|
+| BE-D6 | claude-code-runtime Dockerfile 容器化 | 基本功能稳定后 | ✅ 已补 (bd2c967) |
+| BE-D7 | MCP server 真实连接（当前是记录名称） | claude-agent-sdk MCP 支持 | ⏳ |
+| BE-D8 | Skill frontmatter YAML hook 解析 + 注入到 SDK | Skill 规范稳定 | ⏳ |
+| BE-D9 | 会话持久化（当前是内存） | L4 Session Store | ⏳ |
+| BE-D10 | ANTHROPIC_BASE_URL 端到端验证 | 手动测试 | ⏳ |
 
 ---
 

@@ -51,11 +51,11 @@
   },
   "deferred": {
     "BE-D1": "GrpcHookBridge 端到端集成测试（需要 HookBridge server 运行）",
-    "BE-D2": "certifier 端到端测试（需要 grid-runtime gRPC server 运行）",
+    "BE-D2": "✅ 已补 — verify-dual-runtime.sh 覆盖 (bf1daab)",
     "BE-D3": "HookBridge 双向流集成测试",
     "BE-D4": "common.proto 到 contract.rs 类型映射自动化",
     "BE-D5": "certifier CLI mock-l3 子命令（L3 策略引擎 BH）",
-    "BE-D6": "claude-code-runtime Dockerfile 容器化",
+    "BE-D6": "✅ 已补 — Dockerfile 已实现 (bd2c967)",
     "BE-D7": "MCP server 真实连接（当前记录名称）",
     "BE-D8": "Skill frontmatter YAML hook 解析 + 注入到 SDK",
     "BE-D9": "会话持久化（当前内存模式）",
