@@ -11,7 +11,7 @@
         docker-build docker-build-python docker-build-rust docker-build-nodejs \
         docker-build-bash docker-build-general docker-build-swebench docker-list docker-clean \
         claude-runtime-setup claude-runtime-proto claude-runtime-test claude-runtime-start \
-        verify-dual-runtime
+        claude-runtime-build claude-runtime-run verify-dual-runtime
 
 # Default test project for CLI commands
 TEST_PROJECT ?= $(PWD)/examples/demo-project
@@ -708,6 +708,18 @@ claude-runtime-test:
 claude-runtime-start:
 	cd lang/claude-code-runtime-python && uv run python -m claude_code_runtime --port 50052 --env-file ../../.env
 
-# 双 runtime 集成验证 (需要 ANTHROPIC_API_KEY)
+# 容器构建 (从项目根目录构建，包含 proto/)
+claude-runtime-build:
+	docker build -f lang/claude-code-runtime-python/Dockerfile -t claude-code-runtime:latest .
+
+# 容器运行 (需要 ANTHROPIC_API_KEY 环境变量)
+claude-runtime-run:
+	docker run --rm -p 50052:50052 \
+		-e ANTHROPIC_API_KEY \
+		-e ANTHROPIC_BASE_URL \
+		-e ANTHROPIC_MODEL_NAME \
+		claude-code-runtime:latest
+
+# 双 runtime 集成验证 (先 build 再启动，需要 ANTHROPIC_API_KEY)
 verify-dual-runtime:
 	./scripts/verify-dual-runtime.sh
