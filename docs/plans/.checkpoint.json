@@ -2,7 +2,7 @@
   "plan_file": "docs/plans/2026-04-06-bd-w3-grpc-server.md",
   "phase": "execution",
   "created_at": "2026-04-05T00:30:00+08:00",
-  "updated_at": "2026-04-06T14:45:00+08:00",
+  "updated_at": "2026-04-06T15:20:00+08:00",
   "completed_tasks": ["W1", "W2", "W3", "W4"],
   "current_task": "W5",
   "total_tasks": 6,
@@ -33,7 +33,7 @@
   "session_output": {
     "roadmap": "docs/design/Grid/EAASP_ROADMAP.md",
     "w3_plan": "docs/plans/2026-04-06-bd-w3-grpc-server.md",
-    "notes": "W3 完成全部 6 个 sub-task。proto v1.2 新增 DisconnectMcp/PauseSession/ResumeSession + SessionPayload/CapabilityManifest/SessionState 扩展字段。service.rs 实现 16 方法 tonic trait。main.rs 完整初始化 AgentRuntime + GridHarness + gRPC server。5 个集成测试通过。Dockerfile 多阶段构建。Makefile 新增 runtime-build-binary/runtime-build/runtime-run。"
+    "notes": "W3 完成全部 6 个 sub-task。W4 新增 telemetry.rs 模块：EaaspEventType 枚举(10 种标准事件类型)、TelemetryEventBuilder、TelemetryCollector。harness.rs emit_telemetry 从 40 行内联逻辑重构为 1 行委托。9 个新测试。"
   },
   "deferred": {
     "BD-D1": "grid-hook-bridge crate（Tier 2/3 sidecar）",
