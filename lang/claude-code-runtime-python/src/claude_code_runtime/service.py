@@ -1,18 +1,26 @@
-"""gRPC RuntimeService implementation — 16-method EAASP L1 contract."""
+"""gRPC RuntimeService implementation — 16-method EAASP L1 contract.
+
+Integrates: SessionManager, HookExecutor, TelemetryCollector, SkillLoader,
+SdkWrapper, and mapper for full T1 Harness functionality.
+"""
 
 from __future__ import annotations
 
-import json
 import logging
 import time
-import uuid
 
 import grpc
 
 from ._proto.eaasp.common.v1 import common_pb2
 from ._proto.eaasp.runtime.v1 import runtime_pb2, runtime_pb2_grpc
 from .config import RuntimeConfig
+from .hook_executor import HookExecutor
+from .mapper import chunk_to_proto, telemetry_batch_to_proto, telemetry_to_proto
 from .sdk_wrapper import SdkWrapper
+from .session import SessionManager
+from .skill_loader import SkillLoader
+from .state_manager import STATE_FORMAT, deserialize_session, serialize_session
+from .telemetry import TelemetryCollector
 
 logger = logging.getLogger(__name__)
 
@@ -23,8 +31,20 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     def __init__(self, config: RuntimeConfig):
         self.config = config
         self.sdk = SdkWrapper(config)
-        self.sessions: dict[str, dict] = {}  # session_id -> session state
+        self.session_mgr = SessionManager()
+        # Per-session components indexed by session_id
+        self._hooks: dict[str, HookExecutor] = {}
+        self._telemetry: dict[str, TelemetryCollector] = {}
+        self._skills: dict[str, SkillLoader] = {}
         self._start_time = time.time()
+
+    def _get_or_404(self, session_id: str, context):
+        """Get session or set NOT_FOUND on context. Returns session or None."""
+        session = self.session_mgr.get(session_id)
+        if session is None:
+            context.set_code(grpc.StatusCode.NOT_FOUND)
+            context.set_details(f"Session {session_id} not found")
+        return session
 
     # ── 1. Health ──
 
@@ -32,7 +52,11 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
         return runtime_pb2.HealthStatus(
             healthy=True,
             runtime_id=self.config.runtime_id,
-            checks={"sdk": "ok", "uptime": f"{time.time() - self._start_time:.0f}s"},
+            checks={
+                "sdk": "ok",
+                "sessions": str(self.session_mgr.count),
+                "uptime": f"{time.time() - self._start_time:.0f}s",
+            },
         )
 
     # ── 2. GetCapabilities ──
@@ -59,78 +83,114 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
 
     async def Initialize(self, request, context):
         payload = request.payload
-        session_id = f"crt-{uuid.uuid4().hex[:12]}"
+        session = self.session_mgr.create(
+            user_id=payload.user_id,
+            user_role=payload.user_role,
+            org_unit=payload.org_unit,
+            managed_hooks_json=payload.managed_hooks_json,
+            context=dict(payload.context) if payload.context else {},
+            hook_bridge_url=payload.hook_bridge_url,
+            telemetry_endpoint=payload.telemetry_endpoint,
+        )
+        sid = session.session_id
 
-        self.sessions[session_id] = {
-            "user_id": payload.user_id,
-            "user_role": payload.user_role,
-            "org_unit": payload.org_unit,
-            "managed_hooks_json": payload.managed_hooks_json,
-            "skills": [],
-            "mcp_servers": [],
-            "telemetry": [],
-            "state": "active",
-            "created_at": time.time(),
-        }
+        # Initialize per-session components
+        hook_exe = HookExecutor()
+        hook_exe.load_rules(payload.managed_hooks_json)
+        self._hooks[sid] = hook_exe
 
-        logger.info("Session initialized: %s (user=%s)", session_id, payload.user_id)
-        return runtime_pb2.InitializeResponse(session_id=session_id)
+        self._telemetry[sid] = TelemetryCollector(
+            session_id=sid,
+            runtime_id=self.config.runtime_id,
+            user_id=payload.user_id,
+        )
+        self._telemetry[sid].record("session_start")
+
+        self._skills[sid] = SkillLoader()
+
+        logger.info("Session initialized: %s (user=%s)", sid, payload.user_id)
+        return runtime_pb2.InitializeResponse(session_id=sid)
 
     # ── 4. Send (streaming) ──
 
     async def Send(self, request, context):
-        session_id = request.session_id
-        if session_id not in self.sessions:
-            context.set_code(grpc.StatusCode.NOT_FOUND)
-            context.set_details(f"Session {session_id} not found")
+        session = self._get_or_404(request.session_id, context)
+        if session is None:
             return
 
+        sid = session.session_id
         message = request.message
-        logger.info(
-            "Send: session=%s content=%s",
-            session_id,
-            message.content[:50],
-        )
+        logger.info("Send: session=%s content=%s", sid, message.content[:50])
 
-        self.sessions[session_id]["telemetry"].append(
-            {"event_type": "send", "timestamp": time.time()}
-        )
+        tc = self._telemetry.get(sid)
+        if tc:
+            tc.record("send", payload={"content_len": len(message.content)})
 
-        async for chunk in self.sdk.send_message(prompt=message.content):
-            yield runtime_pb2.ResponseChunk(
-                chunk_type=chunk.chunk_type,
-                content=chunk.content,
-                tool_name=chunk.tool_name,
-                tool_id=chunk.tool_id,
-                is_error=chunk.is_error,
-            )
+        # Inject skill system prompts if any
+        skill_loader = self._skills.get(sid)
+        system_prompt = None
+        if skill_loader and skill_loader.count > 0:
+            system_prompt = skill_loader.all_system_prompt_fragments()
+
+        async for chunk in self.sdk.send_message(
+            prompt=message.content, system_prompt=system_prompt
+        ):
+            yield chunk_to_proto(chunk)
 
     # ── 5. LoadSkill ──
 
     async def LoadSkill(self, request, context):
-        session_id = request.session_id
-        if session_id not in self.sessions:
-            context.set_code(grpc.StatusCode.NOT_FOUND)
+        session = self._get_or_404(request.session_id, context)
+        if session is None:
             return runtime_pb2.LoadSkillResponse(
                 success=False, error="session not found"
             )
 
         skill = request.skill
-        self.sessions[session_id]["skills"].append(
-            {"skill_id": skill.skill_id, "name": skill.name}
+        skill_loader = self._skills.get(session.session_id)
+        if skill_loader:
+            skill_loader.load(
+                skill_id=skill.skill_id,
+                name=skill.name,
+                frontmatter_yaml=skill.frontmatter_yaml,
+                prose=skill.prose,
+            )
+
+        session.skills.append({"skill_id": skill.skill_id, "name": skill.name})
+
+        tc = self._telemetry.get(session.session_id)
+        if tc:
+            tc.record("skill_loaded", payload={"skill_id": skill.skill_id})
+
+        logger.info(
+            "Skill loaded: %s in session %s", skill.name, session.session_id
         )
-        logger.info("Skill loaded: %s in session %s", skill.name, session_id)
         return runtime_pb2.LoadSkillResponse(success=True)
 
     # ── 6. OnToolCall ──
 
     async def OnToolCall(self, request, context):
-        logger.info(
-            "OnToolCall: session=%s tool=%s",
-            request.session_id,
-            request.tool_name,
-        )
-        # T1 Harness: hooks execute natively, always allow
+        sid = request.session_id
+        hook_exe = self._hooks.get(sid)
+
+        if hook_exe:
+            decision, reason = hook_exe.evaluate_pre_tool_call(
+                request.tool_name, request.input_json
+            )
+            tc = self._telemetry.get(sid)
+            if tc:
+                tc.record(
+                    "hook_evaluated",
+                    payload={
+                        "hook_type": "pre_tool_call",
+                        "tool": request.tool_name,
+                        "decision": decision,
+                    },
+                )
+            return common_pb2.HookDecision(
+                decision=decision, reason=reason, modified_input=""
+            )
+
         return common_pb2.HookDecision(
             decision="allow", reason="", modified_input=""
         )
@@ -138,12 +198,27 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     # ── 7. OnToolResult ──
 
     async def OnToolResult(self, request, context):
-        logger.info(
-            "OnToolResult: session=%s tool=%s error=%s",
-            request.session_id,
-            request.tool_name,
-            request.is_error,
-        )
+        sid = request.session_id
+        hook_exe = self._hooks.get(sid)
+
+        if hook_exe:
+            decision, reason = hook_exe.evaluate_post_tool_result(
+                request.tool_name, request.output, request.is_error
+            )
+            tc = self._telemetry.get(sid)
+            if tc:
+                tc.record(
+                    "hook_evaluated",
+                    payload={
+                        "hook_type": "post_tool_result",
+                        "tool": request.tool_name,
+                        "decision": decision,
+                    },
+                )
+            return common_pb2.HookDecision(
+                decision=decision, reason=reason, modified_input=""
+            )
+
         return common_pb2.HookDecision(
             decision="allow", reason="", modified_input=""
         )
@@ -151,22 +226,40 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     # ── 8. OnStop ──
 
     async def OnStop(self, request, context):
-        logger.info("OnStop: session=%s", request.session_id)
+        sid = request.session_id
+        hook_exe = self._hooks.get(sid)
+
+        if hook_exe:
+            decision, feedback = hook_exe.evaluate_stop()
+            tc = self._telemetry.get(sid)
+            if tc:
+                tc.record(
+                    "stop_evaluated",
+                    payload={"decision": decision},
+                )
+            return common_pb2.StopDecision(
+                decision=decision, feedback=feedback
+            )
+
         return common_pb2.StopDecision(decision="complete", feedback="")
 
     # ── 9. ConnectMcp ──
 
     async def ConnectMcp(self, request, context):
-        session_id = request.session_id
-        if session_id not in self.sessions:
-            context.set_code(grpc.StatusCode.NOT_FOUND)
+        session = self._get_or_404(request.session_id, context)
+        if session is None:
             return runtime_pb2.ConnectMcpResponse(success=False)
 
         connected = []
         for server in request.servers:
-            self.sessions[session_id]["mcp_servers"].append(server.name)
+            session.mcp_servers.append(server.name)
             connected.append(server.name)
-            logger.info("MCP connected: %s in session %s", server.name, session_id)
+
+        tc = self._telemetry.get(session.session_id)
+        if tc:
+            tc.record(
+                "mcp_connected", payload={"servers": connected}
+            )
 
         return runtime_pb2.ConnectMcpResponse(
             success=True, connected=connected, failed=[]
@@ -175,59 +268,61 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     # ── 10. DisconnectMcp ──
 
     async def DisconnectMcp(self, request, context):
-        session_id = request.session_id
-        if session_id in self.sessions:
-            servers = self.sessions[session_id]["mcp_servers"]
-            if request.server_name in servers:
-                servers.remove(request.server_name)
+        session = self.session_mgr.get(request.session_id)
+        if session and request.server_name in session.mcp_servers:
+            session.mcp_servers.remove(request.server_name)
+            tc = self._telemetry.get(session.session_id)
+            if tc:
+                tc.record(
+                    "mcp_disconnected",
+                    payload={"server": request.server_name},
+                )
         return runtime_pb2.DisconnectMcpResponse(success=True)
 
     # ── 11. EmitTelemetry ──
 
     async def EmitTelemetry(self, request, context):
-        session_id = request.session_id
-        events = []
-        if session_id in self.sessions:
-            for t in self.sessions[session_id].get("telemetry", []):
-                events.append(
-                    common_pb2.TelemetryEvent(
-                        session_id=session_id,
-                        runtime_id=self.config.runtime_id,
-                        event_type=t.get("event_type", "unknown"),
-                        timestamp=str(t.get("timestamp", "")),
-                        payload_json=json.dumps(t),
-                    )
-                )
-        return common_pb2.TelemetryBatch(events=events)
+        tc = self._telemetry.get(request.session_id)
+        if tc:
+            entries = tc.peek()
+            return telemetry_batch_to_proto(entries)
+        return common_pb2.TelemetryBatch(events=[])
 
     # ── 12. GetState ──
 
     async def GetState(self, request, context):
-        session_id = request.session_id
-        if session_id not in self.sessions:
-            context.set_code(grpc.StatusCode.NOT_FOUND)
+        session = self._get_or_404(request.session_id, context)
+        if session is None:
             return runtime_pb2.SessionState()
 
-        state_data = json.dumps(self.sessions[session_id]).encode()
         return runtime_pb2.SessionState(
-            session_id=session_id,
-            state_data=state_data,
+            session_id=session.session_id,
+            state_data=serialize_session(session),
             runtime_id=self.config.runtime_id,
-            created_at=str(self.sessions[session_id].get("created_at", "")),
-            state_format="python-json",
+            created_at=str(session.created_at),
+            state_format=STATE_FORMAT,
         )
 
     # ── 13. RestoreState ──
 
     async def RestoreState(self, request, context):
         try:
-            state = json.loads(request.state_data)
-            session_id = (
-                request.session_id or f"crt-restored-{uuid.uuid4().hex[:8]}"
+            data = deserialize_session(request.state_data)
+            session = self.session_mgr.restore(data)
+
+            # Re-initialize per-session components
+            sid = session.session_id
+            hook_exe = HookExecutor()
+            hook_exe.load_rules(session.managed_hooks_json)
+            self._hooks[sid] = hook_exe
+            self._telemetry[sid] = TelemetryCollector(
+                session_id=sid,
+                runtime_id=self.config.runtime_id,
+                user_id=session.user_id,
             )
-            self.sessions[session_id] = state
-            logger.info("State restored: session=%s", session_id)
-            return runtime_pb2.InitializeResponse(session_id=session_id)
+            self._skills[sid] = SkillLoader()
+
+            return runtime_pb2.InitializeResponse(session_id=sid)
         except Exception as e:
             context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
             context.set_details(str(e))
@@ -236,20 +331,16 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     # ── 14. PauseSession ──
 
     async def PauseSession(self, request, context):
-        session_id = request.session_id
-        if session_id in self.sessions:
-            self.sessions[session_id]["state"] = "paused"
-            return runtime_pb2.PauseResponse(success=True)
-        return runtime_pb2.PauseResponse(success=False)
+        success = self.session_mgr.pause(request.session_id)
+        return runtime_pb2.PauseResponse(success=success)
 
     # ── 15. ResumeSession ──
 
     async def ResumeSession(self, request, context):
-        session_id = request.session_id
-        if session_id in self.sessions:
-            self.sessions[session_id]["state"] = "active"
+        success = self.session_mgr.resume(request.session_id)
+        if success:
             return runtime_pb2.ResumeResponse(
-                success=True, session_id=session_id
+                success=True, session_id=request.session_id
             )
         context.set_code(grpc.StatusCode.NOT_FOUND)
         return runtime_pb2.ResumeResponse(success=False, session_id="")
@@ -257,24 +348,23 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     # ── 16. Terminate ──
 
     async def Terminate(self, request, context):
-        session_id = request.session_id
+        sid = request.session_id
         telemetry_batch = None
 
-        if session_id in self.sessions:
-            events = []
-            for t in self.sessions[session_id].get("telemetry", []):
-                events.append(
-                    common_pb2.TelemetryEvent(
-                        session_id=session_id,
-                        runtime_id=self.config.runtime_id,
-                        event_type=t.get("event_type", ""),
-                        timestamp=str(t.get("timestamp", "")),
-                    )
-                )
-            telemetry_batch = common_pb2.TelemetryBatch(events=events)
-            del self.sessions[session_id]
-            logger.info("Session terminated: %s", session_id)
+        # Collect final telemetry before terminating
+        tc = self._telemetry.pop(sid, None)
+        if tc:
+            tc.record("session_end")
+            entries = tc.flush()
+            telemetry_batch = telemetry_batch_to_proto(entries)
+
+        # Clean up per-session components
+        self._hooks.pop(sid, None)
+        self._skills.pop(sid, None)
+
+        session = self.session_mgr.terminate(sid)
+        success = session is not None
 
         return runtime_pb2.TerminateResponse(
-            success=True, final_telemetry=telemetry_batch
+            success=success, final_telemetry=telemetry_batch
         )
