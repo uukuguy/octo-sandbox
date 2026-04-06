@@ -2,18 +2,18 @@
   "plan_file": "docs/plans/2026-04-06-bd-w3-grpc-server.md",
   "phase": "execution",
   "created_at": "2026-04-05T00:30:00+08:00",
-  "updated_at": "2026-04-06T15:20:00+08:00",
-  "completed_tasks": ["W1", "W2", "W3", "W4"],
-  "current_task": "W5",
+  "updated_at": "2026-04-06T15:50:00+08:00",
+  "completed_tasks": ["W1", "W2", "W3", "W4", "W5"],
+  "current_task": "W6",
   "total_tasks": 6,
   "phase_name": "Phase BD — grid-runtime (EAASP L1)",
-  "status": "W1+W2+W3+W4 done. W4 adds telemetry.rs: EaaspEventType enum, TelemetryEventBuilder, TelemetryCollector; harness refactored to delegate. 29 tests total (24 unit + 5 integration).",
+  "status": "W1-W5 done. W5 adds 8 certifier degradation gRPC integration tests (session lifecycle, telemetry, skill, hooks, MCP disconnect, pause, resume degradation, terminate+telemetry). 37 tests total (24 unit + 13 integration).",
   "execution_mode": "ruflo",
   "branch": "Grid",
   "baseline": {
-    "tests": "29 grid-runtime (7 contract + 7 harness + 1 config + 9 telemetry + 5 integration)",
-    "commit": "d85794d",
-    "notes": "W4 telemetry module standardizes EAASP schema"
+    "tests": "37 grid-runtime (7 contract + 7 harness + 1 config + 9 telemetry + 13 integration)",
+    "commit": "ae4b337",
+    "notes": "W5 certifier degradation tests — 8 new integration tests covering full contract surface"
   },
   "tasks": {
     "W1": { "description": "新建 crate + proto 定义 + RuntimeContract trait", "status": "complete", "commit": "02dfa82" },
@@ -27,7 +27,7 @@
       "T6": { "description": "Dockerfile + Makefile targets", "status": "complete" }
     }},
     "W4": { "description": "遥测 schema + 转换", "status": "complete", "commit": "d85794d" },
-    "W5": { "description": "gRPC 集成测试 (certifier 降级)", "status": "pending" },
+    "W5": { "description": "gRPC 集成测试 (certifier 降级)", "status": "complete", "commit": "ae4b337" },
     "W6": { "description": "Dockerfile + 容器化", "status": "pending" }
   },
   "session_output": {
