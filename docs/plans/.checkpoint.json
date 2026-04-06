@@ -1,51 +1,63 @@
 {
-  "plan_file": "docs/plans/2026-04-06-bd-w3-grpc-server.md",
+  "plan_file": "docs/plans/2026-04-06-be-w1w2w3-hookbridge-certifier.md",
   "phase": "execution",
-  "created_at": "2026-04-05T00:30:00+08:00",
-  "updated_at": "2026-04-06T15:50:00+08:00",
-  "completed_tasks": ["W1", "W2", "W3", "W4", "W5"],
-  "current_task": "W6",
-  "total_tasks": 6,
-  "phase_name": "Phase BD — grid-runtime (EAASP L1)",
-  "status": "W1-W5 done. W5 adds 8 certifier degradation gRPC integration tests (session lifecycle, telemetry, skill, hooks, MCP disconnect, pause, resume degradation, terminate+telemetry). 37 tests total (24 unit + 13 integration).",
+  "created_at": "2026-04-06T15:30:00+08:00",
+  "updated_at": "2026-04-06T17:00:00+08:00",
+  "completed_tasks": ["W1", "W2", "W3"],
+  "current_task": null,
+  "total_tasks": 3,
+  "phase_name": "Phase BE — EAASP 协议层 + 第二个 L1 Runtime (W1-W3)",
+  "status": "W1-W3 complete. Proto refactor (common.proto extraction + hook.proto bidirectional streaming), HookBridge trait + InProcess + gRPC, eaasp-certifier contract verification tool. 54 tests total.",
   "execution_mode": "ruflo",
   "branch": "Grid",
   "baseline": {
-    "tests": "37 grid-runtime (7 contract + 7 harness + 1 config + 9 telemetry + 13 integration)",
-    "commit": "ae4b337",
-    "notes": "W5 certifier degradation tests — 8 new integration tests covering full contract surface"
+    "tests": "54 (6 certifier + 11 hook-bridge + 24 runtime unit + 13 runtime integration)",
+    "commit": "40a231e",
+    "notes": "W1-W3 complete — protocol layer + HookBridge + certifier"
   },
   "tasks": {
-    "W1": { "description": "新建 crate + proto 定义 + RuntimeContract trait", "status": "complete", "commit": "02dfa82" },
-    "W2": { "description": "GridHarness 实现 13 方法桥接 grid-engine", "status": "complete", "commit": "f8b8e3d" },
-    "W3": { "description": "gRPC server (proto v1.2 + service + main + tests + Dockerfile)", "status": "complete", "commit": "3834fd9", "sub_tasks": {
-      "T1": { "description": "Proto v1.2 — +3 RPC + 扩展字段", "status": "complete" },
-      "T2": { "description": "config.rs — 运行时配置", "status": "complete" },
-      "T3": { "description": "service.rs — gRPC service 实现 (16 methods)", "status": "complete" },
-      "T4": { "description": "main.rs — gRPC server 启动", "status": "complete" },
-      "T5": { "description": "gRPC 集成测试 (5 tests)", "status": "complete" },
-      "T6": { "description": "Dockerfile + Makefile targets", "status": "complete" }
-    }},
-    "W4": { "description": "遥测 schema + 转换", "status": "complete", "commit": "d85794d" },
-    "W5": { "description": "gRPC 集成测试 (certifier 降级)", "status": "complete", "commit": "ae4b337" },
-    "W6": { "description": "Dockerfile + 容器化", "status": "pending" }
-  },
-  "session_output": {
-    "roadmap": "docs/design/Grid/EAASP_ROADMAP.md",
-    "w3_plan": "docs/plans/2026-04-06-bd-w3-grpc-server.md",
-    "notes": "W3 完成全部 6 个 sub-task。W4 新增 telemetry.rs 模块：EaaspEventType 枚举(10 种标准事件类型)、TelemetryEventBuilder、TelemetryCollector。harness.rs emit_telemetry 从 40 行内联逻辑重构为 1 行委托。9 个新测试。"
+    "W1": {
+      "description": "common.proto + hook.proto + runtime.proto refactor",
+      "status": "complete",
+      "commit": "b5d7e54",
+      "sub_tasks": {
+        "T1": { "description": "Create common.proto (shared types extraction)", "status": "complete" },
+        "T2": { "description": "Modify runtime.proto to import common", "status": "complete" },
+        "T3": { "description": "Create hook.proto (bidirectional streaming)", "status": "complete" },
+        "T4": { "description": "Update grid-runtime build.rs/lib.rs/service.rs/tests", "status": "complete" }
+      }
+    },
+    "W2": {
+      "description": "grid-hook-bridge crate (HookBridge trait + InProcess + gRPC)",
+      "status": "complete",
+      "commit": "c6fdb68",
+      "sub_tasks": {
+        "T1": { "description": "Crate skeleton + build.rs + lib.rs", "status": "complete" },
+        "T2": { "description": "HookBridge trait + types (3 tests)", "status": "complete" },
+        "T3": { "description": "InProcessHookBridge (8 tests)", "status": "complete" },
+        "T4": { "description": "GrpcHookBridge client + HookBridgeGrpcServer", "status": "complete" }
+      }
+    },
+    "W3": {
+      "description": "eaasp-certifier contract verification tool",
+      "status": "complete",
+      "commit": "40a231e",
+      "sub_tasks": {
+        "T1": { "description": "Crate skeleton + CLI", "status": "complete" },
+        "T2": { "description": "verifier.rs 16-method verification (3 tests)", "status": "complete" },
+        "T3": { "description": "mock_l3.rs + report.rs (3 tests)", "status": "complete" }
+      }
+    }
   },
   "deferred": {
-    "BD-D1": "grid-hook-bridge crate（Tier 2/3 sidecar）",
-    "BD-D2": "RuntimeSelector + AdapterRegistry（平台层）",
-    "BD-D3": "盲盒对比（需 2+ 运行时）",
-    "BD-D4": "managed-settings.json 分发机制（L3 治理层）",
-    "BD-D5": "SessionPayload 组织层级（L4 多租户）",
-    "BD-D6": "initialize() 传递 payload 完整字段到 engine session（user_role/org_unit/quotas/hooks/context/hook_bridge_url/telemetry_endpoint 当前丢弃）— 前置: grid-engine start_session 支持扩展参数",
-    "BD-D7": "emit_telemetry 填充 user_id — TelemetryEventBuilder.with_user_id() 仅测试调用，collect() 生成的事件 user_id 始终 None — 前置: session 存储 payload.user_id 关联"
+    "BE-D1": "GrpcHookBridge 端到端集成测试（需要 HookBridge server 运行）",
+    "BE-D2": "certifier 端到端测试（需要 grid-runtime gRPC server 运行）",
+    "BE-D3": "HookBridge 双向流集成测试",
+    "BE-D4": "common.proto 到 contract.rs 类型映射自动化",
+    "BE-D5": "certifier CLI mock-l3 子命令（L3 策略引擎 BH）"
   },
   "previous_phase": {
-    "name": "Phase BC — TUI Deferred Items 补齐",
-    "status": "COMPLETE — 5/5 tasks @ 41a0fcf"
+    "name": "Phase BD — grid-runtime (EAASP L1)",
+    "status": "COMPLETE — 6/6 tasks @ ae4b337"
   }
 }

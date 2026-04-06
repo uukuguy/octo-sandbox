@@ -1,5 +1,13 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase BE — EAASP 协议层 + 第二个 L1 Runtime",
+      "started_at": "2026-04-06T15:30:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "progress": "50% (W1-W3 complete, W4-W6 pending user decision)"
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
     {
@@ -12,7 +20,7 @@
       "deferred": ["BD-D1", "BD-D2", "BD-D3", "BD-D4", "BD-D5", "BD-D6", "BD-D7"]
     },
     {
-      "name": "Phase BC — TUI Deferred Items 补��",
+      "name": "Phase BC — TUI Deferred Items 补齐",
       "completed_at": "2026-04-04T21:10:00+08:00",
       "progress": "100%",
       "commits": ["41a0fcf"],
@@ -25,7 +33,7 @@
       "completed_at": "2026-04-04T17:45:00+08:00",
       "progress": "100%",
       "commits": ["4f5159a", "9b61990", "04a5f3b"],
-      "tasks": "11/11 (W1: TuiTheme 4-layer+style_tokens+Autocomplete+Approval themed, W2: welcome accent hue+line-drawing logo+model name, W3: 8-seg progress bar+status bar+input widget themed)",
+      "tasks": "11/11",
       "tests": 499,
       "deferred": ["BB-D1", "BB-D2", "BB-D3", "BB-D4"]
     },
@@ -34,298 +42,9 @@
       "completed_at": "2026-04-04T16:00:00+08:00",
       "progress": "100%",
       "commits": ["9432e1e", "f5ca284", "c136dec", "a50d2a9", "dd0200f", "13678ff", "39de430", "4d1d7fe"],
-      "tasks": "11/11 (S1-S6: crate rename+split+rebrand, deep cleanup, Makefile, demo-project, E-11 thinking toggle, E-14 approval args)",
+      "tasks": "11/11",
       "tests": 496,
       "deferred": []
-    },
-    {
-      "name": "Phase AZ — Cleanup Chain + Transcript Chain + Completion Callback",
-      "completed_at": "2026-04-04T00:30:00+08:00",
-      "progress": "100%",
-      "commits": ["81f3eaa"],
-      "tasks": "3/3 (P1: transcript parent chain, P0: cleanup chain hardening, P2: completion callback)",
-      "tests": 2,
-      "deferred": []
-    },
-    {
-      "name": "Phase AY — SubAgent Runtime",
-      "completed_at": "2026-04-03T21:40:00+08:00",
-      "progress": "100%",
-      "commits": ["c552a87", "6811353", "782bd01", "e80679f"],
-      "tasks": "7/7 + 6/6 deferred + wiring audit (4 fixes)",
-      "tests": 15,
-      "deferred": []
-    },
-    {
-      "name": "Phase AX — Builtin Agents",
-      "completed_at": "2026-04-03T17:25:00+08:00",
-      "progress": "100%",
-      "commits": ["489edb7", "68a49a7", "37a30de"],
-      "tasks": "7/7 (W1: AgentManifest+BuiltinAgentRegistry, W2: snapshot_excluded+agent_type routing, W3: skill preloading+description enhance+verify)",
-      "tests": 17,
-      "deferred": ["AX-D1", "AX-D2", "AX-D3", "AX-D4", "AX-D5", "AX-D6", "AX-D7"]
-    },
-    {
-      "name": "Phase AW — CC-OSS 工具体系对齐",
-      "completed_at": "2026-04-03T17:10:00+08:00",
-      "progress": "100%",
-      "commits": ["c80b914", "f9fd4ec", "4d92ca4", "26733d8"],
-      "tasks": "9/9 (W1: SendMessage+TaskGet/Stop/Output+ConfigTool+TodoWrite, W2: MCP Resources+Worktree+LSP, W3: McpAuth+MCP Prompts)",
-      "tests": 39,
-      "deferred": ["AW-D1", "AW-D2", "AW-D3", "AW-D4", "AW-D5"]
-    },
-    {
-      "name": "Phase AV — CC-OSS Gap Closure + Security Parity",
-      "completed_at": "2026-04-03T15:30:00+08:00",
-      "progress": "100%",
-      "commits": ["4ce5be1", "73211a8", "6ba8619", "7216b87", "6c85074", "ad9cd9f", "3c63d90", "3cde61a", "a58e341"],
-      "tasks": "6/6 + 4D resolved + 4 security parity (fail-closed, input risk, BashGuard, Doing Tasks)",
-      "tests": 61,
-      "deferred": []
-    },
-    {
-      "name": "Phase AU — Autonomous Mode Completion (5 gaps)",
-      "completed_at": "2026-04-03T11:10:00+08:00",
-      "progress": "100%",
-      "commits": ["d36a779", "4d4373c", "9f5f675"],
-      "tasks": "5/5 (W1: G1 AutonomousControl+harness select! + G2 AutonomousScheduler + G3 WS events, W2: G4 Session pause/resume API + G5 Webhook trigger wiring)",
-      "tests": 30,
-      "deferred": ["AU-D1", "AU-D2", "AU-D3", "AU-D4", "AU-D5"]
-    },
-    {
-      "name": "Phase AT — Octo System Prompt 增强 + 编译优化",
-      "completed_at": "2026-04-02T21:30:00+08:00",
-      "progress": "100%",
-      "commits": ["c1fad3d"],
-      "tasks": "T1-T5 (prompt caching prep, static sections, dynamic sections, tool descriptions, subagent prompt, memory injection fix, build optimization)",
-      "deferred": ["AT-D1", "AT-D2", "AT-D3", "AT-D4", "AT-D5"]
-    },
-    {
-      "name": "Phase AR — CC-OSS 缺口补齐",
-      "completed_at": "2026-04-02T08:30:00+08:00",
-      "progress": "100%",
-      "commits": ["beb741b"],
-      "tasks": "7/7 (W1: TokenEscalation+TranscriptWriter+BlobGc, W2: Fork/Rewind API, W3: TriggerSource+Webhook+MQ+HybridSearch)",
-      "tests": 29,
-      "deferred": ["AR-D1", "AR-D2", "AR-D3", "AR-D4"]
-    },
-    {
-      "name": "Phase AQ — 自主能力 + 智能交互",
-      "completed_at": "2026-04-02T06:30:00+08:00",
-      "progress": "100%",
-      "commits": ["dcb10f1", "6288dc2", "bf051f5"],
-      "tasks": "6/6 (W1: InteractionGate+AskUserTool+ToolSearchTool, W2: BlobStore, W3: AutonomousTick+PauseResume, W4: AuditLog)",
-      "tests": 29,
-      "deferred": ["AQ-D1", "AQ-D2", "AQ-D3", "AQ-D4", "AQ-D5"]
-    },
-    {
-      "name": "Phase AP — 追赶 CC-OSS",
-      "completed_at": "2026-04-02T04:30:00+08:00",
-      "progress": "100%",
-      "commits": ["dca72da", "ab4a961", "044a3ec", "76573c7", "f9b869b", "b8bdebb", "eec4847", "d8b77e6", "a780041", "efe0718"],
-      "tasks": "18/18 + 4 deferred resolved",
-      "tests": 50
-    },
-    {
-      "name": "Phase AO — octo-server 功能完善",
-      "completed_at": "2026-04-01T19:30:00+08:00",
-      "progress": "100%",
-      "commits": ["757ddc8", "9b3075b", "a660366", "39159aa"],
-      "tasks": "10/10 + 2 stubs resolved (Wave 1: Metering+KG, Wave 2: Hooks+Security+Secrets+Sandbox, Wave 3: Config+Audit+Context)",
-      "tests": 36,
-      "deferred": ["AO-D1", "AO-D2", "AO-D3", "AO-D4"]
-    },
-    {
-      "name": "Phase AM — 可观测性 + 运维工具",
-      "completed_at": "2026-04-01T17:00:00+08:00",
-      "progress": "100%",
-      "commits": ["e091341", "cfd4b50", "9a78665"],
-      "tasks": "6/6 (G1 Prometheus+JSON日志 2 + G2 Session监控+SSE 2 + G3 崩溃恢复+Provider监控 2)",
-      "db_version": 13
-    },
-    {
-      "name": "Phase AL — Web 前端完善 + 多会话 UI",
-      "completed_at": "2026-04-01T17:00:00+08:00",
-      "progress": "100%",
-      "commits": ["e091341", "cfd4b50", "17b4d63", "9a78665"],
-      "tasks": "7/7 (G1 SessionTab+WS状态 2 + G2 Markdown+消息交互 2 + G3 ErrorBoundary 1 + G4 MCP+Memory增强 2)",
-      "new_deps": ["react-markdown", "remark-gfm", "rehype-highlight", "highlight.js", "async-stream"]
-    },
-    {
-      "name": "Phase AK — Server 安全加固 + 生产就绪",
-      "completed_at": "2026-04-01T14:30:00+08:00",
-      "progress": "100%",
-      "commit": "be3f5f4",
-      "tasks": "7/7 (G1 安全头+CORS 2 + G2 API v1+健康检查 2 + G3 限制+关闭 2 + G4 测试 1)",
-      "tests": 9
-    },
-    {
-      "name": "Phase AJ — 多会话复用（Multi-Session Multiplexing）",
-      "completed_at": "2026-04-01T10:50:00+08:00",
-      "progress": "100%",
-      "commit": "819973f",
-      "tasks": "13/13 (G1 隔离 4 + G2 注册表 3 + G3 WS+REST 3 + G4 测试 3)",
-      "tests": 14
-    },
-    {
-      "name": "Phase AI — WASM Component Model Hook 插件生态",
-      "completed_at": "2026-03-31T01:15:00+08:00",
-      "progress": "100%",
-      "commit": "9c61391",
-      "tasks": "11/11 + 4 deferred resolved (AI-D6/D7, AH-D2/D5)",
-      "tests": 121
-    },
-    {
-      "name": "Phase AH — Hook 系统增强：三层混合架构",
-      "completed_at": "2026-03-30T07:30:00+08:00",
-      "progress": "100%",
-      "commit": "4ebc7fa",
-      "tasks": "15/15 + 3 deferred resolved (D1/D7/D8)",
-      "tests": 104
-    },
-    {
-      "name": "Phase AG — 记忆和上下文机制增强",
-      "completed_at": "2026-03-29T21:30:00+08:00",
-      "progress": "100%",
-      "commit": "e088279",
-      "tasks": "11/11 + 5 deferred resolved"
-    },
-    {
-      "name": "SubAgent Streaming Events",
-      "completed_at": "2026-03-28T10:30:00+08:00",
-      "progress": "100%",
-      "commit": "cc05eeb",
-      "tasks": "4 commits (sub-agent event forwarding, TUI rendering, proxy fix, config fix)"
-    },
-    {
-      "name": "Builtin Commands Redesign",
-      "completed_at": "2026-03-26T19:10:00+08:00",
-      "progress": "100%",
-      "tests": 2476,
-      "commit": "1916320",
-      "tasks": "6/6 (6 template upgrades, 4 new commands, 4 removed, display fix, test update, design doc)"
-    },
-    {
-      "name": "MCP Support + TUI Robustness + Custom Commands",
-      "completed_at": "2026-03-26T17:30:00+08:00",
-      "progress": "100%",
-      "tests": 2476,
-      "commit": "263eeb2",
-      "tasks": "11/11 (stdin fix, UTF-8 safety, table rendering, Qwen recovery, custom commands, 10 builtin commands)"
-    },
-    {
-      "name": "Post-AF Cleanup — Builtin Skills + Config Seeding + TUI Fix",
-      "completed_at": "2026-03-25T15:30:00+08:00",
-      "progress": "100%",
-      "tests": 2476,
-      "commit": "072c15b",
-      "tasks": "3 commits (skills refactor, config seeding, TUI fix)"
-    },
-    {
-      "name": "Phase AF - SSM Wiring + Deferred Batch",
-      "completed_at": "2026-03-25T00:30:00+08:00",
-      "progress": "100%",
-      "tests": 2476,
-      "commit": "976e813",
-      "tasks": "3/3 + 4 deferred resolved"
-    },
-    {
-      "name": "Phase AE - Agent Workspace Architecture",
-      "completed_at": "2026-03-24T22:00:00+08:00",
-      "progress": "100%",
-      "tests": 2467,
-      "commit": "ee4986f",
-      "tasks": "7/7 + 3 deferred resolved"
-    },
-    {
-      "name": "Phase AD - Container Image Enhancement",
-      "completed_at": "2026-03-23T19:30:00+08:00",
-      "progress": "100%",
-      "tests": 2467,
-      "commit": "73295f5",
-      "tasks": "5/5"
-    },
-    {
-      "name": "Phase AC - Sandbox Container",
-      "completed_at": "2026-03-23T16:50:00+08:00",
-      "progress": "100%",
-      "tests": 2467,
-      "commit": "184b1ab",
-      "tasks": "9/9"
-    },
-    {
-      "name": "Phase AB — Octo 智能体工具执行环境",
-      "completed_at": "2026-03-23T10:00:00+08:00",
-      "progress": "100%",
-      "tests": 2446,
-      "commit": "282d3f6",
-      "tasks": "10/10",
-      "octo_cli_tests": 472
-    },
-    {
-      "name": "Phase AA — Octo 部署配置架构",
-      "completed_at": "2026-03-23T05:40:00+08:00",
-      "progress": "100%",
-      "tests": 2388,
-      "commit": "a1384e8",
-      "tasks": "6/6"
-    },
-    {
-      "name": "Phase Z — Landmine Scan & Fix",
-      "completed_at": "2026-03-23T04:30:00+08:00",
-      "progress": "100%",
-      "tests": 2383,
-      "commit": "81fa923",
-      "tasks": "2/2"
-    },
-    {
-      "name": "Phase Y — Playbook Skill SubAgent Wiring",
-      "completed_at": "2026-03-23T03:45:00+08:00",
-      "progress": "100%",
-      "tests": 2387,
-      "commit": "c0f92b4",
-      "tasks": "1/1"
-    },
-    {
-      "name": "Phase X — TUI 运行状态增强",
-      "completed_at": "2026-03-23T02:30:00+08:00",
-      "progress": "100%",
-      "tests": 2387,
-      "commit": null,
-      "tasks": "4/4"
-    },
-    {
-      "name": "Phase W — OctoRoot 统一目录管理",
-      "completed_at": "2026-03-23T01:30:00+08:00",
-      "progress": "100%",
-      "tests": 2387,
-      "commit": null,
-      "tasks": "10/10"
-    },
-    {
-      "name": "Phase V — Agent Skills 完整实现",
-      "completed_at": "2026-03-22T21:45:00+08:00",
-      "progress": "100%",
-      "tests": 2370,
-      "commit": "19d3f30",
-      "tasks": "11/12 (V1-3 deferred)"
-    },
-    {
-      "name": "Phase U — TUI Production Hardening + Post-Polish",
-      "completed_at": "2026-03-22T19:41:00+08:00",
-      "progress": "100%",
-      "tests": 2329,
-      "commit": "77c2297",
-      "tasks": "10/10 + 3 polish commits",
-      "octo_cli_tests": 456
-    },
-    {
-      "name": "Phase T — TUI OpenDev 整合",
-      "completed_at": "2026-03-22T10:00:00+08:00",
-      "progress": "100%",
-      "tests": 2259,
-      "commit": "74464b9",
-      "tasks": "24/24"
     }
   ]
 }
