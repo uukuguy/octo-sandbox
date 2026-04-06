@@ -1,0 +1,37 @@
+[package]
+name = "grid-hook-bridge"
+edition.workspace = true
+version.workspace = true
+description = "EAASP HookBridge — hook evaluation engine for L1 runtimes"
+
+[dependencies]
+# Async runtime
+tokio = { workspace = true }
+tokio-stream = { version = "0.1", features = ["sync"] }
+futures-util = { workspace = true }
+async-stream = { workspace = true }
+
+# gRPC
+tonic = "0.12"
+prost = "0.13"
+
+# Serialization
+serde = { workspace = true }
+serde_json = { workspace = true }
+
+# Error handling
+anyhow = { workspace = true }
+thiserror = { workspace = true }
+async-trait = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+
+# Concurrent collections
+dashmap = { workspace = true }
+
+[build-dependencies]
+tonic-build = "0.12"
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

@@ -12,6 +12,7 @@ default-members = [
     "crates/grid-server",
     "crates/grid-platform",
     "crates/grid-runtime",
+    "crates/grid-hook-bridge",
 ]
 
 [workspace.package]
