@@ -17,7 +17,7 @@ grid-sandbox = { workspace = true }
 
 # Async runtime
 tokio = { workspace = true }
-tokio-stream = { workspace = true }
+tokio-stream = { version = "0.1", features = ["sync"] }
 futures-util = { workspace = true }
 async-stream = { workspace = true }
 

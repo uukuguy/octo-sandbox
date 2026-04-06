@@ -16,6 +16,7 @@
 //! and is compiled by `build.rs` via tonic-build.
 
 pub mod contract;
+pub mod harness;
 
 /// Generated gRPC types from runtime.proto.
 pub mod proto {
