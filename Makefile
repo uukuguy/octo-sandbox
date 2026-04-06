@@ -11,7 +11,10 @@
         docker-build docker-build-python docker-build-rust docker-build-nodejs \
         docker-build-bash docker-build-general docker-build-swebench docker-list docker-clean \
         claude-runtime-setup claude-runtime-proto claude-runtime-test claude-runtime-start \
-        claude-runtime-build claude-runtime-run verify-dual-runtime
+        claude-runtime-build claude-runtime-run verify-dual-runtime \
+        skill-registry-build skill-registry-start skill-registry-test \
+        mcp-orch-build mcp-orch-start mcp-orch-test \
+        certifier-blindbox
 
 # Default test project for CLI commands
 TEST_PROJECT ?= $(PWD)/examples/demo-project
@@ -723,3 +726,41 @@ claude-runtime-run:
 # 双 runtime 集成验证 (先 build 再启动，需要 ANTHROPIC_API_KEY)
 verify-dual-runtime:
 	./scripts/verify-dual-runtime.sh
+
+# ============================================================
+# L2 Skill Registry
+# ============================================================
+
+skill-registry-build:
+	cargo build -p eaasp-skill-registry
+
+skill-registry-start:
+	cargo run -p eaasp-skill-registry -- --data-dir ./data/skill-registry --port 8081
+
+skill-registry-test:
+	cargo test -p eaasp-skill-registry -- --test-threads=1
+
+# ============================================================
+# L2 MCP Orchestrator
+# ============================================================
+
+mcp-orch-build:
+	cargo build -p eaasp-mcp-orchestrator
+
+mcp-orch-start:
+	cargo run -p eaasp-mcp-orchestrator -- --config ./config/mcp-servers.yaml --port 8082
+
+mcp-orch-test:
+	cargo test -p eaasp-mcp-orchestrator -- --test-threads=1
+
+# ============================================================
+# Certifier Blindbox
+# ============================================================
+
+PROMPT ?= "Hello, please introduce yourself briefly."
+
+certifier-blindbox:
+	cargo run -p eaasp-certifier -- blindbox \
+		--runtime-a http://localhost:50051 \
+		--runtime-b http://localhost:50052 \
+		--prompt $(PROMPT)

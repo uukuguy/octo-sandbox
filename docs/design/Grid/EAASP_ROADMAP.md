@@ -216,25 +216,34 @@ tools/
 
 ---
 
-### Phase BF — L2 技能资产层 + L1 抽象机制
+### Phase BF — L2 技能资产层 + L1 抽象机制 ✅
 
 **对应规范阶段 2（第 5-12 周）。**
 
-**目标**：构建 L2 Skill 仓库 MCP server，L1 内部抽象机制（运行时选择器 + 适配器注册表），启用盲盒对比。
+**状态**: 完成（7/7 tasks, 30 new tests @ 59bb58e）
 
-| 组件 | 内容 | 规范章节 |
-|------|------|---------|
-| L2 Skill 仓库 MCP server | 7 个 MCP 工具（skill_search/read/list_versions/submit_draft/promote/dependencies/usage） | §5.1 |
-| L2 晋升引擎 | draft → tested → reviewed → production 流水线 | §5.7 |
-| L2 访问控制 | 组织范围 RBAC | §5.1 |
-| L1 运行时选择器 | 任务匹配、盲盒对比、用户偏好 | §6.1 |
-| L1 适配器注册表 | Thin/Medium/Thick 适配器分层 | §6.2 |
-| L1 遥测采集器 | 统一 schema，推送到 L3 审计 | §6.4 |
+**目标**：构建 L2 统一资产层（Skill Registry + MCP Orchestrator），L1 抽象机制（运行时选择器 + 盲盒对比）。
 
-**关键里程碑**：
-- Skill 仓库 MCP server 上线，L1 智能体可通过 MCP 协议读取 Skills
-- Grid 与 Claude Code 之间启用盲盒对比
-- 5-10 个 workflow-skills 在 production 中可用
+**实际产出**：
+
+| 组件 | 内容 | 位置 | 测试 |
+|------|------|------|------|
+| SessionPayload L2 字段 | proto v1.3, skill_ids/skill_registry_url | `proto/eaasp/runtime/v1/runtime.proto` | 7 |
+| L2 Skill Registry | REST API + SQLite + Git 追溯 | `tools/eaasp-skill-registry/` | 10 |
+| L2 MCP Orchestrator | YAML 配置 + Shared 子进程管理 | `tools/eaasp-mcp-orchestrator/` | 4 |
+| L1-L2 集成 | GridHarness initialize 从 L2 REST 拉取 | `crates/grid-runtime/src/l2_client.rs` | 4 |
+| RuntimePool + Selector | Mock L3 运行时池管理 + 选择策略 | `tools/eaasp-certifier/src/` | 5 |
+| 盲盒对比 | 并行执行 + 匿名展示 + 用户评分 | `tools/eaasp-certifier/src/blindbox.rs` | 3 |
+| 设计文档 | L2 资产层架构设计 | `docs/design/Grid/EAASP_L2_ASSET_LAYER_DESIGN.md` | — |
+
+**设计决策**（BF-KD1~KD12）：详见 `EAASP_L2_ASSET_LAYER_DESIGN.md`
+
+**Deferred**: BF-D1~D10（Git 版本追溯集成、PerSession/OnDemand 模式、RBAC、ELO 统计等）
+
+**原计划中以下功能调整为 Deferred**：
+- L2 访问控制（RBAC）→ BF-D6，前置 L3 认证体系
+- L1 适配器注册表 → BH L3 治理层
+- L1 遥测采集器统一 schema → 已在 BD 完成基础版
 
 ---
 
@@ -370,7 +379,7 @@ tools/
 |------|---------|
 | **BD** | grid-runtime gRPC server 可启动，13+ 方法可调用，Docker 镜像可构建 |
 | **BE** | certifier 验证 grid-runtime + claude-code-runtime 通过；HookBridge 能评估 hook 请求 |
-| **BF** | L2 Skill 仓库 MCP server 上线；Grid/CC 盲盒对比可运行；5+ workflow-skills production |
+| **BF** | ✅ L2 Skill Registry REST API 上线；MCP Orchestrator Shared 模式；Grid/CC 盲盒对比可运行；30 new tests |
 | **BG** | Python/TS SDK 发布；企业开发者可通过 SDK 构建智能体且不感知 gRPC |
 | **BH** | L3 治理上线；managed hooks 跨运行时强制执行；5 个 API 契约部署；L4 门户+控制台 |
 | **BI** | T2 Aider/Goose 加入运行时池；自动化工作流可无人值守执行；成本治理生效 |
