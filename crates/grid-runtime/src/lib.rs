@@ -19,6 +19,7 @@ pub mod config;
 pub mod contract;
 pub mod harness;
 pub mod service;
+pub mod telemetry;
 
 /// Generated gRPC types from runtime.proto.
 pub mod proto {

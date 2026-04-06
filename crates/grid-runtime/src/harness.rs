@@ -18,6 +18,7 @@ use grid_engine::{
 use grid_types::id::{SandboxId, SessionId, UserId};
 
 use crate::contract::*;
+use crate::telemetry::TelemetryCollector;
 
 /// Grid Tier 1 Harness — native RuntimeContract implementation.
 ///
@@ -27,20 +28,24 @@ use crate::contract::*;
 pub struct GridHarness {
     runtime: Arc<AgentRuntime>,
     runtime_id: String,
+    telemetry: TelemetryCollector,
 }
 
 impl GridHarness {
     /// Create a GridHarness wrapping an existing AgentRuntime.
     pub fn new(runtime: Arc<AgentRuntime>) -> Self {
+        let runtime_id = "grid-harness".to_string();
         Self {
             runtime,
-            runtime_id: "grid-harness".to_string(),
+            telemetry: TelemetryCollector::new(&runtime_id),
+            runtime_id,
         }
     }
 
     /// Create a GridHarness with a custom runtime ID.
     pub fn with_runtime_id(mut self, id: impl Into<String>) -> Self {
         self.runtime_id = id.into();
+        self.telemetry = TelemetryCollector::new(&self.runtime_id);
         self
     }
 
@@ -323,48 +328,7 @@ impl RuntimeContract for GridHarness {
         &self,
         handle: &SessionHandle,
     ) -> anyhow::Result<Vec<TelemetryEvent>> {
-        let mut events = Vec::new();
-
-        // Collect metering snapshot
-        let snapshot = self.runtime.metering();
-        events.push(TelemetryEvent {
-            session_id: handle.session_id.clone(),
-            runtime_id: self.runtime_id.clone(),
-            user_id: None,
-            event_type: "metering_snapshot".into(),
-            timestamp: chrono::Utc::now(),
-            payload: serde_json::json!({
-                "input_tokens": snapshot.input_tokens,
-                "output_tokens": snapshot.output_tokens,
-                "requests": snapshot.requests,
-                "duration_ms": snapshot.duration_ms,
-            }),
-            resource_usage: ResourceUsage {
-                input_tokens: snapshot.input_tokens,
-                output_tokens: snapshot.output_tokens,
-                compute_ms: snapshot.duration_ms,
-            },
-        });
-
-        // Collect recent events from TelemetryBus if available
-        if let Some(bus) = self.runtime.event_bus() {
-            let bus_events = bus.recent_events(50).await;
-            for bus_event in bus_events {
-                let event_type = format!("{:?}", bus_event);
-                let event_type = event_type.split('{').next().unwrap_or("unknown").trim().to_string();
-                events.push(TelemetryEvent {
-                    session_id: bus_event.session_id().to_string(),
-                    runtime_id: self.runtime_id.clone(),
-                    user_id: None,
-                    event_type,
-                    timestamp: chrono::Utc::now(),
-                    payload: serde_json::to_value(&bus_event).unwrap_or_default(),
-                    resource_usage: ResourceUsage::default(),
-                });
-            }
-        }
-
-        Ok(events)
+        Ok(self.telemetry.collect(&handle.session_id, &self.runtime).await)
     }
 
     fn get_capabilities(&self) -> CapabilityManifest {
