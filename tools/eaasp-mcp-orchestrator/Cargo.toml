@@ -1,0 +1,5 @@
+[package]
+name = "eaasp-mcp-orchestrator"
+version = "0.1.0"
+edition = "2021"
+publish = false
