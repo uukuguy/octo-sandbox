@@ -1,0 +1,11 @@
+# Intent mapping configuration (MVP: keyword-based)
+# Future: NLU model integration
+
+intents:
+  - keywords: ["入职", "onboarding", "新员工", "hire"]
+    skill_id: hr-onboarding
+    confidence: 0.9
+
+  - keywords: ["离职", "offboarding", "resign"]
+    skill_id: hr-offboarding
+    confidence: 0.9
