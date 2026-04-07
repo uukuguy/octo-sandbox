@@ -14,7 +14,8 @@
         claude-runtime-build claude-runtime-run verify-dual-runtime \
         skill-registry-build skill-registry-start skill-registry-test \
         mcp-orch-build mcp-orch-start mcp-orch-test \
-        certifier-blindbox
+        certifier-blindbox \
+        sdk-setup sdk-test sdk-validate sdk-build
 
 # Default test project for CLI commands
 TEST_PROJECT ?= $(PWD)/examples/demo-project
@@ -764,3 +765,19 @@ certifier-blindbox:
 		--runtime-a http://localhost:50051 \
 		--runtime-b http://localhost:50052 \
 		--prompt $(PROMPT)
+
+# ============================================================
+# EAASP Enterprise SDK (Python)
+# ============================================================
+
+sdk-setup:
+	cd sdk/python && uv pip install -e ".[all,dev]"
+
+sdk-test:
+	cd sdk/python && pytest tests/ -xvs
+
+sdk-validate:
+	cd sdk/python && python -m eaasp.cli validate ../../sdk/examples/hr-onboarding/
+
+sdk-build:
+	cd sdk/python && python -m build

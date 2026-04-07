@@ -247,23 +247,34 @@ tools/
 
 ---
 
-### Phase BG — Enterprise SDK（多语言）
+### Phase BG — Enterprise SDK 基石 ✅
 
-**目标**：企业业务开发者可通过 SDK 构建智能体，不感知 EAASP 内部结构。
+**对应规范阶段 2（第 5-12 周），SDK 部分。**
 
-| 组件 | 内容 |
-|------|------|
-| `eaasp-sdk/specs/` | 7 个抽象概念的跨语言规范（TOML） |
-| `eaasp-sdk/python/` | Python SDK 参考实现 |
-| `eaasp-sdk/typescript/` | TypeScript SDK |
-| SDK 文档 | 快速上手、API 参考、企业场景示例 |
+**状态**: 完成（6/6 tasks, 107 new tests @ ea0780c）
+
+**目标**：构建 EAASP Enterprise SDK 的基石层（S1），让企业开发者可以创作、校验、推演 Skill。
+
+**实际产出**：
+
+| 组件 | 内容 | 位置 | 测试 |
+|------|------|------|------|
+| JSON Schema 规范 | 7 个抽象概念跨语言契约 | `sdk/specs/` | — |
+| Pydantic 模型 | 7 个模型 + Skill SKILL.md 双向序列化 | `sdk/python/src/eaasp/models/` | 27 |
+| 创作工具链 | parser + validator(8规则) + scaffold(4模板) + hook_builder | `sdk/python/src/eaasp/authoring/` | 21 |
+| GridCliSandbox | subprocess 调用 grid binary | `sdk/python/src/eaasp/sandbox/grid_cli.py` | 13 |
+| RuntimeSandbox | gRPC 直连 L1 Runtime | `sdk/python/src/eaasp/sandbox/runtime.py` | 28 |
+| MultiRuntimeSandbox | 并行对比 + ConsistencyReport | `sdk/python/src/eaasp/sandbox/multi_runtime.py` | (含 W4) |
+| CLI | init/validate/test/compare/submit 5 命令 | `sdk/python/src/eaasp/cli/` | 18 |
+| L2 客户端 | SkillRegistryClient (submit_draft) | `sdk/python/src/eaasp/client/` | (含 W5) |
+| HR 入职示例 | workflow-skill + PII hook + test cases | `sdk/examples/hr-onboarding/` | — |
+| 设计文档 | SDK 演进蓝图 | `docs/design/Grid/EAASP_SDK_DESIGN.md` | — |
+
+**关键设计决策**（BG-KD1~KD10）：详见 `EAASP_SDK_DESIGN.md`
+
+**Deferred**: BG-D1~D10（Policy DSL, Playbook DSL, TypeScript SDK, GridServerSandbox, PlatformSandbox 等）
 
 **7 个抽象概念**：Agent / Skill / Tool / Policy / Playbook / Session / Message
-
-**为什么在 BF 之后**：
-- SDK 需要稳定的 L2 Skill 仓库（Skill 对象的实际后端）
-- SDK 需要稳定的 L3 接口（Policy 对象的实际执行层）
-- 过早发布 SDK 会导致 API 频繁变更
 
 ---
 
@@ -380,7 +391,7 @@ tools/
 | **BD** | grid-runtime gRPC server 可启动，13+ 方法可调用，Docker 镜像可构建 |
 | **BE** | certifier 验证 grid-runtime + claude-code-runtime 通过；HookBridge 能评估 hook 请求 |
 | **BF** | ✅ L2 Skill Registry REST API 上线；MCP Orchestrator Shared 模式；Grid/CC 盲盒对比可运行；30 new tests |
-| **BG** | Python/TS SDK 发布；企业开发者可通过 SDK 构建智能体且不感知 gRPC |
+| **BG** | ✅ Python SDK S1 基石完成；107 tests；企业开发者可通过 SDK 创作/校验/推演 Skill |
 | **BH** | L3 治理上线；managed hooks 跨运行时强制执行；5 个 API 契约部署；L4 门户+控制台 |
 | **BI** | T2 Aider/Goose 加入运行时池；自动化工作流可无人值守执行；成本治理生效 |
 | **BJ+** | T3 LangGraph 加入；运行时池 5+ 智能体；多租户部署；技能市场上线 |

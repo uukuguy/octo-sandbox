@@ -331,6 +331,12 @@ make claude-runtime-run    # Run Docker container (needs ANTHROPIC_API_KEY)
 # ── EAASP Verification ──
 make verify-dual-runtime   # Build + start both runtimes + certifier verify
 
+# ── EAASP Enterprise SDK ──
+make sdk-setup             # Install Python SDK deps (uv pip install -e)
+make sdk-test              # Run SDK tests (pytest)
+make sdk-validate          # Validate HR example skill
+make sdk-build             # Build SDK package
+
 # ── Cleanup ──
 make clean               # Clean Rust build artifacts
 make clean-web           # Clean frontend (node_modules, dist)

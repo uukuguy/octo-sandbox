@@ -3,11 +3,11 @@
   "phase": "execution",
   "created_at": "2026-04-07T05:30:00+08:00",
   "updated_at": "2026-04-07T12:15:00+08:00",
-  "completed_tasks": ["W1", "W2", "W3", "W4"],
-  "current_task": "W5",
+  "completed_tasks": ["W1", "W2", "W3", "W4", "W5", "W6"],
+  "current_task": null,
   "total_tasks": 6,
   "phase_name": "Phase BG — Enterprise SDK 基石",
-  "status": "IN PROGRESS — W1+W2+W3+W4 complete (89 tests), W5 next",
+  "status": "COMPLETE — W1-W6 all done (107 tests)",
   "execution_mode": "ruflo-sequential",
   "branch": "Grid",
   "baseline": {
@@ -19,9 +19,9 @@
     "W1": { "description": "specs/ JSON Schema + Python Pydantic 模型", "status": "done", "tests": 27, "commit": "cca61bb" },
     "W2": { "description": "authoring 创作工具链 (parser + validator + scaffold + hook_builder)", "status": "done", "tests": 21, "commit": "12e795f" },
     "W3": { "description": "sandbox 核心 + GridCliSandbox", "status": "done", "tests": 13, "commit": "bd17aa5" },
-    "W4": { "description": "RuntimeSandbox + MultiRuntimeSandbox (gRPC 直连 + 对比)", "status": "done", "tests": 28 },
-    "W5": { "description": "CLI + submit + HR 入职示例 Skill", "status": "pending" },
-    "W6": { "description": "设计文档 + Makefile + ROADMAP 更新", "status": "pending" }
+    "W4": { "description": "RuntimeSandbox + MultiRuntimeSandbox (gRPC 直连 + 对比)", "status": "done", "tests": 28, "commit": "a8f4cf0" },
+    "W5": { "description": "CLI + submit + HR 入职示例 Skill", "status": "done", "tests": 18, "commit": "ea0780c" },
+    "W6": { "description": "设计文档 + Makefile + ROADMAP 更新", "status": "done" }
   },
   "deferred": {
     "BG-D1": "Policy DSL (需 L3 策略编译器, BH)",
@@ -55,5 +55,5 @@
     "name": "Phase BF — L2 统一资产层 + L1 抽象机制",
     "status": "COMPLETE — 7/7 tasks, 30 new tests"
   },
-  "notes": "Brainstorming completed: SDK covers both 'call platform' and 'author content' (content is core value). Sandbox uses Grid product matrix (grid-cli/server/runtime) — no embedded simulator. Supports cross-runtime Skill testing via gRPC direct + multi-runtime comparison."
+  "notes": "Phase BG COMPLETE: 6/6 tasks, 107 SDK tests. Makefile targets: sdk-setup/test/validate/build. ROADMAP + NEXT_SESSION_GUIDE updated. Ready for Phase BH (L3 治理层)."
 }

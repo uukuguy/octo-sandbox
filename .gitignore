@@ -34,7 +34,6 @@ octo.db-wal
 
 .playwright-cli/
 .playwright-mcp/
-tests/
 
 # Platform runtime data (never commit databases or user data)
 data-platform/*.db
