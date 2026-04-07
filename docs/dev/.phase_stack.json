@@ -1,5 +1,15 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase BH-MVP — E2E 业务智能体全流程验证",
+      "started_at": "2026-04-07T20:00:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "progress": "0%",
+      "plan": "docs/plans/2026-04-07-phase-bh-mvp-e2e.md",
+      "design": "docs/design/Grid/EAASP_MVP_E2E_DESIGN.md"
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
     {
