@@ -15,7 +15,9 @@
         skill-registry-build skill-registry-start skill-registry-test \
         mcp-orch-build mcp-orch-start mcp-orch-test \
         certifier-blindbox \
-        sdk-setup sdk-test sdk-validate sdk-build
+        sdk-setup sdk-test sdk-validate sdk-build \
+        l3-setup l3-start l3-test l4-setup l4-start l4-test \
+        e2e-setup e2e-run e2e-test e2e-teardown e2e-full
 
 # Default test project for CLI commands
 TEST_PROJECT ?= $(PWD)/examples/demo-project
@@ -781,3 +783,49 @@ sdk-validate:
 
 sdk-build:
 	cd sdk/python && python -m build
+
+# ============================================================
+# EAASP L3 Governance Service (Python)
+# ============================================================
+
+l3-setup:
+	cd tools/eaasp-governance && uv venv .venv && uv pip install -e ".[dev]"
+
+l3-start:
+	cd tools/eaasp-governance && .venv/bin/python -m eaasp_governance --port 8083
+
+l3-test:
+	cd tools/eaasp-governance && .venv/bin/python -m pytest tests/ -xvs
+
+# ============================================================
+# EAASP L4 Session Manager (Python)
+# ============================================================
+
+l4-setup:
+	cd tools/eaasp-session-manager && uv venv .venv && uv pip install -e ".[dev]"
+
+l4-start:
+	cd tools/eaasp-session-manager && .venv/bin/python -m eaasp_session --port 8084
+
+l4-test:
+	cd tools/eaasp-session-manager && .venv/bin/python -m pytest tests/ -xvs
+
+# ============================================================
+# EAASP E2E Tests
+# ============================================================
+
+e2e-setup: l3-setup l4-setup sdk-setup
+
+e2e-test:
+	cd tools/eaasp-governance && .venv/bin/python -m pytest ../../tests/e2e/ -xvs -m mock_llm
+
+e2e-run:
+	bash scripts/e2e-mvp.sh --mock-llm
+
+e2e-teardown:
+	@echo "Stopping L3/L4 services..."
+	@pkill -f "eaasp_governance" 2>/dev/null || true
+	@pkill -f "eaasp_session" 2>/dev/null || true
+	@echo "Done."
+
+e2e-full: e2e-setup e2e-test

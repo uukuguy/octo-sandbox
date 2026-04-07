@@ -3,11 +3,11 @@
   "phase": "planning",
   "created_at": "2026-04-07T20:00:00+08:00",
   "updated_at": "2026-04-07T20:00:00+08:00",
-  "completed_tasks": ["W1", "W2", "W3", "W4", "W5", "W6"],
-  "current_task": "W7",
+  "completed_tasks": ["W1", "W2", "W3", "W4", "W5", "W6", "W7"],
+  "current_task": null,
   "total_tasks": 7,
   "phase_name": "Phase BH-MVP — E2E 业务智能体全流程验证",
-  "status": "W6 COMPLETE — ready for W7 execution",
+  "status": "PHASE BH-MVP COMPLETE — 7/7 tasks, 58 new tests",
   "execution_mode": "ruflo-sequential",
   "branch": "Grid",
   "baseline": {
@@ -22,7 +22,7 @@
     "W4": { "description": "SDK eaasp run + E2E 编排脚本", "status": "complete", "tests": 8 },
     "W5": { "description": "E2E 集成测试 — 双模式", "status": "complete", "tests": 14 },
     "W6": { "description": "HR 示例完善 + 审计 Hook", "status": "complete", "tests": 6 },
-    "W7": { "description": "Makefile + 设计文档收尾", "status": "pending", "tests": 0 }
+    "W7": { "description": "Makefile + 设计文档收尾", "status": "complete", "tests": 0 }
   },
   "deferred": {
     "BH-D1": "RBAC 访问控制",

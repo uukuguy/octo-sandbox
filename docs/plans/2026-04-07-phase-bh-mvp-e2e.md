@@ -17,7 +17,7 @@
 | W4 | SDK `eaasp run` + E2E 编排脚本 | 8 | **complete** |
 | W5 | E2E 集成测试 — 双模式 | 14 | **complete** |
 | W6 | HR 示例完善 + 审计 Hook | 6 | **complete** |
-| W7 | Makefile + 设计文档收尾 | 0 | pending |
+| W7 | Makefile + 设计文档收尾 | 0 | **complete** |
 | **总计** | | **~58** | |
 
 ---
