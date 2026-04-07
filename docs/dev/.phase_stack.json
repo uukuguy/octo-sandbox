@@ -1,15 +1,16 @@
 {
-  "active_phases": [
-    {
-      "name": "Phase BG — Enterprise SDK 基石",
-      "started_at": "2026-04-07T05:30:00+08:00",
-      "checkpoint": "docs/plans/.checkpoint.json",
-      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "0%"
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase BG — Enterprise SDK 基石",
+      "completed_at": "2026-04-07T12:35:00+08:00",
+      "progress": "100%",
+      "commits": ["cca61bb", "12e795f", "bd17aa5", "a8f4cf0", "ea0780c", "4e82439"],
+      "tasks": "6/6 (W1: specs+models ✅, W2: authoring ✅, W3: GridCliSandbox ✅, W4: RuntimeSandbox ✅, W5: CLI+example ✅, W6: docs+Makefile ✅)",
+      "tests": "107 new (Python SDK)",
+      "deferred": ["BG-D1", "BG-D2", "BG-D3", "BG-D4", "BG-D5", "BG-D6", "BG-D7", "BG-D8", "BG-D9", "BG-D10"]
+    },
     {
       "name": "Phase BF — L2 技能资产层 + L1 抽象机制",
       "completed_at": "2026-04-07T04:40:00+08:00",

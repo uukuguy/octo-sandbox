@@ -1,57 +1,59 @@
 {
-  "plan_file": "docs/plans/2026-04-06-phase-bf-l2-asset-layer.md",
+  "plan_file": "docs/plans/2026-04-07-phase-bg-enterprise-sdk.md",
   "phase": "execution",
-  "created_at": "2026-04-06T22:00:00+08:00",
-  "updated_at": "2026-04-07T04:35:00+08:00",
-  "completed_tasks": ["W1", "W2", "W3", "W4", "W5", "W6", "W7"],
+  "created_at": "2026-04-07T05:30:00+08:00",
+  "updated_at": "2026-04-07T12:15:00+08:00",
+  "completed_tasks": ["W1", "W2", "W3", "W4", "W5", "W6"],
   "current_task": null,
-  "total_tasks": 7,
-  "phase_name": "Phase BF — L2 统一资产层 + L1 抽象机制",
-  "status": "COMPLETE — 7/7 tasks, 30 new tests. Phase BF done.",
-  "execution_mode": "ruflo-parallel",
+  "total_tasks": 6,
+  "phase_name": "Phase BG — Enterprise SDK 基石",
+  "status": "COMPLETE — W1-W6 all done (107 tests)",
+  "execution_mode": "ruflo-sequential",
   "branch": "Grid",
   "baseline": {
-    "tests": "2476 Rust workspace + 39 Python + 30 new (BF W2-W6)",
-    "commit": "59bb58e",
-    "notes": "W4 @ b6af473 (l2_client 4 tests); W6 @ 59bb58e (blindbox 3 tests)"
+    "tests": "2476 Rust workspace + 39 Python (existing)",
+    "commit": "ff5ad56",
+    "notes": "BG adds ~50 new Python SDK tests in sdk/python/tests/"
   },
   "tasks": {
-    "W1": { "description": "协议扩展 SessionPayload L2 字段 (proto v1.3)", "status": "done", "commit": "1a54f95" },
-    "W2": { "description": "L2 Skill Registry crate (REST + SQLite + Git)", "status": "done", "commit": "9e8bac5" },
-    "W3": { "description": "L2 MCP Orchestrator crate (YAML + subprocess)", "status": "done", "commit": "9e8bac5" },
-    "W4": { "description": "L1 Runtime L2 集成 (GridHarness → L2 REST)", "status": "done", "commit": "b6af473" },
-    "W5": { "description": "Mock L3 RuntimeSelector + 运行时池", "status": "done", "commit": "9e982e0" },
-    "W6": { "description": "盲盒对比 (并行执行 + 匿名评分)", "status": "done", "commit": "59bb58e" },
-    "W7": { "description": "集成验证 + 设计文档 + Makefile", "status": "done", "commit": "ff5ad56" }
+    "W1": { "description": "specs/ JSON Schema + Python Pydantic 模型", "status": "done", "tests": 27, "commit": "cca61bb" },
+    "W2": { "description": "authoring 创作工具链 (parser + validator + scaffold + hook_builder)", "status": "done", "tests": 21, "commit": "12e795f" },
+    "W3": { "description": "sandbox 核心 + GridCliSandbox", "status": "done", "tests": 13, "commit": "bd17aa5" },
+    "W4": { "description": "RuntimeSandbox + MultiRuntimeSandbox (gRPC 直连 + 对比)", "status": "done", "tests": 28, "commit": "a8f4cf0" },
+    "W5": { "description": "CLI + submit + HR 入职示例 Skill", "status": "done", "tests": 18, "commit": "ea0780c" },
+    "W6": { "description": "设计文档 + Makefile + ROADMAP 更新", "status": "done" }
   },
   "deferred": {
-    "BF-D1": "Git 版本追溯集成到 submit_draft/promote",
-    "BF-D2": "MCP Orchestrator PerSession 模式 (Docker API, BH)",
-    "BF-D3": "MCP Orchestrator OnDemand 模式",
-    "BF-D4": "Agent 按需 skill 发现 (allowed_skill_search, BH L3)",
-    "BF-D5": "Ontology Service (BH+)",
-    "BF-D6": "Skill Registry RBAC 访问控制 (BH L3)",
-    "BF-D7": "盲盒 ELO/win-rate 统计聚合",
-    "BF-D8": "RuntimeSelector 成本排序",
-    "BF-D9": "MCP Orchestrator 容器化管理 (Docker)",
-    "BF-D10": "Skill Registry streamable-http 生产模式"
+    "BG-D1": "Policy DSL (需 L3 策略编译器, BH)",
+    "BG-D2": "Playbook DSL (需 L4 事件总线, BI)",
+    "BG-D3": "5 个 L3/L4 REST API 完整客户端 (需 5 API 契约, BH)",
+    "BG-D4": "TypeScript SDK (需 Python SDK 稳定)",
+    "BG-D5": "GridServerSandbox (需 grid-server Skill API)",
+    "BG-D6": "PlatformSandbox (需 L4 API 网关)",
+    "BG-D7": "MCP Tool 封装辅助",
+    "BG-D8": "eaasp promote 命令 (需 L3 RBAC)",
+    "BG-D9": "Skill 依赖解析",
+    "BG-D10": "Java/Go/C# SDK"
   },
   "key_decisions": {
-    "BF-KD1": "L2 存储：SQLite 元数据 + 文件系统 + Git 追溯",
-    "BF-KD2": "L1↔L2 Skill 通信：REST（L1 拉取内容）",
-    "BF-KD3": "L2 实现语言：Rust（独立 binary）",
-    "BF-KD4": "RuntimeSelector 属于 L3，BF 在 certifier mock",
-    "BF-KD5": "盲盒：用户主动开启，并行执行，匿名评分",
-    "BF-KD6": "L2 三个独立服务（Skill/MCP/Ontology）",
-    "BF-KD7": "MCP Orchestrator 对 L1 不直连，L3 下发",
-    "BF-KD8": "Agent 不需要 skill_search，L3 策略筛选子集",
-    "BF-KD9": "L2 Skill Registry = REST only",
-    "BF-KD10": "MCP Server 运行：BF 只实现 Shared 子进程",
-    "BF-KD11": "Skill 获取：BF 只实现预加载，按需发现留后",
-    "BF-KD12": "Skill 转换是 L1 Runtime 内部的事"
+    "BG-KD1": "Python SDK 先行（参考实现）",
+    "BG-KD2": "specs/ JSON Schema 是跨语言源头",
+    "BG-KD3": "SDK 不内嵌运行模拟器",
+    "BG-KD4": "sandbox 支持 gRPC 直连 L1（开发测试限定）",
+    "BG-KD5": "核心零运行时依赖",
+    "BG-KD6": "CLI 基于 click + rich",
+    "BG-KD7": "包名 eaasp-sdk, import eaasp",
+    "BG-KD8": "示例放 sdk/examples/",
+    "BG-KD9": "proto stubs 复用现有生成方式",
+    "BG-KD10": "后续 SDK 在独立分支并行"
+  },
+  "design_docs": {
+    "blueprint": "docs/design/Grid/EAASP_SDK_DESIGN.md",
+    "plan": "docs/plans/2026-04-07-phase-bg-enterprise-sdk.md"
   },
   "previous_phase": {
-    "name": "Phase BE — EAASP 协议层 + 第二个 L1 Runtime",
-    "status": "COMPLETE — 6/6 tasks, 93 tests (54 Rust + 39 Python)"
-  }
+    "name": "Phase BF — L2 统一资产层 + L1 抽象机制",
+    "status": "COMPLETE — 7/7 tasks, 30 new tests"
+  },
+  "notes": "Phase BG COMPLETE: 6/6 tasks, 107 SDK tests. Makefile targets: sdk-setup/test/validate/build. ROADMAP + NEXT_SESSION_GUIDE updated. Ready for Phase BH (L3 治理层)."
 }

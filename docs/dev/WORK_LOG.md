@@ -1,5 +1,78 @@
 # Grid Sandbox 工作日志
 
+## Phase BG — Enterprise SDK 基石 (2026-04-07)
+
+### 完成内容
+
+Phase BG 共 6 个 Wave，构建 EAASP Enterprise SDK 的基石层（S1），让企业开发者可以通过 Python SDK 创作、校验、推演 Skill。
+
+**W1: specs/ JSON Schema + Pydantic 模型 (cca61bb)**
+- `sdk/specs/` — 7 个抽象概念的 JSON Schema 文件（Skill, Policy, Playbook, Tool, Message, Session, Agent）
+- `sdk/python/src/eaasp/models/` — 7 个 Pydantic v2 模型，与 Schema 严格对齐
+- Skill 模型支持 SKILL.md 双向序列化 (`to_skill_md()` / `from_skill_md()`)
+- 27 个测试
+
+**W2: authoring 创作工具链 (12e795f)**
+- `sdk/python/src/eaasp/authoring/` — 4 个工具模块
+- SkillParser: SKILL.md 双向解析（YAML frontmatter + prose）
+- SkillValidator: 8 条校验规则（必填字段、hook 合法性、依赖格式、prose 长度等）
+- SkillScaffold: 4 种模板（workflow/production/domain/meta）
+- HookBuilder: command/http/prompt handler 脚本生成
+- 21 个测试
+
+**W3: sandbox 核心 + GridCliSandbox (bd17aa5)**
+- `sdk/python/src/eaasp/sandbox/base.py` — SandboxAdapter ABC + TelemetrySummary/HookFiredEvent 模型
+- `sdk/python/src/eaasp/sandbox/grid_cli.py` — GridCliSandbox（subprocess 调用 grid binary）
+- 13 个测试
+
+**W4: RuntimeSandbox + MultiRuntimeSandbox (a8f4cf0)**
+- `sdk/python/src/eaasp/sandbox/runtime.py` — RuntimeSandbox（gRPC 直连 L1 Runtime）
+- `sdk/python/src/eaasp/sandbox/multi_runtime.py` — MultiRuntimeSandbox（asyncio.gather 并行对比 + ConsistencyReport）
+- proto 类型映射：SessionPayload ↔ SDK SessionConfig, ResponseChunk ↔ SDK ResponseChunk
+- 28 个测试
+
+**W5: CLI + submit + HR 入职示例 (ea0780c)**
+- `sdk/python/src/eaasp/cli/` — 5 个 CLI 命令（init/validate/test/compare/submit）
+- `sdk/python/src/eaasp/client/skill_registry.py` — L2 Skill Registry 轻量客户端（submit_draft）
+- `sdk/examples/hr-onboarding/` — HR 入职 workflow-skill 完整示例（SKILL.md + PII hook + test cases）
+- 18 个测试
+
+**W6: 文档收尾 + Makefile + ROADMAP (4e82439)**
+- Makefile 新增: `sdk-setup`, `sdk-test`, `sdk-validate`, `sdk-build`
+- EAASP_ROADMAP.md: BG 标记完成，详细产出表
+- NEXT_SESSION_GUIDE.md: 更新为 Phase BH 就绪
+- CLAUDE.md: 新增 SDK Makefile targets 参考
+
+### 技术决策
+
+| ID | 决策 | 理由 |
+|----|------|------|
+| BG-KD1 | Python SDK 先行 | AI 生态最成熟 |
+| BG-KD2 | JSON Schema 跨语言源头 | 避免多语言模型不一致 |
+| BG-KD3 | SDK 不内嵌运行模拟器 | 规避"双重抽象"反模式 |
+| BG-KD4 | sandbox gRPC 直连 L1 | 开发测试效率 |
+| BG-KD5 | 核心零运行时依赖 | authoring 纯离线 |
+| BG-KD6 | CLI 基于 click + rich | Python 标配 |
+| BG-KD7 | 包名 eaasp-sdk, import eaasp | 简短清晰 |
+
+### 测试结果
+
+- SDK 测试: **107 passed** in 0.20s (`sdk/python/tests/`)
+- 分布: W1(27) + W2(21) + W3(13) + W4(28) + W5(18)
+- 全部通过，无 skip/xfail
+
+### 暂缓项 (Deferred)
+
+BG-D1~D10 全部维持 ⏳，前置条件均需 L3/L4 建设（Phase BH+）。
+详见 `docs/plans/2026-04-07-phase-bg-enterprise-sdk.md` 第五节。
+
+### 下一步
+
+- Phase BH — L3 治理层 + L4 基础（待设计确认）
+- 或处理 BG-D4 (TypeScript SDK) / BG-D7 (MCP Tool) 如条件成熟
+
+---
+
 ## Phase BF — L2 统一资产层 + L1 抽象机制 (2026-04-06~07)
 
 ### 完成内容
