@@ -1,59 +1,62 @@
 {
-  "plan_file": "docs/plans/2026-04-07-phase-bg-enterprise-sdk.md",
-  "phase": "execution",
-  "created_at": "2026-04-07T05:30:00+08:00",
-  "updated_at": "2026-04-07T12:15:00+08:00",
-  "completed_tasks": ["W1", "W2", "W3", "W4", "W5", "W6"],
+  "plan_file": "docs/plans/2026-04-07-phase-bh-mvp-e2e.md",
+  "phase": "planning",
+  "created_at": "2026-04-07T20:00:00+08:00",
+  "updated_at": "2026-04-07T20:00:00+08:00",
+  "completed_tasks": ["W1", "W2", "W3", "W4", "W5", "W6", "W7"],
   "current_task": null,
-  "total_tasks": 6,
-  "phase_name": "Phase BG — Enterprise SDK 基石",
-  "status": "COMPLETE — W1-W6 all done (107 tests)",
+  "total_tasks": 7,
+  "phase_name": "Phase BH-MVP — E2E 业务智能体全流程验证",
+  "status": "PHASE BH-MVP COMPLETE — 7/7 tasks, 58 new tests",
   "execution_mode": "ruflo-sequential",
   "branch": "Grid",
   "baseline": {
-    "tests": "2476 Rust workspace + 39 Python (existing)",
-    "commit": "ff5ad56",
-    "notes": "BG adds ~50 new Python SDK tests in sdk/python/tests/"
+    "tests": "2476 Rust workspace + 107 Python SDK + 39 Python runtime",
+    "commit": "aa3179a",
+    "notes": "BH-MVP adds ~58 new Python tests (L3/L4/E2E)"
   },
   "tasks": {
-    "W1": { "description": "specs/ JSON Schema + Python Pydantic 模型", "status": "done", "tests": 27, "commit": "cca61bb" },
-    "W2": { "description": "authoring 创作工具链 (parser + validator + scaffold + hook_builder)", "status": "done", "tests": 21, "commit": "12e795f" },
-    "W3": { "description": "sandbox 核心 + GridCliSandbox", "status": "done", "tests": 13, "commit": "bd17aa5" },
-    "W4": { "description": "RuntimeSandbox + MultiRuntimeSandbox (gRPC 直连 + 对比)", "status": "done", "tests": 28, "commit": "a8f4cf0" },
-    "W5": { "description": "CLI + submit + HR 入职示例 Skill", "status": "done", "tests": 18, "commit": "ea0780c" },
-    "W6": { "description": "设计文档 + Makefile + ROADMAP 更新", "status": "done" }
+    "W1": { "description": "策略 DSL + 编译器 + HR 策略示例", "status": "complete", "tests": 8 },
+    "W2": { "description": "L3 治理服务 — 5 API 契约", "status": "complete", "tests": 12 },
+    "W3": { "description": "L4 会话管理器 — 四平面骨架", "status": "complete", "tests": 10 },
+    "W4": { "description": "SDK eaasp run + E2E 编排脚本", "status": "complete", "tests": 8 },
+    "W5": { "description": "E2E 集成测试 — 双模式", "status": "complete", "tests": 14 },
+    "W6": { "description": "HR 示例完善 + 审计 Hook", "status": "complete", "tests": 6 },
+    "W7": { "description": "Makefile + 设计文档收尾", "status": "complete", "tests": 0 }
   },
   "deferred": {
-    "BG-D1": "Policy DSL (需 L3 策略编译器, BH)",
-    "BG-D2": "Playbook DSL (需 L4 事件总线, BI)",
-    "BG-D3": "5 个 L3/L4 REST API 完整客户端 (需 5 API 契约, BH)",
-    "BG-D4": "TypeScript SDK (需 Python SDK 稳定)",
-    "BG-D5": "GridServerSandbox (需 grid-server Skill API)",
-    "BG-D6": "PlatformSandbox (需 L4 API 网关)",
-    "BG-D7": "MCP Tool 封装辅助",
-    "BG-D8": "eaasp promote 命令 (需 L3 RBAC)",
-    "BG-D9": "Skill 依赖解析",
-    "BG-D10": "Java/Go/C# SDK"
+    "BH-D1": "RBAC 访问控制",
+    "BH-D2": "审批闸门",
+    "BH-D3": "审计持久化",
+    "BH-D4": "MCP 注册中心",
+    "BH-D5": "NLU 意图解析",
+    "BH-D6": "L4 管理控制台 UI",
+    "BH-D7": "L4 事件总线",
+    "BH-D8": "L4 可观测性枢纽",
+    "BH-D9": "多租户",
+    "BH-D10": "策略版本回滚",
+    "BH-D11": "成本治理",
+    "BH-D12": "T2/T3 HookBridge 验证"
   },
   "key_decisions": {
-    "BG-KD1": "Python SDK 先行（参考实现）",
-    "BG-KD2": "specs/ JSON Schema 是跨语言源头",
-    "BG-KD3": "SDK 不内嵌运行模拟器",
-    "BG-KD4": "sandbox 支持 gRPC 直连 L1（开发测试限定）",
-    "BG-KD5": "核心零运行时依赖",
-    "BG-KD6": "CLI 基于 click + rich",
-    "BG-KD7": "包名 eaasp-sdk, import eaasp",
-    "BG-KD8": "示例放 sdk/examples/",
-    "BG-KD9": "proto stubs 复用现有生成方式",
-    "BG-KD10": "后续 SDK 在独立分支并行"
+    "KD-BH1": "策略 DSL 用 Kubernetes 风格 YAML",
+    "KD-BH2": "四作用域层级合并 (managed > skill > project > user)",
+    "KD-BH3": "编译器幂等输出",
+    "KD-BH4": "L4 conversations vs L3 sessions 语义分离",
+    "KD-BH5": "L4 SQLite 持久化，schema 对标 PostgreSQL",
+    "KD-BH6": "L4 不直接调 L1，全部经 L3",
+    "KD-BH7": "L4→用户 SSE，L3→L1 gRPC stream",
+    "KD-BH8": "L3/L4 用 Python FastAPI",
+    "KD-BH9": "L3/L4 两个独立服务",
+    "KD-BH10": "E2E 测试双模式 (mock/live)"
   },
   "design_docs": {
-    "blueprint": "docs/design/Grid/EAASP_SDK_DESIGN.md",
-    "plan": "docs/plans/2026-04-07-phase-bg-enterprise-sdk.md"
+    "blueprint": "docs/design/Grid/EAASP_MVP_E2E_DESIGN.md",
+    "plan": "docs/plans/2026-04-07-phase-bh-mvp-e2e.md",
+    "spec": "docs/design/Grid/EAASP_-_企业自主智能体支撑平台设计规范_v1.7_.pdf"
   },
   "previous_phase": {
-    "name": "Phase BF — L2 统一资产层 + L1 抽象机制",
-    "status": "COMPLETE — 7/7 tasks, 30 new tests"
-  },
-  "notes": "Phase BG COMPLETE: 6/6 tasks, 107 SDK tests. Makefile targets: sdk-setup/test/validate/build. ROADMAP + NEXT_SESSION_GUIDE updated. Ready for Phase BH (L3 治理层)."
+    "name": "Phase BG — Enterprise SDK 基石",
+    "status": "COMPLETE — 6/6 tasks, 107 new tests"
+  }
 }

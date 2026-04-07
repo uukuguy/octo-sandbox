@@ -1,17 +1,17 @@
 {
-  "active_phases": [
-    {
-      "name": "Phase BH-MVP — E2E 业务智能体全流程验证",
-      "started_at": "2026-04-07T20:00:00+08:00",
-      "checkpoint": "docs/plans/.checkpoint.json",
-      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
-      "progress": "0%",
-      "plan": "docs/plans/2026-04-07-phase-bh-mvp-e2e.md",
-      "design": "docs/design/Grid/EAASP_MVP_E2E_DESIGN.md"
-    }
-  ],
+  "active_phases": [],
   "suspended_phases": [],
   "archived_phases": [
+    {
+      "name": "Phase BH-MVP — E2E 业务智能体全流程验证",
+      "completed_at": "2026-04-07T23:30:00+08:00",
+      "progress": "100%",
+      "commits": ["1493259", "821bc80", "8a8b014", "76fd05b", "51faa75", "430bd0a", "1124c62", "a95844c", "5ce0f8b"],
+      "tasks": "7/7 + D3/D5/D10 (W1: 策略DSL ✅, W2: L3 API ✅, W3: L4四平面 ✅, W4: SDK run ✅, W5: E2E tests ✅, W6: HR audit ✅, W7: Makefile ✅)",
+      "tests": "71 new (33 L3 + 10 L4 + 8 SDK + 20 E2E)",
+      "deferred": ["BH-D1", "BH-D2", "BH-D4", "BH-D6", "BH-D7", "BH-D8", "BH-D9", "BH-D11", "BH-D12"],
+      "extras": "EAASP v1.8 Architecture Blueprint (5ce0f8b)"
+    },
     {
       "name": "Phase BG — Enterprise SDK 基石",
       "completed_at": "2026-04-07T12:35:00+08:00",
