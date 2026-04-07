@@ -7,6 +7,8 @@
 
 ## [Active Work]
 
+- 2026-04-07 23:00 | **Phase BH-MVP COMPLETE (7/7)** — E2E 全流程验证 @ 1124c62. 58 new tests. L3 governance (5 API), L4 session manager (4 planes), SDK eaasp run, E2E integration (14), HR example (audit+PII). Makefile: l3/l4/e2e targets. Deferred: BH-D1~D12.
+- 2026-04-07 21:30 | **Phase BH-MVP W1 COMPLETE (1/7)** — 策略 DSL + 编译器 + HR 策略示例 (8 tests) @ 1493259. tools/eaasp-governance/ package: PolicyBundle models, compiler (YAML→managed_hooks_json, idempotent), merger (4-scope deny-always-wins). HR policies: enterprise.yaml + bu_hr.yaml. HookExecutor兼容性OK. Next: W2 L3 API.
 - 2026-04-07 20:00 | **Phase BH-MVP PLANNING COMPLETE (0/7)** — E2E 业务智能体全流程验证. L3 eaasp-governance (5 API contracts), L4 eaasp-session-manager (4 planes), Policy DSL (K8s YAML), E2E dual-mode. 7 Waves, ~58 tests. Design: EAASP_MVP_E2E_DESIGN.md. Plan: 2026-04-07-phase-bh-mvp-e2e.md. Next: W1 策略 DSL+编译器.
 - 2026-04-04 17:55 | **Phase BC PLAN CREATED (0/5)** — TUI Deferred Items 补齐. W1: MdPalette+ConversationWidget+StatusBar/TodoPanel 全量主题化 (128 style_tokens→TuiTheme). W2: 消息角色分隔线+状态栏渐进式披露. Sources: BB-D1, BB-D2, BB-D4.
 - 2026-04-04 17:45 | **Phase BB COMPLETE (11/11)** — TUI 视觉升级 @ 04a5f3b. W1: TuiTheme 4-layer surface+style_tokens aligned+popups themed. W2: accent hue follow+line-drawing logo+model name. W3: 8-seg progress+status bar+input themed. 499 tests (3 new). Deferred: BB-D1~D4.
