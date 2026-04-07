@@ -1,0 +1,3 @@
+{"input": "新员工张三，工号 E12345，入职日期 2026-04-15，部门：技术研发中心", "expected_tools": ["file_write"], "expected_hooks": ["PreToolUse"], "description": "Basic onboarding — should trigger PII check on file_write"}
+{"input": "请为新员工创建 IT 账号和门禁卡", "expected_tools": ["it-account-setup", "badge-provisioning"], "expected_hooks": [], "description": "Dependency skills — should call external skills"}
+{"input": "入职流程已全部完成，请结束会话", "expected_tools": [], "expected_hooks": ["Stop"], "description": "Completion check — Stop hook should verify checklist"}
