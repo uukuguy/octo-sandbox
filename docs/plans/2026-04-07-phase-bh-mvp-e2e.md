@@ -11,7 +11,7 @@
 
 | Wave | 内容 | Tests | 状态 |
 |------|------|-------|------|
-| W1 | 策略 DSL + 编译器 + HR 策略示例 | 8 | pending |
+| W1 | 策略 DSL + 编译器 + HR 策略示例 | 8 | **complete** |
 | W2 | L3 治理服务 — 5 API 契约 | 12 | pending |
 | W3 | L4 会话管理器 — 四平面骨架 | 10 | pending |
 | W4 | SDK `eaasp run` + E2E 编排脚本 | 8 | pending |

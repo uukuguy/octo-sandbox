@@ -1,0 +1,30 @@
+apiVersion: eaasp.io/v1
+kind: PolicyBundle
+metadata:
+  name: hr-department-policies
+  scope: bu
+  org_unit: hr-dept
+  version: "1.0.0"
+
+rules:
+  - id: checklist-enforcement
+    name: 入职清单强制完成
+    description: 会话结束前必须确认入职清单全部完成
+    event: Stop
+    handler_type: prompt
+    action: deny
+    reason: "请确认入职清单全部完成"
+    severity: high
+    config:
+      prompt: "验证入职清单：IT账号 ✓、门禁 ✓、培训 ✓"
+
+  - id: bash-deny
+    name: 禁止直接执行系统命令
+    description: HR 场景下禁止使用 bash 工具
+    event: PreToolUse
+    handler_type: command
+    match:
+      tool_name: "^bash$"
+    action: deny
+    reason: "HR 流程禁止使用 bash 命令"
+    severity: high

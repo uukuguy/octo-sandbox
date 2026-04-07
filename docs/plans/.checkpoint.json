@@ -3,11 +3,11 @@
   "phase": "planning",
   "created_at": "2026-04-07T20:00:00+08:00",
   "updated_at": "2026-04-07T20:00:00+08:00",
-  "completed_tasks": [],
-  "current_task": "W1",
+  "completed_tasks": ["W1"],
+  "current_task": "W2",
   "total_tasks": 7,
   "phase_name": "Phase BH-MVP — E2E 业务智能体全流程验证",
-  "status": "PLANNING COMPLETE — ready for W1 execution",
+  "status": "W1 COMPLETE — ready for W2 execution",
   "execution_mode": "ruflo-sequential",
   "branch": "Grid",
   "baseline": {
@@ -16,7 +16,7 @@
     "notes": "BH-MVP adds ~58 new Python tests (L3/L4/E2E)"
   },
   "tasks": {
-    "W1": { "description": "策略 DSL + 编译器 + HR 策略示例", "status": "pending", "tests": 8 },
+    "W1": { "description": "策略 DSL + 编译器 + HR 策略示例", "status": "complete", "tests": 8 },
     "W2": { "description": "L3 治理服务 — 5 API 契约", "status": "pending", "tests": 12 },
     "W3": { "description": "L4 会话管理器 — 四平面骨架", "status": "pending", "tests": 10 },
     "W4": { "description": "SDK eaasp run + E2E 编排脚本", "status": "pending", "tests": 8 },

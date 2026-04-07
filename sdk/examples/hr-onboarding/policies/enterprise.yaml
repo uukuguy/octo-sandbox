@@ -1,0 +1,31 @@
+apiVersion: eaasp.io/v1
+kind: PolicyBundle
+metadata:
+  name: enterprise-security-baseline
+  scope: enterprise
+  org_unit: global
+  version: "1.0.0"
+
+rules:
+  - id: pii-guard
+    name: 个人敏感信息拦截
+    description: 禁止在文件写入操作中包含身份证号、社保号、邮箱等 PII
+    event: PreToolUse
+    handler_type: command
+    match:
+      tool_name: "^file_write$"
+      input_pattern: "\\d{3}-\\d{2}-\\d{4}|\\d{17}[\\dXx]|\\w+@\\w+\\.\\w+"
+    action: deny
+    reason: "检测到 PII（个人敏感信息），已阻止写入"
+    severity: critical
+
+  - id: audit-all-writes
+    name: 文件写入审计
+    description: 所有文件写入操作记录审计日志
+    event: PostToolUse
+    handler_type: command
+    match:
+      tool_name: "^file_write$"
+    action: allow
+    audit: true
+    severity: info
