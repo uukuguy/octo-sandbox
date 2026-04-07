@@ -18,13 +18,15 @@ async def get_skill_governance(skill_id: str, request: Request):
     applicable_policies = []
     total_hooks = 0
 
-    for policy in store.values():
-        applicable_policies.append({
-            "id": policy["id"],
-            "scope": policy["scope"],
-            "rules_count": policy["rules_count"],
-        })
-        total_hooks += policy["rules_count"]
+    for versions in store.values():
+        if versions:
+            policy = versions[-1]  # current version
+            applicable_policies.append({
+                "id": policy["id"],
+                "scope": policy["scope"],
+                "rules_count": policy["rules_count"],
+            })
+            total_hooks += policy["rules_count"]
 
     return {
         "skill_id": skill_id,

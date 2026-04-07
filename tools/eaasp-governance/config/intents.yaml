@@ -1,0 +1,24 @@
+# Intent mapping configuration (BH-D5)
+# Multi-keyword matching with weight scoring
+# confidence = base_confidence × (matches / total_keywords) × weight
+
+intents:
+  - keywords: ["入职", "onboarding", "新员工", "hire", "入职流程"]
+    skill_id: hr-onboarding
+    confidence: 0.9
+    weight: 1.0
+
+  - keywords: ["离职", "offboarding", "resign", "退出", "离职手续"]
+    skill_id: hr-offboarding
+    confidence: 0.9
+    weight: 1.0
+
+  - keywords: ["请假", "leave", "休假", "annual leave", "病假"]
+    skill_id: hr-leave-management
+    confidence: 0.85
+    weight: 0.9
+
+  - keywords: ["报销", "expense", "差旅", "费用", "reimbursement"]
+    skill_id: finance-expense
+    confidence: 0.85
+    weight: 0.9

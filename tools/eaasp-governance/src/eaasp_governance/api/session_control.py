@@ -49,10 +49,12 @@ async def create_session(req: CreateSessionRequest, request: Request):
     if not skill:
         raise HTTPException(status_code=404, detail=f"Skill not found: {req.skill_id}")
 
-    # 2. Compile & merge policies
+    # 2. Compile & merge policies (policy_store values are version lists)
     managed_hooks_list = []
-    for policy in policy_store.values():
-        managed_hooks_list.append(policy.get("compiled_hooks_json", "{}"))
+    for versions in policy_store.values():
+        if versions:
+            current = versions[-1]  # latest version
+            managed_hooks_list.append(current.get("compiled_hooks_json", "{}"))
 
     # Merge all managed-scope hooks
     managed_merged = merge_by_scope(

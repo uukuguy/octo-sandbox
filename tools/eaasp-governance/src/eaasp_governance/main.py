@@ -15,7 +15,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from eaasp_governance.api.intent_gateway import router as intent_router
+from eaasp_governance.api.intent_gateway import init_resolver, router as intent_router
 from eaasp_governance.api.policy_deploy import router as policy_router
 from eaasp_governance.api.session_control import router as session_router
 from eaasp_governance.api.skill_lifecycle import router as skill_router
@@ -37,10 +37,16 @@ def create_app(
     )
 
     # In-memory stores (MVP)
-    app.state.policy_store = {}
+    app.state.policy_store = {}       # str → list[dict] (version history, D10)
     app.state.telemetry_store = {}
     app.state.sessions = {}
     app.state.l1_clients = {}
+
+    # Intent resolver (BH-D5)
+    intents_config = Path(__file__).parent.parent.parent / "config" / "intents.yaml"
+    app.state.intent_resolver = init_resolver(
+        config_path=str(intents_config) if intents_config.exists() else None
+    )
 
     # L2 client
     app.state.l2_client = L2RegistryClient(base_url=l2_url)

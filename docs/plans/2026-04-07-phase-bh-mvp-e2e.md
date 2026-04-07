@@ -161,17 +161,17 @@
 
 ## Deferred Items
 
-| ID | 内容 | 前置条件 |
-|----|------|---------|
-| BH-D1 | RBAC 访问控制 | 用户身份管理 |
-| BH-D2 | 审批闸门 | L4 审批 UI |
-| BH-D3 | 审计持久化 | L4 持久化完善 |
-| BH-D4 | MCP 注册中心 | L2 MCP 扩展 |
-| BH-D5 | NLU 意图解析 | NLU 模型 |
-| BH-D6 | L4 管理控制台 UI | Web 框架 |
-| BH-D7 | L4 事件总线 | 消息队列 |
-| BH-D8 | L4 可观测性枢纽 | Grafana/Prometheus |
-| BH-D9 | 多租户 | PostgreSQL |
-| BH-D10 | 策略版本回滚 | 版本存储 |
-| BH-D11 | 成本治理 | Cost Ledger |
-| BH-D12 | T2/T3 HookBridge 验证 | 非 T1 运行时 |
+| ID | 内容 | 前置条件 | 状态 |
+|----|------|---------|------|
+| BH-D1 | RBAC 访问控制 | 用户身份管理 | ⏳ |
+| BH-D2 | 审批闸门 | L4 审批 UI | ⏳ |
+| BH-D3 | 审计持久化 | L4 持久化完善 | ✅ 已补 — GET /v1/telemetry/sessions/{id}/audit |
+| BH-D4 | MCP 注册中心 | L2 MCP 扩展 | ⏳ |
+| BH-D5 | NLU 意图解析 | NLU 模型 | ✅ 已补 — IntentResolver 多关键词权重 + intents.yaml |
+| BH-D6 | L4 管理控制台 UI | Web 框架 | ⏳ |
+| BH-D7 | L4 事件总线 | 消息队列 | ⏳ |
+| BH-D8 | L4 可观测性枢纽 | Grafana/Prometheus | ⏳ |
+| BH-D9 | 多租户 | PostgreSQL | ⏳ |
+| BH-D10 | 策略版本回滚 | 版本存储 | ✅ 已补 — 版本历史 + GET versions + POST rollback |
+| BH-D11 | 成本治理 | Cost Ledger | ⏳ |
+| BH-D12 | T2/T3 HookBridge 验证 | 非 T1 运行时 | ⏳ |

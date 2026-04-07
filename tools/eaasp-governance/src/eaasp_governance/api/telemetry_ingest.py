@@ -1,7 +1,8 @@
 """契约 4: 遥测采集 API (§8.4).
 
-POST /v1/telemetry           — ingest telemetry events
-GET  /v1/telemetry/sessions/{id} — query session telemetry
+POST /v1/telemetry                    — ingest telemetry events
+GET  /v1/telemetry/sessions/{id}      — query session telemetry
+GET  /v1/telemetry/sessions/{id}/audit — query audit events only (BH-D3)
 """
 
 from __future__ import annotations
@@ -56,4 +57,31 @@ async def get_session_telemetry(session_id: str, request: Request):
         "session_id": session_id,
         "events": events,
         "resource_summary": resource_summary,
+    }
+
+
+# Audit event types for filtering
+_AUDIT_EVENT_TYPES = {"hook_fired", "hook_deny", "hook_allow", "audit", "tool_audit"}
+
+
+@router.get("/sessions/{session_id}/audit")
+async def get_session_audit(session_id: str, request: Request):
+    """Query audit-specific events for a session (BH-D3).
+
+    Filters telemetry events to return only audit-related entries:
+    hook_fired, hook_deny, hook_allow, audit, tool_audit.
+    """
+    store = request.app.state.telemetry_store
+    events = store.get(session_id, [])
+
+    audit_events = [
+        e for e in events
+        if e.get("event_type") in _AUDIT_EVENT_TYPES
+        or e.get("payload", {}).get("audit") is True
+    ]
+
+    return {
+        "session_id": session_id,
+        "audit_events": audit_events,
+        "total_audit": len(audit_events),
     }
