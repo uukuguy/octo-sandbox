@@ -1,80 +1,18 @@
 {
-  "plan_file": "docs/plans/2026-04-09-hermes-runtime-design.md",
-  "phase": "complete",
-  "created_at": "2026-04-09T19:30:00+08:00",
-  "updated_at": "2026-04-09T21:30:00+08:00",
-  "completed_tasks": ["W1-skeleton-config", "W2-proto-session", "W3-governance-plugin", "W4-adapter-mapper", "W5-service-16methods", "W6-docker-makefile"],
-  "current_task": "Phase BI COMPLETE — 6/6 tasks, 12 tests",
-  "total_tasks": 6,
-  "phase_name": "Phase BI — hermes-runtime: Grid L1 T2 Aligned Runtime",
-  "status": "COMPLETE — 6/6 tasks, 12 tests, 6 commits",
-  "execution_mode": "tdd-incremental",
-  "branch": "main",
-  "tasks": {
-    "W1-skeleton-config": {
-      "description": "项目骨架 + HermesRuntimeConfig (2 tests)",
-      "status": "done",
-      "output": "lang/hermes-runtime-python/pyproject.toml, config.py",
-      "commit": "ed8caf9",
-      "tests": 2
-    },
-    "W2-proto-session": {
-      "description": "Proto stubs symlink + SessionManager (3 tests)",
-      "status": "done",
-      "output": "lang/hermes-runtime-python/src/hermes_runtime/session.py",
-      "commit": "8ce6151",
-      "tests": 3
-    },
-    "W3-governance-plugin": {
-      "description": "Governance Plugin — HookBridge gRPC client + monkey-patch (3 tests)",
-      "status": "done",
-      "output": "lang/hermes-runtime-python/src/hermes_runtime/governance_plugin/",
-      "commit": "9bd5eb1",
-      "tests": 3,
-      "notes": "hook proto stubs compiled, _fix_proto_imports.py for sys.path patching"
-    },
-    "W4-adapter-mapper": {
-      "description": "HermesAdapter + mapper — AIAgent wrapper with thread bridge (2 tests)",
-      "status": "done",
-      "output": "lang/hermes-runtime-python/src/hermes_runtime/adapter.py, mapper.py",
-      "commit": "82b8695",
-      "tests": 2
-    },
-    "W5-service-16methods": {
-      "description": "RuntimeServiceImpl 16 方法 + telemetry + gRPC server (2 tests)",
-      "status": "done",
-      "output": "lang/hermes-runtime-python/src/hermes_runtime/service.py, telemetry.py, __main__.py",
-      "commit": "16032af",
-      "tests": 2
-    },
-    "W6-docker-makefile": {
-      "description": "Dockerfile + Makefile targets + certifier 集成验证",
-      "status": "done",
-      "output": "lang/hermes-runtime-python/Dockerfile, Makefile",
-      "commit": "083d806",
-      "tests": 0,
-      "notes": "12 tests pass via make hermes-runtime-test"
-    }
-  },
-  "key_decisions": {
-    "HR-KD1": "T2 Aligned（非 T1/T3）— hermes 是成熟独立 harness，薄适配零 fork",
-    "HR-KD2": "Shared 部署模式 — hermes gateway 天然多会话复用",
-    "HR-KD3": "Plugin + monkey-patch 混合拦截 — plugin 做遥测，monkey-patch 做 deny/modify",
-    "HR-KD4": "hermes-agent v0.8.0 @ 268ee6b — 固定版本",
-    "HR-KD5": "gRPC EvaluateHook 单次模式 — 优先简单 RPC",
-    "HR-KD6": "容器基于官方 Dockerfile 叠加 — 复用 hermes 完整依赖",
-    "HR-KD7": "_fix_proto_imports.py sys.path 修补 — 避免 proto stubs hardcoded 包路径问题"
-  },
-  "deferred": [
-    "HR-D1: StreamHooks 双向流",
-    "HR-D2: Hermes Skills ↔ L2 Skill Registry",
-    "HR-D3: Hermes Memory ↔ L2 Memory Engine",
-    "HR-D4: 会话状态序列化完善",
-    "HR-D5: MCP ↔ L2 MCP Orchestrator",
-    "HR-D6: 多平台 gateway 接入 L5",
-    "HR-D7: CI 自动构建",
-    "HR-D8: context_compressor 遥测",
-    "HR-D9: subagent 治理透传",
-    "HR-D10: PerSession 部署模式"
-  ]
+  "plan_file": null,
+  "phase": "idle",
+  "created_at": null,
+  "updated_at": "2026-04-09T22:20:00+08:00",
+  "completed_tasks": [],
+  "current_task": null,
+  "total_tasks": 0,
+  "phase_name": null,
+  "status": "No active phase. Last completed: Phase BI — hermes-runtime (2026-04-09)",
+  "last_phase": {
+    "name": "Phase BI — hermes-runtime: Grid L1 T2 Aligned Runtime",
+    "completed_at": "2026-04-09T22:20:00+08:00",
+    "tasks": "6/6",
+    "tests": 12,
+    "commits": 9
+  }
 }

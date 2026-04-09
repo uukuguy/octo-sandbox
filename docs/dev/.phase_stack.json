@@ -6,10 +6,11 @@
       "name": "Phase BI — hermes-runtime: Grid L1 T2 Aligned Runtime",
       "completed_at": "2026-04-09T21:30:00+08:00",
       "progress": "100%",
-      "commits": ["ed8caf9", "8ce6151", "9bd5eb1", "82b8695", "16032af", "083d806"],
+      "commits": ["ed8caf9", "8ce6151", "9bd5eb1", "82b8695", "16032af", "083d806", "db0f2d5", "4b5604a", "1a21cfc"],
       "tasks": "6/6 (W1: skeleton+config ✅, W2: proto+session ✅, W3: governance plugin ✅, W4: adapter+mapper ✅, W5: 16-method service ✅, W6: Dockerfile+Makefile ✅)",
       "tests": "12 new (Python)",
-      "deferred": ["HR-D1", "HR-D2", "HR-D3", "HR-D4", "HR-D5", "HR-D6", "HR-D7", "HR-D8", "HR-D9", "HR-D10"]
+      "deferred": ["HR-D1", "HR-D2", "HR-D3", "HR-D4", "HR-D5", "HR-D6", "HR-D7", "HR-D8", "HR-D9", "HR-D10"],
+      "extras": "Post-phase: MockAgent fallback, Cargo workspace fix, Docker build fixes, Makefile verify targets"
     },
     {
       "name": "Phase BH-MVP — E2E 业务智能体全流程验证",
