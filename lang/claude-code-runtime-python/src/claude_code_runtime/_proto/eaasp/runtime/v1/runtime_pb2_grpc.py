@@ -3,10 +3,10 @@
 import grpc
 import warnings
 
-from claude_code_runtime._proto.eaasp.common.v1 import common_pb2 as eaasp_dot_common_dot_v1_dot_common__pb2
-from claude_code_runtime._proto.eaasp.runtime.v1 import runtime_pb2 as eaasp_dot_runtime_dot_v1_dot_runtime__pb2
+from eaasp.common.v1 import common_pb2 as eaasp_dot_common_dot_v1_dot_common__pb2
+from eaasp.runtime.v1 import runtime_pb2 as eaasp_dot_runtime_dot_v1_dot_runtime__pb2
 
-GRPC_GENERATED_VERSION = '1.80.0'
+GRPC_GENERATED_VERSION = '1.71.2'
 GRPC_VERSION = grpc.__version__
 _version_not_supported = False
 
@@ -19,7 +19,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in eaasp/runtime/v1/runtime_pb2_grpc.py depends on'
+        + f' but the generated code in eaasp/runtime/v1/runtime_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
