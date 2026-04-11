@@ -110,7 +110,7 @@ MVP 完成的**唯一验收标准**：
   - 新增 shadow mode 支持（hook 配置多一个 mode 字段，bridge 按 mode 决定是否返回 decision）
   - MVP 只加第 3 条
 
-**K2. `tools/eaasp-skill-registry/`** (Rust, port 8081)
+**K2. `tools/eaasp-skill-registry/`** (Rust, port 18081 — env `EAASP_SKILL_REGISTRY_PORT`)
 - **保留原因**：Git-backed + SQLite + 4 阶段 promotion pipeline 对齐 v2.0 §7.5。
 - **扩展**：
   - SKILL.md YAML frontmatter 解析器扩展 scoped hook 声明
@@ -118,7 +118,7 @@ MVP 完成的**唯一验收标准**：
   - Organizational scoping 字段（MVP 阶段先支持 enterprise-wide 单 scope）
   - Usage analytics engine stub
 
-**K3. `tools/eaasp-mcp-orchestrator/`** (Rust, port 8082)
+**K3. `tools/eaasp-mcp-orchestrator/`** (Rust, port 18082 — env `EAASP_MCP_ORCHESTRATOR_PORT`)
 - **保留原因**：MCP server 生命周期管理对齐 v2.0 §7.1。v2.0 把 MCP Registry 的治理职责挪到 L3，但"实际启停 MCP server"依然在 L2。
 - **扩展**：
   - MCP security tier classification（read-only / write / critical）
@@ -217,9 +217,9 @@ MVP 完成的**唯一验收标准**：
 | 新建 | 路径 | 主语言 | 端口 | 取代 |
 |---|---|---|---|---|
 | v2 proto | `proto/eaasp/runtime/v2/runtime.proto` | protobuf | - | v1 proto |
-| L3 治理 | `tools/eaasp-l3-governance/` | Python FastAPI | 8083 | eaasp-governance |
-| L4 编排 | `tools/eaasp-l4-orchestration/` | Python FastAPI | 8084 | eaasp-session-manager |
-| L2 Memory Engine | `tools/eaasp-l2-memory-engine/` | Python FastAPI + MCP | 8085 | - |
+| L3 治理 | `tools/eaasp-l3-governance/` | Python FastAPI | 18083 (`EAASP_L3_PORT`) | eaasp-governance |
+| L4 编排 | `tools/eaasp-l4-orchestration/` | Python FastAPI | 18084 (`EAASP_L4_PORT`) | eaasp-session-manager |
+| L2 Memory Engine | `tools/eaasp-l2-memory-engine/` | Python FastAPI + MCP | 18085 (`EAASP_L2_PORT`) | - |
 | L5 CLI 模拟 | `tools/eaasp-cli-v2/` | Python typer | - | - |
 
 ---

@@ -55,5 +55,5 @@ Python 3.12+, FastAPI, aiosqlite, pydantic v2.
 cd tools/eaasp-l2-memory-engine
 uv sync --extra dev
 pytest
-uvicorn eaasp_l2_memory_engine.main:app --port 8085
+uvicorn eaasp_l2_memory_engine.main:app --port 18085
 ```

@@ -1,4 +1,4 @@
-"""Entry point — uvicorn + FastAPI. Defaults to port 8083 per MVP spec §3.3."""
+"""Entry point — uvicorn + FastAPI. Defaults to port 18083."""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ import uvicorn
 from .api import create_app
 
 DEFAULT_DB_PATH = os.environ.get("EAASP_L3_DB_PATH", "./data/governance.db")
-DEFAULT_PORT = int(os.environ.get("EAASP_L3_PORT", "8083"))
+DEFAULT_PORT = int(os.environ.get("EAASP_L3_PORT", "18083"))
 DEFAULT_HOST = os.environ.get("EAASP_L3_HOST", "127.0.0.1")
 
 app = create_app(DEFAULT_DB_PATH)

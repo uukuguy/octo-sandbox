@@ -13,9 +13,13 @@ struct Cli {
     #[arg(long, default_value = "./data/skill-registry")]
     data_dir: String,
 
-    /// Port to listen on
-    #[arg(long, default_value_t = 8081)]
+    /// Port to listen on (env: EAASP_SKILL_REGISTRY_PORT, default: 18081)
+    #[arg(long, env = "EAASP_SKILL_REGISTRY_PORT", default_value_t = 18081)]
     port: u16,
+
+    /// Bind host (env: EAASP_SKILL_REGISTRY_HOST, default: 0.0.0.0)
+    #[arg(long, env = "EAASP_SKILL_REGISTRY_HOST", default_value = "0.0.0.0")]
+    host: String,
 }
 
 #[tokio::main]
@@ -35,7 +39,7 @@ async fn main() -> anyhow::Result<()> {
 
     let app = routes::router(store);
 
-    let addr = format!("0.0.0.0:{}", cli.port);
+    let addr = format!("{}:{}", cli.host, cli.port);
     tracing::info!("Skill Registry listening on {}", addr);
 
     let listener = TcpListener::bind(&addr).await?;

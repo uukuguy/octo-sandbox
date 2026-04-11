@@ -5,8 +5,8 @@ from __future__ import annotations
 import httpx
 import respx
 
-L2_DEFAULT = "http://127.0.0.1:8085"
-L3_DEFAULT = "http://127.0.0.1:8083"
+L2_DEFAULT = "http://127.0.0.1:18085"
+L3_DEFAULT = "http://127.0.0.1:18083"
 
 
 async def test_health(app_client: httpx.AsyncClient) -> None:

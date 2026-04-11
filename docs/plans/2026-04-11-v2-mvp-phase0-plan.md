@@ -425,7 +425,7 @@ Phase 0 分为 4 个 Stage，Stage 内任务可并行，Stage 之间串行：
 
 **Verification:**
 - `cargo test -p eaasp-skill-registry` 全部通过
-- 启动 server 后 `curl localhost:8081/tools` 返回 7 个 tool names
+- 启动 server 后 `curl localhost:18081/tools` 返回 7 个 tool names
 
 ---
 
@@ -475,7 +475,7 @@ Phase 0 分为 4 个 Stage，Stage 内任务可并行，Stage 之间串行：
 
 **Verification:**
 - `cd tools/eaasp-l2-memory-engine && uv sync && pytest` 全部通过
-- 启动后 `curl -X POST localhost:8085/api/v1/memory/search -d '{"query":"threshold"}'` 返回 JSON
+- 启动后 `curl -X POST localhost:18085/api/v1/memory/search -d '{"query":"threshold"}'` 返回 JSON
 
 ---
 
@@ -572,7 +572,7 @@ Phase 0 分为 4 个 Stage，Stage 内任务可并行，Stage 之间串行：
 - Create: `tools/eaasp-cli-v2/src/eaasp_cli/cmd_memory.py` — memory search/read/list
 - Create: `tools/eaasp-cli-v2/src/eaasp_cli/cmd_skill.py` — skill list/run/promote/submit
 - Create: `tools/eaasp-cli-v2/src/eaasp_cli/cmd_policy.py` — policy deploy/mode
-- Create: `tools/eaasp-cli-v2/src/eaasp_cli/config.py` — 各服务 endpoint 地址（默认 localhost:8081-8085）
+- Create: `tools/eaasp-cli-v2/src/eaasp_cli_v2/config.py` — 各服务 endpoint 地址（默认 `127.0.0.1:18081-18085`，env 覆盖 `EAASP_{SKILL,L2,L3,L4}_URL`）
 - Create: `tools/eaasp-cli-v2/tests/`
 
 **Steps:**
@@ -805,5 +805,13 @@ S3.T4 `eaasp-l4-orchestration` APPROVE-WITH-COMMENTS, no Criticals. Reviewer M1-
 | D38 | `eaasp-l4-orchestration::handshake.L2Client.search_memory` 未把 `user_id` 传给 L2 `/api/v1/memory/search`，跨租户 anchor 泄漏风险 | Phase 3 真 RBAC + 多租户模型就绪后补；短期可以在 L2 也加 `user_id` 过滤参数（D8 关联） | ⏳ |
 | D39 | `eaasp-l4-orchestration::handshake` 对 L3 validate 返回的 `managed_settings_version` 用 `str(int)` 塞进 `PolicyContext.policy_version`（proto 签名要 string，L3 返回 int）。真实 evidence chain 要的是内容哈希而非版本号 | Phase 1 evidence chain 管线就绪时把 `policy_version` 改为 `managed_settings_version` 的 SHA-256 并在 L3 侧同步存储 | ⏳ |
 | D40 | `eaasp-l4-orchestration::sessions.status` 只有 `created` 状态写入；`active|closed|failed` 三态机和 `closed_at` 尚未实现。没有 `/v1/sessions/{id}/close` endpoint | 与 D27 合并：真 L1 Initialize / Terminate 接入时同步写入状态转移 | ⏳ |
+
+### 来源：2026-04-12 S3.T5 design-scan
+
+S3.T5 `eaasp-cli-v2` 设计阶段发现 L4 service 没有 "list sessions" endpoint（MVP_SCOPE §3.3 intentionally single-session flow）。CLI 命令 `eaasp session list` 在 MVP 只能返回提示信息。
+
+| ID | 内容 | 前置条件 | 状态 |
+|----|------|---------|------|
+| D41 | `eaasp-cli-v2 session list` 无真实后端：L4 没有 `GET /v1/sessions` 列表 endpoint，命令只打印 "not available in MVP — use `session show <id>`" 提示 | L4 添加 `GET /v1/sessions?user_id=&status=&limit=` 列表端点（与 Phase 3 多租户模型同步引入） | ⏳ |
 
 **检查纪律：** S3 每个 Task 开始前先 `grep "⏳" docs/plans/2026-04-11-v2-mvp-phase0-plan.md`，确认是否有条件已达成的项可以顺手补齐。S3.T2 完成后检查 D2，S3.T3 完成后检查 D1，**S3.T4 完成后**：D1/D2/D6 前置条件均已满足但仍留至专门的 harness 接入 task（不在 S3.T5 CLI 范围内）；S3.T5 之后检查 D8/D10/D20 —— skill-registry 和 memory-engine 的 MCP facade 是否能统一迁移；S4 开始前检查 D6/D24（Pyright workspace config）。

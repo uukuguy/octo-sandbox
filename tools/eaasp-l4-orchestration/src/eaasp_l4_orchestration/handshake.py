@@ -19,8 +19,8 @@ from typing import Any
 
 import httpx
 
-L2_URL_DEFAULT = os.environ.get("EAASP_L2_URL", "http://127.0.0.1:8085")
-L3_URL_DEFAULT = os.environ.get("EAASP_L3_URL", "http://127.0.0.1:8083")
+L2_URL_DEFAULT = os.environ.get("EAASP_L2_URL", "http://127.0.0.1:18085")
+L3_URL_DEFAULT = os.environ.get("EAASP_L3_URL", "http://127.0.0.1:18083")
 
 
 class UpstreamError(Exception):

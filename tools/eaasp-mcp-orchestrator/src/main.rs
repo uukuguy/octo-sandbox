@@ -17,9 +17,13 @@ struct Cli {
     #[arg(long, default_value = "./config/mcp-servers.yaml")]
     config: String,
 
-    /// HTTP listen port.
-    #[arg(long, default_value_t = 8082)]
+    /// HTTP listen port (env: EAASP_MCP_ORCHESTRATOR_PORT, default: 18082).
+    #[arg(long, env = "EAASP_MCP_ORCHESTRATOR_PORT", default_value_t = 18082)]
     port: u16,
+
+    /// Bind host (env: EAASP_MCP_ORCHESTRATOR_HOST, default: 0.0.0.0).
+    #[arg(long, env = "EAASP_MCP_ORCHESTRATOR_HOST", default_value = "0.0.0.0")]
+    host: String,
 }
 
 #[tokio::main]
@@ -45,7 +49,7 @@ async fn main() -> Result<()> {
     mgr.start_all().await?;
 
     let app = routes::router(mgr);
-    let addr = format!("0.0.0.0:{}", cli.port);
+    let addr = format!("{}:{}", cli.host, cli.port);
     tracing::info!(addr = %addr, "starting MCP orchestrator HTTP server");
 
     let listener = TcpListener::bind(&addr).await?;
