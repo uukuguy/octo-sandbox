@@ -6,6 +6,7 @@
 ---
 
 ## [Active Work]
+- 22:35 | EAASP v2.0 MVP Phase 0 design checkpoint saved (Ring-2 scope locked, 15 tasks queued)
 
 - 2026-04-07 23:00 | **Phase BH-MVP COMPLETE (7/7)** — E2E 全流程验证 @ 1124c62. 58 new tests. L3 governance (5 API), L4 session manager (4 planes), SDK eaasp run, E2E integration (14), HR example (audit+PII). Makefile: l3/l4/e2e targets. Deferred: BH-D1~D12.
 - 2026-04-07 21:30 | **Phase BH-MVP W1 COMPLETE (1/7)** — 策略 DSL + 编译器 + HR 策略示例 (8 tests) @ 1493259. tools/eaasp-governance/ package: PolicyBundle models, compiler (YAML→managed_hooks_json, idempotent), merger (4-scope deny-always-wins). HR policies: enterprise.yaml + bu_hr.yaml. HookExecutor兼容性OK. Next: W2 L3 API.

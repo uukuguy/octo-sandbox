@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EAASP — Enterprise Autonomous Agent Support Platform</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Serif+Display&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --navy: #0f1b2d;
+  --navy-mid: #1a2d47;
+  --navy-light: #243b5c;
+  --steel: #3d5a80;
+  --sky: #5b9bd5;
+  --ice: #a8d5f2;
+  --frost: #dceefb;
+  --white: #f8fafc;
+  --pure: #ffffff;
+  --accent: #4ecdc4;
+  --accent-glow: #3dbdb5;
+  --warm: #ff6b6b;
+  --amber: #f4a261;
+  --violet: #7c6fef;
+  --text: #c8d6e5;
+  --text-dim: #7f8fa6;
+  --text-bright: #e8eef4;
+  --border: rgba(91,155,213,0.15);
+  --glow: rgba(78,205,196,0.08);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 16px; }
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--navy);
+  color: var(--text);
+  line-height: 1.72;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--accent); color: var(--navy); }
+
+/* ─── Layout ─── */
+.container { max-width: 1080px; margin: 0 auto; padding: 0 2rem; }
+section { padding: 5rem 0; border-bottom: 1px solid var(--border); }
+section:last-of-type { border-bottom: none; }
+
+/* ─── Typography ─── */
+h1, h2, h3, h4 { font-family: 'DM Serif Display', serif; color: var(--pure); letter-spacing: -0.01em; }
+h1 { font-size: 3.2rem; line-height: 1.15; margin-bottom: 1.5rem; }
+h2 { font-size: 2rem; line-height: 1.25; margin-bottom: 1.2rem; padding-top: 0.5rem; }
+h3 { font-size: 1.35rem; line-height: 1.35; margin-bottom: 0.8rem; color: var(--ice); }
+h4 { font-size: 1.1rem; margin-bottom: 0.5rem; color: var(--sky); font-family: 'DM Sans', sans-serif; font-weight: 600; }
+p { margin-bottom: 1.1rem; }
+strong { color: var(--text-bright); font-weight: 600; }
+code { font-family: 'JetBrains Mono', monospace; font-size: 0.88em; background: rgba(91,155,213,0.1); padding: 0.15em 0.4em; border-radius: 4px; color: var(--accent); }
+a { color: var(--sky); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.2s; }
+a:hover { border-bottom-color: var(--sky); }
+
+/* ─── Hero ─── */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border);
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  top: -30%; right: -20%;
+  width: 800px; height: 800px;
+  background: radial-gradient(circle, rgba(78,205,196,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-content { position: relative; z-index: 1; }
+.hero .eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 1.5rem;
+  display: block;
+}
+.hero h1 { font-size: 3.8rem; max-width: 800px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .subtitle {
+  font-size: 1.2rem;
+  color: var(--text-dim);
+  max-width: 640px;
+  margin: 1.5rem 0 2.5rem;
+  line-height: 1.8;
+}
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1.2rem;
+  background: rgba(78,205,196,0.08);
+  border: 1px solid rgba(78,205,196,0.2);
+  border-radius: 100px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.82rem;
+  color: var(--accent);
+}
+
+/* ─── Section label ─── */
+.section-label {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 0.8rem;
+  display: block;
+}
+
+/* ─── Cards ─── */
+.card-grid { display: grid; gap: 1.5rem; margin: 2rem 0; }
+.card-grid.cols-2 { grid-template-columns: repeat(2, 1fr); }
+.card-grid.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.card {
+  background: var(--navy-mid);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.8rem;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+.card:hover { border-color: rgba(78,205,196,0.3); box-shadow: 0 4px 24px rgba(0,0,0,0.2); }
+.card .card-icon {
+  width: 40px; height: 40px;
+  border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 1rem;
+  font-size: 1.2rem;
+}
+.card .card-icon.teal { background: rgba(78,205,196,0.12); color: var(--accent); }
+.card .card-icon.blue { background: rgba(91,155,213,0.12); color: var(--sky); }
+.card .card-icon.violet { background: rgba(124,111,239,0.12); color: var(--violet); }
+.card .card-icon.amber { background: rgba(244,162,97,0.12); color: var(--amber); }
+.card .card-icon.warm { background: rgba(255,107,107,0.12); color: var(--warm); }
+
+/* ─── Principle blocks ─── */
+.principle {
+  display: flex;
+  gap: 1.2rem;
+  padding: 1.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.principle:last-child { border-bottom: none; }
+.principle-num {
+  font-family: 'DM Serif Display', serif;
+  font-size: 1.8rem;
+  color: var(--accent);
+  min-width: 2.5rem;
+  line-height: 1;
+  padding-top: 0.15rem;
+}
+.principle-body h4 { margin-bottom: 0.3rem; }
+.principle-body p { color: var(--text-dim); margin-bottom: 0; font-size: 0.95rem; }
+
+/* ─── Tables ─── */
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  font-size: 0.92rem;
+}
+.data-table th {
+  text-align: left;
+  padding: 0.8rem 1rem;
+  background: var(--navy-light);
+  color: var(--ice);
+  font-weight: 600;
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-bottom: 2px solid var(--steel);
+}
+.data-table td {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.data-table tr:hover td { background: rgba(91,155,213,0.04); }
+.tag {
+  display: inline-block;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+.tag.teal { background: rgba(78,205,196,0.12); color: var(--accent); }
+.tag.blue { background: rgba(91,155,213,0.12); color: var(--sky); }
+.tag.violet { background: rgba(124,111,239,0.12); color: var(--violet); }
+.tag.amber { background: rgba(244,162,97,0.12); color: var(--amber); }
+
+/* ─── SVG diagram wrapper ─── */
+.diagram-wrap {
+  margin: 2.5rem 0;
+  background: var(--navy-mid);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  overflow-x: auto;
+}
+.diagram-wrap svg { display: block; margin: 0 auto; }
+.diagram-caption {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-top: 1rem;
+  font-style: italic;
+}
+
+/* ─── Callout ─── */
+.callout {
+  background: var(--glow);
+  border-left: 3px solid var(--accent);
+  padding: 1.2rem 1.5rem;
+  border-radius: 0 8px 8px 0;
+  margin: 1.5rem 0;
+}
+.callout p { margin-bottom: 0; }
+.callout strong { color: var(--accent); }
+
+/* ─── Timeline ─── */
+.timeline { margin: 2rem 0; }
+.timeline-item {
+  display: flex;
+  gap: 1.5rem;
+  padding: 1.2rem 0;
+  border-bottom: 1px solid var(--border);
+}
+.timeline-item:last-child { border-bottom: none; }
+.timeline-phase {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.78rem;
+  color: var(--accent);
+  min-width: 5rem;
+  padding-top: 0.15rem;
+}
+.timeline-body h4 { color: var(--ice); }
+.timeline-body p { color: var(--text-dim); font-size: 0.92rem; margin-bottom: 0; }
+
+/* ─── Footer ─── */
+footer {
+  padding: 3rem 0;
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+footer .mark { color: var(--accent); font-weight: 600; }
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .hero h1 { font-size: 2.4rem; }
+  h2 { font-size: 1.6rem; }
+  .card-grid.cols-2, .card-grid.cols-3 { grid-template-columns: 1fr; }
+  .container { padding: 0 1.2rem; }
+  section { padding: 3rem 0; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════ HERO ═══════════════════ -->
+<section class="hero">
+  <div class="container hero-content">
+    <span class="eyebrow">Enterprise Autonomous Agent Support Platform</span>
+    <h1>EAASP <em>v2.0</em><br>Executive Overview</h1>
+    <p class="subtitle">A five-layer platform architecture that enables enterprises to deploy, govern, and scale heterogeneous AI agent runtimes as a unified service — transforming AI agents from experimental tools into governed collaboration partners.</p>
+    <div class="version-badge">
+      <span>◆</span> Version 2.0 · April 2026 · Confidential
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ ORIGINS ═══════════════════ -->
+<section id="origins">
+  <div class="container">
+    <span class="section-label">01 — Origins</span>
+    <h2>Why EAASP Exists</h2>
+    <p>Enterprise AI has reached an inflection point. Large language models can reason, plan, and execute complex tasks — but deploying them at enterprise scale exposes a critical gap between <strong>model intelligence</strong> and <strong>organizational readiness</strong>. Industry surveys show that while 88% of organizations use some form of AI, fewer than 10% have successfully deployed multi-step agentic systems into production business processes.</p>
+    <p>The barriers are not intelligence — they are governance, security, operational control, and the ability to integrate heterogeneous agent engines into a coherent platform. Enterprises need answers to questions that no single agent framework addresses: How do we enforce organizational policy across all agents uniformly? How do we ensure every agent conclusion is traceable to evidence? How do we let business analysts create intelligent workflows without writing code? How do we manage credentials, data sovereignty, and audit trails at scale?</p>
+    <p>EAASP was created to answer these questions. It is not an agent — it is the <strong>platform that hosts, governs, and orchestrates agents</strong>. It treats agent runtimes the way an operating system treats applications: providing the execution environment, enforcing security boundaries, managing shared resources, and presenting a unified interface to users — regardless of which agent engine runs underneath.</p>
+
+    <h3>The Managed Agents Convergence</h3>
+    <p>In April 2026, Anthropic released <strong>Managed Agents</strong> — a hosted service for running long-horizon autonomous agents. The accompanying engineering blog articulated a profound architectural insight: <em>decouple the brain from the hands from the session</em>. Agent components (the reasoning harness, the execution sandbox, the durable session log) should be independent interfaces, not a monolithic container. This mirrors how operating systems virtualized hardware into abstractions general enough for programs that did not exist yet.</p>
+    <p>EAASP v2.0 absorbs the most valuable ideas from Managed Agents — the append-only session event stream, structural credential isolation, and the meta-harness philosophy — while preserving what Managed Agents does not provide: enterprise governance, multi-runtime heterogeneity, organizational access control, evidence chains, and the complete collaboration lifecycle from event detection through memory deposit.</p>
+    <div class="callout">
+      <p><strong>The core relationship:</strong> Managed Agents is infrastructure-level abstraction (how to run one agent reliably). EAASP is platform-level architecture (how to deploy, govern, and orchestrate many agents across an enterprise). They are complementary strata — you stack them, you don't choose between them.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ GOALS ═══════════════════ -->
+<section id="goals">
+  <div class="container">
+    <span class="section-label">02 — Goals</span>
+    <h2>What EAASP Achieves</h2>
+    <div class="card-grid cols-2">
+      <div class="card">
+        <div class="card-icon teal">⚡</div>
+        <h4>Runtime-Agnostic Execution</h4>
+        <p>Any agent engine — Claude Code, Aider, Goose, LangGraph, CrewAI, or custom-built — can join the execution pool by implementing a standard runtime contract. The platform selects the best runtime per task. Enterprises are never locked to a single vendor or framework.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon blue">🛡</div>
+        <h4>Unified Agent Governance</h4>
+        <p>A single set of managed hooks applies to every agent identically. Administrators deploy a policy once; the platform compiles it into deterministic enforcement that runs inline in every runtime. <strong>Deny always wins</strong> — no agent can override organizational policy.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon violet">📡</div>
+        <h4>Event-Driven Proactive Service</h4>
+        <p>Agents don't wait for user commands. The event engine aggregates raw alerts, logs, and change events into structured business-event objects. One hundred alerts become a single actionable event. Agents shift from passive order-takers to proactive scene-watchers.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon amber">🔗</div>
+        <h4>Evidence Chains & Audit</h4>
+        <p>Every agent conclusion must reference evidence anchors — immutable snapshots of the original data. Auditing moves from "recording what happened" to "proving why this judgment was made." Full traceability from conclusion to source data.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon warm">🧠</div>
+        <h4>Persistent Memory as an Asset</h4>
+        <p>Memory is not session-ephemeral state. The Memory Engine provides three-layer persistent storage — evidence anchors, file-based memory, and hybrid retrieval — enabling agents to accumulate experience, remember preferences, and improve over time.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon teal">🏭</div>
+        <h4>Agent Factory for the Organization</h4>
+        <p>Business analysts create intelligent workflows through a visual process designer — no code required. Successful interactions are extracted into reusable skills. A continuous quality loop ensures the platform improves with every execution.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ ARCHITECTURE ═══════════════════ -->
+<section id="architecture">
+  <div class="container">
+    <span class="section-label">03 — Architecture</span>
+    <h2>Five Layers, Three Pipelines</h2>
+    <p>EAASP is organized as five logical layers numbered bottom-up, each with distinct responsibilities, plus three vertical pipelines that traverse all layers providing cross-cutting enforcement, data flow, and lifecycle control.</p>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 920 620" xmlns="http://www.w3.org/2000/svg" font-family="DM Sans, sans-serif">
+        <!-- Background -->
+        <defs>
+          <linearGradient id="layerGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#243b5c" stop-opacity="0.5"/>
+            <stop offset="100%" stop-color="#1a2d47" stop-opacity="0.8"/>
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+
+        <!-- Layer boxes -->
+        <rect x="60" y="20" width="620" height="88" rx="8" fill="#2a4a6e" stroke="#5b9bd5" stroke-width="1" opacity="0.9"/>
+        <rect x="60" y="128" width="620" height="88" rx="8" fill="#264060" stroke="#5b9bd5" stroke-width="1" opacity="0.85"/>
+        <rect x="60" y="236" width="620" height="88" rx="8" fill="#223858" stroke="#5b9bd5" stroke-width="1" opacity="0.8"/>
+        <rect x="60" y="344" width="620" height="88" rx="8" fill="#1e3050" stroke="#5b9bd5" stroke-width="1" opacity="0.75"/>
+        <rect x="60" y="452" width="620" height="88" rx="8" fill="#1a2848" stroke="#5b9bd5" stroke-width="1" opacity="0.7"/>
+
+        <!-- Layer labels -->
+        <text x="80" y="52" fill="#4ecdc4" font-size="11" font-weight="700" letter-spacing="0.1em">L5 COWORK</text>
+        <text x="80" y="72" fill="#e8eef4" font-size="13" font-weight="600">Human-Agent Collaboration</text>
+        <text x="80" y="90" fill="#7f8fa6" font-size="11">Event rooms · Four-card paradigm · Push channels · Admin console · Process designer</text>
+
+        <text x="80" y="160" fill="#4ecdc4" font-size="11" font-weight="700" letter-spacing="0.1em">L4 ORCHESTRATION</text>
+        <text x="80" y="180" fill="#e8eef4" font-size="13" font-weight="600">Event-Driven Orchestration</text>
+        <text x="80" y="198" fill="#7f8fa6" font-size="11">Event engine · Session orchestrator · A2A router · Session Event Stream · API gateway</text>
+
+        <text x="80" y="268" fill="#4ecdc4" font-size="11" font-weight="700" letter-spacing="0.1em">L3 GOVERNANCE</text>
+        <text x="80" y="288" fill="#e8eef4" font-size="13" font-weight="600">Policy Enforcement & Audit</text>
+        <text x="80" y="306" fill="#7f8fa6" font-size="11">Policy engine · OPA/Rego · Approval gates · Audit service · MCP registry · Egress control</text>
+
+        <text x="80" y="376" fill="#4ecdc4" font-size="11" font-weight="700" letter-spacing="0.1em">L2 ASSETS</text>
+        <text x="80" y="396" fill="#e8eef4" font-size="13" font-weight="600">Skills, Memory & Ontology</text>
+        <text x="80" y="414" fill="#7f8fa6" font-size="11">Skill repository · Promotion pipeline · Memory Engine · Ontology Service · Usage analytics</text>
+
+        <text x="80" y="484" fill="#4ecdc4" font-size="11" font-weight="700" letter-spacing="0.1em">L1 EXECUTION</text>
+        <text x="80" y="504" fill="#e8eef4" font-size="13" font-weight="600">Heterogeneous Agent Runtimes</text>
+        <text x="80" y="522" fill="#7f8fa6" font-size="11">Runtime selector · Adapter registry · Hook bridge · Telemetry · T0/T1/T2/T3 tiers</text>
+
+        <!-- Vertical pipeline arrows -->
+        <rect x="720" y="20" width="56" height="520" rx="6" fill="none" stroke="#ff6b6b" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.6"/>
+        <text x="748" y="280" fill="#ff6b6b" font-size="10" font-weight="600" text-anchor="middle" transform="rotate(-90,748,280)">HOOK PIPELINE</text>
+
+        <rect x="788" y="20" width="56" height="520" rx="6" fill="none" stroke="#f4a261" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.6"/>
+        <text x="816" y="280" fill="#f4a261" font-size="10" font-weight="600" text-anchor="middle" transform="rotate(-90,816,280)">DATA-FLOW PIPELINE</text>
+
+        <rect x="856" y="20" width="56" height="520" rx="6" fill="none" stroke="#7c6fef" stroke-width="1.5" stroke-dasharray="4,3" opacity="0.6"/>
+        <text x="884" y="280" fill="#7c6fef" font-size="10" font-weight="600" text-anchor="middle" transform="rotate(-90,884,280)">SESSION PIPELINE</text>
+
+        <!-- Pipeline descriptions -->
+        <text x="460" y="575" fill="#ff6b6b" font-size="10" text-anchor="middle">Deterministic enforcement</text>
+        <text x="460" y="590" fill="#f4a261" font-size="10" text-anchor="middle">Downstream injection · Upstream reporting</text>
+        <text x="460" y="605" fill="#7c6fef" font-size="10" text-anchor="middle">Lifecycle orchestration · Crash recovery</text>
+      </svg>
+      <div class="diagram-caption">Figure 1 — EAASP five-layer architecture with three vertical pipelines</div>
+    </div>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>Layer</th><th>Responsibility</th><th>Key Principle</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="tag teal">L5</span> Cowork</td><td>Human-agent collaboration: event rooms, four-card interaction, multi-endpoint adaptation</td><td>Push, not pull — events come to users</td></tr>
+        <tr><td><span class="tag teal">L4</span> Orchestration</td><td>Event aggregation, 1:N session orchestration, A2A multi-agent routing, cost governance</td><td>Events drive proactive service</td></tr>
+        <tr><td><span class="tag teal">L3</span> Governance</td><td>Policy enforcement, approval control chain, audit, credential isolation, egress control</td><td>Deny always wins</td></tr>
+        <tr><td><span class="tag teal">L2</span> Assets</td><td>Skill management, persistent memory, evidence anchors, ontology integration</td><td>Intelligence flows through Skills</td></tr>
+        <tr><td><span class="tag teal">L1</span> Execution</td><td>Heterogeneous agent runtimes: selection, adaptation, hook bridging, telemetry</td><td>Runtime-agnostic by contract</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════ DESIGN PRINCIPLES ═══════════════════ -->
+<section id="principles">
+  <div class="container">
+    <span class="section-label">04 — Design Philosophy</span>
+    <h2>Core Design Principles</h2>
+    <p>Every architectural decision in EAASP is tested against these principles. They emerged from four iterations of design evolution and were sharpened during the v2.0 analysis against Managed Agents' meta-harness philosophy.</p>
+
+    <div class="principle">
+      <div class="principle-num">01</div>
+      <div class="principle-body">
+        <h4>The platform provides governance; the runtime provides intelligence.</h4>
+        <p>The master boundary principle. The platform defines what must happen (hooks, policies, approval chains, credential scoping). The runtime decides how to accomplish the work (planning, tool selection, error recovery). Neither crosses into the other's domain.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">02</div>
+      <div class="principle-body">
+        <h4>Deny always wins.</h4>
+        <p>If any hook at any scope level denies an action, the action is blocked — regardless of what other hooks or the agent's reasoning concludes. This is deterministic, not probabilistic. It is the guarantee that makes hooks suitable for enterprise governance.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">03</div>
+      <div class="principle-body">
+        <h4>Hooks provide guarantees; agents provide judgment.</h4>
+        <p>Things that must happen every time (policy enforcement, audit, quality checks) are hooks. Things requiring adaptation and reasoning (plan decomposition, creative problem-solving) are agent intelligence. Do not substitute one for the other.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">04</div>
+      <div class="principle-body">
+        <h4>Governance is permanent; governance configurations are not.</h4>
+        <p>The hook protocol, approval chain mechanism, and audit pipeline are stable architectural elements. The specific thresholds, policies, and rules are living configurations that must evolve as models improve. Assumption debt — stale configurations calibrated to older models — is actively managed through observability, shadow testing, and graduated relaxation.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">05</div>
+      <div class="principle-body">
+        <h4>Drafts first — never overreach.</h4>
+        <p>Agents produce drafts, never directly executing high-risk operations. All write operations pass through the five-stage approval control chain: Plan → Check → Draft → Approve → Execute. The cost of a draft is seconds; the cost of overreach may be irreversible.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">06</div>
+      <div class="principle-body">
+        <h4>Model-agnostic by configuration.</h4>
+        <p>No architectural component depends on a specific inference provider. Model backend selection is an environment variable. The same platform runs on Claude, Llama, Mistral, or any capable model — enabling fully private deployment without architectural changes.</p>
+      </div>
+    </div>
+    <div class="principle">
+      <div class="principle-num">07</div>
+      <div class="principle-body">
+        <h4>Extend, never rebuild.</h4>
+        <p>Each evolution phase adds components incrementally without modifying existing capabilities. The v2.0 upgrade demonstrates this: six enhancements added, zero v1.8 components removed or restructured.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ COLLABORATION LOOP ═══════════════════ -->
+<section id="collaboration">
+  <div class="container">
+    <span class="section-label">05 — Core Mechanism</span>
+    <h2>The Collaboration Loop</h2>
+    <p>The three pipelines support a complete collaboration loop — the core operating model that governs every interaction from event detection through memory deposit.</p>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 920 340" xmlns="http://www.w3.org/2000/svg" font-family="DM Sans, sans-serif">
+        <defs>
+          <marker id="arrowT" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+            <path d="M0,0 L8,3 L0,6" fill="#4ecdc4"/>
+          </marker>
+        </defs>
+
+        <!-- Stage boxes -->
+        <g transform="translate(20,60)">
+          <!-- Row 1 -->
+          <rect x="0" y="0" width="100" height="50" rx="6" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="50" y="22" fill="#4ecdc4" font-size="9" font-weight="600" text-anchor="middle">EVENT</text>
+          <text x="50" y="38" fill="#7f8fa6" font-size="8" text-anchor="middle">L4 engine</text>
+
+          <line x1="100" y1="25" x2="130" y2="25" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="130" y="0" width="100" height="50" rx="6" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="180" y="22" fill="#4ecdc4" font-size="9" font-weight="600" text-anchor="middle">CONTEXT</text>
+          <text x="180" y="38" fill="#7f8fa6" font-size="8" text-anchor="middle">L4 + L2 memory</text>
+
+          <line x1="230" y1="25" x2="260" y2="25" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="260" y="0" width="100" height="50" rx="6" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="310" y="22" fill="#f4a261" font-size="9" font-weight="600" text-anchor="middle">PLAN</text>
+          <text x="310" y="38" fill="#7f8fa6" font-size="8" text-anchor="middle">L1 agent</text>
+
+          <line x1="360" y1="25" x2="390" y2="25" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="390" y="0" width="100" height="50" rx="6" fill="#1e3050" stroke="#ff6b6b" stroke-width="1.5"/>
+          <text x="440" y="22" fill="#ff6b6b" font-size="9" font-weight="600" text-anchor="middle">CHECK</text>
+          <text x="440" y="38" fill="#7f8fa6" font-size="8" text-anchor="middle">L3 verifier</text>
+
+          <line x1="490" y1="25" x2="520" y2="25" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="520" y="0" width="100" height="50" rx="6" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="570" y="22" fill="#f4a261" font-size="9" font-weight="600" text-anchor="middle">DRAFT</text>
+          <text x="570" y="38" fill="#7f8fa6" font-size="8" text-anchor="middle">L1 agent</text>
+
+          <!-- Row 2 -->
+          <line x1="570" y1="50" x2="570" y2="80" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="520" y="80" width="100" height="50" rx="6" fill="#1e3050" stroke="#ff6b6b" stroke-width="1.5"/>
+          <text x="570" y="102" fill="#ff6b6b" font-size="9" font-weight="600" text-anchor="middle">APPROVE</text>
+          <text x="570" y="118" fill="#7f8fa6" font-size="8" text-anchor="middle">L3 + L5 human</text>
+
+          <line x1="520" y1="105" x2="490" y2="105" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="390" y="80" width="100" height="50" rx="6" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="440" y="102" fill="#4ecdc4" font-size="9" font-weight="600" text-anchor="middle">EXECUTE</text>
+          <text x="440" y="118" fill="#7f8fa6" font-size="8" text-anchor="middle">L1 via MCP</text>
+
+          <line x1="390" y1="105" x2="360" y2="105" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="260" y="80" width="100" height="50" rx="6" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="310" y="102" fill="#4ecdc4" font-size="9" font-weight="600" text-anchor="middle">OBSERVE</text>
+          <text x="310" y="118" fill="#7f8fa6" font-size="8" text-anchor="middle">L4 + L3 audit</text>
+
+          <line x1="260" y1="105" x2="230" y2="105" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="130" y="80" width="100" height="50" rx="6" fill="#1e3050" stroke="#7c6fef" stroke-width="1"/>
+          <text x="180" y="102" fill="#7c6fef" font-size="9" font-weight="600" text-anchor="middle">RETROSPECT</text>
+          <text x="180" y="118" fill="#7f8fa6" font-size="8" text-anchor="middle">L4 orchestrator</text>
+
+          <line x1="130" y1="105" x2="100" y2="105" stroke="#4ecdc4" stroke-width="1.5" marker-end="url(#arrowT)"/>
+
+          <rect x="0" y="80" width="100" height="50" rx="6" fill="#1e3050" stroke="#7c6fef" stroke-width="1"/>
+          <text x="50" y="102" fill="#7c6fef" font-size="9" font-weight="600" text-anchor="middle">MEMORY</text>
+          <text x="50" y="118" fill="#7f8fa6" font-size="8" text-anchor="middle">L2 engine</text>
+
+          <!-- Feedback arrow -->
+          <path d="M50,130 L50,170 Q50,180 60,180 L870,180 Q880,180 880,170 L880,15 Q880,5 870,5 L630,5" stroke="#4ecdc4" stroke-width="1" stroke-dasharray="5,3" fill="none" marker-end="url(#arrowT)" opacity="0.5"/>
+          <text x="460" y="198" fill="#4ecdc4" font-size="9" text-anchor="middle" opacity="0.6">Feeds back to next event →</text>
+        </g>
+
+        <!-- Legend -->
+        <g transform="translate(20,285)">
+          <rect x="0" y="0" width="12" height="12" rx="2" fill="none" stroke="#ff6b6b" stroke-width="1.5"/>
+          <text x="18" y="10" fill="#7f8fa6" font-size="10">Governance gate (L3)</text>
+          <rect x="180" y="0" width="12" height="12" rx="2" fill="none" stroke="#7c6fef" stroke-width="1"/>
+          <text x="198" y="10" fill="#7f8fa6" font-size="10">Learning / memory (L2)</text>
+          <rect x="370" y="0" width="12" height="12" rx="2" fill="none" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="388" y="10" fill="#7f8fa6" font-size="10">Execution / orchestration (L1/L4)</text>
+        </g>
+      </svg>
+      <div class="diagram-caption">Figure 2 — The ten-stage collaboration loop: agents plan; the system verifies, authorizes, executes, and records</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ CAPABILITIES ═══════════════════ -->
+<section id="capabilities">
+  <div class="container">
+    <span class="section-label">06 — Key Capabilities</span>
+    <h2>Platform Capabilities in Detail</h2>
+
+    <h3>Heterogeneous Runtime Pool</h3>
+    <p>L1 hosts any agent engine that implements the standard runtime contract: 12 MUST methods (the compliance core) plus 4 optional operational extensions. Runtimes are organized in four tiers by adapter thickness:</p>
+    <table class="data-table">
+      <thead>
+        <tr><th>Tier</th><th>Adapter</th><th>Examples</th><th>Hook Integration</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><span class="tag teal">T0</span></td><td>Managed harness (external)</td><td>Anthropic Managed Agents</td><td>SSE stream interception by adapter</td></tr>
+        <tr><td><span class="tag blue">T1</span></td><td>Thin (native compatibility)</td><td>Claude Code, grid-engine, Agent SDK</td><td>Native hooks — zero overhead</td></tr>
+        <tr><td><span class="tag violet">T2</span></td><td>Medium (partial compat.)</td><td>Aider, Goose, Roo Code CLI, Cline CLI</td><td>Hook bridge sidecar</td></tr>
+        <tr><td><span class="tag amber">T3</span></td><td>Thick (full translation)</td><td>LangGraph, CrewAI, Pydantic AI</td><td>Hook bridge + skill translation</td></tr>
+      </tbody>
+    </table>
+    <p>Five selection strategies (task-matched, blind-box, user preference, A/B testing, cost-optimized) route each session to the best available runtime. The blind-box strategy generates empirical quality data by presenting two runtimes' outputs side-by-side without revealing which produced which.</p>
+
+    <h3>Four-Card Interaction Paradigm</h3>
+    <p>L5 replaces traditional chat with structured decision support. When a business event occurs, users see four pinned cards covering the complete decision cycle: the <strong>Event Card</strong> (what happened, how severe), the <strong>Evidence Pack</strong> (data snapshots with anchor IDs), the <strong>Action Card</strong> (step tree with preconditions), and the <strong>Approval Card</strong> (scope, rationale, rollback path, approve/reject buttons). Each card enables a decision within 30 seconds.</p>
+
+    <h3>Approval Control Chain</h3>
+    <p>L3 provides a five-stage governed execution chain: <strong>Plan</strong> (agent forms a read-only operation plan) → <strong>Check</strong> (deterministic verification via rule engine or simulation — same input always produces same output) → <strong>Draft</strong> (agent produces an executable draft but does not execute) → <strong>Approve</strong> (human authorization via 30-second approval card) → <strong>Execute</strong> (actual execution via MCP). Risk tiers determine which stages are required: low-risk operations skip all stages; high-risk traverse the full chain.</p>
+
+    <h3>Session Event Stream (v2.0)</h3>
+    <p>Every session writes to an append-only event stream capturing the complete, ordered sequence of events: messages, tool calls, hook decisions, compaction points, and memory operations. This enables <strong>crash recovery</strong> (replay from last event), <strong>reversible compaction</strong> (compacted messages remain accessible), and <strong>complete audit replay</strong>. The event stream is the substrate; audit records, memory, and checkpoints are derived views.</p>
+
+    <h3>Tiered Credential Isolation (v2.0)</h3>
+    <p>MCP credentials are structurally isolated using a mechanism matched to each runtime tier. T0 sessions use a full credential proxy — the sandbox never sees credentials. T1 runtimes receive pre-bundled ephemeral tokens (per-session, least-privilege, auto-expiring). T2/T3 runtimes use hook-bridge-injected credentials — the bridge strips placeholders, injects real credentials from the vault per-call, and strips them from responses. The security outcome is equivalent across all tiers; the mechanism respects runtime autonomy.</p>
+
+    <h3>Assumption Lifecycle Management (v2.0)</h3>
+    <p>Hooks, skills, and policies encode assumptions about model capabilities that go stale as models improve. Left unmanaged, this creates <strong>assumption debt</strong> — accumulated governance configurations that add latency and friction without improving outcomes. The platform provides: <em>assumption observability</em> (tracking hook effectiveness via activity-outcome correlation), <em>proactive staleness detection</em> (surfacing low-impact hooks and over-restrictive policies), and <em>controlled testing</em> (hook shadow mode, A/B skill testing, graduated policy relaxation).</p>
+  </div>
+</section>
+
+<!-- ═══════════════════ AGENT FACTORY ═══════════════════ -->
+<section id="factory">
+  <div class="container">
+    <span class="section-label">07 — Productivity</span>
+    <h2>The Agent Factory</h2>
+    <p>EAASP is not just a technical platform — it is an <strong>organizational capability factory</strong> for intelligent workflows. Three operational flows compose the factory:</p>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 920 400" xmlns="http://www.w3.org/2000/svg" font-family="DM Sans, sans-serif">
+        <defs>
+          <marker id="arrowF" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto">
+            <path d="M0,0 L7,2.5 L0,5" fill="#4ecdc4"/>
+          </marker>
+        </defs>
+
+        <!-- Flow 1 -->
+        <text x="30" y="30" fill="#4ecdc4" font-size="11" font-weight="700">FLOW 1 — SKILL CREATION PIPELINE</text>
+        <g transform="translate(30,45)">
+          <rect x="0" y="0" width="120" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="60" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Analyst describes</text>
+          <line x1="120" y1="20" x2="145" y2="20" stroke="#4ecdc4" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="145" y="0" width="120" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="205" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Designer compiles</text>
+          <line x1="265" y1="20" x2="290" y2="20" stroke="#4ecdc4" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="290" y="0" width="100" height="40" rx="5" fill="#1e3050" stroke="#f4a261" stroke-width="1"/>
+          <text x="340" y="24" fill="#f4a261" font-size="10" text-anchor="middle">Auto-test</text>
+          <line x1="390" y1="20" x2="415" y2="20" stroke="#4ecdc4" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="415" y="0" width="100" height="40" rx="5" fill="#1e3050" stroke="#ff6b6b" stroke-width="1"/>
+          <text x="465" y="24" fill="#ff6b6b" font-size="10" text-anchor="middle">Review gate</text>
+          <line x1="515" y1="20" x2="540" y2="20" stroke="#4ecdc4" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="540" y="0" width="110" height="40" rx="5" fill="#1e3050" stroke="#4ecdc4" stroke-width="1.5"/>
+          <text x="595" y="24" fill="#4ecdc4" font-size="10" text-anchor="middle">Production ✓</text>
+        </g>
+        <text x="700" y="70" fill="#7f8fa6" font-size="10" font-style="italic">No code required</text>
+
+        <!-- Flow 2 -->
+        <text x="30" y="140" fill="#f4a261" font-size="11" font-weight="700">FLOW 2 — SKILL EXTRACTION</text>
+        <g transform="translate(30,155)">
+          <rect x="0" y="0" width="130" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="65" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Successful session</text>
+          <line x1="130" y1="20" x2="155" y2="20" stroke="#f4a261" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="155" y="0" width="140" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="225" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Event stream analysis</text>
+          <line x1="295" y1="20" x2="320" y2="20" stroke="#f4a261" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="320" y="0" width="130" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="385" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Draft SKILL.md</text>
+          <line x1="450" y1="20" x2="475" y2="20" stroke="#f4a261" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="475" y="0" width="140" height="40" rx="5" fill="#1e3050" stroke="#4ecdc4" stroke-width="1.5"/>
+          <text x="545" y="24" fill="#4ecdc4" font-size="10" text-anchor="middle">Promotion pipeline →</text>
+        </g>
+        <text x="665" y="180" fill="#7f8fa6" font-size="10" font-style="italic">Individual → organizational</text>
+
+        <!-- Flow 3 -->
+        <text x="30" y="250" fill="#7c6fef" font-size="11" font-weight="700">FLOW 3 — CONTINUOUS QUALITY LOOP</text>
+        <g transform="translate(30,265)">
+          <rect x="0" y="0" width="110" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="55" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Agents execute</text>
+          <line x1="110" y1="20" x2="135" y2="20" stroke="#7c6fef" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="135" y="0" width="120" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="195" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Telemetry flows</text>
+          <line x1="255" y1="20" x2="280" y2="20" stroke="#7c6fef" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="280" y="0" width="130" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="345" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Quality analysis</text>
+          <line x1="410" y1="20" x2="435" y2="20" stroke="#7c6fef" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="435" y="0" width="120" height="40" rx="5" fill="#1e3050" stroke="#5b9bd5" stroke-width="1"/>
+          <text x="495" y="24" fill="#e8eef4" font-size="10" text-anchor="middle">Skill revision</text>
+          <line x1="555" y1="20" x2="580" y2="20" stroke="#7c6fef" stroke-width="1" marker-end="url(#arrowF)"/>
+          <rect x="580" y="0" width="100" height="40" rx="5" fill="#1e3050" stroke="#4ecdc4" stroke-width="1.5"/>
+          <text x="630" y="24" fill="#4ecdc4" font-size="10" text-anchor="middle">Improved ↻</text>
+        </g>
+        <text x="730" y="290" fill="#7f8fa6" font-size="10" font-style="italic">Self-correcting</text>
+
+        <!-- Bottom summary -->
+        <rect x="30" y="340" width="860" height="44" rx="8" fill="rgba(78,205,196,0.06)" stroke="rgba(78,205,196,0.15)" stroke-width="1"/>
+        <text x="460" y="366" fill="#4ecdc4" font-size="11" text-anchor="middle" font-weight="500">Result: non-technical experts create, deploy, and continuously improve governed intelligent workflows across the organization</text>
+      </svg>
+      <div class="diagram-caption">Figure 3 — The Agent Factory: three operational flows composing a self-service production system</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ MANAGED AGENTS ═══════════════════ -->
+<section id="managed-agents">
+  <div class="container">
+    <span class="section-label">08 — Managed Agents Integration</span>
+    <h2>How EAASP Implements Managed Agents Concepts</h2>
+    <p>EAASP v2.0 absorbs six key ideas from Managed Agents, each integrated into the existing five-layer architecture without structural disruption:</p>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>Managed Agents Concept</th><th>EAASP Implementation</th><th>Layer</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Append-only session log</strong></td><td>Session Event Stream — complements (not replaces) Redis checkpoints, L3 audit, and L2 Memory. Enables crash recovery, reversible compaction, and complete event replay.</td><td><span class="tag blue">L4</span></td></tr>
+        <tr><td><strong>Brain-hands decoupling</strong></td><td>T0 Managed Harness runtime tier. Adopted as an option, not a universal mandate. T1/T2/T3 continue single-container for lower latency. The two models coexist.</td><td><span class="tag amber">L1</span></td></tr>
+        <tr><td><strong>Structural credential isolation</strong></td><td>Tiered credential isolation matched to runtime tiers: T0 proxy, T1 ephemeral pre-bundled, T2/T3 bridge-injected. Security outcome equivalent across all tiers.</td><td><span class="tag violet">L3</span></td></tr>
+        <tr><td><strong>Meta-harness philosophy</strong></td><td>Assumption lifecycle management — observability, staleness detection, shadow testing, graduated relaxation. Governance configurations evolve; governance mechanisms persist.</td><td><span class="tag teal">L3/L5</span></td></tr>
+        <tr><td><strong>Sandbox as cattle</strong></td><td>L1 containers are already ephemeral (per-session, destroyed on completion). v2.0 adds sandbox isolation tiers (standard/kernel/hardware) as a governed policy.</td><td><span class="tag amber">L1</span></td></tr>
+        <tr><td><strong>Context as external object</strong></td><td>Explicit context assembly boundary: platform sources and prioritizes (L4/L2/L3); runtime formats and manages window. Structured SessionPayload with typed priority blocks.</td><td><span class="tag blue">L4</span></td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <p><strong>What EAASP adds beyond Managed Agents:</strong> enterprise governance (unified hooks, deny-always-wins, approval chains), multi-runtime heterogeneity (T0/T1/T2/T3 execution pool), organizational access control (RBAC-scoped skills and memory), evidence chains (every conclusion traceable to source data), the collaboration lifecycle (event rooms, four-card paradigm, retrospective → memory deposit), and the Agent Factory (skill creation, extraction, and continuous quality improvement).</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ SECURITY ═══════════════════ -->
+<section id="security">
+  <div class="container">
+    <span class="section-label">09 — Security & Governance</span>
+    <h2>Enterprise Security Architecture</h2>
+    <p>EAASP's security model operates on the principle that the most dangerous threat is not external attack but an overly capable internal agent acting without sufficient constraints. Three layers of defense:</p>
+
+    <div class="card-grid cols-3">
+      <div class="card">
+        <div class="card-icon warm">🔒</div>
+        <h4>Hook-Based Policy Enforcement</h4>
+        <p>14 lifecycle hook events across three layers. Four handler types (command: ms, http: ~300ms, prompt: ~2s, agent: ~15s). OPA/Rego as a first-class policy backend for microsecond deterministic evaluation. Deny always wins across all scope levels.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon violet">🏗</div>
+        <h4>Sandbox Isolation Tiers</h4>
+        <p>Configurable per organizational unit: Standard (Docker), Kernel (gVisor — syscall interception), Hardware (Firecracker/Kata — full VM boundary). All tiers enforce ephemeral execution — containers created per-session, destroyed on completion.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon blue">🌐</div>
+        <h4>Egress Control & DLP</h4>
+        <p>Governed policy type: domain allowlists (network-level), content inspection (PreToolUse hooks examining outbound data for PII and classified markers). Blocks unauthorized destinations and unauthorized data on authorized destinations.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ OPERATIONS ═══════════════════ -->
+<section id="operations">
+  <div class="container">
+    <span class="section-label">10 — Operations</span>
+    <h2>Deployment & Operations</h2>
+    <p>EAASP deploys on Kubernetes with six infrastructure zones. The architecture supports fully private deployment — no external dependencies, all model inference via environment variable configuration.</p>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>Zone</th><th>Components</th><th>Scaling</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Edge / CDN</td><td>Static portal assets, API rate limiting, DDoS protection</td><td>CDN auto-scale</td></tr>
+        <tr><td>L5 Cowork Cluster</td><td>Event room service, card renderer, push gateway, IM bots, admin console, observability hub</td><td>2+ replicas per service</td></tr>
+        <tr><td>L4 Orchestration Cluster</td><td>API gateway, session orchestrator, event engine, A2A router, notification service, cost governance</td><td>3+ replicas, horizontal auto-scale</td></tr>
+        <tr><td>L3 Governance Cluster</td><td>Policy engine, compiler, approval gates, audit service (highest-write), hook deployment, MCP registry, OPA sidecar</td><td>2–3+ replicas, stateless</td></tr>
+        <tr><td>L2 Assets Cluster</td><td>Skill repository MCP server, promotion engine, Memory Engine, Ontology Service gateway</td><td>2+ replicas per service</td></tr>
+        <tr><td>L1 Execution Zone</td><td>Ephemeral agent pods (per-session), hook bridge sidecars, Session Event Stream writers</td><td>Auto-scale on active sessions</td></tr>
+      </tbody>
+    </table>
+
+    <h3>Data Tier</h3>
+    <p><strong>PostgreSQL</strong> for user profiles, policy configuration, skill metadata. <strong>TimescaleDB/ClickHouse</strong> for audit event store and execution logs. <strong>Redis</strong> for session state checkpoints (AOF persistence, cluster mode). <strong>Session Event Stream</strong> via Kafka/NATS JetStream or append-only S3. <strong>Object storage</strong> for skill content and output files. <strong>Secrets vault</strong> for all credentials (rotated automatically, never in config files).</p>
+
+    <h3>Network Security</h3>
+    <p>Three zones: public (CDN + API gateway), internal (L4/L3/L2 via service mesh with mTLS), runtime (L1 with restricted egress — can reach MCP servers, L2 skill repo, L3 audit, and Session Event Stream only). A compromised agent cannot access user databases, admin interfaces, or other agent sessions.</p>
+  </div>
+</section>
+
+<!-- ═══════════════════ ROADMAP ═══════════════════ -->
+<section id="roadmap">
+  <div class="container">
+    <span class="section-label">11 — Roadmap</span>
+    <h2>Development Roadmap</h2>
+    <p>The platform evolves through seven phases. Each delivers independent value with no rework of prior phases. v2.0 capabilities integrate into existing phases rather than adding new ones.</p>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <div class="timeline-phase">Phase 0</div>
+        <div class="timeline-body">
+          <h4>MVP Validation</h4>
+          <p>Full L4→L3→L2→L1 chain. Policy compiler, five API contracts, three-way handshake, skill injection, hook enforcement. Session Event Stream provisioning. Validation: a complete workflow-skill executes end-to-end under managed-hooks governance.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-phase">Phase 1</div>
+        <div class="timeline-body">
+          <h4>Event-Driven Foundation (Weeks 1–6)</h4>
+          <p>L4 event engine (ingest → dedup → cluster → event objects → state machine). L5 event room data model and event-card API. L4 hooks (EventReceived, PreSessionCreate, PostSessionEnd).</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-phase">Phase 2</div>
+        <div class="timeline-body">
+          <h4>Memory & Evidence (Weeks 5–12)</h4>
+          <p>L2 Memory Engine (evidence anchors + file memory + hybrid index). Memory write channel. Context assembly channel. Skill extraction mechanism (event-stream-to-skill). Reversible compaction via event stream.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-phase">Phase 3</div>
+        <div class="timeline-body">
+          <h4>Approval & Verification (Weeks 10–18)</h4>
+          <p>L3 approval control chain (Plan → Check → Draft → Approve → Execute). Deterministic verifier. L5 approval card. OPA/Rego policy backend. Egress control policies. Sandbox isolation tiers.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-phase">Phase 4</div>
+        <div class="timeline-body">
+          <h4>Multi-Agent Collaboration (Weeks 16–24)</h4>
+          <p>L4 A2A router (capability publish, dispatch, aggregation). Parallel execution. L5 review-conclusion display. T0 Managed Harness as A2A-capable participant.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-phase">Phase 5</div>
+        <div class="timeline-body">
+          <h4>Complete Collaboration Space (Weeks 22–30)</h4>
+          <p>L5 four-card rendering engine. IM bot plugins. Retrospective and memory-deposit closed loop. Assumption health dashboard. Hook shadow mode.</p>
+        </div>
+      </div>
+      <div class="timeline-item">
+        <div class="timeline-phase">Phase 6</div>
+        <div class="timeline-body">
+          <h4>Ecosystem Expansion (Ongoing)</h4>
+          <p>Runtime certification pipeline. L2 skill marketplace. Multi-tenancy. Platform API SDK. Assumption lifecycle management process. Hook effectiveness analytics. Graduated policy relaxation. Tiered credential isolation.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════ TEAM ═══════════════════ -->
+<section id="team">
+  <div class="container">
+    <span class="section-label">12 — Team</span>
+    <h2>Implementation Team</h2>
+    <p>The platform is built by a team of 13–19 developers across five competency groups. All v2.0 capabilities map to existing team roles — no new positions required.</p>
+
+    <table class="data-table">
+      <thead>
+        <tr><th>Team</th><th>Size</th><th>Scope</th></tr>
+      </thead>
+      <tbody>
+        <tr><td><strong>Python</strong></td><td>5–8</td><td>L4 backend, L3 governance (5 services), L2 repository + access, L2 lifecycle + quality, L1 adapters. Covers API gateway, session orchestrator, policy engine/compiler, skill repo MCP, Memory Engine, all agent adapters.</td></tr>
+        <tr><td><strong>TypeScript / React</strong></td><td>2</td><td>Employee portal (web, mobile, IM), admin console, process designer, observability hub + assumption health dashboards.</td></tr>
+        <tr><td><strong>Java</strong></td><td>1–2</td><td>L4 infrastructure (event bus, persistence plane, cost governance, Session Event Stream), L3 audit service + hook deployment.</td></tr>
+        <tr><td><strong>Rust</strong></td><td>1</td><td>L1 sidecar binary: hook bridge + runtime selector + telemetry collector + credential injection for T2/T3. Single binary, performance-critical hot path.</td></tr>
+        <tr><td><strong>DevOps</strong></td><td>1</td><td>Container images, Helm charts, CI/CD, monitoring, OPA sidecar deployment, sandbox isolation tier configuration, runtime certification pipeline.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ═══════════════════ FOOTER ═══════════════════ -->
+<footer>
+  <div class="container">
+    <p><span class="mark">EAASP v2.0</span> — Enterprise Autonomous Agent Support Platform</p>
+    <p>Confidential · April 2026</p>
+  </div>
+</footer>
+
+</body>
+</html>

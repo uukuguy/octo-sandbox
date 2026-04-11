@@ -1,15 +1,15 @@
 {
-  "plan_file": "docs/plans/2026-04-10-eaasp-m1-phase0-scaffold.md",
+  "plan_file": "docs/plans/2026-04-11-v2-mvp-phase0-plan.md",
   "phase": "design",
-  "created_at": "2026-04-10T00:30:00+08:00",
-  "updated_at": "2026-04-10T00:30:00+08:00",
+  "created_at": "2026-04-11T21:00:00+08:00",
+  "updated_at": "2026-04-11T22:35:00+08:00",
   "completed_tasks": [],
   "current_task": null,
-  "total_tasks": 7,
+  "total_tasks": 15,
   "execution_mode": null,
-  "phase_name": "EAASP M1 Phase 0 — Scaffold & Proto v1.4",
-  "status": "Design phase completed, plan written, ready for execution",
-  "notes": "Blueprint: docs/design/Grid/EAASP_v1.8_M1_IMPLEMENTATION_BLUEPRINT.md. Phase 0 is the first of 4 phases (0-3) covering M1 core capability. 45 historical deferred items dispositioned. tools/ assets disposition documented.",
+  "phase_name": "EAASP v2.0 MVP — Phase 0 Infrastructure (Ring-2)",
+  "status": "v2.0 brainstorming complete. All prior v1.7/v1.8 work archived. Ring-2 MVP scope locked: Contract-Governance Core + Assets-Memory Base, verified by a real 'threshold calibration assistant' skill demonstrating cross-session memory accumulation. Ready to begin Stage S1 (Foundation: archive old tools, create v2 proto, remove v1 proto).",
+  "notes": "Session 2026-04-11: Full v2.0 re-alignment. Decisions D1-D12 locked in EAASP_v2_0_EVOLUTION_PATH.md decision registry. Asset evaluation: 3 KEEP (grid-hook-bridge, eaasp-skill-registry, eaasp-mcp-orchestrator) + 5 REFACTOR (grid-runtime, eaasp-certifier, hermes-runtime-python, claude-code-runtime-python, sdk/python) + 3 SCRAP (v1 proto, eaasp-governance, eaasp-session-manager) + ARCHIVE (v1.7/v1.8 docs → docs/design/Grid/archive/v1.8/). New components to build: proto/eaasp/runtime/v2/, tools/eaasp-l3-governance/, tools/eaasp-l4-orchestration/, tools/eaasp-l2-memory-engine/, tools/eaasp-cli-v2/. New docs dir created: docs/design/EAASP/ with v2.0 authoritative .docx + EVOLUTION_PATH.md + MVP_SCOPE.md. Deferred ADRs: ADR-V2-001 (emitEvent) / 002 (Event Stream backend) / 003 (clustering) all pushed to Phase 1. Previous plan (2026-04-10 M1 Phase 0 scaffold) archived to docs/plans/archive/. [checkpoint-plan skill: phase=design (v2-mvp-ready), design complete, ready for execution at Stage S1.T1]",
   "last_phase": {
     "name": "Phase BI — hermes-runtime: Grid L1 T2 Aligned Runtime",
     "completed_at": "2026-04-09T22:20:00+08:00",
@@ -17,10 +17,48 @@
     "tests": 12,
     "commits": 9
   },
+  "superseded_plan": {
+    "plan_file": "docs/plans/archive/2026-04-10-eaasp-m1-phase0-scaffold.md",
+    "reason": "v1.8 Phase 0 plan superseded by v2.0 MVP scope; proto v1.4 task replaced by proto v2 redesign; v1.8 L3/L4 asset reuse dropped in favor of clean v2.0 rebuild of those layers.",
+    "archived_at": "2026-04-11T21:00:00+08:00"
+  },
   "related_documents": [
-    "docs/design/Grid/EAASP_v1.8_M1_IMPLEMENTATION_BLUEPRINT.md",
-    "docs/design/Grid/EAASP_Design_Specification_v1_8.docx",
-    "docs/design/Grid/EAASP_v1_8_Milestone_1_Operator_Edition.docx",
-    "docs/design/Grid/EAASP_ROADMAP.md"
-  ]
+    "docs/design/EAASP/EAASP-Design-Specification-v2.0.docx",
+    "docs/design/EAASP/EAASP_v2_0_Platform_Product_Forms.docx",
+    "docs/design/EAASP/EAASP_v2_0_EVOLUTION_PATH.md",
+    "docs/design/EAASP/EAASP_v2_0_MVP_SCOPE.md",
+    "docs/design/EAASP/GRID_CURRENT_STATE_2026-04-10.md",
+    "docs/plans/2026-04-11-v2-mvp-phase0-plan.md"
+  ],
+  "stage_breakdown": {
+    "S1_Foundation": {
+      "tasks": 3,
+      "description": "Archive old tools, create v2 proto, remove v1 proto",
+      "status": "pending"
+    },
+    "S2_L1_Runtime_Refactor": {
+      "tasks": 4,
+      "description": "Refactor grid-runtime / eaasp-certifier / hermes / claude-code-runtime to v2 contract",
+      "status": "pending"
+    },
+    "S3_L2_L3_L4_Build": {
+      "tasks": 5,
+      "description": "Extend skill-registry + build new l3-governance / l4-orchestration / l2-memory-engine / cli-v2",
+      "status": "pending"
+    },
+    "S4_E2E_Integration": {
+      "tasks": 3,
+      "description": "Threshold calibration skill + 15-assertion E2E verification + doc/checkpoint update",
+      "status": "pending"
+    }
+  },
+  "exit_gate": "make v2-mvp-e2e returns 0; both L1 runtimes pass certifier; 15 assertions in MVP_SCOPE.md §8 all satisfied",
+  "next_phase": {
+    "name": "Phase 1 — Event-driven foundation",
+    "prerequisites": [
+      "ADR-V2-001 (emitEvent method) resolved",
+      "ADR-V2-002 (Session Event Stream backend) resolved",
+      "ADR-V2-003 (Event clustering strategies) resolved"
+    ]
+  }
 }
