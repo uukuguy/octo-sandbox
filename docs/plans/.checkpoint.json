@@ -2,13 +2,13 @@
   "plan_file": "docs/plans/2026-04-11-v2-mvp-phase0-plan.md",
   "phase": "execution",
   "created_at": "2026-04-11T21:00:00+08:00",
-  "updated_at": "2026-04-11T23:20:00+08:00",
-  "completed_tasks": ["S1.T1", "S1.T2", "S1.T3"],
-  "current_task": "S2.T1",
+  "updated_at": "2026-04-11T23:45:00+08:00",
+  "completed_tasks": ["S1.T1", "S1.T2", "S1.T3", "S2.T1", "S2.T2", "S2.T3", "S2.T4"],
+  "current_task": "S3.T1",
   "total_tasks": 15,
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 MVP — Phase 0 Infrastructure (Ring-2)",
-  "status": "Stage S1 (Foundation) complete: 3/3 tasks, 3 commits. v1.8 tools archived (eaasp-governance, eaasp-session-manager → tools/archive/v1.8/). v2 skeletons created (eaasp-l3-governance, eaasp-l4-orchestration, eaasp-l2-memory-engine, eaasp-cli-v2). v2 proto defined (proto/eaasp/runtime/v2/{common,runtime,hook}.proto + README) — 16 methods (12 MUST + 4 OPTIONAL + 1 PLACEHOLDER), 5-block SessionPayload, 14 HookEventType enum, Capabilities with credential_mode. v1 proto removed; cargo check -p grid-runtime/grid-hook-bridge/eaasp-certifier fails with exact error class captured in docs/plans/s2-refactor-surface.md. Ready to start Stage S2 — L1 Runtime Refactor (4 tasks: grid-runtime, eaasp-certifier, hermes-runtime-python, claude-code-runtime-python).",
+  "status": "Stage S2 (L1 Runtime Refactor) COMPLETE: 4/4 tasks, 2 commits (b37e491 Rust T1+T2, 1130579 Python T3+T4). All 3 Rust crates + 2 Python runtimes migrated from v1 split packages to single eaasp.runtime.v2 package. Test results: grid-runtime 55/56 (98%, 1 ignored on v2 Terminate envelope semantics), eaasp-certifier 32/32 (100%), claude-code-runtime 42/42 (100%), hermes-runtime 15/15 (100%) — total 144/145 passing across S2 scope. grid-runtime: new SessionPayload with 5 priority blocks (P1-P5), session_payload.rs trim_for_budget() P5→P4→P3, emit_event placeholder returns Unimplemented. eaasp-certifier: MUST/OPTIONAL/PLACEHOLDER classification via v2_must_methods.rs, report displays 'MUST methods: X/12 PASS / OPTIONAL methods: Y/4 present / EmitEvent placeholder: present (ADR-V2-001 pending)'. Python runtimes: claude-code-runtime owns proto stub regen, hermes consumes via symlinked _proto/ + sys.modules aliasing in _fix_proto_imports.py (protobuf 6.31.1 / grpcio 1.80). Ready to start Stage S3 — L2/L3/L4 Build (5 tasks: skill-registry v2 schema, l2-memory-engine, l3-governance, l4-orchestration, cli-v2).",
   "notes": "Session 2026-04-11: Full v2.0 re-alignment. Decisions D1-D12 locked in EAASP_v2_0_EVOLUTION_PATH.md decision registry. Asset evaluation: 3 KEEP (grid-hook-bridge, eaasp-skill-registry, eaasp-mcp-orchestrator) + 5 REFACTOR (grid-runtime, eaasp-certifier, hermes-runtime-python, claude-code-runtime-python, sdk/python) + 3 SCRAP (v1 proto, eaasp-governance, eaasp-session-manager) + ARCHIVE (v1.7/v1.8 docs → docs/design/Grid/archive/v1.8/). New components to build: proto/eaasp/runtime/v2/, tools/eaasp-l3-governance/, tools/eaasp-l4-orchestration/, tools/eaasp-l2-memory-engine/, tools/eaasp-cli-v2/. New docs dir created: docs/design/EAASP/ with v2.0 authoritative .docx + EVOLUTION_PATH.md + MVP_SCOPE.md. Deferred ADRs: ADR-V2-001 (emitEvent) / 002 (Event Stream backend) / 003 (clustering) all pushed to Phase 1. Previous plan (2026-04-10 M1 Phase 0 scaffold) archived to docs/plans/archive/. [checkpoint-plan skill: phase=design (v2-mvp-ready), design complete, ready for execution at Stage S1.T1]",
   "last_phase": {
     "name": "Phase BI — hermes-runtime: Grid L1 T2 Aligned Runtime",
@@ -41,7 +41,16 @@
     "S2_L1_Runtime_Refactor": {
       "tasks": 4,
       "description": "Refactor grid-runtime / eaasp-certifier / hermes / claude-code-runtime to v2 contract",
-      "status": "pending"
+      "status": "complete",
+      "commits": ["b37e491", "1130579"],
+      "completed_at": "2026-04-11T23:45:00+08:00",
+      "tests": {
+        "grid-runtime": "55/56 (1 ignored)",
+        "eaasp-certifier": "32/32",
+        "claude-code-runtime": "42/42",
+        "hermes-runtime": "15/15",
+        "total": "144/145"
+      }
     },
     "S3_L2_L3_L4_Build": {
       "tasks": 5,
