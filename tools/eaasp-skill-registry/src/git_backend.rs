@@ -14,8 +14,7 @@ impl GitBackend {
         let repo = match Repository::open(path) {
             Ok(repo) => repo,
             Err(_) => {
-                let repo = Repository::init(path)
-                    .context("init git repository")?;
+                let repo = Repository::init(path).context("init git repository")?;
 
                 // Create an initial empty commit so HEAD exists
                 let sig = Signature::now("skill-registry", "registry@eaasp.local")
@@ -23,15 +22,8 @@ impl GitBackend {
                 let tree_id = repo.index()?.write_tree()?;
                 {
                     let tree = repo.find_tree(tree_id)?;
-                    repo.commit(
-                        Some("HEAD"),
-                        &sig,
-                        &sig,
-                        "Initial commit",
-                        &tree,
-                        &[],
-                    )
-                    .context("create initial commit")?;
+                    repo.commit(Some("HEAD"), &sig, &sig, "Initial commit", &tree, &[])
+                        .context("create initial commit")?;
                 }
 
                 repo

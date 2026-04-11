@@ -27,10 +27,19 @@ pub fn router(store: Arc<SkillStore>) -> Router {
         .route("/tools", get(list_tools))
         .route("/tools/skill_search/invoke", post(invoke_skill_search))
         .route("/tools/skill_read/invoke", post(invoke_skill_read))
-        .route("/tools/skill_list_versions/invoke", post(invoke_list_versions))
-        .route("/tools/skill_submit_draft/invoke", post(invoke_submit_draft))
+        .route(
+            "/tools/skill_list_versions/invoke",
+            post(invoke_list_versions),
+        )
+        .route(
+            "/tools/skill_submit_draft/invoke",
+            post(invoke_submit_draft),
+        )
         .route("/tools/skill_promote/invoke", post(invoke_promote))
-        .route("/tools/skill_dependencies/invoke", post(invoke_dependencies))
+        .route(
+            "/tools/skill_dependencies/invoke",
+            post(invoke_dependencies),
+        )
         .route("/tools/skill_usage/invoke", post(invoke_usage))
         .with_state(store)
 }
@@ -44,7 +53,11 @@ async fn submit_draft(
     Json(req): Json<SubmitDraftRequest>,
 ) -> impl IntoResponse {
     match store.submit_draft(req).await {
-        Ok(meta) => (StatusCode::CREATED, Json(serde_json::to_value(meta).unwrap())).into_response(),
+        Ok(meta) => (
+            StatusCode::CREATED,
+            Json(serde_json::to_value(meta).unwrap()),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
@@ -120,7 +133,11 @@ async fn promote_skill(
     Json(req): Json<PromoteRequest>,
 ) -> impl IntoResponse {
     match store.promote(id, version, req.target_status).await {
-        Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "promoted": true }))).into_response(),
+        Ok(()) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "promoted": true })),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
@@ -274,7 +291,11 @@ async fn invoke_submit_draft(
     Json(req): Json<SubmitDraftRequest>,
 ) -> impl IntoResponse {
     match store.submit_draft(req).await {
-        Ok(meta) => (StatusCode::CREATED, Json(serde_json::to_value(meta).unwrap())).into_response(),
+        Ok(meta) => (
+            StatusCode::CREATED,
+            Json(serde_json::to_value(meta).unwrap()),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),
@@ -288,7 +309,11 @@ async fn invoke_promote(
     Json(req): Json<InvokePromote>,
 ) -> impl IntoResponse {
     match store.promote(req.id, req.version, req.target_status).await {
-        Ok(()) => (StatusCode::OK, Json(serde_json::json!({ "promoted": true }))).into_response(),
+        Ok(()) => (
+            StatusCode::OK,
+            Json(serde_json::json!({ "promoted": true })),
+        )
+            .into_response(),
         Err(e) => (
             StatusCode::INTERNAL_SERVER_ERROR,
             Json(serde_json::json!({ "error": e.to_string() })),

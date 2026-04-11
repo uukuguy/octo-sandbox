@@ -19,7 +19,12 @@ async fn store_submit_and_read() {
     let tmp = tempfile::tempdir().unwrap();
     let store = SkillStore::open(tmp.path()).await.unwrap();
 
-    let req = make_draft("hello-skill", "Hello Skill", "0.1.0", vec!["greeting", "demo"]);
+    let req = make_draft(
+        "hello-skill",
+        "Hello Skill",
+        "0.1.0",
+        vec!["greeting", "demo"],
+    );
     let meta = store.submit_draft(req).await.unwrap();
 
     assert_eq!(meta.id, "hello-skill");
@@ -82,7 +87,11 @@ async fn store_promote_lifecycle() {
 
     // Draft -> Tested
     store
-        .promote("lifecycle".to_string(), "1.0.0".to_string(), SkillStatus::Tested)
+        .promote(
+            "lifecycle".to_string(),
+            "1.0.0".to_string(),
+            SkillStatus::Tested,
+        )
         .await
         .unwrap();
     let content = store
@@ -94,7 +103,11 @@ async fn store_promote_lifecycle() {
 
     // Tested -> Reviewed
     store
-        .promote("lifecycle".to_string(), "1.0.0".to_string(), SkillStatus::Reviewed)
+        .promote(
+            "lifecycle".to_string(),
+            "1.0.0".to_string(),
+            SkillStatus::Reviewed,
+        )
         .await
         .unwrap();
     let content = store
@@ -106,7 +119,11 @@ async fn store_promote_lifecycle() {
 
     // Reviewed -> Production
     store
-        .promote("lifecycle".to_string(), "1.0.0".to_string(), SkillStatus::Production)
+        .promote(
+            "lifecycle".to_string(),
+            "1.0.0".to_string(),
+            SkillStatus::Production,
+        )
         .await
         .unwrap();
     let content = store

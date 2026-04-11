@@ -7,7 +7,10 @@ use tracing_subscriber::EnvFilter;
 use eaasp_skill_registry::{routes, store::SkillStore};
 
 #[derive(Parser, Debug)]
-#[command(name = "eaasp-skill-registry", about = "EAASP L2 Skill Registry server")]
+#[command(
+    name = "eaasp-skill-registry",
+    about = "EAASP L2 Skill Registry server"
+)]
 struct Cli {
     /// Directory for persistent data (SQLite + skill files)
     #[arg(long, default_value = "./data/skill-registry")]
@@ -26,8 +29,7 @@ struct Cli {
 async fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(
-            EnvFilter::try_from_default_env()
-                .unwrap_or_else(|_| EnvFilter::new("info")),
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
         )
         .init();
 

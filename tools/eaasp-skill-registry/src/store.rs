@@ -15,8 +15,7 @@ impl SkillStore {
     /// Open (or create) the skill store at `base_dir`.
     /// Creates `registry.db` and `skills/` directory.
     pub async fn open(base_dir: &Path) -> Result<Self> {
-        std::fs::create_dir_all(base_dir.join("skills"))
-            .context("create skills directory")?;
+        std::fs::create_dir_all(base_dir.join("skills")).context("create skills directory")?;
 
         let db_path = base_dir.join("registry.db");
         let db = Connection::open(db_path)
@@ -53,14 +52,16 @@ impl SkillStore {
     /// Submit a new skill draft. Writes SKILL.md to the filesystem and
     /// inserts/replaces metadata into SQLite.
     pub async fn submit_draft(&self, req: SubmitDraftRequest) -> Result<SkillMeta> {
-        let skill_dir = self.base_dir.join("skills").join(&req.id).join(&req.version);
-        std::fs::create_dir_all(&skill_dir)
-            .context("create skill version directory")?;
+        let skill_dir = self
+            .base_dir
+            .join("skills")
+            .join(&req.id)
+            .join(&req.version);
+        std::fs::create_dir_all(&skill_dir).context("create skill version directory")?;
 
         // Build SKILL.md content with frontmatter
         let skill_md = format!("---\n{}---\n\n{}", req.frontmatter_yaml, req.prose);
-        std::fs::write(skill_dir.join("SKILL.md"), &skill_md)
-            .context("write SKILL.md")?;
+        std::fs::write(skill_dir.join("SKILL.md"), &skill_md).context("write SKILL.md")?;
 
         let now = chrono::Utc::now().to_rfc3339();
         let tags_json = serde_json::to_string(&req.tags.unwrap_or_default())?;
@@ -106,7 +107,11 @@ impl SkillStore {
     }
 
     /// Read a skill by ID and optional version. If version is None, returns the latest.
-    pub async fn read_skill(&self, id: String, version: Option<String>) -> Result<Option<SkillContent>> {
+    pub async fn read_skill(
+        &self,
+        id: String,
+        version: Option<String>,
+    ) -> Result<Option<SkillContent>> {
         let id_clone = id.clone();
         let version_clone = version.clone();
         let meta = self
@@ -160,8 +165,7 @@ impl SkillStore {
             return Ok(None);
         }
 
-        let content = std::fs::read_to_string(&skill_path)
-            .context("read SKILL.md")?;
+        let content = std::fs::read_to_string(&skill_path).context("read SKILL.md")?;
 
         let (frontmatter_yaml, prose) = parse_skill_md(&content);
         let parsed_v2 = crate::skill_parser::parse_v2_frontmatter(&frontmatter_yaml).ok();
