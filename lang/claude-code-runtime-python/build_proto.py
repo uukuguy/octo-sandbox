@@ -13,9 +13,11 @@ def build():
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     (OUT_DIR / "__init__.py").touch()
 
+    # EAASP v2.0 proto stubs.
     proto_files = [
-        "eaasp/common/v1/common.proto",
-        "eaasp/runtime/v1/runtime.proto",
+        "eaasp/runtime/v2/common.proto",
+        "eaasp/runtime/v2/runtime.proto",
+        "eaasp/runtime/v2/hook.proto",
     ]
 
     for proto in proto_files:
