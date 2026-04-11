@@ -1,12 +1,25 @@
 [project]
 name = "eaasp-l3-governance"
 version = "0.1.0"
-description = "EAASP v2.0 L3 Governance Plane"
+description = "EAASP v2.0 L3 Governance Plane — Policy deployment + Telemetry ingest + Session validate"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "aiosqlite>=0.20",
+    "pydantic>=2.8",
+    "httpx>=0.27",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+eaasp-l3-governance = "eaasp_l3_governance.main:run"
 
 [build-system]
 requires = ["hatchling"]
@@ -14,3 +27,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/eaasp_l3_governance"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
