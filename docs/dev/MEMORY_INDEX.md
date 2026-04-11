@@ -6,6 +6,7 @@
 ---
 
 ## [Active Work]
+- 00:50 | EAASP v2.0 Phase 0 S3.T2 checkpoint — eaasp-l2-memory-engine COMPLETE @ afeb256. Plan 9/15, Stage S3 2/5. 3-layer SQLite (anchors triggers + versioned files + FTS5 time-decay) + 6 MCP tools + REST facade port 8085. Tests 47/47. Reviewer APPROVE-WITH-COMMENTS — C1/C2/C3/M2/M3/M4/N4/N6 applied inline. Deferred D12-D15 added. D2 technically unblocked. Next: S3.T3 eaasp-l3-governance.
 - 23:20 | EAASP v2.0 Phase 0 Stage S1 COMPLETE (3/3) — v1.8 archived, v2 proto defined (16 methods, 5-block SessionPayload), v1 removed. S2 surface in docs/plans/s2-refactor-surface.md. Commits: 483882d, a459f84, 4b4f6a1, 04c89d7, 13afdc2.
 - 22:35 | EAASP v2.0 MVP Phase 0 design checkpoint saved (Ring-2 scope locked, 15 tasks queued)
 
