@@ -785,4 +785,25 @@ S3.T3 `eaasp-l3-governance` (0907d13) APPROVE-WITH-COMMENTS, no Criticals. Revie
 | D25 | `eaasp-l3-governance` 无并发部署 E2E 测试覆盖 `BEGIN IMMEDIATE` 正确性。单元层 R2 测试已验证 `asyncio.gather` 10-way，但没通过完整 HTTP 栈（TestClient vs real uvicorn） | L4 orchestrator 实际开始并发 policy deploy 时或做 load test 时补充 | ⏳ |
 | D26 | `eaasp-l3-governance::tests/test_api.py::test_query_newest_first` 使用 `time.sleep(1.1)` 防 `received_at` TEXT-second 粒度撞秒。可接受但脆弱 | 升级到单调递增 tiebreaker 列（`seq` 或 `event_id` DESC 作为次级排序，部分 API 已有） | ⏳ |
 
-**检查纪律：** S3 每个 Task 开始前先 `grep "⏳" docs/plans/2026-04-11-v2-mvp-phase0-plan.md`，确认是否有条件已达成的项可以顺手补齐。S3.T2 完成后检查 D2，**S3.T3 完成后检查 D1**（已检查：D1 前置条件 ✅ 满足，待接入 harness.rs；D2 precondition 同样已满足；均留至专门的 harness 接入 task 统一处理，不在 S3.T4 范围内），S4 开始前检查 D6。
+### 来源：2026-04-12 S3.T4 coder-defer + reviewer findings
+
+S3.T4 `eaasp-l4-orchestration` APPROVE-WITH-COMMENTS, no Criticals. Reviewer M1-M3 applied as new Deferred items (D27/D28/D29 map to M1/M2/M3; M4 fixed inline — busy_timeout pragma added to `db.py::connect`; N1 fixed inline — `to_seq < from_seq` now raises ValueError; N3 fixed inline — SESSION_CREATED seq order asserted). Coder-deferred scope items D27-D33 (L1 gRPC stub, NLU resolution, WebSocket, pagination, anchors, policy_version hash) merged with reviewer items. Phase 3 scope (real L1 gRPC, approval gates) remains MVP-excluded in MVP_SCOPE §3.3.
+
+| ID | 内容 | 前置条件 | 状态 |
+|----|------|---------|------|
+| D27 | `eaasp-l4-orchestration::session_orchestrator.create_session` 对 L1 runtime 的 `Initialize` / `Send` 是占位：插入 `RUNTIME_INITIALIZE_STUBBED` / `RUNTIME_SEND_STUBBED` 事件代替真 gRPC 调用（reviewer M1 + coder-defer） | Phase 1 真 L1 gRPC 客户端接入 + 两个 runtime (grid-runtime / hermes / claude-code-runtime) 的 Initialize fixture 就绪 | ⏳ |
+| D28 | `eaasp-l4-orchestration::api` 无全局 FastAPI exception handler（D22 在 L4 复现）。`sqlite3.OperationalError` / `ValueError` / `aiosqlite.IntegrityError` 在 `send_message` 等路径逃逸为 500 而非 503/422/404（reviewer M2） | 与 D22 合并处理：建一个 `eaasp_common` Python 包或在 L4 inline 注册 `@app.exception_handler(OperationalError)` → 503、`ValueError` → 422、`IntegrityError` → 404 | ⏳ |
+| D29 | `eaasp-l4-orchestration::api` 对所有 `/v1/sessions/{session_id}/*` path param 未做格式校验（D18 在 L4 复现）（reviewer M3） | 补充 `Path(..., pattern=r"^sess_[A-Za-z0-9_-]{8,64}$")` 守卫；与 D18 合并为跨服务一致的 session_id 规范 | ⏳ |
+| D30 | `db.py::connect` 已加 `PRAGMA busy_timeout=5000`（inline fix M4），但 L2/L3 sibling 尚未对齐。S3.T2/S3.T3 并发写压力下仍可能早期 `SQLITE_BUSY` | 后续一次性把 `busy_timeout` + 其他连接级 pragmas 迁到共享 `eaasp_common` 的 `connect()` helper；同步 L2 / L3 | ⏳ |
+| D31 | `eaasp-l4-orchestration` 无 loguru/logging 初始化（D23 在 L4 复现）。上游 L2/L3 失败仅 return HTTPException，无 trace | 与 D23 合并；`eaasp_common` 提供 loguru bootstrap | ⏳ |
+| D32 | `eaasp-l4-orchestration::tests/test_session_orchestrator.py` 无并发 `asyncio.gather` 压力测试（D25 在 L4 复现）。M4 `busy_timeout` 加上后值得一个 10x `create_session` 并发回归守卫 | L4 并发压力测试与 D25 一同补；使用 real uvicorn 跑端到端 | ⏳ |
+| D33 | `eaasp-l4-orchestration::session_orchestrator.create_session` 把 SESSION_CREATED 事件的 `payload_json` 存成 `{"payload": <full_payload>}`，与 `sessions.payload_json` 同 blob 重复存储 | 改为事件 payload 只存 `{"session_id": id}`，由消费者 JOIN 回 sessions 拿 payload | ⏳ |
+| D34 | `eaasp-l4-orchestration` 无 `Intent → skill_id` NLU 解析。`/v1/intents/dispatch` 要求调用者在 body 显式传 `skill_id`，L4 只做透传 | Phase 1 真 NLU 管线或 L5 portal 前端选单决定 | ⏳ |
+| D35 | `eaasp-l4-orchestration` 无 WebSocket / SSE event streaming。消费者只能轮询 `GET /v1/sessions/{id}/events?from=&to=&limit=` | 真正需要 push（事件室 UI 或 L1 runtime 回执流）时加 WS endpoint | ⏳ |
+| D36 | `eaasp-l4-orchestration::event_stream.list_events` 只支持 `(from_seq, to_seq, limit)` 窗口，没有不透明 cursor pagination。大量 events 时客户端需自己跟踪游标 | 事件量 > 10k/session 出现分页需求时补 cursor token 或 keyset pagination | ⏳ |
+| D37 | `eaasp-l4-orchestration::context_assembly.build_session_payload` 硬编码 `allow_trim_p4=False`, `allow_trim_p3=False`（仅 P5 可裁）。未从 `user_preferences` 或 runtime 的 capability hint 驱动 | runtime context budget 策略在 L1 harness 侧明确后，回到 L4 让这些标志从 `user_preferences` 或 runtime negotiation 派生 | ⏳ |
+| D38 | `eaasp-l4-orchestration::handshake.L2Client.search_memory` 未把 `user_id` 传给 L2 `/api/v1/memory/search`，跨租户 anchor 泄漏风险 | Phase 3 真 RBAC + 多租户模型就绪后补；短期可以在 L2 也加 `user_id` 过滤参数（D8 关联） | ⏳ |
+| D39 | `eaasp-l4-orchestration::handshake` 对 L3 validate 返回的 `managed_settings_version` 用 `str(int)` 塞进 `PolicyContext.policy_version`（proto 签名要 string，L3 返回 int）。真实 evidence chain 要的是内容哈希而非版本号 | Phase 1 evidence chain 管线就绪时把 `policy_version` 改为 `managed_settings_version` 的 SHA-256 并在 L3 侧同步存储 | ⏳ |
+| D40 | `eaasp-l4-orchestration::sessions.status` 只有 `created` 状态写入；`active|closed|failed` 三态机和 `closed_at` 尚未实现。没有 `/v1/sessions/{id}/close` endpoint | 与 D27 合并：真 L1 Initialize / Terminate 接入时同步写入状态转移 | ⏳ |
+
+**检查纪律：** S3 每个 Task 开始前先 `grep "⏳" docs/plans/2026-04-11-v2-mvp-phase0-plan.md`，确认是否有条件已达成的项可以顺手补齐。S3.T2 完成后检查 D2，S3.T3 完成后检查 D1，**S3.T4 完成后**：D1/D2/D6 前置条件均已满足但仍留至专门的 harness 接入 task（不在 S3.T5 CLI 范围内）；S3.T5 之后检查 D8/D10/D20 —— skill-registry 和 memory-engine 的 MCP facade 是否能统一迁移；S4 开始前检查 D6/D24（Pyright workspace config）。

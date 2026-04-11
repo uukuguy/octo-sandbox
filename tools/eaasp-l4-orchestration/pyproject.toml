@@ -1,12 +1,26 @@
 [project]
 name = "eaasp-l4-orchestration"
 version = "0.1.0"
-description = "EAASP v2.0 L4 Orchestration Plane"
+description = "EAASP v2.0 L4 Orchestration Plane — Intent dispatch + Session three-way handshake + Event stream"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "aiosqlite>=0.20",
+    "httpx>=0.27",
+    "pydantic>=2.8",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0", "ruff>=0.6"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+    "respx>=0.21",
+    "ruff>=0.6",
+]
+
+[project.scripts]
+eaasp-l4-orchestration = "eaasp_l4_orchestration.main:run"
 
 [build-system]
 requires = ["hatchling"]
@@ -14,3 +28,7 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/eaasp_l4_orchestration"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
