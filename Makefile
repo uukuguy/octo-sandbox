@@ -18,6 +18,7 @@
         build-eaasp-all \
         sdk-setup sdk-test sdk-validate sdk-build \
         l3-setup l3-start l3-test l4-setup l4-start l4-test \
+        mock-scada-setup mock-scada-test mock-scada-start \
         e2e-setup e2e-run e2e-test e2e-teardown e2e-full \
         hermes-runtime-setup hermes-runtime-test hermes-runtime-start hermes-runtime-build hermes-runtime-run \
         runtime-verify claude-runtime-verify hermes-runtime-verify
@@ -867,6 +868,19 @@ l2-memory-setup:
 
 l2-memory-test:
 	cd tools/eaasp-l2-memory-engine && .venv/bin/python -m pytest tests/ -xvs
+
+# ============================================================
+# Mock SCADA MCP stdio server (Python — Phase 0 S4.T1 / D47)
+# ============================================================
+
+mock-scada-setup:
+	cd tools/mock-scada && uv venv .venv && uv pip install -e ".[dev]"
+
+mock-scada-test:
+	cd tools/mock-scada && .venv/bin/python -m pytest tests/ -xvs
+
+mock-scada-start:
+	cd tools/mock-scada && .venv/bin/python -m mock_scada.server
 
 # ============================================================
 # EAASP v2.0 CLI (Python — v2 skeleton, S3.T4)

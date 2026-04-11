@@ -47,7 +47,9 @@ L2 memory, and emit a revised or confirmed threshold proposal with full evidence
    b. Either **confirm** the prior suggestion (baseline still valid) or
       **propose a revision** based on new evidence.
 4. Call `memory_write_anchor` with `type="scada_snapshot"`, `event_id=<generated>`,
-   `session_id=<current>`, `data_ref=<snapshot hash or id>` to pin the evidence.
+   `session_id=<current>`, `data_ref=<snapshot id>`, `snapshot_hash=<sha256 of
+   snapshot JSON>` to pin the evidence. (`data_ref` is a free-form pointer;
+   `snapshot_hash` is the integrity digest — both optional, both recommended.)
 5. Call `memory_write_file` with `scope="org:eaasp-mvp"`,
    `category="threshold_calibration"`, `content=<proposal JSON>`,
    `evidence_refs=[<anchor_id from step 4>]`, `status="agent_suggested"`.
@@ -66,6 +68,10 @@ Required MCP tools (resolved at session initialize via `connectMCP`):
 | `memory_read` | `eaasp-l2-memory` | Load full memory file |
 | `memory_write_anchor` | `eaasp-l2-memory` | Write evidence anchor |
 | `memory_write_file` | `eaasp-l2-memory` | Write threshold proposal memory |
+
+The `mock-scada` server is implemented at `tools/mock-scada/` (Python package,
+`mock_scada.server:run` — stdio transport). The MCP orchestrator launches it as
+a subprocess; see `EAASP_MCP_SERVER_MOCK_SCADA_CMD` env override in S4.T2.
 
 ## Output Contract
 
