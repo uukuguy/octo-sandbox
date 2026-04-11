@@ -1,4 +1,9 @@
-"""Session manager for hermes-runtime — tracks active AIAgent instances."""
+"""Session manager for hermes-runtime — tracks active AIAgent instances.
+
+EAASP v2: SessionPayload has 5 priority blocks (P1 PolicyContext / P2 EventContext /
+P3 MemoryRef[] / P4 SkillInstructions / P5 UserPreferences). We store the raw
+dicts for each block + derived top-level fields for convenient access.
+"""
 
 import time
 import uuid
@@ -8,18 +13,36 @@ from dataclasses import dataclass, field
 @dataclass
 class HermesSession:
     session_id: str
-    user_id: str
-    user_role: str
-    org_unit: str
-    managed_hooks_json: str = ""
-    context: dict = field(default_factory=dict)
-    hook_bridge_url: str = ""
-    telemetry_endpoint: str = ""
-    skills: list = field(default_factory=list)
+    # Derived top-level identifiers (pulled from P5 or payload metadata)
+    user_id: str = ""
+    runtime_id: str = ""
+    # 5 priority blocks as plain dicts (None if absent)
+    policy_context: dict | None = None       # P1
+    event_context: dict | None = None        # P2
+    memory_refs: list = field(default_factory=list)   # P3
+    skill_instructions: dict | None = None   # P4
+    user_preferences: dict | None = None     # P5
+    # Runtime state
+    skills: list = field(default_factory=list)  # dynamically loaded skills (LoadSkill RPC)
     mcp_servers: list = field(default_factory=list)
     conversation_history: list = field(default_factory=list)
     created_at: str = field(default_factory=lambda: time.strftime("%Y-%m-%dT%H:%M:%SZ"))
     paused: bool = False
+
+    # Trim helpers used by context budget tests.
+    def trim_p5(self):
+        """P5 UserPreferences — first to be trimmed when budget exceeded."""
+        self.user_preferences = None
+
+    def trim_p4(self):
+        """P4 SkillInstructions — trimmed after P5."""
+        self.skill_instructions = None
+
+    def trim_p3(self):
+        """P3 MemoryRefs — trimmed after P4."""
+        self.memory_refs = []
+
+    # NOTE: P1 PolicyContext and P2 EventContext MUST NEVER be removed.
 
 
 class SessionManager:
@@ -30,9 +53,28 @@ class SessionManager:
     def count(self) -> int:
         return len(self._sessions)
 
-    def create(self, **kwargs) -> HermesSession:
+    def create(
+        self,
+        *,
+        user_id: str = "",
+        runtime_id: str = "hermes-runtime",
+        policy_context: dict | None = None,
+        event_context: dict | None = None,
+        memory_refs: list | None = None,
+        skill_instructions: dict | None = None,
+        user_preferences: dict | None = None,
+    ) -> HermesSession:
         sid = f"hermes-{uuid.uuid4().hex[:12]}"
-        session = HermesSession(session_id=sid, **kwargs)
+        session = HermesSession(
+            session_id=sid,
+            user_id=user_id,
+            runtime_id=runtime_id,
+            policy_context=policy_context,
+            event_context=event_context,
+            memory_refs=memory_refs or [],
+            skill_instructions=skill_instructions,
+            user_preferences=user_preferences,
+        )
         self._sessions[sid] = session
         return session
 

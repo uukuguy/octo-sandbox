@@ -9,7 +9,7 @@ from hermes_runtime._fix_proto_imports import fix as _fix_proto_imports
 
 _fix_proto_imports()
 
-from eaasp.runtime.v1 import runtime_pb2_grpc  # noqa: E402
+from eaasp.runtime.v2 import runtime_pb2_grpc  # noqa: E402
 
 from hermes_runtime.config import HermesRuntimeConfig
 from hermes_runtime.service import RuntimeServiceImpl

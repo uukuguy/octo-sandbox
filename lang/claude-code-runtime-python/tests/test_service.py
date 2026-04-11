@@ -1,12 +1,16 @@
-"""Tests for gRPC RuntimeService — unit tests without real SDK calls."""
+"""Tests for gRPC RuntimeService — EAASP v2.0 unit tests without real SDK.
 
-import json
+These cover the 12 MUST methods + 4 OPTIONAL methods + the EmitEvent
+placeholder. SessionPayload uses the 5-block priority structure.
+"""
 
 import grpc
 import pytest
 
-from claude_code_runtime._proto.eaasp.common.v1 import common_pb2
-from claude_code_runtime._proto.eaasp.runtime.v1 import runtime_pb2
+from claude_code_runtime._proto.eaasp.runtime.v2 import (
+    common_pb2,
+    runtime_pb2,
+)
 from claude_code_runtime.config import RuntimeConfig
 from claude_code_runtime.service import RuntimeServiceImpl
 
@@ -45,16 +49,33 @@ def ctx():
     return FakeContext()
 
 
-async def _init_session(service, ctx, user_id="u1", hooks_json=""):
-    """Helper to initialize a session and return session_id."""
-    req = runtime_pb2.InitializeRequest(
-        payload=runtime_pb2.SessionPayload(
-            user_id=user_id,
-            managed_hooks_json=hooks_json,
-        )
+def _payload(user_id: str = "u1", hooks=None) -> common_pb2.SessionPayload:
+    """Build a minimal v2 SessionPayload with P1 + P5 blocks populated."""
+    policy = common_pb2.PolicyContext(
+        org_unit="test-org",
+        policy_version="v-test",
     )
+    if hooks:
+        for h in hooks:
+            policy.hooks.append(common_pb2.ManagedHook(**h))
+    prefs = common_pb2.UserPreferences(user_id=user_id, language="en")
+    return common_pb2.SessionPayload(
+        policy_context=policy,
+        user_preferences=prefs,
+        user_id=user_id,
+    )
+
+
+async def _init_session(
+    service, ctx, user_id: str = "u1", hooks=None
+) -> str:
+    req = runtime_pb2.InitializeRequest(payload=_payload(user_id, hooks))
     resp = await service.Initialize(req, ctx)
+    assert resp.runtime_id == "test-runtime"
     return resp.session_id
+
+
+# ── Health / Capabilities ────────────────────────────────────────
 
 
 @pytest.mark.asyncio
@@ -70,12 +91,16 @@ async def test_health(service, ctx):
 async def test_get_capabilities(service, ctx):
     resp = await service.GetCapabilities(common_pb2.Empty(), ctx)
     assert resp.runtime_id == "test-runtime"
-    assert resp.runtime_name == "Test Runtime"
     assert resp.tier == "harness"
     assert resp.model == "test-model"
-    assert resp.native_hooks is True
-    assert resp.requires_hook_bridge is False
-    assert len(resp.supported_tools) > 0
+    assert resp.supports_native_hooks is True
+    assert resp.supports_native_mcp is True
+    assert resp.supports_native_skills is True
+    assert resp.deployment_mode == "per_session"
+    assert len(resp.tools) > 0
+
+
+# ── Initialize & SessionPayload priority blocks ──────────────────
 
 
 @pytest.mark.asyncio
@@ -83,30 +108,66 @@ async def test_initialize(service, ctx):
     sid = await _init_session(service, ctx)
     assert sid.startswith("crt-")
     assert service.session_mgr.get(sid) is not None
+    assert service._active_session_id == sid
+
+
+@pytest.mark.asyncio
+async def test_initialize_with_skill_instructions_p4(service, ctx):
+    """SessionPayload.skill_instructions (P4) should be auto-loaded."""
+    payload = _payload()
+    payload.skill_instructions.skill_id = "skill-preflight"
+    payload.skill_instructions.name = "Preflight"
+    payload.skill_instructions.content = "Always double-check tool output."
+    resp = await service.Initialize(
+        runtime_pb2.InitializeRequest(payload=payload), ctx
+    )
+    sid = resp.session_id
+    assert service._skills[sid].count == 1
+    assert service._skills[sid].get("skill-preflight") is not None
+
+
+@pytest.mark.asyncio
+async def test_initialize_user_id_from_p5(service, ctx):
+    """user_id should fall back to UserPreferences.user_id when flat field
+    is empty (v2 priority block model)."""
+    payload = common_pb2.SessionPayload(
+        policy_context=common_pb2.PolicyContext(org_unit="ou-42"),
+        user_preferences=common_pb2.UserPreferences(user_id="alice-p5"),
+    )
+    resp = await service.Initialize(
+        runtime_pb2.InitializeRequest(payload=payload), ctx
+    )
+    session = service.session_mgr.get(resp.session_id)
+    assert session is not None
+    assert session.user_id == "alice-p5"
+    assert session.org_unit == "ou-42"
+
+
+# ── LoadSkill ────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_load_skill(service, ctx):
     sid = await _init_session(service, ctx)
 
-    req = runtime_pb2.LoadSkillRequest(
-        session_id=sid,
-        skill=runtime_pb2.SkillContent(
-            skill_id="s-1",
-            name="Test Skill",
-            frontmatter_yaml="---\nname: test\n---",
-            prose="Do something.",
-        ),
+    skill = common_pb2.SkillInstructions(
+        skill_id="s-1",
+        name="Test Skill",
+        content="Do something carefully.",
     )
+    req = runtime_pb2.LoadSkillRequest(session_id=sid, skill=skill)
     resp = await service.LoadSkill(req, ctx)
     assert resp.success is True
     assert service._skills[sid].count == 1
 
 
+# ── Hook methods (OnToolCall / OnToolResult / OnStop) ────────────
+
+
 @pytest.mark.asyncio
 async def test_on_tool_call_allow(service, ctx):
     sid = await _init_session(service, ctx)
-    req = common_pb2.ToolCallEvent(
+    req = runtime_pb2.ToolCallEvent(
         session_id=sid,
         tool_name="bash",
         tool_id="t-1",
@@ -117,25 +178,21 @@ async def test_on_tool_call_allow(service, ctx):
 
 
 @pytest.mark.asyncio
-async def test_on_tool_call_deny_with_hooks(service, ctx):
-    """Test that managed hooks can deny tool calls."""
-    hooks = json.dumps({
-        "rules": [
-            {
-                "id": "r-1",
-                "name": "block-rm",
-                "hook_type": "pre_tool_call",
-                "action": "deny",
-                "reason": "blocked",
-                "tool_pattern": "^bash$",
-                "input_pattern": "rm -rf",
-                "enabled": True,
-            }
-        ]
-    })
-    sid = await _init_session(service, ctx, hooks_json=hooks)
+async def test_on_tool_call_deny_with_managed_hooks(service, ctx):
+    """A ManagedHook with 'tool:^bash$;input:rm -rf' condition denies."""
+    hooks = [
+        {
+            "hook_id": "block-rm",
+            "hook_type": "pre_tool_call",
+            "condition": "tool:^bash$;input:rm -rf;reason:blocked",
+            "action": "deny",
+            "precedence": 0,
+            "scope": "managed",
+        }
+    ]
+    sid = await _init_session(service, ctx, hooks=hooks)
 
-    req = common_pb2.ToolCallEvent(
+    req = runtime_pb2.ToolCallEvent(
         session_id=sid,
         tool_name="bash",
         tool_id="t-1",
@@ -149,7 +206,7 @@ async def test_on_tool_call_deny_with_hooks(service, ctx):
 @pytest.mark.asyncio
 async def test_on_tool_result(service, ctx):
     sid = await _init_session(service, ctx)
-    req = common_pb2.ToolResultEvent(
+    req = runtime_pb2.ToolResultEvent(
         session_id=sid,
         tool_name="bash",
         tool_id="t-1",
@@ -161,40 +218,41 @@ async def test_on_tool_result(service, ctx):
 
 
 @pytest.mark.asyncio
-async def test_on_stop(service, ctx):
+async def test_on_stop_allow(service, ctx):
     sid = await _init_session(service, ctx)
-    req = common_pb2.StopRequest(session_id=sid)
+    req = runtime_pb2.StopEvent(session_id=sid)
     resp = await service.OnStop(req, ctx)
-    assert resp.decision == "complete"
+    assert resp.decision == "allow"  # v2: allow == stop
 
 
 @pytest.mark.asyncio
-async def test_on_stop_continue_with_hooks(service, ctx):
-    """Test stop hook with force-continue rule."""
-    hooks = json.dumps({
-        "rules": [
-            {
-                "id": "r-stop",
-                "name": "force-continue",
-                "hook_type": "stop",
-                "action": "deny",
-                "reason": "task incomplete",
-                "enabled": True,
-            }
-        ]
-    })
-    sid = await _init_session(service, ctx, hooks_json=hooks)
-    req = common_pb2.StopRequest(session_id=sid)
+async def test_on_stop_force_continue(service, ctx):
+    """Stop hook with deny action forces the agent to continue."""
+    hooks = [
+        {
+            "hook_id": "force-continue",
+            "hook_type": "stop",
+            "condition": "reason:task incomplete",
+            "action": "deny",
+            "precedence": 0,
+            "scope": "managed",
+        }
+    ]
+    sid = await _init_session(service, ctx, hooks=hooks)
+    req = runtime_pb2.StopEvent(session_id=sid)
     resp = await service.OnStop(req, ctx)
-    assert resp.decision == "continue"
-    assert "incomplete" in resp.feedback
+    assert resp.decision == "deny"  # v2: deny == force continue
+    assert "task incomplete" in resp.reason
+
+
+# ── MCP connect / disconnect ─────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_connect_disconnect_mcp(service, ctx):
     sid = await _init_session(service, ctx)
 
-    req = runtime_pb2.ConnectMcpRequest(
+    req = runtime_pb2.ConnectMCPRequest(
         session_id=sid,
         servers=[
             runtime_pb2.McpServerConfig(
@@ -202,7 +260,7 @@ async def test_connect_disconnect_mcp(service, ctx):
             )
         ],
     )
-    resp = await service.ConnectMcp(req, ctx)
+    resp = await service.ConnectMCP(req, ctx)
     assert resp.success is True
     assert "test-mcp" in resp.connected
 
@@ -212,79 +270,114 @@ async def test_connect_disconnect_mcp(service, ctx):
         ),
         ctx,
     )
-    assert disc_resp.success is True
+    # DisconnectMcp returns Empty in v2; success is implicit when no error.
+    assert disc_resp is not None
+    assert ctx.code is None
+
+
+# ── GetState / RestoreState ──────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_get_state_and_restore(service, ctx):
     sid = await _init_session(service, ctx, user_id="alice")
 
-    state_resp = await service.GetState(
-        runtime_pb2.GetStateRequest(session_id=sid), ctx
-    )
+    state_resp = await service.GetState(common_pb2.Empty(), ctx)
     assert state_resp.session_id == sid
     assert state_resp.state_format == "python-json"
     assert len(state_resp.state_data) > 0
 
-    # Terminate original, then restore
-    await service.Terminate(
-        runtime_pb2.TerminateRequest(session_id=sid), ctx
-    )
+    # Terminate active session, then restore from blob.
+    await service.Terminate(common_pb2.Empty(), ctx)
     assert service.session_mgr.get(sid) is None
 
-    restore_resp = await service.RestoreState(state_resp, ctx)
-    assert restore_resp.session_id == sid
+    restore_empty = await service.RestoreState(state_resp, ctx)
+    assert restore_empty is not None
     restored = service.session_mgr.get(sid)
     assert restored is not None
     assert restored.user_id == "alice"
+    assert service._active_session_id == sid
+
+
+# ── Pause / Resume ───────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_pause_resume(service, ctx):
     sid = await _init_session(service, ctx)
 
-    pause_resp = await service.PauseSession(
-        runtime_pb2.PauseRequest(session_id=sid), ctx
-    )
-    assert pause_resp.success is True
+    pause_resp = await service.PauseSession(common_pb2.Empty(), ctx)
+    assert pause_resp.session_id == sid
+    assert len(pause_resp.state_data) > 0
 
-    resume_resp = await service.ResumeSession(
-        runtime_pb2.ResumeRequest(session_id=sid), ctx
-    )
-    assert resume_resp.success is True
+    # Rebuild a StateResponse-like arg for Resume (session_id must be set).
+    resume_arg = runtime_pb2.StateResponse(session_id=sid)
+    resume_empty = await service.ResumeSession(resume_arg, ctx)
+    assert resume_empty is not None
+    assert ctx.code is None
+
+
+# ── EmitTelemetry (push semantics) ───────────────────────────────
 
 
 @pytest.mark.asyncio
-async def test_emit_telemetry(service, ctx):
+async def test_emit_telemetry_push(service, ctx):
     sid = await _init_session(service, ctx)
-    # session_start is auto-recorded on Initialize
 
-    resp = await service.EmitTelemetry(
-        runtime_pb2.EmitTelemetryRequest(session_id=sid), ctx
+    # Client pushes telemetry events to the runtime; response is Empty.
+    req = runtime_pb2.TelemetryRequest(
+        session_id=sid,
+        events=[
+            runtime_pb2.TelemetryEvent(
+                event_type="client_metric",
+                payload_json='{"k":"v"}',
+                timestamp="0",
+            )
+        ],
     )
-    assert len(resp.events) >= 1  # at least session_start
-    assert resp.events[0].event_type == "session_start"
+    resp = await service.EmitTelemetry(req, ctx)
+    assert isinstance(resp, common_pb2.Empty)
+    # Event should have been recorded into the collector
+    tc = service._telemetry[sid]
+    assert any(e.event_type == "client_metric" for e in tc.peek())
+
+
+# ── Terminate (Empty-input) ──────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_terminate(service, ctx):
     sid = await _init_session(service, ctx)
 
-    resp = await service.Terminate(
-        runtime_pb2.TerminateRequest(session_id=sid), ctx
-    )
-    assert resp.success is True
-    assert resp.final_telemetry is not None
+    resp = await service.Terminate(common_pb2.Empty(), ctx)
+    assert isinstance(resp, common_pb2.Empty)
     assert service.session_mgr.get(sid) is None
-    # Per-session components cleaned up
     assert sid not in service._hooks
     assert sid not in service._telemetry
     assert sid not in service._skills
+    assert service._active_session_id is None
+
+
+# ── Empty-input methods with no active session ───────────────────
 
 
 @pytest.mark.asyncio
-async def test_session_not_found(service, ctx):
-    await service.GetState(
-        runtime_pb2.GetStateRequest(session_id="nonexistent"), ctx
-    )
+async def test_get_state_no_active_session(service, ctx):
+    await service.GetState(common_pb2.Empty(), ctx)
     assert ctx.code == grpc.StatusCode.NOT_FOUND
+
+
+# ── EmitEvent placeholder (ADR-V2-001 pending) ───────────────────
+
+
+@pytest.mark.asyncio
+async def test_emit_event_unimplemented(service, ctx):
+    req = runtime_pb2.EventStreamEntry(
+        session_id="any",
+        event_id="e-1",
+        event_type=runtime_pb2.SESSION_START,
+        payload_json="{}",
+    )
+    await service.EmitEvent(req, ctx)
+    assert ctx.code == grpc.StatusCode.UNIMPLEMENTED
+    assert ctx.details == "ADR-V2-001 pending"

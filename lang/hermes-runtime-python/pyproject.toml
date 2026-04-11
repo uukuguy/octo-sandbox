@@ -8,9 +8,9 @@ version = "0.1.0"
 description = "Grid EAASP L1 Runtime — hermes-agent T2 Aligned adapter"
 requires-python = ">=3.11"
 dependencies = [
-  "grpcio>=1.62.0,<2",
-  "grpcio-tools>=1.62.0,<2",
-  "protobuf>=4.25.0,<6",
+  "grpcio>=1.80.0,<2",
+  "grpcio-tools>=1.80.0,<2",
+  "protobuf>=6.31.1,<7",
   "python-dotenv>=1.0.0,<2",
 ]
 

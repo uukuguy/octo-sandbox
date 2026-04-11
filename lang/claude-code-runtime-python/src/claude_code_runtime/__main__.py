@@ -7,7 +7,7 @@ import signal
 
 import grpc.aio
 
-from ._proto.eaasp.runtime.v1 import runtime_pb2_grpc
+from ._proto.eaasp.runtime.v2 import runtime_pb2_grpc
 from .config import RuntimeConfig
 from .service import RuntimeServiceImpl
 
