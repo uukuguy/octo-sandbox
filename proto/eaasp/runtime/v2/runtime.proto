@@ -1,0 +1,268 @@
+syntax = "proto3";
+
+package eaasp.runtime.v2;
+
+import "eaasp/runtime/v2/common.proto";
+
+// ============================================================
+// EAASP v2.0 — L1 Runtime Contract
+// ============================================================
+//
+// Spec: docs/design/EAASP/EAASP-Design-Specification-v2.0.docx §8
+//
+// 16 methods total:
+//   - 12 MUST (certified core, every conforming runtime implements)
+//   -  4 OPTIONAL (health / pause / disconnect / resume)
+//   -  1 PLACEHOLDER (EmitEvent — ADR-V2-001 pending)
+//
+// Runtime tiers:
+//   T1 Harness   — implements trait natively (zero serialization, e.g. grid-runtime)
+//   T2 Aligned   — implements via gRPC adapter (e.g. hermes-runtime-python, claude-code-runtime-python)
+//   T3 Framework — external agent framework wrapped by adapter
+
+service RuntimeService {
+  // ── 12 MUST methods (certifier verifies presence + passing tests) ──
+
+  // Start a session with a structured v2 SessionPayload (P1-P5 blocks).
+  rpc Initialize(InitializeRequest) returns (InitializeResponse);
+
+  // Send a user message; stream back incremental response chunks.
+  rpc Send(SendRequest) returns (stream SendResponse);
+
+  // Load a skill into the current session (merges into P4).
+  rpc LoadSkill(LoadSkillRequest) returns (LoadSkillResponse);
+
+  // Pre-tool-use hook ingestion point.
+  rpc OnToolCall(ToolCallEvent) returns (ToolCallAck);
+
+  // Post-tool-use hook ingestion point.
+  rpc OnToolResult(ToolResultEvent) returns (ToolResultAck);
+
+  // Stop hook ingestion (agent produced final answer).
+  rpc OnStop(StopEvent) returns (StopAck);
+
+  // Serialize session state for persistence / handoff.
+  rpc GetState(Empty) returns (StateResponse);
+
+  // Connect to one or more MCP servers for this session.
+  rpc ConnectMCP(ConnectMCPRequest) returns (ConnectMCPResponse);
+
+  // Emit structured telemetry (tokens used, cost, latency, memory candidates).
+  rpc EmitTelemetry(TelemetryRequest) returns (Empty);
+
+  // Return runtime capability manifest.
+  rpc GetCapabilities(Empty) returns (Capabilities);
+
+  // Gracefully terminate the session (emit POST_SESSION_END).
+  rpc Terminate(Empty) returns (Empty);
+
+  // Restore a previously serialized session state (MUST per v2.0 spec).
+  rpc RestoreState(StateResponse) returns (Empty);
+
+  // ── 4 OPTIONAL methods (cert reports as bonus, not failure if absent) ──
+
+  rpc Health(Empty) returns (HealthResponse);
+  rpc DisconnectMcp(DisconnectMcpRequest) returns (Empty);
+  rpc PauseSession(Empty) returns (StateResponse);
+  rpc ResumeSession(StateResponse) returns (Empty);
+
+  // ── PLACEHOLDER — ADR-V2-001 pending ──
+  //
+  // EmitEvent exposes the session's emergent event stream to L4. The
+  // wire format and backend are still open (see ADR-V2-001 / -002 / -003
+  // deferred to Phase 1). Runtimes MAY implement as no-op during Phase 0
+  // (return Empty); certifier reports "placeholder: present" as metadata.
+  rpc EmitEvent(EventStreamEntry) returns (Empty);
+}
+
+// ── Request / Response messages ─────────────────────────────
+
+message InitializeRequest {
+  SessionPayload payload = 1;
+}
+
+message InitializeResponse {
+  string session_id = 1;
+  string runtime_id = 2;
+}
+
+message SendRequest {
+  string session_id = 1;
+  UserMessage message = 2;
+}
+
+message UserMessage {
+  string content = 1;
+  string message_type = 2;              // "text" | "intent"
+  map<string, string> metadata = 3;
+}
+
+message SendResponse {
+  string chunk_type = 1;                // "text_delta" | "thinking" | "tool_start" | "tool_result" | "done" | "error"
+  string content = 2;
+  string tool_name = 3;
+  string tool_id = 4;
+  bool is_error = 5;
+  RuntimeError error = 6;
+}
+
+message LoadSkillRequest {
+  string session_id = 1;
+  SkillInstructions skill = 2;
+}
+
+message LoadSkillResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message ToolCallEvent {
+  string session_id = 1;
+  string tool_name = 2;
+  string tool_id = 3;
+  string input_json = 4;
+}
+
+message ToolCallAck {
+  string decision = 1;                  // "allow" | "deny" | "mutate"
+  string mutated_input_json = 2;        // only if decision == "mutate"
+  string reason = 3;
+}
+
+message ToolResultEvent {
+  string session_id = 1;
+  string tool_name = 2;
+  string tool_id = 3;
+  string output = 4;
+  bool is_error = 5;
+}
+
+message ToolResultAck {
+  string decision = 1;                  // "allow" | "deny"
+  string reason = 2;
+}
+
+message StopEvent {
+  string session_id = 1;
+  string reason = 2;
+}
+
+message StopAck {
+  string decision = 1;                  // "allow" | "deny" (deny = force continue)
+  string reason = 2;
+}
+
+message StateResponse {
+  string session_id = 1;
+  bytes state_data = 2;                 // opaque serialized state
+  string runtime_id = 3;
+  string state_format = 4;              // "rust-serde-v2" | "python-json-v2" | ...
+  string created_at = 5;                // ISO 8601
+}
+
+message ConnectMCPRequest {
+  string session_id = 1;
+  repeated McpServerConfig servers = 2;
+}
+
+message ConnectMCPResponse {
+  bool success = 1;
+  repeated string connected = 2;
+  repeated string failed = 3;
+}
+
+message McpServerConfig {
+  string name = 1;
+  string transport = 2;                 // "stdio" | "sse" | "streamable-http"
+  string command = 3;
+  repeated string args = 4;
+  string url = 5;
+  map<string, string> env = 6;
+}
+
+message DisconnectMcpRequest {
+  string session_id = 1;
+  string server_name = 2;
+}
+
+message TelemetryRequest {
+  string session_id = 1;
+  repeated TelemetryEvent events = 2;
+}
+
+message TelemetryEvent {
+  string event_type = 3;                // "tokens_used" | "cost_incurred" | "memory_candidate" | "hook_fired" | ...
+  string payload_json = 4;
+  string timestamp = 5;                 // ISO 8601
+}
+
+message HealthResponse {
+  bool healthy = 1;
+  string runtime_id = 2;
+  map<string, string> checks = 3;
+}
+
+// ── Capabilities ────────────────────────────────────────────
+
+message Capabilities {
+  string runtime_id = 1;
+  string model = 2;
+  int32 context_window = 3;
+  repeated string tools = 4;
+  bool supports_native_hooks = 5;
+  bool supports_native_mcp = 6;
+  bool supports_native_skills = 7;
+  double cost_per_1k_tokens = 8;
+  CredentialMode credential_mode = 9;
+  repeated string strengths = 10;       // free-form labels for RuntimeSelector
+  repeated string limitations = 11;
+
+  // v2.0 tier classification (T1 Harness / T2 Aligned / T3 Framework)
+  string tier = 12;                     // "harness" | "aligned" | "framework"
+  string deployment_mode = 13;          // "shared" | "per_session"
+
+  enum CredentialMode {
+    DIRECT = 0;                         // runtime holds LLM API key directly
+    PROXY = 1;                          // runtime calls through a platform proxy
+    BRIDGE_INJECTED = 2;                // credentials injected per-session via hook bridge
+  }
+}
+
+// ── 14 Lifecycle Hook Event Types ───────────────────────────
+//
+// L1 runtime fires 9 of these; L3 governance fires 2; L4 orchestration fires 3.
+// A runtime's capability manifest MUST enumerate which ones it actually emits.
+enum HookEventType {
+  // L1 runtime-level (9)
+  SESSION_START = 0;
+  USER_PROMPT_SUBMIT = 1;
+  PRE_TOOL_USE = 2;
+  POST_TOOL_USE = 3;
+  POST_TOOL_USE_FAILURE = 4;
+  PERMISSION_REQUEST = 5;
+  STOP = 6;
+  SUBAGENT_STOP = 7;
+  PRE_COMPACT = 8;
+
+  // L3 governance-level (2)
+  PRE_POLICY_DEPLOY = 9;
+  PRE_APPROVAL = 10;
+
+  // L4 orchestration-level (3)
+  EVENT_RECEIVED = 11;
+  PRE_SESSION_CREATE = 12;
+  POST_SESSION_END = 13;
+}
+
+// ── EmitEvent placeholder (ADR-V2-001 pending) ──────────────
+//
+// Phase 0 MVP treats event stream as opaque best-effort. Runtimes
+// MAY stash entries in-memory and no-op, or bridge to L4 via side
+// channel. Wire format + backend storage locked in Phase 1.
+message EventStreamEntry {
+  string session_id = 1;
+  string event_id = 2;
+  HookEventType event_type = 3;
+  string payload_json = 4;
+  string timestamp = 5;                 // ISO 8601
+}

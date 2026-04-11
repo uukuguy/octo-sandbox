@@ -1,0 +1,179 @@
+syntax = "proto3";
+
+package eaasp.runtime.v2;
+
+import "eaasp/runtime/v2/common.proto";
+import "eaasp/runtime/v2/runtime.proto";
+
+// ============================================================
+// EAASP v2.0 — HookBridge Service
+// ============================================================
+//
+// L1 Runtime ↔ HookBridge bidirectional communication.
+// Inherits the bidirectional streaming design from Phase BE W2,
+// re-rooted on v2 common types.
+//
+// T1 Harness (grid-runtime) implements hooks in-process — does NOT
+// need to talk to HookBridge. T2 Aligned / T3 Framework runtimes
+// use this service to delegate hook evaluation to L3 governance.
+//
+// Bidirectional mode:
+//   L1 → HookBridge: hook events (pre_tool_call, post_tool_result, stop, ...)
+//   HookBridge → L1: hook decisions + optional policy update pushes
+
+service HookBridgeService {
+  // Bidirectional stream: events in, decisions out, plus policy pushes.
+  rpc StreamHooks(stream HookEvent) returns (stream HookResponse);
+
+  // One-shot evaluation for runtimes that don't maintain a persistent stream.
+  rpc EvaluateHook(HookEvaluateRequest) returns (HookDecision);
+
+  // Report hook execution telemetry back to HookBridge.
+  rpc ReportTelemetry(HookTelemetryBatch) returns (TelemetryAck);
+
+  // Fetch a summary of currently loaded policies for debugging.
+  rpc GetPolicySummary(PolicySummaryRequest) returns (PolicySummary);
+}
+
+// ── Bidirectional Stream Messages ───────────────────────────
+
+message HookEvent {
+  string session_id = 1;
+  string request_id = 2;                // correlate req/resp pairs
+  HookEventType event_type = 3;         // from runtime.proto
+  string timestamp = 4;                 // ISO 8601
+
+  oneof event {
+    PreToolCallHook pre_tool_call = 10;
+    PostToolResultHook post_tool_result = 11;
+    StopHook stop = 12;
+    SessionStartHook session_start = 13;
+    SessionEndHook session_end = 14;
+    PrePolicyDeployHook pre_policy_deploy = 15;
+    PreApprovalHook pre_approval = 16;
+    EventReceivedHook event_received = 17;
+  }
+}
+
+message PreToolCallHook {
+  string tool_name = 1;
+  string tool_id = 2;
+  string input_json = 3;
+}
+
+message PostToolResultHook {
+  string tool_name = 1;
+  string tool_id = 2;
+  string output = 3;
+  bool is_error = 4;
+}
+
+message StopHook {
+  string reason = 1;
+}
+
+message SessionStartHook {
+  string user_id = 1;
+  string user_role = 2;
+  string org_unit = 3;
+}
+
+message SessionEndHook {
+  string reason = 1;
+}
+
+message PrePolicyDeployHook {
+  string policy_id = 1;
+  string policy_version = 2;
+}
+
+message PreApprovalHook {
+  string approval_id = 1;
+  string resource_ref = 2;
+}
+
+message EventReceivedHook {
+  EventContext event = 1;
+}
+
+// HookBridge → L1 direction
+message HookResponse {
+  string request_id = 1;                // matches HookEvent.request_id
+
+  oneof response {
+    HookDecision decision = 10;
+    PolicyUpdate policy_update = 11;
+    ErrorResponse error = 12;
+  }
+}
+
+message HookDecision {
+  string decision = 1;                  // "allow" | "deny" | "mutate" | "warn"
+  string reason = 2;
+  string mutated_input_json = 3;        // when decision == "mutate"
+  int32 precedence = 4;                 // which rule won
+}
+
+message PolicyUpdate {
+  string policy_id = 1;
+  string policy_json = 2;
+  string action = 3;                    // "add" | "update" | "remove"
+  string timestamp = 4;
+}
+
+message ErrorResponse {
+  string code = 1;
+  string message = 2;
+}
+
+// ── One-Shot Evaluation ─────────────────────────────────────
+
+message HookEvaluateRequest {
+  string session_id = 1;
+  HookEventType event_type = 2;
+  string tool_name = 3;
+  string tool_id = 4;
+  string input_json = 5;
+  string output = 6;
+  bool is_error = 7;
+}
+
+// ── Telemetry ───────────────────────────────────────────────
+
+message HookTelemetryBatch {
+  string session_id = 1;
+  repeated HookTelemetryEvent events = 2;
+}
+
+message HookTelemetryEvent {
+  string hook_id = 1;
+  HookEventType event_type = 2;
+  string decision = 3;
+  int64 latency_us = 4;
+  string timestamp = 5;
+}
+
+message TelemetryAck {
+  uint32 accepted = 1;
+  uint32 rejected = 2;
+}
+
+// ── Policy Inspection ───────────────────────────────────────
+
+message PolicySummaryRequest {
+  string session_id = 1;
+}
+
+message PolicySummary {
+  uint32 total_policies = 1;
+  repeated PolicyInfo policies = 2;
+}
+
+message PolicyInfo {
+  string policy_id = 1;
+  string name = 2;
+  string scope = 3;                     // "managed" | "frontmatter" | "user"
+  HookEventType hook_type = 4;
+  bool enabled = 5;
+  int32 precedence = 6;
+}

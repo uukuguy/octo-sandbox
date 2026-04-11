@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package eaasp.runtime.v2;
+
+// ============================================================
+// EAASP v2.0 — Shared structured message types
+// ============================================================
+//
+// Spec: docs/design/EAASP/EAASP-Design-Specification-v2.0.docx §8
+// MVP Scope: docs/design/EAASP/EAASP_v2_0_MVP_SCOPE.md §3
+//
+// Key change from v1: SessionPayload is now a 5-block structured
+// priority stack (P1 never removable → P5 removed first), enabling
+// deterministic context budget trimming across runtimes.
+
+// ── Priority Block 1 (P1) — PolicyContext ───────────────────
+// Highest priority; MUST NEVER be removed under any budget.
+// Populated by L3 Governance plane before session creation.
+message PolicyContext {
+  repeated ManagedHook hooks = 1;
+  string org_unit = 2;
+  string policy_version = 3;          // L3 policy bundle version hash
+  map<string, string> quotas = 4;     // e.g. "tokens_per_min" -> "10000"
+  string deploy_timestamp = 5;        // ISO 8601
+}
+
+message ManagedHook {
+  string hook_id = 1;
+  string hook_type = 2;               // see HookEventType
+  string condition = 3;               // CEL/DSL expression (deferred full DSL to Phase 1)
+  string action = 4;                  // "deny" | "warn" | "allow" | "mutate"
+  int32 precedence = 5;               // lower = higher priority (deny-always-wins resolution)
+  string scope = 6;                   // "managed" | "frontmatter" | "user"
+}
+
+// ── Priority Block 2 (P2) — EventContext ────────────────────
+// Second priority; trigger event metadata that caused session creation.
+// Populated by L4 Orchestration plane on EVENT_RECEIVED.
+message EventContext {
+  string event_id = 1;
+  string event_type = 2;              // free-form domain event type
+  string severity = 3;                // "info" | "warning" | "critical"
+  string source = 4;                  // upstream system identifier
+  string payload_json = 5;            // opaque domain payload (compressed for context budget)
+  string timestamp = 6;               // ISO 8601
+}
+
+// ── Priority Block 3 (P3) — MemoryRefs ──────────────────────
+// Third priority; cross-session memories injected by L2 Memory Engine.
+// This is the core of the Ring-2 MVP: "threshold calibration" skills
+// accumulate context across sessions via this channel.
+message MemoryRef {
+  string memory_id = 1;
+  string memory_type = 2;             // "fact" | "preference" | "calibration" | "episode"
+  double relevance_score = 3;         // [0.0, 1.0]
+  string content = 4;                 // projected text representation for the runtime
+  string source_session_id = 5;       // which session originally wrote this memory
+  string created_at = 6;              // ISO 8601
+  map<string, string> tags = 7;
+}
+
+// ── Priority Block 4 (P4) — SkillInstructions ───────────────
+// Fourth priority; skill prose + frontmatter-declared scoped hooks.
+// Populated by L2 Skill Registry (existing, evolved in Phase BF).
+message SkillInstructions {
+  string skill_id = 1;
+  string name = 2;
+  string content = 3;                 // skill natural language body (SKILL.md prose)
+  repeated ScopedHook frontmatter_hooks = 4;
+  map<string, string> metadata = 5;
+}
+
+message ScopedHook {
+  string hook_id = 1;
+  string hook_type = 2;               // see HookEventType
+  string condition = 3;
+  string action = 4;
+  int32 precedence = 5;               // deny-always-wins reconciled against ManagedHook at runtime
+}
+
+// ── Priority Block 5 (P5) — UserPreferences ─────────────────
+// Lowest priority; first to be trimmed when budget is exceeded.
+message UserPreferences {
+  string user_id = 1;
+  map<string, string> prefs = 2;      // free-form preferences
+  string language = 3;
+  string timezone = 4;
+}
+
+// ── Structured SessionPayload ───────────────────────────────
+// The cornerstone of v2.0 vs v1 — moves from flat map to priority
+// blocks so that context budget pruning is deterministic and
+// consistent across all L1 runtimes.
+message SessionPayload {
+  PolicyContext policy_context = 1;         // P1 — never removable
+  EventContext event_context = 2;           // P2 — only if session was event-triggered
+  repeated MemoryRef memory_refs = 3;       // P3 — cross-session memory
+  SkillInstructions skill_instructions = 4; // P4 — loaded skill
+  UserPreferences user_preferences = 5;     // P5 — removable first
+
+  // Budget helper flags set by L4 Orchestration based on runtime capability.
+  // When runtime must trim to fit context window: P5 → P4 → P3 in order.
+  // P1 and P2 are NEVER touched regardless of flags.
+  bool allow_trim_p5 = 10;                  // default true
+  bool allow_trim_p4 = 11;                  // default false
+  bool allow_trim_p3 = 12;                  // default false
+
+  // Session metadata
+  string session_id = 20;
+  string user_id = 21;
+  string runtime_id = 22;                   // L1 runtime selected by RuntimeSelector
+  string created_at = 23;                   // ISO 8601
+}
+
+// ── Lightweight shared types ────────────────────────────────
+
+message Empty {}
+
+message EvidenceAnchor {
+  string anchor_id = 1;
+  string data_ref = 2;                      // opaque URI/hash pointing to evidence blob
+  string snapshot_hash = 3;                 // SHA-256 of the referenced content
+  string created_at = 4;                    // ISO 8601
+  string produced_by = 5;                   // session_id or user_id that produced the evidence
+}
+
+// Error wrapper for hook/tool operations
+message RuntimeError {
+  string code = 1;
+  string message = 2;
+  map<string, string> details = 3;
+}
