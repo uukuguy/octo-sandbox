@@ -814,4 +814,15 @@ S3.T5 `eaasp-cli-v2` 设计阶段发现 L4 service 没有 "list sessions" endpoi
 |----|------|---------|------|
 | D41 | `eaasp-cli-v2 session list` 无真实后端：L4 没有 `GET /v1/sessions` 列表 endpoint，命令只打印 "not available in MVP — use `session show <id>`" 提示 | L4 添加 `GET /v1/sessions?user_id=&status=&limit=` 列表端点（与 Phase 3 多租户模型同步引入） | ⏳ |
 
+### 来源：2026-04-12 S3.T5 reviewer findings
+
+S3.T5 `eaasp-cli-v2` APPROVE-WITH-COMMENTS, no Criticals. 14 commands全部验证匹配真实服务 routes（skill-registry flat bodies / L2 wrapped `{args}` / L3 PUT / L4 POST）。端口全部 1808x 干净无 808x 泄漏。19/19 pytest green。
+
+| ID | 内容 | 前置条件 | 状态 |
+|----|------|---------|------|
+| D42 | `eaasp-cli-v2::test_client.py` 没有覆盖 5xx → exit_code=4 分支，只测了 2xx/404/ConnectError。`ServiceClient.call` 的 server-error 映射未被 exercise | S3.T6 加入真实 CLI 冒烟测试时补一个 `test_client_500_raises_server_error` | ⏳ |
+| D43 | `eaasp-cli-v2::pyproject.toml` 把 `respx>=0.21` 列为 dev-dependency，但实际测试全部走 `httpx.MockTransport`，respx 未被任何 test 文件 import | 下次 cleanup pass 或删除 dep，或写一个 respx 风格的对照测试（规范多种 mock 风格） | ⏳ |
+| D44 | `eaasp-cli-v2::cmd_session.show` 硬编码 `params={"from": 1, "to": 100, "limit": 100}`，L4 event stream 超过 100 条后被静默截断，evidence pack 不完整 | S3.T6 evidence-pack 迭代时：暴露 `--from/--to/--limit` flag，或改用分页 loop 直到 L4 返回空列表 | ⏳ |
+| D45 | `eaasp-cli-v2::cmd_skill.run` 和 `cmd_session.show` 假设 L4 响应一定是含 `session_id`/`events` 的 dict；非预期 shape 会抛 `KeyError`/`TypeError` 逃逸出 `CliError` 分类，退出码为默认 1 并打印 traceback | 引入共享 response-shape guard helper，把非预期响应统一项目到 `CliError(exit_code=4, message="unexpected response", detail=result)` | ⏳ |
+
 **检查纪律：** S3 每个 Task 开始前先 `grep "⏳" docs/plans/2026-04-11-v2-mvp-phase0-plan.md`，确认是否有条件已达成的项可以顺手补齐。S3.T2 完成后检查 D2，S3.T3 完成后检查 D1，**S3.T4 完成后**：D1/D2/D6 前置条件均已满足但仍留至专门的 harness 接入 task（不在 S3.T5 CLI 范围内）；S3.T5 之后检查 D8/D10/D20 —— skill-registry 和 memory-engine 的 MCP facade 是否能统一迁移；S4 开始前检查 D6/D24（Pyright workspace config）。
