@@ -34,7 +34,9 @@
     "S1_Foundation": {
       "tasks": 3,
       "description": "Archive old tools, create v2 proto, remove v1 proto",
-      "status": "pending"
+      "status": "complete",
+      "commits": ["483882d", "a459f84", "4b4f6a1", "04c89d7"],
+      "completed_at": "2026-04-11T23:15:00+08:00"
     },
     "S2_L1_Runtime_Refactor": {
       "tasks": 4,
