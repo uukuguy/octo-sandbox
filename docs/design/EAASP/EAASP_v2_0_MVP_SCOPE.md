@@ -1,28 +1,46 @@
-# EAASP v2.0 MVP Scope（圈 2）
+# EAASP v2.0 Phase 0 Scope — Infrastructure Foundation（圈 2）
 
-> **文档性质**：Phase 0 MVP 的范围定义与前期资产评估。本文档是 Phase 0 的唯一范围权威。
+> **文档性质**：Phase 0 的范围定义与前期资产评估。本文档是 Phase 0 的唯一范围权威。
 > **上层文档**：`docs/design/EAASP/EAASP_v2_0_EVOLUTION_PATH.md`
 > **执行计划**：`docs/plans/2026-04-11-v2-mvp-phase0-plan.md`
 >
 > **创建日期**：2026-04-11
 > **对齐规范**：v2.0 Design Specification §19 Phase 0 baseline + 扩展 Memory Engine
+>
+> **名称修正**（2026-04-12）：本文档原名 "MVP Scope"，已修正为 "Phase 0 Scope — Infrastructure Foundation"。
+> Phase 0 验证了接口契约和服务骨架的连通性，但**不涉及 LLM 调用、不涉及真实 agent 执行、不涉及用户交互**，
+> 因此不符合 MVP（最小可行产品）的定义。MVP 的定义已迁移到 EVOLUTION_PATH §3.3（Phase 0.5）。
 
 ---
 
-## 一、MVP 定位
+## 一、Phase 0 定位
 
-> **Infrastructure MVP — 做精做强骨架，一个真实"记忆累加" skill 贯穿验证所有核心能力。**
+> **Infrastructure Foundation — 做精做强骨架，一个真实"记忆累加" skill 贯穿验证所有接口契约和数据结构。**
 
-### 1.1 必须证明的命题
+### 1.1 Phase 0 验证的命题
 
-MVP 完成的**唯一验收标准**：
+Phase 0 通过**自动化脚本**验证以下命题（非人工执行）：
 
-> **"同一个用户、不同时间、两次独立的 session，在'阈值校准助手'skill 下，
-> 第二次 session 能从 L2 Memory Engine 正确读取第一次 session 沉淀的 memory file
-> 和 evidence anchors，并在第二次执行中引用它们。整个链路每一步的 hook 都在
-> managed-settings 的治理下正确触发，所有跨层调用都走 5 个 REST contract 或 MCP 协议。"**
+> **"5 层服务骨架（L1-L4 + CLI）能正确连通，接口契约（16 方法 gRPC + 5 REST contract + 6 MCP tool）
+> 全部可调用并返回预期数据结构。'阈值校准助手' skill 的 frontmatter 能被解析，managed-settings
+> 能被部署，Memory Engine 的读写通路可达。"**
 
-如果这条命题成立，则以下能力都被同时证明：
+### 1.2 Phase 0 与 MVP 的关系
+
+Phase 0 是 MVP 的**必要前提**但不是 MVP 本身：
+
+| | Phase 0 (Infrastructure Foundation) | Phase 0.5 (MVP) |
+|---|---|---|
+| LLM 调用 | ❌ 无 | ✅ 真实 LLM agent loop |
+| Agent 执行 | ❌ 脚本模拟 | ✅ L4→L1 gRPC 真调用 |
+| Tool 调用 | ❌ 脚本直接 POST REST | ✅ Agent 通过 MCP 调用 mock-scada |
+| Hook 触发 | ❌ 断言 managed-settings 已部署 | ✅ Pre/Post/Stop 真实执行 |
+| 用户交互 | ❌ `make v2-mvp-e2e` 脚本 | ✅ `eaasp-cli session send` 看到流式输出 |
+| Memory 累加 | ❌ 脚本写入再读出 | ✅ Agent 在执行中自动写入，下次 session 自动读取 |
+
+Phase 0 验证的能力清单（下面各章节详述）在 Phase 0.5 都必须**从脚本模拟升级为真实 agent 执行**。
+
+如果 Phase 0 的所有接口在真实 agent 执行下仍然正确，则以下能力都被同时证明：
 - ✅ 16 方法 Runtime Interface Contract
 - ✅ 结构化 SessionPayload（P1-P5 priority blocks）
 - ✅ 三向握手（three-way handshake）
@@ -35,7 +53,7 @@ MVP 完成的**唯一验收标准**：
 - ✅ L1 → L2 memory write channel
 - ✅ L4 → L2 context assembly
 - ✅ Evidence anchor 写入与跨 session 读出
-- ✅ 至少 2 个 T1 runtime 通过 certifier（grid-runtime Rust + hermes 或 claude-code Python）
+- ✅ 至少 2 个 T1 runtime 通过 certifier（grid-runtime Rust + claude-code Python）
 
 ---
 

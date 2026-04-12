@@ -734,7 +734,7 @@ Phase 0 分为 4 个 Stage，Stage 内任务可并行，Stage 之间串行：
 - [x] 两个 L1 runtime 通过 certifier (grid-runtime + claude-code-runtime)
 - [x] EVOLUTION_PATH 文档 Phase 0 状态 = 🟢 Completed (2026-04-12)
 - [x] `.checkpoint.json` phase = `phase-0-done` (2026-04-12)
-- [ ] Git commit "docs(eaasp): Phase 0 MVP complete"
+- [x] Git commit "docs(eaasp): Phase 0 MVP complete" (f545647, 2026-04-12)
 
 完成后进入 **Phase 1: Event-driven foundation**（先解 ADR-V2-001/002/003，再动手）。
 
