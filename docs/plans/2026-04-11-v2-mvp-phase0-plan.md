@@ -729,11 +729,11 @@ Phase 0 分为 4 个 Stage，Stage 内任务可并行，Stage 之间串行：
 
 ## 退出条件（Phase 0 DONE）
 
-- [ ] Stage S1-S4 所有 15 个任务全部 DONE
-- [ ] `make v2-mvp-e2e` 返回 0
-- [ ] 两个 L1 runtime 通过 certifier
-- [ ] EVOLUTION_PATH 文档 Phase 0 状态 = 🟢 Completed
-- [ ] `.checkpoint.json` phase = `phase-0-done`
+- [x] Stage S1-S4 所有 15 个任务全部 DONE (2026-04-12)
+- [x] `make v2-mvp-e2e` 返回 0 (15/15 PASS @ a6fad2b)
+- [x] 两个 L1 runtime 通过 certifier (grid-runtime + claude-code-runtime)
+- [x] EVOLUTION_PATH 文档 Phase 0 状态 = 🟢 Completed (2026-04-12)
+- [x] `.checkpoint.json` phase = `phase-0-done` (2026-04-12)
 - [ ] Git commit "docs(eaasp): Phase 0 MVP complete"
 
 完成后进入 **Phase 1: Event-driven foundation**（先解 ADR-V2-001/002/003，再动手）。

@@ -98,7 +98,7 @@
 
 | Phase | v2.0 规范名称 | 圈层 | 关键交付 | 资产状态 |
 |---|---|---|---|---|
-| **Phase 0** | MVP Validation（Infrastructure MVP） | **圈 2** | 完整 L4→L3→L2→L1 链路 + Memory Engine + "阈值校准助手" skill 跑通 | 🟢 本次规划 |
+| **Phase 0** | MVP Validation（Infrastructure MVP） | **圈 2** | 完整 L4→L3→L2→L1 链路 + Memory Engine + "阈值校准助手" skill 跑通 | 🟢 Completed (2026-04-12) |
 | **Phase 1** | Event-driven foundation（weeks 1-6） | 圈 3 的一部分 | L4 Event Engine (ingest→dedup→cluster→state machine) + Session Event Stream + L4 hooks (EventReceived/PreSessionCreate/PostSessionEnd) | ⏸ Phase 0 完成后启动 |
 | **Phase 2** | Memory and evidence（weeks 5-12） | 圈 2 增强 + 圈 3 | Memory Engine 完整三层 + Skill extraction + PreCompact 通过 event stream 可逆 | ⏸ |
 | **Phase 3** | Approval and verification（weeks 10-18） | 圈 4 的一部分 | 5 阶段审批链 + Deterministic Verifier + OPA/Rego + Egress Control + Sandbox Isolation Tiers | ⏸ |

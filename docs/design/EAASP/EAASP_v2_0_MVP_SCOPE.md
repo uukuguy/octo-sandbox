@@ -383,3 +383,30 @@ make v2-mvp-e2e
 ```
 
 **如果上述 15 条全部通过，Phase 0 完成，进入 Phase 1（Event-driven foundation）。**
+
+### 验收结果（2026-04-12）
+
+> **`make v2-mvp-e2e` → exit 0, 15/15 PASS** @ commit `a6fad2b`
+>
+> 执行模式：4b-lite（ADR-V2-004）— D1+D2 真接入两个 L1 runtime，L4 保持 stub，
+> verify 脚本在 L4 空洞处直接 POST L2/L3 REST 以满足 15 断言。
+
+| # | 断言 | 状态 | 备注 |
+|---|------|------|------|
+| 1 | 启动 L2/L2-skill/L3/L4 | ✅ | 6 services (port 18081-18085 + L4 18084) |
+| 2 | 启动两个 L1 runtime | ✅ | grid-runtime (gRPC :50051) + claude-code-runtime (gRPC :50052) |
+| 3 | 提交阈值校准助手 skill | ✅ | skill-registry REST |
+| 4 | Promote skill to production | ✅ | skill-registry REST |
+| 5 | Deploy managed-settings | ✅ | L3 governance REST |
+| 6 | Session create (grid-runtime) | ✅ | L4 三向握手 |
+| 7 | 发消息校准 Transformer-001 | ✅ | L4 session message |
+| 8 | Evidence anchor + memory file 写入 | ✅ | L2 memory_write_anchor + memory_write_file, L4-STUBBED |
+| 9 | Session create (claude-code-runtime) | ✅ | L4 三向握手 |
+| 10 | 第二次校准消息 | ✅ | L4 session message |
+| 11 | P3 memory_refs 包含上次 memory_id | ✅ | L2 memory_search → session payload |
+| 12 | 第二次输出引用上次 anchor | ✅ | L4-STUBBED (D54 真路径待 Phase 1) |
+| 13 | L3 audit 两次 session tool call | ✅ | L4-STUBBED (D54 真路径待 Phase 1) |
+| 14 | Memory search 找到两次 anchor | ✅ | L2 REST 直查 |
+| 15 | Certifier 对两个 runtime PASS | ✅ | eaasp-certifier verify |
+
+**Phase 0 MVP 验收通过。** 🟢
