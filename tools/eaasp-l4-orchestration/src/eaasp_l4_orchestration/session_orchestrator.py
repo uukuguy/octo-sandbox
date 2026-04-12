@@ -79,6 +79,8 @@ class SessionOrchestrator:
         self._l1_factory = l1_factory or create_l1_client
         # Active L1 clients keyed by session_id.
         self._l1_clients: dict[str, L1RuntimeClient] = {}
+        # L4 session_id → L1 session_id mapping (L1 may generate its own).
+        self._l1_session_ids: dict[str, str] = {}
 
     # ─── Contract 2 / Contract 5: create ─────────────────────────────────────
     async def create_session(
@@ -185,12 +187,14 @@ class SessionOrchestrator:
         self._l1_clients[session_id] = l1
         try:
             handle = await l1.initialize(payload)
+            l1_sid = handle.get("session_id", session_id)
+            self._l1_session_ids[session_id] = l1_sid
             await self.event_stream.append(
                 session_id,
                 "RUNTIME_INITIALIZED",
                 {
                     "runtime_id": handle.get("runtime_id", runtime_pref),
-                    "l1_session_id": handle.get("session_id", session_id),
+                    "l1_session_id": l1_sid,
                 },
             )
             await self._update_status(session_id, "active")
@@ -234,6 +238,9 @@ class SessionOrchestrator:
             l1 = self._l1_factory(runtime_id)
             self._l1_clients[session_id] = l1
 
+        # Use L1's own session_id (may differ from L4's).
+        l1_sid = self._l1_session_ids.get(session_id, session_id)
+
         chunks: list[dict[str, Any]] = []
         full_text_parts: list[str] = []
         events: list[dict[str, Any]] = [
@@ -241,7 +248,7 @@ class SessionOrchestrator:
         ]
 
         try:
-            async for chunk in l1.send(session_id, content):
+            async for chunk in l1.send(l1_sid, content):
                 chunks.append(chunk)
                 if chunk.get("chunk_type") == "text_delta":
                     full_text_parts.append(chunk.get("content", ""))
@@ -295,13 +302,15 @@ class SessionOrchestrator:
             l1 = self._l1_factory(runtime_id)
             self._l1_clients[session_id] = l1
 
+        l1_sid = self._l1_session_ids.get(session_id, session_id)
+
         full_text_parts: list[str] = []
         events: list[dict[str, Any]] = [
             {"seq": seq_user, "event_type": "USER_MESSAGE"},
         ]
 
         try:
-            async for chunk in l1.send(session_id, content):
+            async for chunk in l1.send(l1_sid, content):
                 if chunk.get("chunk_type") == "text_delta":
                     full_text_parts.append(chunk.get("content", ""))
 
