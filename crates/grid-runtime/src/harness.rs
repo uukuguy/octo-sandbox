@@ -167,12 +167,20 @@ impl GridHarness {
         let registry = self.runtime.hook_registry();
 
         for hook in hooks {
-            let hook_point = match hook.hook_type.as_str() {
+            // Proto mapping: condition = scope (PreToolUse/PostToolUse/Stop),
+            //                hook_type = execution type (command/prompt).
+            // Determine HookPoint from condition (scope), not hook_type.
+            let scope_str = if !hook.condition.is_empty() {
+                hook.condition.as_str()
+            } else {
+                hook.hook_type.as_str()
+            };
+            let hook_point = match scope_str {
                 "pre_tool_call" | "PreToolUse" => HookPoint::PreToolUse,
                 "post_tool_result" | "PostToolUse" => HookPoint::PostToolUse,
                 "stop" | "Stop" => HookPoint::Stop,
                 other => {
-                    warn!(hook_type = %other, "Unknown scoped hook type, skipping");
+                    warn!(scope = %other, "Unknown scoped hook scope, skipping");
                     continue;
                 }
             };

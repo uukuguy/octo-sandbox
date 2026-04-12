@@ -234,10 +234,19 @@ def _dict_to_session_payload(d: dict[str, Any]) -> common_pb2.SessionPayload:
         payload.skill_instructions.content = str(si.get("content", ""))
         for hook_dict in si.get("frontmatter_hooks") or []:
             hook = payload.skill_instructions.frontmatter_hooks.add()
-            hook.hook_id = str(hook_dict.get("hook_id", ""))
-            hook.hook_type = str(hook_dict.get("hook_type", ""))
-            hook.condition = str(hook_dict.get("condition", ""))
-            hook.action = str(hook_dict.get("action", ""))
+            # Map skill scoped hook fields → proto ScopedHook fields:
+            #   name → hook_id
+            #   type (command/prompt) → hook_type
+            #   command or prompt → action
+            #   scope (PreToolUse/PostToolUse/Stop) → condition
+            hook.hook_id = str(hook_dict.get("name", hook_dict.get("hook_id", "")))
+            hook.hook_type = str(hook_dict.get("type", hook_dict.get("hook_type", "")))
+            hook.condition = str(hook_dict.get("scope", hook_dict.get("condition", "")))
+            hook.action = str(
+                hook_dict.get("command", "")
+                or hook_dict.get("prompt", "")
+                or hook_dict.get("action", "")
+            )
             hook.precedence = int(hook_dict.get("precedence", 0))
         for dep in si.get("dependencies") or []:
             payload.skill_instructions.dependencies.append(str(dep))
