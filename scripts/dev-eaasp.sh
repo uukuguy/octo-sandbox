@@ -190,6 +190,47 @@ check_venv "lang/hermes-runtime-python" "hermes-runtime-setup"
 echo -e "  ${GREEN}All .venvs present.${RESET}"
 echo ""
 
+# ── Pre-flight: .env and required LLM config ────────────────────────────
+echo -e "${BOLD}=== Pre-flight: .env + LLM provider config ===${RESET}"
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo -e "${RED}ERROR${RESET}: .env file not found at $PROJECT_ROOT/.env" >&2
+    echo "       Copy .env.example to .env and fill in API keys." >&2
+    exit 1
+fi
+# Source .env so we can validate before launching services.
+set -a
+source "$PROJECT_ROOT/.env"
+set +a
+
+# grid-runtime requires: LLM_PROVIDER, OPENAI_API_KEY (or ANTHROPIC_API_KEY), LLM_MODEL
+_require_env() {
+    local var=$1
+    local context=$2
+    if [ -z "${!var:-}" ]; then
+        echo -e "${RED}ERROR${RESET}: $var is required ($context)." >&2
+        echo "       Set it in .env or shell environment." >&2
+        exit 1
+    fi
+}
+
+_require_env "LLM_PROVIDER" "grid-runtime: e.g. openai or anthropic"
+_require_env "LLM_MODEL" "grid-runtime: e.g. gpt-4o or anthropic/claude-sonnet-4-20250514"
+
+if [ "$LLM_PROVIDER" = "anthropic" ]; then
+    _require_env "ANTHROPIC_API_KEY" "grid-runtime: LLM_PROVIDER=anthropic"
+else
+    _require_env "OPENAI_API_KEY" "grid-runtime: LLM_PROVIDER=$LLM_PROVIDER"
+    _require_env "OPENAI_BASE_URL" "grid-runtime: required for OpenRouter routing"
+fi
+
+_require_env "ANTHROPIC_API_KEY" "claude-code-runtime: Claude Agent SDK"
+
+echo -e "  LLM_PROVIDER=${CYAN}${LLM_PROVIDER}${RESET}"
+echo -e "  LLM_MODEL=${CYAN}${LLM_MODEL}${RESET}"
+echo -e "  OPENAI_BASE_URL=${CYAN}${OPENAI_BASE_URL:-'(not set)'}${RESET}"
+echo -e "  ${GREEN}All LLM config present.${RESET}"
+echo ""
+
 # ── Step 1: Cargo build ──────────────────────────────────────────────────
 if [ "$SKIP_BUILD" = false ]; then
     echo -e "${BOLD}=== Building Rust binaries ===${RESET}"

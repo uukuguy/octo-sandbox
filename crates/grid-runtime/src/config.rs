@@ -34,32 +34,28 @@ impl RuntimeConfig {
         let runtime_id =
             std::env::var("GRID_RUNTIME_ID").unwrap_or_else(|_| "grid-harness".into());
 
-        // Read API key: prefer OPENAI_API_KEY (default provider), fall back to ANTHROPIC_API_KEY.
-        let provider = std::env::var("LLM_PROVIDER").unwrap_or_else(|_| "openai".into());
+        // LLM provider configuration — explicit, no fallback.
+        // Missing required vars → panic with a clear message.
+        let provider = std::env::var("LLM_PROVIDER")
+            .expect("LLM_PROVIDER is required (e.g. \"openai\" or \"anthropic\")");
 
-        let api_key = if provider == "anthropic" {
-            std::env::var("ANTHROPIC_API_KEY")
-                .ok()
-                .or_else(|| std::env::var("OPENAI_API_KEY").ok())
-        } else {
-            std::env::var("OPENAI_API_KEY")
-                .ok()
-                .or_else(|| std::env::var("ANTHROPIC_API_KEY").ok())
+        let (api_key_var, base_url_var) = match provider.as_str() {
+            "anthropic" => ("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL"),
+            _ => ("OPENAI_API_KEY", "OPENAI_BASE_URL"),
         };
 
-        let base_url = if provider == "anthropic" {
-            std::env::var("ANTHROPIC_BASE_URL").ok()
-        } else {
-            std::env::var("OPENAI_BASE_URL").ok()
-        };
+        let api_key = std::env::var(api_key_var).ok();
+        if api_key.is_none() {
+            panic!(
+                "{api_key_var} is required for LLM_PROVIDER={provider}. \
+                 Set it in .env or shell environment."
+            );
+        }
 
-        let model = std::env::var("LLM_MODEL").unwrap_or_else(|_| {
-            if provider == "anthropic" {
-                "claude-sonnet-4-20250514".into()
-            } else {
-                "gpt-4o".into()
-            }
-        });
+        let base_url = std::env::var(base_url_var).ok();
+
+        let model = std::env::var("LLM_MODEL")
+            .expect("LLM_MODEL is required (e.g. \"gpt-4o\" or \"claude-sonnet-4-20250514\")");
 
         Self {
             grpc_addr,
@@ -77,15 +73,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn default_config_is_valid() {
+    fn config_with_explicit_vars() {
         std::env::remove_var("GRID_RUNTIME_ADDR");
         std::env::remove_var("GRID_RUNTIME_ID");
-        std::env::remove_var("LLM_PROVIDER");
-        std::env::remove_var("LLM_MODEL");
+        std::env::set_var("LLM_PROVIDER", "openai");
+        std::env::set_var("OPENAI_API_KEY", "test-key");
+        std::env::set_var("LLM_MODEL", "gpt-4o");
         let config = RuntimeConfig::from_env();
         assert_eq!(config.grpc_addr.port(), 50051);
         assert_eq!(config.runtime_id, "grid-harness");
         assert_eq!(config.provider, "openai");
         assert_eq!(config.model, "gpt-4o");
+        assert_eq!(config.api_key.as_deref(), Some("test-key"));
+        // Cleanup
+        std::env::remove_var("LLM_PROVIDER");
+        std::env::remove_var("OPENAI_API_KEY");
+        std::env::remove_var("LLM_MODEL");
     }
 }
