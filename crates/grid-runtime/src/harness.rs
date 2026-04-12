@@ -307,18 +307,32 @@ impl RuntimeContract for GridHarness {
             "GridHarness: policy_context metadata (D1)"
         );
 
-        // D2 — build a system-prompt preamble from P3 memory_refs and
-        // inject it as the first ChatMessage in the session's initial
-        // history. When memory_refs is empty, the history stays empty.
-        let initial_history: Vec<ChatMessage> = if payload.memory_refs.is_empty() {
-            vec![]
-        } else {
+        // Build initial_history with System messages:
+        // 1. P4 Skill prose (workflow instructions for the agent)
+        // 2. P3 Memory refs preamble (prior session context)
+        let mut initial_history: Vec<ChatMessage> = Vec::new();
+
+        // P4 — inject skill prose as system prompt so agent knows its task.
+        let skill_prose = payload
+            .skill_instructions
+            .as_ref()
+            .map(|s| s.content.clone())
+            .unwrap_or_default();
+        if !skill_prose.is_empty() {
+            initial_history.push(ChatMessage {
+                role: MessageRole::System,
+                content: vec![ContentBlock::Text { text: skill_prose }],
+            });
+        }
+
+        // D2 — P3 memory_refs preamble.
+        if !payload.memory_refs.is_empty() {
             let preamble = Self::build_memory_preamble(&payload.memory_refs);
-            vec![ChatMessage {
+            initial_history.push(ChatMessage {
                 role: MessageRole::System,
                 content: vec![ContentBlock::Text { text: preamble }],
-            }]
-        };
+            });
+        }
         let memory_refs_count = payload.memory_refs.len();
 
         let _handle = self
@@ -439,14 +453,14 @@ impl RuntimeContract for GridHarness {
         handle: &SessionHandle,
         content: SkillContent,
     ) -> anyhow::Result<()> {
+        // Skill prose is already injected as System message in initialize().
+        // This method handles additional skill metadata registration if needed.
         info!(
             session_id = %handle.session_id,
             skill = %content.name,
-            "GridHarness: load_skill (skill loading via SkillRegistry)"
+            prose_len = content.prose.len(),
+            "GridHarness: load_skill — prose injected via initial_history"
         );
-        // Skills in Grid are loaded via SkillRegistry at runtime init.
-        // Dynamic skill injection during session will be implemented
-        // when L2 Skill Assets layer integration is built.
         Ok(())
     }
 
