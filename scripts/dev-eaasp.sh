@@ -214,20 +214,25 @@ _require_env() {
 }
 
 _require_env "LLM_PROVIDER" "grid-runtime: e.g. openai or anthropic"
-_require_env "LLM_MODEL" "grid-runtime: e.g. gpt-4o or anthropic/claude-sonnet-4-20250514"
 
 if [ "$LLM_PROVIDER" = "anthropic" ]; then
     _require_env "ANTHROPIC_API_KEY" "grid-runtime: LLM_PROVIDER=anthropic"
+    _require_env "ANTHROPIC_MODEL_NAME" "grid-runtime: e.g. claude-sonnet-4-20250514"
 else
     _require_env "OPENAI_API_KEY" "grid-runtime: LLM_PROVIDER=$LLM_PROVIDER"
     _require_env "OPENAI_BASE_URL" "grid-runtime: required for OpenRouter routing"
+    _require_env "OPENAI_MODEL_NAME" "grid-runtime: e.g. gpt-4o or anthropic/claude-sonnet-4-20250514"
 fi
 
 _require_env "ANTHROPIC_API_KEY" "claude-code-runtime: Claude Agent SDK"
 
 echo -e "  LLM_PROVIDER=${CYAN}${LLM_PROVIDER}${RESET}"
-echo -e "  LLM_MODEL=${CYAN}${LLM_MODEL}${RESET}"
-echo -e "  OPENAI_BASE_URL=${CYAN}${OPENAI_BASE_URL:-'(not set)'}${RESET}"
+if [ "$LLM_PROVIDER" = "anthropic" ]; then
+    echo -e "  ANTHROPIC_MODEL_NAME=${CYAN}${ANTHROPIC_MODEL_NAME}${RESET}"
+else
+    echo -e "  OPENAI_MODEL_NAME=${CYAN}${OPENAI_MODEL_NAME}${RESET}"
+    echo -e "  OPENAI_BASE_URL=${CYAN}${OPENAI_BASE_URL}${RESET}"
+fi
 echo -e "  ${GREEN}All LLM config present.${RESET}"
 echo ""
 
