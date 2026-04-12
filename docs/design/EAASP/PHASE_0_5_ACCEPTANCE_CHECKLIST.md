@@ -53,7 +53,7 @@ make dev-eaasp
 # 新开终端，在项目根目录执行：
 
 # 提交 skill
-make eaasp-skill-submit SKILL=examples/skills/threshold-calibration/SKILL.md
+make eaasp-skill-submit SKILL=examples/skills/threshold-calibration/
 
 # 推进 skill 状态
 tools/eaasp-cli-v2/.venv/bin/eaasp skill promote threshold-calibration 0.1.0 tested
