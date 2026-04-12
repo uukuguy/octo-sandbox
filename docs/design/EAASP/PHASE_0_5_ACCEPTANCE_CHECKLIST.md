@@ -107,10 +107,10 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 # 创建 session — 指定 grid-runtime
 .venv/bin/eaasp session create \
   --skill threshold-calibration --runtime grid-runtime
+# 记录返回的 session_id（如 sess_xxxxxxxxxxxx）
 
-# 发送任务（流式输出）
-.venv/bin/eaasp session send \
-  "校准 Transformer-001 的温度阈值"
+# 发送任务（注意：第一个参数是 SESSION_ID）
+.venv/bin/eaasp session send <SESSION_ID> "校准 Transformer-001 的温度阈值"
 ```
 
 **验收标准**：
@@ -128,10 +128,10 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 # 创建 session — 指定 claude-code-runtime
 .venv/bin/eaasp session create \
   --skill threshold-calibration --runtime claude-code-runtime
+# 记录返回的 session_id
 
 # 发送任务
-.venv/bin/eaasp session send \
-  "校准 Transformer-001 的温度阈值"
+.venv/bin/eaasp session send <SESSION_ID> "校准 Transformer-001 的温度阈值"
 ```
 
 **验收标准**：
@@ -147,10 +147,10 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 # 创建 session — 指定 hermes-runtime
 .venv/bin/eaasp session create \
   --skill threshold-calibration --runtime hermes-runtime
+# 记录返回的 session_id
 
 # 发送任务
-.venv/bin/eaasp session send \
-  "校准 Transformer-001 的温度阈值"
+.venv/bin/eaasp session send <SESSION_ID> "校准 Transformer-001 的温度阈值"
 ```
 
 **验收标准**：
@@ -178,9 +178,9 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 # 用不同于 Step 4A 的 runtime 创建新 session
 .venv/bin/eaasp session create \
   --skill threshold-calibration --runtime claude-code-runtime
+# 记录返回的 session_id
 
-.venv/bin/eaasp session send \
-  "再校准一次 Transformer-001"
+.venv/bin/eaasp session send <SESSION_ID> "再校准一次 Transformer-001"
 ```
 
 **验收标准**：
@@ -192,8 +192,8 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 ## Step 7: Hook Deny 验证
 
 ```bash
-# 在任一 active session 中发送
-.venv/bin/eaasp session send "写入 SCADA 系统"
+# 在任一 active session 中发送（使用上面任一 SESSION_ID）
+.venv/bin/eaasp session send <SESSION_ID> "写入 SCADA 系统"
 ```
 
 **验收标准**：
