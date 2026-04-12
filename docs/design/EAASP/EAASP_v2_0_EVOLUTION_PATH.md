@@ -193,27 +193,50 @@ eaasp-cli session send "再校准一次 Transformer-001"
 | **D11** | 新的 v2 proto 路径：`proto/eaasp/runtime/v2/runtime.proto`；旧 v1 proto 归档删除 | v1 到 v2 差距过大，无复用价值 |
 | **D12** | 圈 2 **不做** Event Engine、**不做** Session Event Stream 真实实现（用占位 in-process append-only SQLite），**不做** L5 Web UI | 避免被未决 ADR 阻塞 |
 
+### 2026-04-12 Brainstorming — L1 Runtime 研究 + 全局修正
+
+| ID | 决策 | 理由/上下文 |
+|---|---|---|
+| **D13** | **L1 Runtime Pool 是生态覆盖，不是选最佳**。每增加一个 tier 代表就降低一类团队的接入门槛。L1 Pool 扩充是独立并行工作线，每个新 Runtime 通过 certifier 后配置加入 MVP 验证矩阵 | L1_RUNTIME_STRATEGY.md 结论 1 |
+| **D14** | **claude-code-runtime = Claude Agent SDK 的 L1 包装，hermes-runtime = Hermes 的 L1 包装**。这两个已交付的 T1 实例不是"临时方案"，不需要被替换。后续是**扩充** Pool 不是替换 | L1_RUNTIME_STRATEGY.md 结论 2 |
+| **D15** | **治理框架（Microsoft AGT 等）是 L3 工作线**，不是 L1 候选。作为 L3 HookBridge 可替换后端独立评估 | L1_RUNTIME_STRATEGY.md 结论 3 |
+| **D16** | **Grid 是 L1 参考实现基线，不是候选**。CCB 是最值得新增的第三个 L1 实例（平行角色），继承 Anthropic Claude Code skill 生态。Grid 有 4 个真实短板（MCP 2 transport / skill 3 来源 / 无批级 hook / 无 Agent hook transport）可从 CCB/Nanobot 借鉴 | L1_RUNTIME_CANDIDATE_ANALYSIS.md §11 |
+| **D17** | **Phase 0.5 MVP 双轨验证**：grid-runtime (Rust) + claude-code-runtime (Python) 都要打通 L4→L1 真 gRPC。LLM provider 配置从 `.env` 读取（OPENAI_*/ANTHROPIC_* 已有），eaasp-cli 适配各 runtime。后续需要设计 Runtime LLM Providers 的**平台级配置**（L4 管理、L1 消费） | Phase 0.5 规划讨论 |
+| **D18** | **ADR 治理机制按最佳实践建立**（模板 + 状态机 + ID 规则 + 校验）。运行成熟后转为 Claude Code Skill（`/adr` 命令），时机到时提醒用户 make skill | ADR 管理现状分析 |
+| **D19** | **T0-T3 定义需更新**，包括 EVOLUTION_PATH §2.3 + v2.0 设计规范对应章节。先产出中英文对照修正附录，供合入 spec docx。L1 Runtime Pool 研究出结论后增补各 tier 的实例说明 | L1_RUNTIME_CANDIDATE_ANALYSIS.md §13 校正 |
+
 ---
 
-## 五、Deferred ADRs（按解决 Phase 排序）
+## 五、ADR 注册表
 
-以下决策在 Phase 0 MVP 里**显式不解**，各 Phase 到达时必须先解决相应 ADR。
+### ADR 治理规则
 
-| ADR ID | 主题 | 目标 Phase | 阻塞什么 |
-|---|---|---|---|
-| **ADR-V2-001** | `emitEvent()` 是新 MUST 方法 vs hook-bridge 副作用 vs 平台拦截器 | Phase 1 | L1→Session Event Stream 写入接口 |
-| **ADR-V2-002** | Session Event Stream 后端选型（Kafka / NATS JetStream / S3 append-only） | Phase 1 | L4 持久化平面 |
-| **ADR-V2-003** | Event clustering strategies 的插件化接口（4 handler types 支持） | Phase 1 | L4 Event Engine pipeline |
-| **ADR-V2-004** | (a) L4→L1 真 gRPC 绑定的 4b-lite scope 决策 — 已落地 `docs/design/EAASP/adrs/ADR-V2-004-l4-to-l1-real-grpc-binding.md`（2026-04-12）; (b) L2 Memory Engine semantic 检索选型（pgvector / 独立向量库 / HNSW in-process）— 待定 | (a) Phase 0 ✅ (b) Phase 2 增强 | (b) hybrid retrieval index |
-| **ADR-V2-005** | OPA/Rego 作为 command hook backend 的部署拓扑（sidecar vs shared cluster OPA） | Phase 3 | L3 Policy Engine |
-| **ADR-V2-006** | Sandbox Isolation Tier 实现（gVisor 优先 vs Kata 优先 vs Firecracker） | Phase 3 | L1 execution zone |
-| **ADR-V2-007** | A2A ReviewSet aggregation engine 的冲突检测算法 | Phase 4 | L4 A2A Router |
-| **ADR-V2-008** | L5 Web UI 的技术选型（复用 grid-workbench 的 web/ vs 全新 web-eaasp/） | Phase 5 | L5 Cowork 实现 |
-| **ADR-V2-009** | 多租户的组织层次与 policy scope 的数据模型 | Phase 6 | Multi-tenancy |
-| **ADR-V2-010** | Runtime 认证流水线（certification pipeline）的 blind-box 质量测试设计 | Phase 6 | 生态扩展 |
+1. **模板**：每个 ADR 使用 `docs/design/EAASP/adrs/ADR-TEMPLATE.md` 模板，包含 Status / Date / Phase / Context / Decision / Consequences / Related 结构化字段
+2. **状态机**：`Proposed → Accepted → Deprecated / Superseded`，状态变更必须在本表和 ADR 文件中同步更新
+3. **ID 规则**：`ADR-V2-NNN`，编号单调递增，**不复用**。已有 ADR-V2-004 ID 复用问题修复：(a) 已落地的 4b-lite 决策保留 004；(b) Memory semantic 检索重新分配为 ADR-V2-015
+4. **落地位置**：`docs/design/EAASP/adrs/ADR-V2-NNN-<slug>.md`
+5. **校验**：每个 ADR 记录"影响的模块/文件"清单。代码变更涉及已有 ADR 影响范围时，reviewer 需检查是否合规
+6. **Skill 转化**：ADR 机制运行成熟（≥10 个 ADR 落地 + 模板稳定）后，转为 Claude Code Skill（`/adr` 命令）
 
-**规则**：每个 ADR 落地时在 `docs/design/EAASP/adrs/ADR-V2-XXX.md` 写文档，本文档只做索引。
-（`adrs/` 目录在第一个 ADR 落地时再建，避免先挖空坑。）
+### ADR 索引（按解决 Phase 排序）
+
+| ADR ID | 主题 | 状态 | 目标 Phase | 阻塞什么 |
+|---|---|---|---|---|
+| **ADR-V2-001** | `emitEvent()` 是新 MUST 方法 vs hook-bridge 副作用 vs 平台拦截器 | Proposed | Phase 1 | L1→Session Event Stream 写入接口 |
+| **ADR-V2-002** | Session Event Stream 后端选型（Kafka / NATS JetStream / S3 append-only） | Proposed | Phase 1 | L4 持久化平面 |
+| **ADR-V2-003** | Event clustering strategies 的插件化接口（4 handler types 支持） | Proposed | Phase 1 | L4 Event Engine pipeline |
+| **ADR-V2-004** | L4→L1 真 gRPC 绑定的 4b-lite scope 决策 | **Accepted** | Phase 0 ✅ | [`adrs/ADR-V2-004-l4-to-l1-real-grpc-binding.md`](adrs/ADR-V2-004-l4-to-l1-real-grpc-binding.md) |
+| **ADR-V2-005** | OPA/Rego 作为 command hook backend 的部署拓扑（sidecar vs shared cluster OPA） | Proposed | Phase 3 | L3 Policy Engine |
+| **ADR-V2-006** | Sandbox Isolation Tier 实现（gVisor 优先 vs Kata 优先 vs Firecracker） | Proposed | Phase 3 | L1 execution zone |
+| **ADR-V2-007** | A2A ReviewSet aggregation engine 的冲突检测算法 | Proposed | Phase 4 | L4 A2A Router |
+| **ADR-V2-008** | L5 Web UI 的技术选型（复用 grid-workbench 的 web/ vs 全新 web-eaasp/） | Proposed | Phase 5 | L5 Cowork 实现 |
+| **ADR-V2-009** | 多租户的组织层次与 policy scope 的数据模型 | Proposed | Phase 6 | Multi-tenancy |
+| **ADR-V2-010** | Runtime 认证流水线（certification pipeline）的 blind-box 质量测试设计 | Proposed | Phase 6 | 生态扩展 |
+| **ADR-V2-011** | PreToolBatch 批级 hook 契约（单 tool vs 整批双轨） | Proposed | Phase 0.5/1 | HookBridge 契约扩展 |
+| **ADR-V2-012** | L3 治理后端选型（Microsoft AGT vs OPA vs cedar-agent） | Proposed | Phase 1 | L3 Policy Engine 真实后端 |
+| **ADR-V2-013** | L1 Runtime Pool 扩充策略 + 贡献者接入规范 | Proposed | Phase 1 | 生态开放 |
+| **ADR-V2-014** | T0-T3 分层判据正式定义（含代表项目 + adapter 厚度指南） | Proposed | 立即 | L1 选型依据 |
+| **ADR-V2-015** | L2 Memory Engine semantic 检索选型（pgvector / 独立向量库 / HNSW in-process）— 原 ADR-V2-004(b) 拆出 | Proposed | Phase 2 | hybrid retrieval index |
 
 ---
 
