@@ -33,6 +33,8 @@ L2_MEM_PORT="${EAASP_L2_PORT:-18085}"
 L3_GOV_PORT="${EAASP_L3_PORT:-18083}"
 L4_ORCH_PORT="${EAASP_L4_PORT:-18084}"
 GRID_RT_PORT="${GRID_RUNTIME_PORT:-50051}"
+CLAUDE_RT_PORT="${CLAUDE_RUNTIME_PORT:-50052}"
+HERMES_RT_PORT="${HERMES_RUNTIME_PORT:-50053}"
 
 # ── Runtime flags ─────────────────────────────────────────────────────────
 SKIP_BUILD=false
@@ -43,6 +45,8 @@ L2_PID=""
 L3_PID=""
 L4_PID=""
 GRID_PID=""
+CLAUDE_PID=""
+HERMES_PID=""
 
 # ── Cleanup helpers (reused from verify-v2-mvp.sh) ───────────────────────
 _kill_tree() {
@@ -70,12 +74,16 @@ cleanup() {
     echo ""
     echo -e "${BOLD}=== Stopping EAASP services ===${RESET}"
     _kill_tree "L4 orchestration" "$L4_PID"
+    _kill_tree "hermes-runtime" "$HERMES_PID"
+    _kill_tree "claude-code-runtime" "$CLAUDE_PID"
     _kill_tree "grid-runtime" "$GRID_PID"
     _kill_tree "L3 governance" "$L3_PID"
     _kill_tree "L2 memory-engine" "$L2_PID"
     _kill_tree "skill-registry" "$SKILL_REG_PID"
     # Sweep orphaned listeners
     _kill_port "L4 orchestration" "$L4_ORCH_PORT"
+    _kill_port "hermes-runtime" "$HERMES_RT_PORT"
+    _kill_port "claude-code-runtime" "$CLAUDE_RT_PORT"
     _kill_port "grid-runtime" "$GRID_RT_PORT"
     _kill_port "L3 governance" "$L3_GOV_PORT"
     _kill_port "L2 memory-engine" "$L2_MEM_PORT"
@@ -168,6 +176,8 @@ check_port_free $L2_MEM_PORT "L2 memory-engine"
 check_port_free $L3_GOV_PORT "L3 governance"
 check_port_free $L4_ORCH_PORT "L4 orchestration"
 check_port_free $GRID_RT_PORT "grid-runtime"
+check_port_free $CLAUDE_RT_PORT "claude-code-runtime"
+check_port_free $HERMES_RT_PORT "hermes-runtime"
 echo -e "  ${GREEN}All ports free.${RESET}"
 echo ""
 
@@ -175,6 +185,8 @@ echo -e "${BOLD}=== Pre-flight: Python .venv checks ===${RESET}"
 check_venv "tools/eaasp-l2-memory-engine" "l2-memory-setup"
 check_venv "tools/eaasp-l3-governance" "l3-setup"
 check_venv "tools/eaasp-l4-orchestration" "l4-setup"
+check_venv "lang/claude-code-runtime-python" "claude-runtime-setup"
+check_venv "lang/hermes-runtime-python" "hermes-runtime-setup"
 echo -e "  ${GREEN}All .venvs present.${RESET}"
 echo ""
 
@@ -238,7 +250,27 @@ GRID_PID=$!
 echo "  PID: $GRID_PID"
 wait_for_port $GRID_RT_PORT "grid-runtime"
 
-# ── Step 6: Start L4 orchestration ───────────────────────────────────────
+# ── Step 6: Start claude-code-runtime ────────────────────────────────────
+echo ""
+echo -e "${BOLD}=== Starting claude-code-runtime on :${CLAUDE_RT_PORT} ===${RESET}"
+cd "$PROJECT_ROOT/lang/claude-code-runtime-python"
+CLAUDE_RUNTIME_PORT=$CLAUDE_RT_PORT \
+    .venv/bin/python -m claude_code_runtime --port "$CLAUDE_RT_PORT" 2>&1 | sed 's/^/  [claude-rt] /' &
+CLAUDE_PID=$!
+echo "  PID: $CLAUDE_PID"
+wait_for_port $CLAUDE_RT_PORT "claude-code-runtime"
+
+# ── Step 7: Start hermes-runtime ────────────────────────────────────────
+echo ""
+echo -e "${BOLD}=== Starting hermes-runtime on :${HERMES_RT_PORT} ===${RESET}"
+cd "$PROJECT_ROOT/lang/hermes-runtime-python"
+HERMES_RUNTIME_PORT=$HERMES_RT_PORT \
+    .venv/bin/python -m hermes_runtime --port "$HERMES_RT_PORT" 2>&1 | sed 's/^/  [hermes-rt] /' &
+HERMES_PID=$!
+echo "  PID: $HERMES_PID"
+wait_for_port $HERMES_RT_PORT "hermes-runtime"
+
+# ── Step 8: Start L4 orchestration ───────────────────────────────────────
 echo ""
 echo -e "${BOLD}=== Starting L4 orchestration on :${L4_ORCH_PORT} ===${RESET}"
 cd "$PROJECT_ROOT/tools/eaasp-l4-orchestration"
@@ -258,13 +290,15 @@ echo -e "${BOLD}${CYAN}═══════════════════
 echo -e "${BOLD}${CYAN}  All EAASP services running${RESET}"
 echo -e "${BOLD}${CYAN}════════════════════════════════════════════════════${RESET}"
 echo ""
-printf "  ${BOLD}%-22s %-8s %-8s %-8s${RESET}\n" "SERVICE" "PORT" "PID" "STATUS"
-printf "  %-22s %-8s %-8s %-8s\n"   "──────────────────────" "────────" "────────" "────────"
-printf "  %-22s %-8s %-8s ${GREEN}%-8s${RESET}\n" "skill-registry"   "$SKILL_REG_PORT" "$SKILL_REG_PID" "UP"
-printf "  %-22s %-8s %-8s ${GREEN}%-8s${RESET}\n" "L2 memory-engine"  "$L2_MEM_PORT"    "$L2_PID"        "UP"
-printf "  %-22s %-8s %-8s ${GREEN}%-8s${RESET}\n" "L3 governance"     "$L3_GOV_PORT"    "$L3_PID"        "UP"
-printf "  %-22s %-8s %-8s ${GREEN}%-8s${RESET}\n" "grid-runtime"      "$GRID_RT_PORT"   "$GRID_PID"      "UP"
-printf "  %-22s %-8s %-8s ${GREEN}%-8s${RESET}\n" "L4 orchestration"  "$L4_ORCH_PORT"   "$L4_PID"        "UP"
+printf "  ${BOLD}%-24s %-8s %-8s %-10s %-8s${RESET}\n" "SERVICE" "PORT" "PID" "PROVIDER" "STATUS"
+printf "  %-24s %-8s %-8s %-10s %-8s\n"   "────────────────────────" "────────" "────────" "──────────" "────────"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "skill-registry"       "$SKILL_REG_PORT" "$SKILL_REG_PID" "-"          "UP"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L2 memory-engine"     "$L2_MEM_PORT"    "$L2_PID"        "-"          "UP"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L3 governance"        "$L3_GOV_PORT"    "$L3_PID"        "-"          "UP"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "grid-runtime"         "$GRID_RT_PORT"   "$GRID_PID"      "OPENAI_*"   "UP"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "claude-code-runtime"  "$CLAUDE_RT_PORT" "$CLAUDE_PID"    "ANTHROPIC_*" "UP"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "hermes-runtime"       "$HERMES_RT_PORT" "$HERMES_PID"    "OPENROUTER" "UP"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L4 orchestration"     "$L4_ORCH_PORT"   "$L4_PID"        "-"          "UP"
 echo ""
 echo -e "  ${YELLOW}Press Ctrl+C to stop all services.${RESET}"
 echo ""

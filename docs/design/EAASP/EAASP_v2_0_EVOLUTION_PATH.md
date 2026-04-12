@@ -201,7 +201,8 @@ eaasp-cli session send "再校准一次 Transformer-001"
 | **D14** | **claude-code-runtime = Claude Agent SDK 的 L1 包装，hermes-runtime = Hermes 的 L1 包装**。这两个已交付的 T1 实例不是"临时方案"，不需要被替换。后续是**扩充** Pool 不是替换 | L1_RUNTIME_STRATEGY.md 结论 2 |
 | **D15** | **治理框架（Microsoft AGT 等）是 L3 工作线**，不是 L1 候选。作为 L3 HookBridge 可替换后端独立评估 | L1_RUNTIME_STRATEGY.md 结论 3 |
 | **D16** | **Grid 是 L1 参考实现基线，不是候选**。CCB 是最值得新增的第三个 L1 实例（平行角色），继承 Anthropic Claude Code skill 生态。Grid 有 4 个真实短板（MCP 2 transport / skill 3 来源 / 无批级 hook / 无 Agent hook transport）可从 CCB/Nanobot 借鉴 | L1_RUNTIME_CANDIDATE_ANALYSIS.md §11 |
-| **D17** | **Phase 0.5 MVP 双轨验证**：grid-runtime (Rust) + claude-code-runtime (Python) 都要打通 L4→L1 真 gRPC。LLM provider 配置从 `.env` 读取（OPENAI_*/ANTHROPIC_* 已有），eaasp-cli 适配各 runtime。后续需要设计 Runtime LLM Providers 的**平台级配置**（L4 管理、L1 消费） | Phase 0.5 规划讨论 |
+| **D17** | **Phase 0.5 MVP 三轨验证**：grid-runtime (Rust) + claude-code-runtime (Python) + hermes-runtime (Python) 全部打通 L4→L1 真 gRPC。后续需要设计 Runtime LLM Providers 的**平台级配置**（L4 管理、L1 消费） | Phase 0.5 规划讨论 |
+| **D20** | **L1 Runtime LLM Provider 默认配置策略**：grid-runtime 默认使用 `OPENAI_*` 环境变量（`LLM_PROVIDER=openai`）；claude-code-runtime 只使用 `ANTHROPIC_*`（Claude Agent SDK 限定）；hermes-runtime 使用 `OPENROUTER_API_KEY`（通过 OpenRouter 统一接入，可路由到任意模型）。只有明确使用 Claude 的 runtime 才读 `ANTHROPIC_*`，其余默认走 `OPENAI_*` 通路。**此策略适用于所有 L1 Runtime，后续新增 runtime 遵循同一规则** | 2026-04-12 用户明确要求 |
 | **D18** | **ADR 治理机制按最佳实践建立**（模板 + 状态机 + ID 规则 + 校验）。运行成熟后转为 Claude Code Skill（`/adr` 命令），时机到时提醒用户 make skill | ADR 管理现状分析 |
 | **D19** | **T0-T3 定义需更新**，包括 EVOLUTION_PATH §2.3 + v2.0 设计规范对应章节。先产出中英文对照修正附录，供合入 spec docx。L1 Runtime Pool 研究出结论后增补各 tier 的实例说明 | L1_RUNTIME_CANDIDATE_ANALYSIS.md §13 校正 |
 

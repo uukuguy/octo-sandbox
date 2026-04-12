@@ -923,7 +923,7 @@ dev-eaasp:
 
 dev-eaasp-stop:
 	@echo "Stopping EAASP services..."
-	@for port in 18081 18083 18084 18085 50051; do \
+	@for port in 18081 18083 18084 18085 50051 50052 50053; do \
 		lsof -nP -iTCP:$$port -sTCP:LISTEN -t 2>/dev/null | xargs kill -TERM 2>/dev/null || true; \
 	done
 	@echo "Done."
