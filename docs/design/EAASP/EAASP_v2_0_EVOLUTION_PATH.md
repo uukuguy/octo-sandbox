@@ -249,9 +249,9 @@ eaasp-cli session send "再校准一次 Transformer-001"
 |---|------|------|---------|------|
 | R1 | OpenCode 源码评估 | 本地 clone，确认 **T1** 归属（per-tool `tool.execute.before/after` hook + 独立 Permission Allow/Deny/Ask + MCP 3 transport + SKILL.md frontmatter）。Adapter 3-4 天。详见 `L1_RUNTIME_R1_OPENCODE_EVAL.md` | Phase 0.5 期间（并行） | ✅ 2026-04-12 |
 | R2 | Agno 2.0 源码评估 | 本地 clone，确认维持 **T2**（MCP+Skills 完全达标，但 Hooks 是 agent-run 级别非 per-tool — `pre_hooks/post_hooks` 在 `agent.run()` 入口/出口各一次，无 `tool_name` 参数）。Adapter 5-7 天。详见 `L1_RUNTIME_R2_AGNO_EVAL.md` | Phase 0.5 期间（并行） | ✅ 2026-04-12 |
-| R3 | Microsoft AGT 白皮书深读 | `agentmesh-mcp` Rust crate 接口面 → L3 对接可行性备忘录 | Phase 0.5 完成后 | ⏸ |
-| R4 | HexAgent Computer 协议评估 | 本地 clone，与 SANDBOX_EXECUTION_DESIGN 四种模式对比 | Phase 1 启动时 | ⏸ |
-| R5 | T0-T3 中英文修正附录 | 供合入 v2.0 spec docx §8.5，含代表项目更新 | R1+R2 完成后 | ⏸ |
+| R3 | Microsoft AGT 深读 | `agentmesh` + `agentmesh-mcp` Rust crate 确认存在（~8190 行），可嵌入 `grid-hook-bridge`。6 种 MCP 安全扫描（ToolPoisoning/RugPull/CrossServerAttack 等）。策略模型支持原生 YAML + OPA/Rego + Cedar 三后端。推荐方案 A：L3 Python 层引入 AGT PolicyEvaluator（2-3 人天），Phase 2+ 渐进 Rust 嵌入。详见 `R3_AGT_EVALUATION_MEMO.md` + `L1_RUNTIME_R3_AGT_EVAL_DETAIL.md` | Phase 0.5 期间 | ✅ 2026-04-12 |
+| R4 | HexAgent Computer 协议评估 | 确认 **T0** 最佳开源实证。Computer 协议 6 方法（is_running/start/run/upload/download/stop），三种实现（Native/Lima VM/E2B Cloud）。Lima VM 实现 harness-tools 物理分离。Adapter 5-8 天。详见 `L1_RUNTIME_R4_HEXAGENT_EVAL.md` | Phase 0.5 期间 | ✅ 2026-04-12 |
+| R5 | T0-T3 中英文修正附录 | 中英文对照文档完成，含 R1(OpenCode T1) + R2(Agno T2) 源码验证证据，T1/T2 分水岭明确定义（per-tool hook 粒度），4 tier 横向对比矩阵。详见 `L1_RUNTIME_T0_T3_TIER_APPENDIX.md` | R1+R2 完成后 | ✅ 2026-04-12 |
 | R6 | 各 tier 实例说明文档 | 每个 tier 首选候选的 2-3 页架构摘要（贡献者入门包） | Phase 1 早期 | ⏸ |
 | R7 | L1 贡献者指南 | `L1_RUNTIME_CONTRIBUTOR_GUIDE.md`：如何把 framework 包装成 L1 | R5+R6 完成后 | ⏸ |
 | R8 | Wippy / datalayer 二次深挖 | 证据不足的两个 T2 候选，视 R1+R2 结果决定是否值得 | Phase 1（低优先级） | ⏸ |
