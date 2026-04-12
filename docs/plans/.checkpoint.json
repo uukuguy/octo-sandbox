@@ -2,14 +2,14 @@
   "plan_file": "docs/plans/2026-04-12-v2-mvp-phase0.5-plan.md",
   "phase": "phase-0.5-started",
   "created_at": "2026-04-12T15:30:00+08:00",
-  "updated_at": "2026-04-12T17:40:00+08:00",
-  "completed_tasks": ["S1.T1", "S1.T2", "S1.T3", "S2.T1", "S2.T2", "S3.T1", "S3.T2", "S3.T3"],
+  "updated_at": "2026-04-12T18:10:00+08:00",
+  "completed_tasks": ["S1.T1", "S1.T2", "S1.T3", "S2.T1", "S2.T2", "S3.T1", "S3.T2", "S3.T3", "S4.T1", "S4.T2"],
   "current_task": null,
   "total_tasks": 12,
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 Phase 0.5 — MVP 全层贯通",
-  "status": "S3 COMPLETE (3/3). connectMCP auto-wiring from skill dependencies + ScopedHookHandler (PreToolUse/PostToolUse/Stop with glob matching, exit 2=deny) + L2 MemoryWriteHook (async fire-and-forget PostToolUse). grid-runtime 93 pass / claude-code-runtime 75 pass / L4 52 pass. Next: S4 Streaming.",
-  "notes": "Phase 0 archived (15/15 PASS @ a955c44). Phase 0.5 created from EVOLUTION_PATH §3.3 gap analysis. G3 (connectMCP) + G4 (hook executor) + D53 (scoped-hook) CLOSED. Iron rule: must be human-executable, observable, verifiable — not just script assertions.",
+  "status": "S4 COMPLETE (2/2). SSE streaming endpoint POST /message/stream + CLI stream_sse() + cmd_session --stream default. L4 56 pass / CLI 20 pass. Next: S5 Acceptance.",
+  "notes": "Phase 0 archived (15/15 PASS @ a955c44). Phase 0.5 S1-S4 complete. G3/G4/D53/D54/D40 CLOSED. G5 (streaming) CLOSED via S4 SSE endpoint + CLI consumer. Next: S5 dev-eaasp one-click + human acceptance.",
   "last_phase": {
     "name": "Phase 0 — Infrastructure Foundation",
     "completed_at": "2026-04-12T14:00:00+08:00",
@@ -49,7 +49,11 @@
     "S4_Streaming": {
       "tasks": 2,
       "description": "L1→L4 streaming response + CLI real-time display",
-      "status": "pending"
+      "status": "complete",
+      "completed_at": "2026-04-12T18:10:00+08:00",
+      "commit": "747b2d9",
+      "tests": "L4 56/56 (+4 new: stream_message async gen + SSE endpoint + SSE 404 + stream_unknown) / CLI 20/20 (+2 new: send_stream_default + send_no_stream)",
+      "key_finding": "Proto Send RPC + grid-runtime harness + L1 client already server-streaming. Only needed L4 API SSE layer + CLI SSE consumer."
     },
     "S5_Acceptance": {
       "tasks": 2,
