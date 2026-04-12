@@ -59,8 +59,14 @@ impl SkillStore {
             .join(&req.version);
         std::fs::create_dir_all(&skill_dir).context("create skill version directory")?;
 
-        // Build SKILL.md content with frontmatter
-        let skill_md = format!("---\n{}---\n\n{}", req.frontmatter_yaml, req.prose);
+        // Build SKILL.md content with frontmatter.
+        // Ensure frontmatter_yaml ends with newline so the closing --- is on its own line.
+        let yaml = if req.frontmatter_yaml.ends_with('\n') {
+            req.frontmatter_yaml.clone()
+        } else {
+            format!("{}\n", req.frontmatter_yaml)
+        };
+        let skill_md = format!("---\n{yaml}---\n\n{}", req.prose);
         std::fs::write(skill_dir.join("SKILL.md"), &skill_md).context("write SKILL.md")?;
 
         let now = chrono::Utc::now().to_rfc3339();
