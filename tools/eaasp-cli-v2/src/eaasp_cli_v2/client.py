@@ -114,7 +114,8 @@ class ServiceClient:
         """
         try:
             async with self._client.stream(
-                "POST", url, json=json_body
+                "POST", url, json=json_body,
+                timeout=httpx.Timeout(connect=10.0, read=300.0, write=10.0, pool=10.0),
             ) as response:
                 if response.status_code >= 400:
                     body = await response.aread()
