@@ -1,8 +1,9 @@
-# EAASP v2.0 MVP Phase 0 工作摘要
+# EAASP v2.0 Phase 0 工作摘要 — Infrastructure Foundation
 
 > **时间跨度**：2026-04-11 ~ 2026-04-12
 > **计划文件**：`docs/plans/2026-04-11-v2-mvp-phase0-plan.md`
 > **最终状态**：🟢 完成（15/15 任务 + 15/15 E2E 断言通过）
+> **阶段修正**：Phase 0 原名 "MVP Validation"，已修正为 "Infrastructure Foundation"。MVP 定义迁移至 Phase 0.5。
 
 ---
 
@@ -104,10 +105,31 @@ Phase 0 累计产生 **61 个 Deferred 项**（D1-D61）：
 
 ---
 
-## 七、下一步
+## 七、Phase 0 收尾会话补充工作（2026-04-12 下午）
 
-进入 **Phase 1: Event-driven foundation**：
-1. 解决 ADR-V2-001 / 002 / 003 三个架构决策
-2. 实现 L4 Event Engine (ingest → dedup → cluster → state machine)
-3. 实现 Session Event Stream
-4. 增加 L4 hooks (EventReceived / PreSessionCreate / PostSessionEnd)
+Phase 0 S4.T3 doc-closeout 后进行了全局指导修正和 L1 Runtime 研究纳入：
+
+1. **全局指导修正**：Phase 0 改名 Infrastructure Foundation，新增 Phase 0.5 MVP 里程碑，P3 原则强化为"每个 Phase 必须人工可执行可观测可验证"
+2. **L1 Runtime 研究纳入**：D13-D19 七个新决策锁定（L1 Pool 生态覆盖 / Grid=基线 / 治理框架=L3 / Phase 0.5 双轨 / ADR 治理 / T0-T3 更新）
+3. **ADR 治理机制建立**：模板 + 状态机 + ID 不复用规则 + 5 个新 ADR (011-015)
+4. **后续待办写入**：L1 研究 R1-R9 + ADR 演进 A1-A4
+
+**提交记录**：f545647 → a70c622 → 495baf8 → 14a2b9b → 5dcc1d9
+
+---
+
+## 八、下一步
+
+进入 **Phase 0.5: MVP — 人工可执行全层通路**：
+1. 打通 L4→L1 真 gRPC 调用（D54, D27）— grid-runtime + claude-code-runtime 双轨
+2. LLM provider 配置传递（.env 读取 OPENAI_*/ANTHROPIC_*，eaasp-cli 适配各 runtime）
+3. MCP tool 在 session 内连接（mock-scada MCP server D47 已完成）
+4. Hook 真实执行（scoped-hook executor D53, D50）
+5. 流式输出回传（L1 → L4 → CLI）
+
+**并行工作线**：
+- L1 Runtime 研究 R1+R2（OpenCode / Agno 2.0 源码评估，与 Phase 0.5 并行）
+
+**Phase 1 前置**（Phase 0.5 完成后）：
+- 解决 ADR-V2-001 / 002 / 003 三个架构决策
+- L4 Event Engine + Session Event Stream

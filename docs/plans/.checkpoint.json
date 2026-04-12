@@ -1,8 +1,8 @@
 {
   "plan_file": "docs/plans/2026-04-11-v2-mvp-phase0-plan.md",
-  "phase": "phase-0-done",
+  "phase": "phase-0-archived",
   "created_at": "2026-04-11T21:00:00+08:00",
-  "updated_at": "2026-04-12T12:20:00+08:00",
+  "updated_at": "2026-04-12T14:00:00+08:00",
   "completed_tasks": ["S1.T1", "S1.T2", "S1.T3", "S2.T1", "S2.T2", "S2.T3", "S2.T4", "S3.T1", "S3.T2", "S3.T3", "S3.T4", "S3.T4.5", "S3.T5", "S4.T1", "S4.T2", "S4.T3"],
   "current_task": null,
   "total_tasks": 15,
