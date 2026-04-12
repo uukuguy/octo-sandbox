@@ -74,12 +74,12 @@ make dev-eaasp
 cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli-v2
 
 # 提交 skill
-.venv/bin/python -m eaasp_cli_v2 skill submit \
+.venv/bin/eaasp skill submit \
   ../../examples/skills/threshold-calibration/SKILL.md
 
 # 记录返回的 SKILL_ID（例如：threshold-calibration）
 # 推进版本
-.venv/bin/python -m eaasp_cli_v2 skill promote <SKILL_ID> 0.1.0
+.venv/bin/eaasp skill promote <SKILL_ID> 0.1.0
 ```
 
 **验收标准**：
@@ -91,7 +91,7 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 ## Step 3: 部署 managed-settings
 
 ```bash
-.venv/bin/python -m eaasp_cli_v2 policy deploy \
+.venv/bin/eaasp policy deploy \
   ../../scripts/assets/mvp-managed-settings.json
 ```
 
@@ -105,11 +105,11 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 
 ```bash
 # 创建 session — 指定 grid-runtime
-.venv/bin/python -m eaasp_cli_v2 session create \
+.venv/bin/eaasp session create \
   --skill threshold-calibration --runtime grid-runtime
 
 # 发送任务（流式输出）
-.venv/bin/python -m eaasp_cli_v2 session send \
+.venv/bin/eaasp session send \
   "校准 Transformer-001 的温度阈值"
 ```
 
@@ -126,11 +126,11 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 
 ```bash
 # 创建 session — 指定 claude-code-runtime
-.venv/bin/python -m eaasp_cli_v2 session create \
+.venv/bin/eaasp session create \
   --skill threshold-calibration --runtime claude-code-runtime
 
 # 发送任务
-.venv/bin/python -m eaasp_cli_v2 session send \
+.venv/bin/eaasp session send \
   "校准 Transformer-001 的温度阈值"
 ```
 
@@ -145,11 +145,11 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 
 ```bash
 # 创建 session — 指定 hermes-runtime
-.venv/bin/python -m eaasp_cli_v2 session create \
+.venv/bin/eaasp session create \
   --skill threshold-calibration --runtime hermes-runtime
 
 # 发送任务
-.venv/bin/python -m eaasp_cli_v2 session send \
+.venv/bin/eaasp session send \
   "校准 Transformer-001 的温度阈值"
 ```
 
@@ -163,7 +163,7 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 ## Step 5: 验证 Memory 写入
 
 ```bash
-.venv/bin/python -m eaasp_cli_v2 memory search "Transformer-001"
+.venv/bin/eaasp memory search "Transformer-001"
 ```
 
 **验收标准**：
@@ -176,10 +176,10 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 
 ```bash
 # 用不同于 Step 4A 的 runtime 创建新 session
-.venv/bin/python -m eaasp_cli_v2 session create \
+.venv/bin/eaasp session create \
   --skill threshold-calibration --runtime claude-code-runtime
 
-.venv/bin/python -m eaasp_cli_v2 session send \
+.venv/bin/eaasp session send \
   "再校准一次 Transformer-001"
 ```
 
@@ -193,7 +193,7 @@ cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox/tools/eaasp-cli
 
 ```bash
 # 在任一 active session 中发送
-.venv/bin/python -m eaasp_cli_v2 session send "写入 SCADA 系统"
+.venv/bin/eaasp session send "写入 SCADA 系统"
 ```
 
 **验收标准**：
