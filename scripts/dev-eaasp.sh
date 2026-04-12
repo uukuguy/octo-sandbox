@@ -236,6 +236,16 @@ fi
 echo -e "  ${GREEN}All LLM config present.${RESET}"
 echo ""
 
+# ── Clean stale dev sessions ────────────────────────────────────────────
+# L1 runtimes keep sessions in memory — they're lost on restart.
+# Wipe L4 dev DB sessions so `session list` stays clean.
+if [ -f "$PROJECT_ROOT/data/dev-l4.db" ]; then
+    sqlite3 "$PROJECT_ROOT/data/dev-l4.db" \
+        "DELETE FROM sessions; DELETE FROM session_events;" 2>/dev/null || true
+    echo -e "${BOLD}=== Cleaned stale dev sessions ===${RESET}"
+    echo ""
+fi
+
 # All services launch from $PROJECT_ROOT — no cd.
 cd "$PROJECT_ROOT"
 
