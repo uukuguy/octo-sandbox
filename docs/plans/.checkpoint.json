@@ -2,19 +2,47 @@
   "plan_file": "docs/plans/2026-04-13-v2-phase0.75-plan.md",
   "phase": "phase-0.75",
   "created_at": "2026-04-13T20:30:00+08:00",
-  "updated_at": "2026-04-13T22:15:00+08:00",
+  "updated_at": "2026-04-13T22:20:00+08:00",
   "completed_tasks": ["S1.T1", "S1.T2", "S2.T1", "S2.T2", "S3.T1", "S3.T2", "S3.T3", "S4.T1", "S4.T2"],
   "current_task": null,
   "total_tasks": 9,
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 Phase 0.75 — 平台级统一 Runtime MCP 行为",
-  "status": "COMPLETED — 9/9 tasks done. grid+claude MCP tool call 端到端通过, hermes REST proxy 成功 (容器 MCP Phase 1).",
+  "status": "ARCHIVED — Phase 0.75 closed. 9/9 tasks, acceptance all PASS.",
 
   "acceptance_results": {
-    "grid_runtime": "PASS — mock-scada(2 tools) + eaasp-l2-memory(6 tools) MCP connected + scada_read_snapshot + memory_write_anchor/file 实际写入 L2",
-    "claude_code_runtime": "PASS — ConnectMCP connected=['mock-scada','eaasp-l2-memory'] + agent 输出完整 JSON (evidence_anchor_id + memory_id + proposal)",
-    "hermes_runtime": "PASS (REST) — L4 SESSION_MCP_CONNECTED 事件 + agent 通过 httpx REST 调用 L2 成功 (容器内 MCP stdio 不可行, Phase 1)",
+    "grid_runtime": "PASS — mock-scada(2 tools) + eaasp-l2-memory(6 tools) MCP stdio connected + scada_read_snapshot 真实调用 + L2 memory write 实际写入",
+    "claude_code_runtime": "PASS — ConnectMCP connected=['mock-scada','eaasp-l2-memory'] + agent 输出完整校准 JSON",
+    "hermes_runtime": "PASS (REST) — L4 SESSION_MCP_CONNECTED + REST proxy 写入 L2 成功 (容器 MCP stdio Phase 1)",
     "zero_env_var": "PASS — grep EAASP_MCP_SERVER_ / EAASP_MCP_*_SSE_URL → 零匹配",
-    "stream_termination": "PASS — grid-runtime done chunk 后 stream 正确终止, CLI 正常退出"
-  }
+    "stream_termination": "PASS — grid-runtime done chunk 后 stream 正确终止"
+  },
+
+  "commits": [
+    "b7035e6 — S1-S3 parallel: resolve API + Memory MCP wrapper + connect_mcp + 3 runtime 统一",
+    "166d031 — S2.T2: McpResolver + SessionOrchestrator Step 6",
+    "9787783 — S4.T1: dev-eaasp.sh 启动 MCP Orchestrator",
+    "78c188e — fix: mcp-servers.yaml mode→ondemand (D69)",
+    "cfa811c — fix: Makefile mcp-orch-start port + l2-memory-mcp targets",
+    "4d3926e — feat: eaasp-mcp-health/list/resolve Makefile 入口",
+    "eb706eb — fix: grid-runtime PATH 注入",
+    "cd06c9a — fix: Docker stop --time=2",
+    "9efbd45 — fix: MCP_ORCH_PID 初始化 + hermes skip",
+    "f24ef19 — fix: L4 api.py 注入 McpResolver + hermes EAASP_L2_HOST",
+    "7138ca2 — fix: claude-code PATH 注入",
+    "8460215 — fix: EAASP_L2_DB_PATH 注入",
+    "4d9e0c6 — fix: stream done chunk 后终止",
+    "6e942a5 — docs: end-phase 🟢"
+  ],
+
+  "test_results": {
+    "eaasp_mcp_orchestrator_rust": "6 PASS",
+    "grid_runtime_rust": "97 PASS, 2 ignored",
+    "l4_python": "70 PASS",
+    "claude_code_runtime_python": "25 PASS",
+    "hermes_runtime_python": "7 PASS",
+    "l2_memory_mcp_python": "11 PASS"
+  },
+
+  "next_phase": "Phase 1 — Event Engine + 容器化 MCP + 多租户基础"
 }
