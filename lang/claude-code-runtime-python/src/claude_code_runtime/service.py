@@ -295,6 +295,33 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
                     }
                 )
 
+        # MCP server auto-connect from P4 skill dependencies.
+        # Create a .mcp.json in a temp dir so the Claude Agent SDK (which
+        # runs Claude Code CLI underneath) auto-discovers the MCP servers.
+        skill_deps = list(payload.skill_instructions.dependencies) if payload.HasField("skill_instructions") else []
+        mcp_deps = [d for d in skill_deps if d.startswith("mcp:")]
+        if mcp_deps:
+            import tempfile, os
+            mcp_dir = tempfile.mkdtemp(prefix=f"eaasp-mcp-{sid}-")
+            mcp_config: dict = {"mcpServers": {}}
+            for dep in mcp_deps:
+                name = dep.removeprefix("mcp:")
+                # Resolve command from env var: EAASP_MCP_SERVER_<NAME>_CMD
+                env_key = f"EAASP_MCP_SERVER_{name.upper().replace('-', '_')}_CMD"
+                cmd = os.environ.get(env_key, "")
+                if cmd:
+                    mcp_config["mcpServers"][name] = {
+                        "command": cmd,
+                        "args": [],
+                    }
+                    logger.info("MCP server configured for SDK: %s → %s", name, cmd)
+            if mcp_config["mcpServers"]:
+                mcp_json_path = os.path.join(mcp_dir, ".mcp.json")
+                with open(mcp_json_path, "w") as f:
+                    json.dump(mcp_config, f)
+                session.mcp_cwd = mcp_dir
+                logger.info("MCP config written to %s (%d servers)", mcp_json_path, len(mcp_config["mcpServers"]))
+
         self._active_session_id = sid
         logger.info("Session initialized: %s (user=%s)", sid, user_id)
         return runtime_pb2.InitializeResponse(
@@ -357,8 +384,10 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
                 len(session.memory_refs),
             )
 
+        # Pass MCP cwd to SDK if session has MCP servers configured.
+        cwd = getattr(session, "mcp_cwd", None)
         async for chunk in self.sdk.send_message(
-            prompt=message.content, system_prompt=system_prompt
+            prompt=message.content, system_prompt=system_prompt, cwd=cwd
         ):
             yield chunk_to_proto(chunk)
 

@@ -312,6 +312,8 @@ wait_for_port $GRID_RT_PORT "grid-runtime"
 echo ""
 echo -e "${BOLD}=== Starting claude-code-runtime on :${CLAUDE_RT_PORT} ===${RESET}"
 CLAUDE_RUNTIME_PORT=$CLAUDE_RT_PORT \
+EAASP_MCP_SERVER_MOCK_SCADA_CMD="$PROJECT_ROOT/tools/mock-scada/.venv/bin/mock-scada" \
+EAASP_MCP_SERVER_EAASP_L2_MEMORY_CMD="" \
     "$PROJECT_ROOT/lang/claude-code-runtime-python/.venv/bin/python" \
         -m claude_code_runtime --port "$CLAUDE_RT_PORT" 2>&1 | sed 's/^/  [claude-rt] /' &
 CLAUDE_PID=$!
