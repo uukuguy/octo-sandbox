@@ -4,7 +4,7 @@ servers:
     args: ["--transport", "stdio"]
     transport: stdio
     port: 0
-    mode: shared
+    mode: ondemand
     tags: ["eaasp", "scada"]
     env: {}
     health_endpoint: ""
@@ -14,7 +14,7 @@ servers:
     args: ["--transport", "sse", "--port", "18090"]
     transport: sse
     port: 18090
-    mode: shared
+    mode: ondemand
     tags: ["eaasp", "scada"]
     env: {}
     health_endpoint: "/health"
@@ -24,7 +24,7 @@ servers:
     args: []
     transport: stdio
     port: 0
-    mode: shared
+    mode: ondemand
     tags: ["eaasp", "memory"]
     env: {}
     health_endpoint: ""
