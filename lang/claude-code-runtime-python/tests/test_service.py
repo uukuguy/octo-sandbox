@@ -492,9 +492,9 @@ async def test_initialize_creates_isolated_workspace(service, ctx):
 
 
 @pytest.mark.asyncio
-async def test_initialize_mcp_servers_from_dependencies(service, ctx):
-    """Initialize must extract mcp:* dependencies from P4 skill_instructions
-    and populate session.mcp_servers_config for SDK --mcp-config."""
+async def test_initialize_mcp_deps_not_auto_configured(service, ctx):
+    """Initialize must NOT auto-configure MCP servers from env vars.
+    MCP configuration is handled by ConnectMCP (Phase 0.75)."""
     import os
     os.environ["EAASP_MCP_SERVER_MOCK_SCADA_CMD"] = "/usr/bin/mock-scada"
     try:
@@ -502,21 +502,81 @@ async def test_initialize_mcp_servers_from_dependencies(service, ctx):
         payload.skill_instructions.skill_id = "cal"
         payload.skill_instructions.content = "calibrate"
         payload.skill_instructions.dependencies.append("mcp:mock-scada")
-        payload.skill_instructions.dependencies.append("mcp:eaasp-l2-memory")
         resp = await service.Initialize(
             runtime_pb2.InitializeRequest(payload=payload), ctx
         )
         sid = resp.session_id
         session = service.session_mgr.get(sid)
         assert session is not None
-        # mock-scada should be configured (has env var CMD)
-        assert session.mcp_servers_config is not None
-        assert "mock-scada" in session.mcp_servers_config
-        assert session.mcp_servers_config["mock-scada"]["command"] == "/usr/bin/mock-scada"
-        # eaasp-l2-memory should NOT be configured (empty CMD)
-        assert "eaasp-l2-memory" not in session.mcp_servers_config
+        # mcp_servers_config should NOT be set during Initialize
+        assert session.mcp_servers_config is None
     finally:
         os.environ.pop("EAASP_MCP_SERVER_MOCK_SCADA_CMD", None)
+
+
+@pytest.mark.asyncio
+async def test_connect_mcp_stdio(service, ctx):
+    """ConnectMCP with stdio transport sets session.mcp_servers_config."""
+    sid = await _init_session(service, ctx)
+    req = runtime_pb2.ConnectMCPRequest(
+        session_id=sid,
+        servers=[
+            runtime_pb2.McpServerConfig(
+                name="mock-scada", transport="stdio",
+                command="mock-scada", args=["--transport", "stdio"],
+            ),
+        ],
+    )
+    resp = await service.ConnectMCP(req, ctx)
+    assert resp.success is True
+    assert "mock-scada" in resp.connected
+    assert resp.failed == []
+
+    session = service.session_mgr.get(sid)
+    assert session.mcp_servers_config is not None
+    assert "mock-scada" in session.mcp_servers_config
+    cfg = session.mcp_servers_config["mock-scada"]
+    assert cfg["command"] == "mock-scada"
+    assert cfg["args"] == ["--transport", "stdio"]
+
+
+@pytest.mark.asyncio
+async def test_connect_mcp_sse(service, ctx):
+    """ConnectMCP with SSE transport sets url in config."""
+    sid = await _init_session(service, ctx)
+    req = runtime_pb2.ConnectMCPRequest(
+        session_id=sid,
+        servers=[
+            runtime_pb2.McpServerConfig(
+                name="memory-sse", transport="sse",
+                url="http://127.0.0.1:18086/sse",
+            ),
+        ],
+    )
+    resp = await service.ConnectMCP(req, ctx)
+    assert resp.success is True
+    assert "memory-sse" in resp.connected
+
+    session = service.session_mgr.get(sid)
+    assert session.mcp_servers_config["memory-sse"]["url"] == "http://127.0.0.1:18086/sse"
+
+
+@pytest.mark.asyncio
+async def test_connect_mcp_unsupported_transport(service, ctx):
+    """ConnectMCP with missing command/url reports failure."""
+    sid = await _init_session(service, ctx)
+    req = runtime_pb2.ConnectMCPRequest(
+        session_id=sid,
+        servers=[
+            runtime_pb2.McpServerConfig(
+                name="bad-server", transport="stdio",
+                # No command provided
+            ),
+        ],
+    )
+    resp = await service.ConnectMCP(req, ctx)
+    assert resp.success is False
+    assert "bad-server" in resp.failed
 
 
 @pytest.mark.asyncio

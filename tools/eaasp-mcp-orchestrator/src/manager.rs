@@ -173,6 +173,21 @@ impl McpManager {
         Ok(())
     }
 
+    /// Resolve skill dependencies to MCP server configs.
+    ///
+    /// Input: list of dependency strings like `"mcp:mock-scada"`, `"mcp:eaasp-l2-memory"`.
+    /// Non-`mcp:` prefixed entries are silently ignored.
+    /// Returns: matching `McpServerDef` entries in input order.
+    pub fn resolve_dependencies(&self, dependencies: &[String]) -> Vec<&McpServerDef> {
+        dependencies
+            .iter()
+            .filter_map(|dep| {
+                let name = dep.strip_prefix("mcp:")?;
+                self.config.iter().find(|s| s.name == name)
+            })
+            .collect()
+    }
+
     /// Stop all running servers.
     pub async fn stop_all(&self) -> Result<()> {
         let names: Vec<String> = {

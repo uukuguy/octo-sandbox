@@ -74,3 +74,70 @@ async fn manager_filter_by_tags() {
     let both = mgr.list_by_tags(&["erp", "crm"]).await;
     assert_eq!(both.len(), 2);
 }
+
+#[tokio::test]
+async fn resolve_dependencies_happy_path() {
+    let servers = vec![
+        make_server(
+            "mock-scada",
+            "mock-scada",
+            &["--transport", "stdio"],
+            RunMode::Shared,
+            &["eaasp"],
+        ),
+        make_server(
+            "eaasp-l2-memory",
+            "eaasp-l2-memory",
+            &[],
+            RunMode::Shared,
+            &["eaasp"],
+        ),
+    ];
+    let mgr = McpManager::new(servers);
+    let deps = vec![
+        "mcp:mock-scada".to_string(),
+        "mcp:eaasp-l2-memory".to_string(),
+    ];
+    let resolved = mgr.resolve_dependencies(&deps);
+    assert_eq!(resolved.len(), 2);
+    assert_eq!(resolved[0].name, "mock-scada");
+    assert_eq!(resolved[1].name, "eaasp-l2-memory");
+}
+
+#[tokio::test]
+async fn resolve_dependencies_unknown_ignored() {
+    let servers = vec![make_server(
+        "mock-scada",
+        "mock-scada",
+        &[],
+        RunMode::Shared,
+        &[],
+    )];
+    let mgr = McpManager::new(servers);
+    let deps = vec![
+        "mcp:mock-scada".to_string(),
+        "mcp:nonexistent".to_string(),
+    ];
+    let resolved = mgr.resolve_dependencies(&deps);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].name, "mock-scada");
+}
+
+#[tokio::test]
+async fn resolve_dependencies_non_mcp_filtered() {
+    let servers = vec![make_server(
+        "mock-scada",
+        "mock-scada",
+        &[],
+        RunMode::Shared,
+        &[],
+    )];
+    let mgr = McpManager::new(servers);
+    let deps = vec![
+        "pip:numpy".to_string(),
+        "mcp:mock-scada".to_string(),
+    ];
+    let resolved = mgr.resolve_dependencies(&deps);
+    assert_eq!(resolved.len(), 1);
+    assert_eq!(resolved[0].name, "mock-scada");
+}

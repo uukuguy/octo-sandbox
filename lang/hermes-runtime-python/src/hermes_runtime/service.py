@@ -19,7 +19,7 @@ from eaasp.runtime.v2 import common_pb2, runtime_pb2, runtime_pb2_grpc  # noqa: 
 
 from hermes_runtime.adapter import HermesAdapter
 from hermes_runtime.l2_memory_client import L2MemoryClient
-from hermes_runtime.mcp_bridge import L2MemoryToolProxy, McpBridge, inject_mcp_tools, resolve_mcp_sse_urls
+from hermes_runtime.mcp_bridge import L2MemoryToolProxy, McpBridge, inject_mcp_tools
 from hermes_runtime.config import HermesRuntimeConfig
 from hermes_runtime.mapper import (
     chunk_to_proto,
@@ -224,17 +224,10 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
             self.session_mgr.terminate(sid)
             return runtime_pb2.InitializeResponse(session_id="", runtime_id=self.config.runtime_id)
 
-        # Auto-connect MCP servers from environment (EAASP_MCP_*_SSE_URL)
-        mcp_urls = resolve_mcp_sse_urls()
+        # MCP servers are now connected via ConnectMCP (Phase 0.75).
+        # L4 calls ConnectMCP after Initialize to wire MCP servers.
         agent = self.adapter.get_agent(sid)
         bridges = []
-        for server_name, sse_url in mcp_urls.items():
-            bridge = McpBridge(server_name, sse_url)
-            try:
-                await bridge.connect()
-                bridges.append(bridge)
-            except Exception as e:
-                logger.warning("MCP bridge %s connect failed: %s", server_name, e)
 
         # L2 memory tools via REST proxy (always inject, regardless of MCP SSE)
         l2_proxy = L2MemoryToolProxy()
@@ -257,7 +250,7 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
             user_id,
             self.config.hermes_model,
             len(extract_policy_hooks(payload)),
-            len(mcp_urls),
+            len(bridges),
         )
         return runtime_pb2.InitializeResponse(
             session_id=sid,

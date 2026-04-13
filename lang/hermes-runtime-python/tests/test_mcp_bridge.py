@@ -7,7 +7,6 @@ from hermes_runtime.mcp_bridge import (
     McpBridge,
     McpToolProxy,
     inject_mcp_tools,
-    resolve_mcp_sse_urls,
 )
 
 
@@ -29,31 +28,6 @@ class TestMcpToolProxy:
         assert tool_dict["function"]["name"] == "scada_read_snapshot"
         assert tool_dict["function"]["description"] == "Read telemetry"
         assert "device_id" in tool_dict["function"]["parameters"]["properties"]
-
-
-class TestResolveMcpSseUrls:
-    def test_empty_env(self, monkeypatch):
-        # Clear all EAASP_MCP_*_SSE_URL vars
-        for key in list(monkeypatch._patches if hasattr(monkeypatch, '_patches') else []):
-            pass
-        urls = resolve_mcp_sse_urls()
-        # May or may not be empty depending on env — just check type
-        assert isinstance(urls, dict)
-
-    def test_parses_env_vars(self, monkeypatch):
-        monkeypatch.setenv("EAASP_MCP_MOCK_SCADA_SSE_URL", "http://host.docker.internal:18090/sse")
-        monkeypatch.setenv("EAASP_MCP_L2_MEMORY_SSE_URL", "http://host.docker.internal:18091/sse")
-        urls = resolve_mcp_sse_urls()
-        assert "mock-scada" in urls
-        assert urls["mock-scada"] == "http://host.docker.internal:18090/sse"
-        assert "l2-memory" in urls
-        assert urls["l2-memory"] == "http://host.docker.internal:18091/sse"
-
-    def test_ignores_non_matching_env(self, monkeypatch):
-        monkeypatch.setenv("SOME_OTHER_VAR", "http://example.com")
-        monkeypatch.setenv("EAASP_MCP_FOO_NOT_URL", "nope")
-        urls = resolve_mcp_sse_urls()
-        assert "foo-not" not in urls
 
 
 class TestInjectMcpTools:

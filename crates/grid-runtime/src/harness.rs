@@ -132,17 +132,11 @@ impl GridHarness {
                 let name = d.strip_prefix("mcp:").unwrap();
                 // Resolve MCP server command from (in priority order):
                 // 1. Skill metadata: mcp.<name>.command
-                // 2. Environment variable: EAASP_MCP_SERVER_<NAME>_CMD
-                // 3. Default: <name> (bare executable name)
+                // 2. Default: <name> (bare executable name)
                 let command_key = format!("mcp.{}.command", name);
-                let env_key = format!(
-                    "EAASP_MCP_SERVER_{}_CMD",
-                    name.to_uppercase().replace('-', "_")
-                );
                 let command = metadata
                     .get(&command_key)
                     .cloned()
-                    .or_else(|| std::env::var(&env_key).ok())
                     .unwrap_or_else(|| name.to_string());
 
                 // Check for explicit args override: mcp.<name>.args
@@ -377,22 +371,7 @@ impl RuntimeContract for GridHarness {
             self.register_scoped_hooks(&scoped_hooks).await;
         }
 
-        // Tool filter: default is OFF (all tools visible).
-        // When enabled via EAASP_TOOL_FILTER=on, restricts agent to MCP tools only.
-        // In production, this should be a platform-level policy (L3 managed-settings
-        // or skill allowed-tools), not a runtime env var.
-        let tool_filter: Option<Vec<String>> = {
-            let filter_enabled = std::env::var("EAASP_TOOL_FILTER")
-                .map(|v| v == "on" || v == "true" || v == "1")
-                .unwrap_or(false);
-            if filter_enabled {
-                let mcp_guard = self.runtime.mcp_manager().lock().await;
-                let mcp_tools = mcp_guard.tool_names();
-                if mcp_tools.is_empty() { None } else { Some(mcp_tools) }
-            } else {
-                None
-            }
-        };
+        let tool_filter: Option<Vec<String>> = None;
 
         // NOW start session — ToolRegistry snapshot will include MCP tools.
         let _handle = self

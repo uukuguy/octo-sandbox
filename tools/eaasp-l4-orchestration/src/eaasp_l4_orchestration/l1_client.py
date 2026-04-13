@@ -136,6 +136,62 @@ class L1RuntimeClient:
                 f"gRPC {exc.code()}: {exc.details()}",
             ) from exc
 
+    # ── ConnectMCP ──────────────────────────────────────────────────────────
+
+    async def connect_mcp(
+        self,
+        session_id: str,
+        servers: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        """Call L1 ``ConnectMCP`` to attach MCP servers to a session.
+
+        Args:
+            session_id: Target session ID (L1's session_id).
+            servers: List of server config dicts with keys:
+                name, transport, command?, args?, url?, env?
+
+        Returns:
+            ``{"success": bool, "connected": [str], "failed": [str]}``
+
+        Raises:
+            L1RuntimeError: On gRPC failure.
+        """
+        proto_servers = []
+        for s in servers:
+            cfg = runtime_pb2.McpServerConfig(
+                name=s.get("name", ""),
+                transport=s.get("transport", "stdio"),
+            )
+            if s.get("command"):
+                cfg.command = s["command"]
+            if s.get("args"):
+                cfg.args.extend(s["args"])
+            if s.get("url"):
+                cfg.url = s["url"]
+            if s.get("env"):
+                for k, v in s["env"].items():
+                    cfg.env[k] = v
+            proto_servers.append(cfg)
+
+        request = runtime_pb2.ConnectMCPRequest(
+            session_id=session_id,
+            servers=proto_servers,
+        )
+        try:
+            stub = await self._ensure_channel()
+            resp = await stub.ConnectMCP(request, timeout=30.0)
+            return {
+                "success": resp.success,
+                "connected": list(resp.connected),
+                "failed": list(resp.failed),
+            }
+        except grpc.aio.AioRpcError as exc:
+            raise L1RuntimeError(
+                self._runtime_id,
+                "ConnectMCP",
+                f"gRPC {exc.code()}: {exc.details()}",
+            ) from exc
+
     # ── Terminate ───────────────────────────────────────────────────────────
 
     async def terminate(self) -> None:

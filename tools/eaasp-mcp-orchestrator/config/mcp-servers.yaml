@@ -1,0 +1,30 @@
+servers:
+  - name: mock-scada
+    command: mock-scada
+    args: ["--transport", "stdio"]
+    transport: stdio
+    port: 0
+    mode: shared
+    tags: ["eaasp", "scada"]
+    env: {}
+    health_endpoint: ""
+
+  - name: mock-scada-sse
+    command: mock-scada
+    args: ["--transport", "sse", "--port", "18090"]
+    transport: sse
+    port: 18090
+    mode: shared
+    tags: ["eaasp", "scada"]
+    env: {}
+    health_endpoint: "/health"
+
+  - name: eaasp-l2-memory
+    command: eaasp-l2-memory
+    args: []
+    transport: stdio
+    port: 0
+    mode: shared
+    tags: ["eaasp", "memory"]
+    env: {}
+    health_endpoint: ""

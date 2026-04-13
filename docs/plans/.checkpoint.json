@@ -1,155 +1,101 @@
 {
-  "plan_file": "docs/plans/2026-04-12-v2-mvp-phase0.5-plan.md",
-  "phase": "phase-0.5-done",
-  "created_at": "2026-04-12T15:30:00+08:00",
-  "updated_at": "2026-04-13T19:30:00+08:00",
-  "completed_tasks": ["S1.T1", "S1.T2", "S1.T3", "S2.T1", "S2.T2", "S3.T1", "S3.T2", "S3.T3", "S4.T1", "S4.T2", "S5.T1", "S5.T2"],
-  "current_task": "DONE",
-  "total_tasks": 12,
+  "plan_file": "docs/plans/2026-04-13-v2-phase0.75-plan.md",
+  "phase": "phase-0.75",
+  "created_at": "2026-04-13T20:30:00+08:00",
+  "updated_at": "2026-04-13T22:15:00+08:00",
+  "completed_tasks": ["S1.T1", "S1.T2", "S2.T1", "S3.T1", "S3.T2", "S3.T3"],
+  "current_task": "S2.T2 — L4 session create 集成 MCP 编排",
+  "total_tasks": 9,
   "execution_mode": "ruflo-orchestrated",
-  "phase_name": "EAASP v2.0 Phase 0.5 — MVP 全层贯通",
-  "status": "COMPLETED — Phase 0.5 MVP 全层贯通。12/12 tasks done. Memory search PASS, hook deny PASS (unit), 三 runtime 端到端通过。",
+  "phase_name": "EAASP v2.0 Phase 0.75 — 平台级统一 Runtime MCP 行为",
+  "status": "IN_PROGRESS — S1+S2.T1+S3 complete (6/9). Next: S2.T2 → S4.",
 
-  "this_session_summary": "Phase 0.5 收尾: memory_write_file 修复 + hermes L2 工具注入 + hook deny 单元测试 + CLI 显示修复 + SKILL 自主工作流 + 文档收尾",
-
-  "acceptance_progress": {
-    "grid_runtime": {
-      "skill_prose_injection": "PASS",
-      "mcp_tool_call": "PASS",
-      "scoped_hooks_registered": "PASS",
-      "memory_write": "PASS — anchor + memory_file (FTS5 searchable)",
-      "streaming_output": "PASS",
-      "memory_search": "PASS — make eaasp-memory-search Q=xfmr → 1 hit, score 0.9999",
-      "hook_deny": "PASS — cargo test block_write_scada → 2 pass (Block/Continue)"
-    },
-    "claude_code_runtime": {
-      "skill_prose_injection": "PASS",
-      "mcp_tool_call": "PASS",
-      "runtime_isolation": "PASS",
-      "memory_write": "PASS — anchor + memory_file (FTS5 searchable)",
-      "streaming_output": "PASS",
-      "memory_search": "PASS — shares L2 with grid-runtime",
-      "hook_deny": "PASS — shares ScopedHookHandler unit tests"
-    },
-    "hermes_runtime": {
-      "containerized": "PASS — hermes-runtime:latest Docker, gRPC :50053",
-      "skill_prose_injection": "PASS — ephemeral_system_prompt, agent按workflow执行",
-      "mcp_sse_bridge": "PASS — McpBridge → host.docker.internal:18090/sse → mock-scada",
-      "mcp_tool_injection": "PASS — scada_read_snapshot + scada_write 注入 hermes-agent",
-      "mcp_tool_call": "PASS — scada_read_snapshot(xfmr-042) 返回 deterministic 数据",
-      "streaming_output": "PASS — 352 events, 1996 chars",
-      "hermes_builtin_tools": "BROKEN — monkey-patch 叠加导致所有内置工具签名错误 (Deferred)",
-      "memory_write": "PASS — OnToolResult 新增 anchor + memory_file 写入",
-      "memory_search": "PASS — L2MemoryToolProxy + OnToolResult 写入 (待容器重建验证)",
-      "hook_deny": "N/A — hermes 无 ScopedHookHandler (governance plugin 另行处理)"
-    }
+  "previous_phase": {
+    "plan_file": "docs/plans/2026-04-12-v2-mvp-phase0.5-plan.md",
+    "phase_name": "EAASP v2.0 Phase 0.5 — MVP 全层贯通",
+    "status": "COMPLETED — 12/12 tasks done (2026-04-13)",
+    "total_tasks": 12
   },
 
-  "changes_this_session": [
-    {
-      "category": "ADR",
-      "description": "ADR-V2-005 Tool Sandbox Container — Session级工具容器隔离设计",
-      "file": "docs/design/EAASP/adrs/ADR-V2-005-tool-sandbox-container.md"
-    },
-    {
-      "category": "hermes-runtime 容器化",
-      "description": "Dockerfile 改为基于现有镜像重建 + v2 proto stubs + mcp 依赖",
-      "files": ["lang/hermes-runtime-python/Dockerfile"]
-    },
-    {
-      "category": "MCP SSE Transport",
-      "description": "mock-scada 新增 SSE transport (--transport sse --port 18090)",
-      "files": ["tools/mock-scada/src/mock_scada/server.py", "tools/mock-scada/pyproject.toml"]
-    },
-    {
-      "category": "MCP Bridge",
-      "description": "新建 mcp_bridge.py: McpBridge SSE客户端 + inject_mcp_tools monkey-patch + resolve_mcp_sse_urls env解析",
-      "files": ["lang/hermes-runtime-python/src/hermes_runtime/mcp_bridge.py"]
-    },
-    {
-      "category": "hermes-runtime service",
-      "description": "Initialize 自动连接MCP SSE servers + ConnectMCP真实实现 + skill prose注入 via ephemeral_system_prompt",
-      "files": [
-        "lang/hermes-runtime-python/src/hermes_runtime/service.py",
-        "lang/hermes-runtime-python/src/hermes_runtime/adapter.py",
-        "lang/hermes-runtime-python/src/hermes_runtime/session.py"
-      ]
-    },
-    {
-      "category": "LLM Provider config",
-      "description": "hermes config fallback链 HERMES_* → OPENAI_* (去掉OPENROUTER_API_KEY)",
-      "files": ["lang/hermes-runtime-python/src/hermes_runtime/config.py"]
-    },
-    {
-      "category": "L4 endpoint",
-      "description": "L4 l1_client.py 添加 hermes-runtime endpoint 映射 (127.0.0.1:50053)",
-      "files": ["tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/l1_client.py"]
-    },
-    {
-      "category": "dev-eaasp.sh",
-      "description": "hermes-runtime改为Docker容器启动 + mock-scada SSE独立服务 + 状态表更新",
-      "files": ["scripts/dev-eaasp.sh"]
-    },
-    {
-      "category": "Tests",
-      "description": "新增 test_mcp_bridge.py (10 tests): tool proxy, env resolution, injection, config fallback",
-      "files": ["lang/hermes-runtime-python/tests/test_mcp_bridge.py"]
-    },
-    {
-      "category": "Docs",
-      "description": "PHASE_0_5_ACCEPTANCE_CHECKLIST.md hermes provider描述更新",
-      "files": ["docs/design/EAASP/PHASE_0_5_ACCEPTANCE_CHECKLIST.md"]
-    },
-    {
-      "category": "Memory Write Fix",
-      "description": "三个 runtime 的 memory hook 从只写 anchor 改为同时写 anchor + memory_file，使 FTS5 索引可被 memory_search 搜到",
-      "files": [
-        "crates/grid-runtime/src/memory_write_hook.rs",
-        "lang/claude-code-runtime-python/src/claude_code_runtime/service.py",
-        "lang/hermes-runtime-python/src/hermes_runtime/service.py",
-        "lang/hermes-runtime-python/src/hermes_runtime/l2_memory_client.py"
-      ]
-    }
-  ],
+  "this_session_summary": "S1-S3 parallel coding (6 agents): L2 MCP resolve API + Memory MCP wrapper + L4 connect_mcp() + claude-code ConnectMCP real impl + grid-runtime env var cleanup + hermes-runtime env var cleanup. 166 tests PASS.",
 
-  "test_counts": {
-    "hermes_runtime": "25 pass (15 existing + 10 mcp_bridge)",
-    "l4_orchestration": "61 pass",
-    "grid_runtime": "97 pass + 2 ignored (95 existing + 2 hook deny integration)",
-    "skill_registry": "23 pass",
-    "mock_scada": "existing pass (stdio tests)",
-    "total_new_tests": 10
+  "task_map": {
+    "S1.T1": {
+      "title": "L2 MCP 注册表 skill-dependency 解析 API",
+      "status": "DONE",
+      "files": ["tools/eaasp-mcp-orchestrator/src/routes.rs", "tools/eaasp-mcp-orchestrator/src/manager.rs", "tools/eaasp-mcp-orchestrator/config/mcp-servers.yaml", "tools/eaasp-mcp-orchestrator/tests/manager_test.rs"],
+      "tests": "6 Rust tests PASS",
+      "depends_on": []
+    },
+    "S1.T2": {
+      "title": "L2 Memory Engine stdio MCP wrapper",
+      "status": "DONE",
+      "files": ["tools/eaasp-l2-memory-engine/src/eaasp_l2_memory_engine/mcp_server.py", "tools/eaasp-l2-memory-engine/tests/test_mcp_server.py", "tools/eaasp-l2-memory-engine/pyproject.toml"],
+      "tests": "11 Python tests PASS",
+      "depends_on": []
+    },
+    "S2.T1": {
+      "title": "L4 L1RuntimeClient 新增 connect_mcp()",
+      "status": "DONE",
+      "files": ["tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/l1_client.py", "tools/eaasp-l4-orchestration/tests/test_l1_client.py"],
+      "tests": "20 Python tests PASS (15 existing + 5 new)",
+      "depends_on": []
+    },
+    "S2.T2": {
+      "title": "L4 session create 集成 MCP 编排",
+      "status": "TODO",
+      "files": ["tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/session_orchestrator.py", "tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/mcp_resolver.py"],
+      "depends_on": ["S2.T1"]
+    },
+    "S3.T1": {
+      "title": "claude-code-runtime ConnectMCP 真实实现",
+      "status": "DONE",
+      "files": ["lang/claude-code-runtime-python/src/claude_code_runtime/service.py", "lang/claude-code-runtime-python/tests/test_service.py"],
+      "tests": "25 Python tests PASS (21 existing + 4 new)",
+      "depends_on": []
+    },
+    "S3.T2": {
+      "title": "grid-runtime 移除 MCP env var workaround",
+      "status": "DONE",
+      "files": ["crates/grid-runtime/src/harness.rs"],
+      "tests": "97 Rust tests PASS (2 ignored)",
+      "depends_on": []
+    },
+    "S3.T3": {
+      "title": "hermes-runtime 移除 MCP env var 自动发现",
+      "status": "DONE",
+      "files": ["lang/hermes-runtime-python/src/hermes_runtime/service.py", "lang/hermes-runtime-python/src/hermes_runtime/mcp_bridge.py", "lang/hermes-runtime-python/tests/test_mcp_bridge.py"],
+      "tests": "7 Python tests PASS",
+      "depends_on": []
+    },
+    "S4.T1": {
+      "title": "dev-eaasp.sh 更新",
+      "status": "TODO",
+      "files": ["scripts/dev-eaasp.sh", "tools/eaasp-mcp-orchestrator/mcp-servers.yaml"],
+      "depends_on": ["S1.T1", "S1.T2", "S2.T1", "S2.T2", "S3.T1", "S3.T2", "S3.T3"]
+    },
+    "S4.T2": {
+      "title": "人工验收 + 文档收尾",
+      "status": "TODO",
+      "files": ["docs/design/EAASP/EAASP_v2_0_EVOLUTION_PATH.md", "docs/plans/.checkpoint.json"],
+      "depends_on": ["S4.T1"]
+    }
   },
 
   "design_decisions_this_session": [
-    "ADR-V2-005: Sibling Container + Network MCP (SSE) for tool sandbox isolation",
-    "hermes-runtime LLM fallback: HERMES_* → OPENAI_* (not OPENROUTER_*)",
-    "mock-scada dual transport: stdio (default, for grid/claude runtimes) + SSE (for containerized runtimes)",
-    "MCP tool injection via monkey-patch model_tools + run_agent handle_function_call",
-    "Port rule: mock-scada SSE default 18090 (≥10000)",
-    "L2 memory 工具注入: Phase 0.5 各 runtime 各自实现 (grid/claude PostToolUse hook 自动写, hermes L2MemoryToolProxy REST); Phase 1 统一为 L2 实现 SSE MCP transport + L4 ConnectMCP 统一下发",
-    "SKILL.md 加自主工作流指示: agent 必须端到端完成，不停下等用户确认"
+    "D69: L2 只做注册表 + 查询 API，进程管理留 Phase 1",
+    "D70: ConnectMCP 三 runtime 统一实现 stdio/SSE/streamable-http",
+    "D71: claude-code-runtime 接受 SDK 自管 MCP 连接，配置来源统一为 L4 下发",
+    "D72: 验收：三 runtime MCP 全部来自 L4 ConnectMCP，零 env var workaround"
   ],
 
-  "deferred_new": [
-    "D62: Per-session tool-sandbox container lifecycle management (L4编排)",
-    "D63: Tool-sandbox通用基础镜像 + OCI artifact分发",
-    "D64: T0/T1 runtime的工具容器化 (当前继续stdio)",
-    "D65: MCP server多实例/连接池",
-    "D66: hermes-agent内置工具与MCP monkey-patch叠加修复 (governance + mcp patch顺序)",
-    "D67: L2 Memory Engine 实现 SSE MCP transport，使 L4 可通过 ConnectMCP 统一下发 memory_* 工具给所有 runtime（消除当前各 runtime 各自实现的 workaround）",
-    "D68: L4 session create 时统一下发所有 MCP server 配置（含 L2），runtime 通过标准 ConnectMCP 连接"
-  ],
-
-  "remaining_acceptance_steps": "ALL DONE",
-
-  "related_documents": [
-    "docs/design/EAASP/EAASP-Design-Specification-v2.0.docx",
-    "docs/design/EAASP/EAASP_v2_0_EVOLUTION_PATH.md",
-    "docs/design/EAASP/EAASP_v2_0_MVP_SCOPE.md",
-    "docs/design/EAASP/L1_RUNTIME_STRATEGY.md",
-    "docs/design/EAASP/adrs/ADR-V2-005-tool-sandbox-container.md",
-    "docs/design/EAASP/PHASE_0_5_ACCEPTANCE_CHECKLIST.md",
-    "docs/plans/2026-04-12-v2-mvp-phase0.5-plan.md"
-  ]
+  "test_results": {
+    "eaasp_mcp_orchestrator_rust": "6 PASS",
+    "grid_runtime_rust": "97 PASS, 2 ignored",
+    "l4_l1_client_python": "20 PASS",
+    "claude_code_runtime_python": "25 PASS",
+    "hermes_runtime_mcp_bridge_python": "7 PASS",
+    "l2_memory_engine_mcp_server_python": "11 PASS",
+    "total": "166 PASS, 0 FAIL"
+  }
 }

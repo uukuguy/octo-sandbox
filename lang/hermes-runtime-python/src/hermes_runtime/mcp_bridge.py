@@ -321,20 +321,3 @@ def inject_mcp_tools(
     _run_agent_mod.handle_function_call = _mcp_aware_handle_function_call
     logger.info("Installed MCP-aware handle_function_call (tools: %s)", list(mcp_tool_map.keys()))
 
-
-def resolve_mcp_sse_urls() -> dict[str, str]:
-    """Read MCP SSE URLs from environment variables.
-
-    Convention: EAASP_MCP_{NAME}_SSE_URL
-    Example: EAASP_MCP_MOCK_SCADA_SSE_URL=http://host.docker.internal:18090/sse
-    """
-    urls = {}
-    prefix = "EAASP_MCP_"
-    suffix = "_SSE_URL"
-    for key, value in os.environ.items():
-        if key.startswith(prefix) and key.endswith(suffix):
-            # Extract server name: EAASP_MCP_MOCK_SCADA_SSE_URL → mock-scada
-            name_part = key[len(prefix):-len(suffix)]
-            server_name = name_part.lower().replace("_", "-")
-            urls[server_name] = value
-    return urls

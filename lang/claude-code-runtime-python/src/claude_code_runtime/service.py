@@ -295,26 +295,17 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
                     }
                 )
 
-        # MCP server auto-connect from P4 skill dependencies.
-        # Build mcp_servers dict for ClaudeAgentOptions.mcp_servers
-        # (SDK passes --mcp-config to CLI with the server definitions).
+        # MCP server configuration is now handled by ConnectMCP (Phase 0.75).
+        # L4 will call ConnectMCP after Initialize to wire MCP servers.
         has_si = payload.HasField("skill_instructions")
         skill_deps = list(payload.skill_instructions.dependencies) if has_si else []
         mcp_deps = [d for d in skill_deps if d.startswith("mcp:")]
-        logger.info("MCP auto-connect: has_si=%s deps=%s mcp=%s", has_si, skill_deps, mcp_deps)
-        mcp_servers: dict = {}
         if mcp_deps:
-            import os
-            for dep in mcp_deps:
-                name = dep.removeprefix("mcp:")
-                env_key = f"EAASP_MCP_SERVER_{name.upper().replace('-', '_')}_CMD"
-                cmd = os.environ.get(env_key, "")
-                if cmd:
-                    mcp_servers[name] = {"command": cmd, "args": []}
-                    logger.info("MCP server configured: %s → %s", name, cmd)
-        if mcp_servers:
-            session.mcp_servers_config = mcp_servers
-            logger.info("MCP servers for SDK: %d configured", len(mcp_servers))
+            logger.info(
+                "Initialize: session=%s has %d MCP dependencies "
+                "(will be connected via ConnectMCP): %s",
+                session.session_id, len(mcp_deps), mcp_deps,
+            )
 
         # Create isolated runtime workspace for this session.
         # Uses EAASP_RUNTIME_WORKSPACE (platform-level base dir) or falls back
@@ -559,16 +550,51 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
             return runtime_pb2.ConnectMCPResponse(success=False)
 
         connected: list[str] = []
+        failed: list[str] = []
+
+        # Build mcp_servers_config dict in SDK-expected format.
+        # Initialize from existing config (may have been set earlier).
+        mcp_config = session.mcp_servers_config or {}
+
         for server in request.servers:
-            session.mcp_servers.append(server.name)
-            connected.append(server.name)
+            try:
+                if server.transport == "stdio" and server.command:
+                    entry: dict = {"command": server.command, "args": list(server.args)}
+                    if server.env:
+                        entry["env"] = dict(server.env)
+                    mcp_config[server.name] = entry
+                elif server.transport in ("sse", "streamable-http") and server.url:
+                    mcp_config[server.name] = {"url": server.url}
+                    if server.env:
+                        mcp_config[server.name]["env"] = dict(server.env)
+                else:
+                    logger.warning(
+                        "ConnectMCP: unsupported config for %s "
+                        "(transport=%s, command=%s, url=%s)",
+                        server.name, server.transport, server.command, server.url,
+                    )
+                    failed.append(server.name)
+                    continue
+                connected.append(server.name)
+                session.mcp_servers.append(server.name)
+            except Exception as e:
+                logger.warning("ConnectMCP: failed to configure %s: %s", server.name, e)
+                failed.append(server.name)
+
+        session.mcp_servers_config = mcp_config if mcp_config else None
+        logger.info(
+            "ConnectMCP: session=%s connected=%s failed=%s",
+            session.session_id, connected, failed,
+        )
 
         tc = self._telemetry.get(session.session_id)
         if tc:
-            tc.record("mcp_connected", payload={"servers": connected})
+            tc.record("mcp_connected", payload={"connected": connected, "failed": failed})
 
         return runtime_pb2.ConnectMCPResponse(
-            success=True, connected=connected, failed=[]
+            success=len(failed) == 0,
+            connected=connected,
+            failed=failed,
         )
 
     # 9. EmitTelemetry (client → runtime push; returns Empty)

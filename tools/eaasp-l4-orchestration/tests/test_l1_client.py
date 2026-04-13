@@ -307,6 +307,164 @@ class TestL1RuntimeClientInitialize:
             await client.initialize({"session_id": "s1"})
 
 
+class TestL1RuntimeClientConnectMcp:
+    """Tests for L1RuntimeClient.connect_mcp()."""
+
+    @pytest.mark.asyncio
+    async def test_connect_mcp_success(self):
+        """connect_mcp sends correct proto and returns parsed response."""
+        from eaasp_l4_orchestration._proto.eaasp.runtime.v2 import runtime_pb2
+
+        client = L1RuntimeClient("localhost:50051", "grid-runtime")
+        mock_stub = MagicMock()
+        mock_resp = runtime_pb2.ConnectMCPResponse(
+            success=True,
+            connected=["mock-scada", "eaasp-l2-memory"],
+            failed=[],
+        )
+        mock_stub.ConnectMCP = AsyncMock(return_value=mock_resp)
+        client._stub = mock_stub
+        client._channel = MagicMock()
+
+        result = await client.connect_mcp(
+            session_id="sess-001",
+            servers=[
+                {
+                    "name": "mock-scada",
+                    "transport": "stdio",
+                    "command": "mock-scada",
+                    "args": ["--transport", "stdio"],
+                },
+                {
+                    "name": "eaasp-l2-memory",
+                    "transport": "stdio",
+                    "command": "eaasp-l2-memory",
+                },
+            ],
+        )
+        assert result["success"] is True
+        assert result["connected"] == ["mock-scada", "eaasp-l2-memory"]
+        assert result["failed"] == []
+
+        # Verify proto was constructed correctly.
+        call_args = mock_stub.ConnectMCP.call_args
+        req = call_args[0][0]
+        assert req.session_id == "sess-001"
+        assert len(req.servers) == 2
+        assert req.servers[0].name == "mock-scada"
+        assert req.servers[0].transport == "stdio"
+        assert req.servers[0].command == "mock-scada"
+        assert list(req.servers[0].args) == ["--transport", "stdio"]
+
+    @pytest.mark.asyncio
+    async def test_connect_mcp_partial_failure(self):
+        """connect_mcp returns failed list when some servers fail."""
+        from eaasp_l4_orchestration._proto.eaasp.runtime.v2 import runtime_pb2
+
+        client = L1RuntimeClient("localhost:50051", "grid-runtime")
+        mock_stub = MagicMock()
+        mock_resp = runtime_pb2.ConnectMCPResponse(
+            success=False,
+            connected=["mock-scada"],
+            failed=["bad-server"],
+        )
+        mock_stub.ConnectMCP = AsyncMock(return_value=mock_resp)
+        client._stub = mock_stub
+        client._channel = MagicMock()
+
+        result = await client.connect_mcp(
+            session_id="sess-001",
+            servers=[
+                {"name": "mock-scada", "transport": "stdio", "command": "mock-scada"},
+                {"name": "bad-server", "transport": "stdio", "command": "nonexistent"},
+            ],
+        )
+        assert result["success"] is False
+        assert "mock-scada" in result["connected"]
+        assert "bad-server" in result["failed"]
+
+    @pytest.mark.asyncio
+    async def test_connect_mcp_grpc_unavailable(self):
+        """connect_mcp raises L1RuntimeError on gRPC failure."""
+        import grpc
+
+        client = L1RuntimeClient("localhost:50051", "grid-runtime")
+        mock_stub = MagicMock()
+        error = grpc.aio.AioRpcError(
+            code=grpc.StatusCode.UNAVAILABLE,
+            initial_metadata=grpc.aio.Metadata(),
+            trailing_metadata=grpc.aio.Metadata(),
+            details="Connection refused",
+        )
+        mock_stub.ConnectMCP = AsyncMock(side_effect=error)
+        client._stub = mock_stub
+        client._channel = MagicMock()
+
+        with pytest.raises(L1RuntimeError, match="ConnectMCP"):
+            await client.connect_mcp("sess-001", [{"name": "x", "transport": "stdio"}])
+
+    @pytest.mark.asyncio
+    async def test_connect_mcp_sse_transport(self):
+        """connect_mcp correctly builds SSE server config with url."""
+        from eaasp_l4_orchestration._proto.eaasp.runtime.v2 import runtime_pb2
+
+        client = L1RuntimeClient("localhost:50051", "grid-runtime")
+        mock_stub = MagicMock()
+        mock_resp = runtime_pb2.ConnectMCPResponse(
+            success=True,
+            connected=["sse-server"],
+            failed=[],
+        )
+        mock_stub.ConnectMCP = AsyncMock(return_value=mock_resp)
+        client._stub = mock_stub
+        client._channel = MagicMock()
+
+        await client.connect_mcp(
+            session_id="sess-001",
+            servers=[
+                {
+                    "name": "sse-server",
+                    "transport": "sse",
+                    "url": "http://host.docker.internal:18090/sse",
+                },
+            ],
+        )
+        req = mock_stub.ConnectMCP.call_args[0][0]
+        assert req.servers[0].transport == "sse"
+        assert req.servers[0].url == "http://host.docker.internal:18090/sse"
+        # command should be empty for SSE transport
+        assert req.servers[0].command == ""
+
+    @pytest.mark.asyncio
+    async def test_connect_mcp_with_env(self):
+        """connect_mcp correctly passes env vars to McpServerConfig."""
+        from eaasp_l4_orchestration._proto.eaasp.runtime.v2 import runtime_pb2
+
+        client = L1RuntimeClient("localhost:50051", "grid-runtime")
+        mock_stub = MagicMock()
+        mock_resp = runtime_pb2.ConnectMCPResponse(
+            success=True, connected=["env-server"], failed=[],
+        )
+        mock_stub.ConnectMCP = AsyncMock(return_value=mock_resp)
+        client._stub = mock_stub
+        client._channel = MagicMock()
+
+        await client.connect_mcp(
+            session_id="sess-001",
+            servers=[
+                {
+                    "name": "env-server",
+                    "transport": "stdio",
+                    "command": "my-server",
+                    "env": {"API_KEY": "secret123", "LOG_LEVEL": "debug"},
+                },
+            ],
+        )
+        req = mock_stub.ConnectMCP.call_args[0][0]
+        assert req.servers[0].env["API_KEY"] == "secret123"
+        assert req.servers[0].env["LOG_LEVEL"] == "debug"
+
+
 class TestL1RuntimeClientSend:
     @pytest.mark.asyncio
     async def test_send_streaming(self):
