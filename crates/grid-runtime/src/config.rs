@@ -19,6 +19,9 @@ pub struct RuntimeConfig {
     pub provider: String,
     /// LLM model (default: "gpt-4o").
     pub model: String,
+    /// Runtime workspace base directory for session isolation.
+    /// Each session creates a subdirectory under this path.
+    pub runtime_workspace: Option<String>,
 }
 
 impl RuntimeConfig {
@@ -63,6 +66,11 @@ impl RuntimeConfig {
             )
         });
 
+        // Runtime workspace: EAASP_RUNTIME_WORKSPACE env var.
+        // In containers this defaults to "/" (container root IS the workspace).
+        // Bare-metal dev: set by dev-eaasp.sh to data/runtime-workspace/.
+        let runtime_workspace = std::env::var("EAASP_RUNTIME_WORKSPACE").ok();
+
         Self {
             grpc_addr,
             runtime_id,
@@ -70,6 +78,7 @@ impl RuntimeConfig {
             base_url,
             provider,
             model,
+            runtime_workspace,
         }
     }
 }
@@ -85,6 +94,7 @@ mod tests {
         std::env::set_var("LLM_PROVIDER", "openai");
         std::env::set_var("OPENAI_API_KEY", "test-key");
         std::env::set_var("OPENAI_MODEL_NAME", "gpt-4o");
+        std::env::remove_var("EAASP_RUNTIME_WORKSPACE");
         let config = RuntimeConfig::from_env();
         assert_eq!(config.grpc_addr.port(), 50051);
         assert_eq!(config.runtime_id, "grid-harness");

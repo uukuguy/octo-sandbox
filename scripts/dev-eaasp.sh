@@ -246,6 +246,17 @@ if [ -f "$PROJECT_ROOT/data/dev-l4.db" ]; then
     echo ""
 fi
 
+# ── Runtime workspace ────────────────────────────────────────────────────
+# All L1 Runtimes use this as their base workspace directory.
+# Each session creates a subdirectory under it. This isolates runtime
+# execution from the development environment (.claude/, hooks, etc.).
+# In production, this would be a container-internal mount point.
+RUNTIME_WORKSPACE="$PROJECT_ROOT/data/runtime-workspace"
+mkdir -p "$RUNTIME_WORKSPACE"
+export EAASP_RUNTIME_WORKSPACE="$RUNTIME_WORKSPACE"
+echo -e "${BOLD}=== Runtime workspace: ${RUNTIME_WORKSPACE} ===${RESET}"
+echo ""
+
 # All services launch from $PROJECT_ROOT — no cd.
 cd "$PROJECT_ROOT"
 

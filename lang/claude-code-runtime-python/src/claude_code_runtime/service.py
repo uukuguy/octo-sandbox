@@ -317,10 +317,16 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
             logger.info("MCP servers for SDK: %d configured", len(mcp_servers))
 
         # Create isolated runtime workspace for this session.
-        # L1 Runtime is designed to run in a container; when running bare-metal,
-        # we must isolate from the development environment (.claude/, hooks, etc.)
-        import tempfile, os
-        workspace = tempfile.mkdtemp(prefix=f"eaasp-workspace-{sid}-")
+        # Uses EAASP_RUNTIME_WORKSPACE (platform-level base dir) or falls back
+        # to tempdir. In production, this is a container-internal mount point.
+        import os
+        base_workspace = os.environ.get("EAASP_RUNTIME_WORKSPACE", "")
+        if base_workspace:
+            workspace = os.path.join(base_workspace, sid)
+        else:
+            import tempfile
+            workspace = tempfile.mkdtemp(prefix=f"eaasp-workspace-{sid}-")
+        os.makedirs(workspace, exist_ok=True)
         session.workspace = workspace
         logger.info("Runtime workspace: %s", workspace)
 
