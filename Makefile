@@ -24,6 +24,7 @@
         dev-eaasp dev-eaasp-stop \
         eaasp-skill-list eaasp-skill-submit eaasp-policy-list eaasp-policy-deploy \
         eaasp-session-list eaasp-session-run eaasp-session-send eaasp-memory-search \
+        eaasp-mcp-health eaasp-mcp-list eaasp-mcp-resolve \
         e2e-setup e2e-run e2e-test e2e-teardown e2e-full \
         hermes-runtime-setup hermes-runtime-test hermes-runtime-start hermes-runtime-build hermes-runtime-run \
         runtime-verify claude-runtime-verify hermes-runtime-verify
@@ -974,3 +975,22 @@ eaasp-session-send:
 
 eaasp-memory-search:
 	$(EAASP_CLI) memory search "$(Q)"
+
+# ============================================================
+# EAASP MCP Orchestrator shortcuts
+# Usage:
+#   make eaasp-mcp-health          # 健康检查
+#   make eaasp-mcp-list            # 列出注册的 MCP servers
+#   make eaasp-mcp-resolve         # 解析 skill 依赖 → server configs
+# ============================================================
+
+eaasp-mcp-health:
+	@curl -s http://127.0.0.1:18082/health | python3 -m json.tool
+
+eaasp-mcp-list:
+	@curl -s http://127.0.0.1:18082/mcp-servers | python3 -m json.tool
+
+eaasp-mcp-resolve:
+	@curl -s -X POST http://127.0.0.1:18082/v1/mcp/resolve \
+		-H "Content-Type: application/json" \
+		-d '{"dependencies": ["mcp:mock-scada", "mcp:eaasp-l2-memory"]}' | python3 -m json.tool
