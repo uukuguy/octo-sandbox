@@ -78,15 +78,29 @@ impl GridHarness {
     }
 
     /// Convert an AgentEvent broadcast receiver into a ResponseChunk stream.
+    ///
+    /// The stream terminates after emitting a `Done` or `Completed` chunk,
+    /// so the gRPC server-stream (and downstream SSE) closes cleanly.
     fn map_events_to_chunks(
         rx: tokio::sync::broadcast::Receiver<AgentEvent>,
     ) -> Pin<Box<dyn Stream<Item = ResponseChunk> + Send>> {
+        // Use Arc<AtomicBool> to signal stream termination after "done" chunk.
+        let terminated = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        let terminated_clone = terminated.clone();
         let stream = tokio_stream::wrappers::BroadcastStream::new(rx)
-            .filter_map(|result| {
-                match result {
-                    Ok(event) => Self::event_to_chunk(event),
-                    Err(_) => None, // lagged — skip
+            .filter_map(|result| match result {
+                Ok(event) => Self::event_to_chunk(event),
+                Err(_) => None, // lagged — skip
+            })
+            .take_while(move |chunk| {
+                if terminated_clone.load(std::sync::atomic::Ordering::Relaxed) {
+                    return false;
                 }
+                if chunk.chunk_type == "done" {
+                    // Emit this chunk, then terminate on the next poll.
+                    terminated_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+                }
+                true
             });
         Box::pin(stream)
     }
