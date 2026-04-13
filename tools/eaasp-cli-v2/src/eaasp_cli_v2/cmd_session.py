@@ -289,3 +289,100 @@ def run(
             await client.aclose()
 
     _main.run_async(_do())
+
+
+# ── Phase 1: session events command ──────────────────────────────────────────
+
+# Color mapping for event types.
+_EVENT_COLORS: dict[str, str] = {
+    "SESSION_START": "green",
+    "PRE_TOOL_USE": "cyan",
+    "POST_TOOL_USE": "blue",
+    "POST_TOOL_USE_FAILURE": "red",
+    "STOP": "yellow",
+    "POST_SESSION_END": "magenta",
+    "USER_PROMPT_SUBMIT": "white",
+    "SESSION_CREATED": "green",
+    "RUNTIME_INITIALIZED": "green",
+    "SESSION_MCP_CONNECTED": "green",
+    "USER_MESSAGE": "white",
+    "RESPONSE_CHUNK": "dim",
+    "SESSION_CLOSED": "magenta",
+}
+
+
+async def _fetch_events(
+    cfg: CliConfig, session_id: str, limit: int = 500
+) -> dict[str, Any]:
+    """Fetch events from L4 API."""
+    client = _main.make_client(cfg)
+    try:
+        return await client.call(
+            "GET",
+            f"{cfg.l4_url}/v1/sessions/{session_id}/events",
+            params={"from": 1, "limit": limit},
+        )
+    finally:
+        await client.aclose()
+
+
+def _format_event_line(event: dict[str, Any], fmt: str) -> str:
+    """Format a single event for display."""
+    import json as _json
+    if fmt == "json":
+        return _json.dumps(event, ensure_ascii=False, default=str)
+
+    import datetime
+    ts = event.get("created_at", 0)
+    dt = datetime.datetime.fromtimestamp(ts).strftime("%H:%M:%S") if ts else "??:??:??"
+    etype = event.get("event_type", "")
+    color = _EVENT_COLORS.get(etype, "white")
+    payload = event.get("payload", {})
+
+    # Summarize payload.
+    parts: list[str] = []
+    if "tool_name" in payload:
+        parts.append(f"tool={payload['tool_name']}")
+    if "runtime_id" in payload:
+        parts.append(f"runtime={payload['runtime_id']}")
+    if "reason" in payload:
+        parts.append(f"reason={payload['reason']}")
+    if "content" in payload and isinstance(payload["content"], str):
+        c = payload["content"]
+        if len(c) > 40:
+            c = c[:40] + "..."
+        parts.append(f'"{c}"')
+    summary = "  ".join(parts)
+
+    cluster = event.get("cluster_id", "")
+    cluster_tag = f"  cluster={cluster}" if cluster else ""
+    return f"[{dt}] [{color}]{etype.ljust(24)}[/{color}] {summary}{cluster_tag}"
+
+
+@app.command("events")
+def events_cmd(
+    session_id: str = typer.Argument(...),
+    format_: str = typer.Option("table", "--format", "-f", help="Output: table|json"),
+    limit: int = typer.Option(500, "--limit", "-n"),
+) -> None:
+    """List events for a session."""
+    cfg = CliConfig.from_env()
+    result = _main.run_async(_fetch_events(cfg, session_id, limit=limit))
+
+    if format_ == "json":
+        import json as _json
+        typer.echo(_json.dumps(result, ensure_ascii=False, indent=2, default=str))
+        return
+
+    console = Console()
+    evt_rows: list[dict[str, Any]] = []
+    if isinstance(result, dict):
+        evt_rows = result.get("events", []) or []
+
+    if not evt_rows:
+        console.print("[dim]No events found.[/dim]")
+        return
+
+    for e in evt_rows:
+        if isinstance(e, dict):
+            console.print(_format_event_line(e, format_))

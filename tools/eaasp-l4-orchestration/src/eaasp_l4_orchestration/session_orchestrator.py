@@ -38,6 +38,8 @@ logger = logging.getLogger(__name__)
 
 from .context_assembly import build_session_payload
 from .db import connect
+from .event_engine import EventEngine
+from .event_interceptor import EventInterceptor
 from .event_stream import SessionEventStream
 from .handshake import L2Client, L3Client, SkillRegistryClient
 from .l1_client import L1RuntimeClient, L1RuntimeError, create_l1_client
@@ -75,6 +77,8 @@ class SessionOrchestrator:
         skill_registry: SkillRegistryClient | None = None,
         l1_factory: Any | None = None,
         mcp_resolver: McpResolver | None = None,
+        event_engine: EventEngine | None = None,
+        event_interceptor: EventInterceptor | None = None,
     ) -> None:
         self.db_path = db_path
         self.l2 = l2
@@ -86,6 +90,9 @@ class SessionOrchestrator:
         self._l1_factory = l1_factory or create_l1_client
         # McpResolver for wiring MCP servers after L1 Initialize.
         self.mcp_resolver = mcp_resolver
+        # Phase 1 Event Engine — optional, None degrades to Phase 0.5 behavior.
+        self.event_engine = event_engine
+        self.event_interceptor = event_interceptor or EventInterceptor()
         # Active L1 clients keyed by session_id.
         self._l1_clients: dict[str, L1RuntimeClient] = {}
         # L4 session_id → L1 session_id mapping (L1 may generate its own).
@@ -254,6 +261,13 @@ class SessionOrchestrator:
                 },
             )
             await self._update_status(session_id, "active")
+
+            # Phase 1: Interceptor emits SESSION_START event via Event Engine.
+            if self.event_engine is not None:
+                start_event = self.event_interceptor.create_session_start(
+                    session_id, runtime_pref
+                )
+                await self.event_engine.ingest(start_event)
         except L1RuntimeError as exc:
             await self.event_stream.append(
                 session_id,
@@ -405,6 +419,14 @@ class SessionOrchestrator:
             {"seq": seq_user, "event_type": "USER_MESSAGE"},
         ]
 
+        # Resolve runtime_id for interceptor source tagging.
+        _runtime_id = ""
+        try:
+            _sess_info = await self.get_session(session_id)
+            _runtime_id = _sess_info.get("runtime_id", "")
+        except Exception:
+            pass
+
         try:
             async for chunk in l1.send(l1_sid, content):
                 if chunk.get("chunk_type") == "text_delta":
@@ -416,6 +438,14 @@ class SessionOrchestrator:
                     chunk,
                 )
                 events.append({"seq": seq, "event_type": "RESPONSE_CHUNK", **chunk})
+
+                # Phase 1: Interceptor extracts lifecycle events from chunks.
+                if self.event_engine is not None:
+                    extracted = self.event_interceptor.extract_from_chunk(
+                        session_id, chunk, runtime_id=_runtime_id
+                    )
+                    if extracted:
+                        await self.event_engine.ingest(extracted)
 
                 yield {"event": "chunk", "data": chunk}
         except L1RuntimeError as exc:
@@ -512,6 +542,12 @@ class SessionOrchestrator:
             "SESSION_CLOSED",
             {"previous_status": current},
         )
+
+        # Phase 1: Interceptor emits POST_SESSION_END event via Event Engine.
+        if self.event_engine is not None:
+            end_event = self.event_interceptor.create_session_end(session_id)
+            await self.event_engine.ingest(end_event)
+
         return {"session_id": session_id, "status": "closed"}
 
     # ─── List sessions (D41) ──────────────────────────────────────────────

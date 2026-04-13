@@ -1,15 +1,16 @@
 """FastAPI app exposing L4 orchestration REST surface.
 
-Endpoints (MVP scope):
+Endpoints (MVP + Phase 1 Event Engine):
 
 - ``GET  /health``                                    — liveness probe
 - ``POST /v1/intents/dispatch``                       — Contract 2 intent dispatch
 - ``POST /v1/sessions/create``                        — Contract 5 handshake (alias)
 - ``POST /v1/sessions/{session_id}/message``          — append user message
 - ``POST /v1/sessions/{session_id}/message/stream``   — SSE streaming message
-- ``GET  /v1/sessions/{session_id}/events``           — list events in range
+- ``GET  /v1/sessions/{session_id}/events``           — list events (+ follow SSE)
 - ``GET  /v1/sessions/{session_id}``                  — fetch session + payload
 - ``GET  /v1/sessions``                               — list all sessions
+- ``POST /v1/events/ingest``                          — Phase 1: L1 EmitEvent REST fallback
 """
 
 from __future__ import annotations
@@ -25,6 +26,9 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, ValidationError
 
 from .db import init_db
+from .event_backend_sqlite import SqliteWalBackend
+from .event_engine import EventEngine
+from .event_models import Event, EventMetadata
 from .event_stream import SessionEventStream
 from .handshake import (
     L2_URL_DEFAULT,
@@ -56,6 +60,15 @@ class IntentDispatchRequest(BaseModel):
 
 class SendMessageRequest(BaseModel):
     content: str = Field(..., min_length=0)
+
+
+class EventIngestRequest(BaseModel):
+    """Phase 1: L1 EmitEvent REST fallback (ADR-V2-001)."""
+    session_id: str = Field(..., min_length=1)
+    event_type: str = Field(..., min_length=1)
+    payload: dict[str, Any] = Field(default_factory=dict)
+    source: str = Field(default="")
+    event_id: str | None = None
 
 
 # ─── App factory ────────────────────────────────────────────────────────────
@@ -98,6 +111,12 @@ def create_app(
         )
         app.state.event_stream = SessionEventStream(db_path)
         app.state.mcp_resolver = McpResolver(client)
+        # Phase 1: Event Engine with SqliteWalBackend.
+        event_backend = SqliteWalBackend(db_path)
+        event_engine = EventEngine(event_backend)
+        await event_engine.start()
+        app.state.event_engine = event_engine
+        app.state.event_backend = event_backend
         app.state.orchestrator = SessionOrchestrator(
             db_path,
             l2=app.state.l2,
@@ -106,10 +125,12 @@ def create_app(
             event_stream=app.state.event_stream,
             l1_factory=l1_factory,
             mcp_resolver=app.state.mcp_resolver,
+            event_engine=event_engine,
         )
         try:
             yield
         finally:
+            await event_engine.stop()
             if owned_client:
                 await client.aclose()
 
@@ -272,6 +293,27 @@ def create_app(
         """List all sessions, newest first."""
         rows = await orchestrator.list_sessions(limit=limit, status=status)
         return {"sessions": rows}
+
+    # ─── Phase 1: Event ingest (ADR-V2-001 REST fallback) ──────────────
+    @app.post("/v1/events/ingest")
+    async def ingest_event(body: EventIngestRequest) -> dict[str, Any]:
+        """Accept an event from L1 EmitEvent REST fallback."""
+        engine: EventEngine = app.state.event_engine
+        event = Event(
+            session_id=body.session_id,
+            event_type=body.event_type,
+            payload=body.payload,
+            event_id=body.event_id or "",
+            metadata=EventMetadata(source=body.source),
+        )
+        try:
+            seq, event_id = await engine.ingest(event)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "ingest_failed", "error": str(exc)},
+            ) from exc
+        return {"seq": seq, "event_id": event_id}
 
     return app
 
