@@ -17,7 +17,7 @@
         certifier-build certifier-verify certifier-blindbox \
         build-eaasp-all \
         sdk-setup sdk-test sdk-validate sdk-build \
-        l2-memory-setup l2-memory-test l2-memory-start \
+        l2-memory-setup l2-memory-test l2-memory-start l2-memory-mcp-start l2-memory-mcp-test \
         l3-setup l3-start l3-test l4-setup l4-proto-gen l4-start l4-test \
         cli-v2-setup cli-v2-test v2-mvp-e2e \
         mock-scada-setup mock-scada-test mock-scada-start \
@@ -797,7 +797,7 @@ mcp-orch-build:
 	cargo build -p eaasp-mcp-orchestrator
 
 mcp-orch-start:
-	cargo run -p eaasp-mcp-orchestrator -- --config ./config/mcp-servers.yaml --port 8082
+	cargo run -p eaasp-mcp-orchestrator -- --config tools/eaasp-mcp-orchestrator/config/mcp-servers.yaml --port 18082
 
 mcp-orch-test:
 	cargo test -p eaasp-mcp-orchestrator -- --test-threads=1
@@ -878,6 +878,12 @@ l2-memory-test:
 l2-memory-start:
 	cd tools/eaasp-l2-memory-engine && .venv/bin/python -m eaasp_l2_memory_engine.main
 
+l2-memory-mcp-start:
+	cd tools/eaasp-l2-memory-engine && .venv/bin/eaasp-l2-memory --transport stdio
+
+l2-memory-mcp-test:
+	cd tools/eaasp-l2-memory-engine && .venv/bin/python -m pytest tests/test_mcp_server.py -xvs
+
 # ============================================================
 # Mock SCADA MCP stdio server (Python — Phase 0 S4.T1 / D47)
 # ============================================================
@@ -925,7 +931,7 @@ dev-eaasp:
 
 dev-eaasp-stop:
 	@echo "Stopping EAASP services..."
-	@for port in 18081 18083 18084 18085 50051 50052 50053; do \
+	@for port in 18081 18082 18083 18084 18085 18090 50051 50052 50053; do \
 		lsof -nP -iTCP:$$port -sTCP:LISTEN -t 2>/dev/null | xargs kill -TERM 2>/dev/null || true; \
 	done
 	@echo "Done."
