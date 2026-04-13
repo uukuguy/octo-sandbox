@@ -36,6 +36,7 @@ GRID_RT_PORT="${GRID_RUNTIME_PORT:-50051}"
 CLAUDE_RT_PORT="${CLAUDE_RUNTIME_PORT:-50052}"
 HERMES_RT_PORT="${HERMES_RUNTIME_PORT:-50053}"
 MOCK_SCADA_SSE_PORT="${EAASP_MOCK_SCADA_SSE_PORT:-18090}"
+MCP_ORCH_PORT="${EAASP_MCP_ORCHESTRATOR_PORT:-18082}"
 
 # ── Runtime flags ─────────────────────────────────────────────────────────
 SKIP_BUILD=false
@@ -328,13 +329,23 @@ MOCK_SCADA_SSE_PID=$!
 echo "  PID: $MOCK_SCADA_SSE_PID"
 wait_for_port $MOCK_SCADA_SSE_PORT "mock-scada-sse"
 
+# ── Step 4c: Start L2 MCP Orchestrator ──────────────────────────────────
+echo ""
+echo -e "${BOLD}=== Starting L2 MCP Orchestrator on :${MCP_ORCH_PORT} ===${RESET}"
+EAASP_MCP_ORCHESTRATOR_PORT=$MCP_ORCH_PORT \
+EAASP_MCP_ORCHESTRATOR_HOST=127.0.0.1 \
+    "$PROJECT_ROOT/target/debug/eaasp-mcp-orchestrator" \
+        --config "$PROJECT_ROOT/tools/eaasp-mcp-orchestrator/config/mcp-servers.yaml" \
+        --port "$MCP_ORCH_PORT" --host 127.0.0.1 2>&1 | sed 's/^/  [mcp-orch]  /' &
+MCP_ORCH_PID=$!
+echo "  PID: $MCP_ORCH_PID"
+wait_for_port $MCP_ORCH_PORT "L2 MCP Orchestrator"
+
 # ── Step 5: Start grid-runtime ───────────────────────────────────────────
 echo ""
 echo -e "${BOLD}=== Starting grid-runtime on :${GRID_RT_PORT} ===${RESET}"
 GRID_RUNTIME_PORT=$GRID_RT_PORT \
 RUST_LOG=grid_runtime=info,grid_engine=info \
-EAASP_MCP_SERVER_MOCK_SCADA_CMD="$PROJECT_ROOT/tools/mock-scada/.venv/bin/mock-scada" \
-EAASP_MCP_SERVER_EAASP_L2_MEMORY_CMD="" \
     "$PROJECT_ROOT/target/debug/grid-runtime" 2>&1 | sed 's/^/  [grid-rt]   /' &
 GRID_PID=$!
 echo "  PID: $GRID_PID"
@@ -344,8 +355,6 @@ wait_for_port $GRID_RT_PORT "grid-runtime"
 echo ""
 echo -e "${BOLD}=== Starting claude-code-runtime on :${CLAUDE_RT_PORT} ===${RESET}"
 CLAUDE_RUNTIME_PORT=$CLAUDE_RT_PORT \
-EAASP_MCP_SERVER_MOCK_SCADA_CMD="$PROJECT_ROOT/tools/mock-scada/.venv/bin/mock-scada" \
-EAASP_MCP_SERVER_EAASP_L2_MEMORY_CMD="" \
     "$PROJECT_ROOT/lang/claude-code-runtime-python/.venv/bin/python" \
         -m claude_code_runtime --port "$CLAUDE_RT_PORT" 2>&1 | sed 's/^/  [claude-rt] /' &
 CLAUDE_PID=$!
@@ -369,7 +378,6 @@ docker run --rm -d \
     -e HERMES_MODEL="${HERMES_MODEL:-${OPENAI_MODEL_NAME:-anthropic/claude-sonnet-4-20250514}}" \
     -e HERMES_PROVIDER="${HERMES_PROVIDER:-}" \
     -e HOOK_BRIDGE_URL="${HOOK_BRIDGE_URL:-}" \
-    -e EAASP_MCP_MOCK_SCADA_SSE_URL="http://host.docker.internal:${MOCK_SCADA_SSE_PORT}/sse" \
     -e NO_PROXY=host.docker.internal,127.0.0.1,localhost \
     hermes-runtime:latest \
     python -m hermes_runtime --port "$HERMES_RT_PORT" >/dev/null 2>&1
@@ -387,6 +395,7 @@ EAASP_L4_HOST=127.0.0.1 \
 EAASP_L4_DB_PATH="$PROJECT_ROOT/data/dev-l4.db" \
 EAASP_L2_URL="http://127.0.0.1:${L2_MEM_PORT}" \
 EAASP_L3_URL="http://127.0.0.1:${L3_GOV_PORT}" \
+EAASP_MCP_ORCH_URL="http://127.0.0.1:${MCP_ORCH_PORT}" \
     "$PROJECT_ROOT/tools/eaasp-l4-orchestration/.venv/bin/python" \
         -m eaasp_l4_orchestration.main 2>&1 | sed 's/^/  [l4-orch]   /' &
 L4_PID=$!
@@ -405,6 +414,7 @@ printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "skill-registry"       "
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L2 memory-engine"     "$L2_MEM_PORT"    "$L2_PID"        "-"          "UP"
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L3 governance"        "$L3_GOV_PORT"    "$L3_PID"        "-"          "UP"
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "mock-scada(SSE)"      "$MOCK_SCADA_SSE_PORT" "$MOCK_SCADA_SSE_PID" "tool-sandbox" "UP"
+printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L2 MCP Orchestrator"  "$MCP_ORCH_PORT"  "$MCP_ORCH_PID"  "-"          "UP"
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "grid-runtime"         "$GRID_RT_PORT"   "$GRID_PID"      "OPENAI_*"   "UP"
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "claude-code-runtime"  "$CLAUDE_RT_PORT" "$CLAUDE_PID"    "ANTHROPIC_*" "UP"
 HERMES_CID=$(docker inspect --format '{{.State.Pid}}' eaasp-hermes-runtime 2>/dev/null || echo "?")
