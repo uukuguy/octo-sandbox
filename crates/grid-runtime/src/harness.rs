@@ -343,6 +343,41 @@ impl RuntimeContract for GridHarness {
         }
         let memory_refs_count = payload.memory_refs.len();
 
+        // Extract MCP dependencies and scoped hooks from P4 BEFORE start_session.
+        // start_session snapshots the ToolRegistry — MCP tools must be registered first.
+        let skill_mcp_deps: Vec<McpServerConfig> = payload
+            .skill_instructions
+            .as_ref()
+            .map(|skill| Self::resolve_mcp_dependencies(&skill.dependencies, &skill.metadata))
+            .unwrap_or_default();
+
+        let scoped_hooks: Vec<ScopedHook> = payload
+            .skill_instructions
+            .as_ref()
+            .map(|s| s.frontmatter_hooks.clone())
+            .unwrap_or_default();
+
+        // Connect MCP servers BEFORE start_session so tools are in the snapshot.
+        let handle_placeholder = SessionHandle {
+            session_id: session_id.as_str().to_string(),
+        };
+        let mcp_to_connect: Vec<_> = skill_mcp_deps
+            .into_iter()
+            .filter(|s| s.command.as_ref().map_or(false, |c| !c.is_empty()))
+            .collect();
+        if !mcp_to_connect.is_empty() {
+            info!(count = mcp_to_connect.len(), "Connecting MCP servers from skill dependencies");
+            if let Err(e) = self.connect_mcp(&handle_placeholder, mcp_to_connect).await {
+                warn!(error = %e, "Failed to connect MCP servers from skill dependencies");
+            }
+        }
+
+        // Register scoped hooks into global HookRegistry (visible to all sessions).
+        if !scoped_hooks.is_empty() {
+            self.register_scoped_hooks(&scoped_hooks).await;
+        }
+
+        // NOW start session — ToolRegistry snapshot will include MCP tools.
         let _handle = self
             .runtime
             .start_session(
@@ -356,8 +391,6 @@ impl RuntimeContract for GridHarness {
             .map_err(|e| anyhow::anyhow!("Failed to start session: {}", e))?;
 
         // Register PostToolUse memory write hook (fire-and-forget, FailOpen).
-        // Writes tool execution evidence to L2 Memory Engine after each
-        // successful tool call. Non-blocking: L2 failure never aborts agent.
         let l2_mem_client = crate::l2_memory_client::L2MemoryClient::from_env();
         let memory_hook = crate::memory_write_hook::MemoryWriteHook::new(
             l2_mem_client,
@@ -383,27 +416,12 @@ impl RuntimeContract for GridHarness {
             session_id: session_id.as_str().to_string(),
         };
 
-        // Extract MCP dependencies and scoped hooks from P4 before consuming skill_instructions.
-        let skill_mcp_deps: Vec<McpServerConfig> = payload
-            .skill_instructions
-            .as_ref()
-            .map(|skill| Self::resolve_mcp_dependencies(&skill.dependencies, &skill.metadata))
-            .unwrap_or_default();
-
-        let scoped_hooks: Vec<ScopedHook> = payload
-            .skill_instructions
-            .as_ref()
-            .map(|s| s.frontmatter_hooks.clone())
-            .unwrap_or_default();
-
         // If the payload arrived with an inline P4 SkillInstructions block,
-        // hand it off directly to `load_skill`.
+        // hand it off to load_skill for metadata logging.
         if let Some(skill) = payload.skill_instructions {
             let content = SkillContent {
                 skill_id: skill.skill_id,
                 name: skill.name,
-                // v2 no longer carries raw YAML — round-trip the frontmatter
-                // hooks through JSON so downstream engines keep working.
                 frontmatter_yaml: serde_json::to_string(&skill.frontmatter_hooks)
                     .unwrap_or_default(),
                 prose: skill.content,
@@ -411,24 +429,6 @@ impl RuntimeContract for GridHarness {
             if let Err(e) = self.load_skill(&handle, content).await {
                 warn!(error = %e, "Failed to load inline P4 skill instructions");
             }
-        }
-
-        // Connect MCP servers declared in skill dependencies.
-        // Skip servers with no command (e.g. eaasp-l2-memory is REST, not MCP stdio).
-        let mcp_to_connect: Vec<_> = skill_mcp_deps
-            .into_iter()
-            .filter(|s| s.command.as_ref().map_or(false, |c| !c.is_empty()))
-            .collect();
-        if !mcp_to_connect.is_empty() {
-            info!(count = mcp_to_connect.len(), "Connecting MCP servers from skill dependencies");
-            if let Err(e) = self.connect_mcp(&handle, mcp_to_connect).await {
-                warn!(error = %e, "Failed to connect MCP servers from skill dependencies");
-            }
-        }
-
-        // Register scoped hooks from P4 frontmatter into AgentRuntime's HookRegistry.
-        if !scoped_hooks.is_empty() {
-            self.register_scoped_hooks(&scoped_hooks).await;
         }
 
         Ok(handle)
