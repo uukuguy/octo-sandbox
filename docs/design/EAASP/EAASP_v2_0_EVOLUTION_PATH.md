@@ -115,6 +115,7 @@
 |---|---|---|---|---|---|
 | **Phase 0** | Infrastructure Foundation | **圈 2** | 接口契约 + 5 层服务骨架 + 15 断言脚本验证 | ⚠️ 仅脚本验证（历史遗留，已标注为 Foundation 而非 MVP） | 🟢 Completed (2026-04-12) |
 | **Phase 0.5** | **MVP — 全层贯通** | **圈 2+** | L4→L1 真 gRPC + LLM agent 执行 + tool 调用 + memory 读写 + hook 触发 + 流式输出 | 用户 `eaasp-cli session send` → 看到 agent 调 tool、写 memory、流式输出结果 | 🟢 Completed (2026-04-13) |
+| **Phase 0.75** | **L2 MCP 编排与部署架构** | **圈 2 补强** | L2 MCP Orchestrator 职责定义 + MCP transport 统一策略 + 容器化 runtime MCP 发现机制 + claude-code-runtime MCP 通路修复 | 三个 runtime 的 MCP tool call 全部通过真实 MCP server（非 workaround）；`eaasp-cli session send` 在 claude-code-runtime 上调用 mock-scada 成功 | 🟡 代码完成，待人工验收 |
 | **Phase 1** | Event-driven foundation | 圈 3 | L4 Event Engine + Session Event Stream + L4 hooks | 用户能在 CLI 观察事件流实时更新；event 从 ingest 到 clustering 的全过程可查 | ⏸ |
 | **Phase 2** | Memory and evidence | 圈 2 增强 + 圈 3 | Memory 完整三层 + Skill extraction + PreCompact | 用户能搜索/浏览 semantic 检索结果；skill extraction 产出可人工审阅 | ⏸ |
 | **Phase 3** | Approval and verification | 圈 4 | 审批链 + Verifier + OPA + Sandbox Tiers | 用户能触发审批流程并看到 approve/deny 决策路径；sandbox 隔离可演示 | ⏸ |
@@ -165,9 +166,74 @@ eaasp-cli session send "再校准一次 Transformer-001"
 # → 第二次 session 引用了上次的记忆 — 核心价值被证明
 ```
 
-### 3.4 Phase 间边界原则
+### 3.5 Phase 0.75 —— 平台级统一 Runtime MCP 行为
 
-- Phase 0.5 → Phase 1：系统可真实运行 agent，但 session 事件仍写 SQLite（无 Event Engine）。Phase 1 开始前必须解 ADR-V2-001/002/003
+Phase 0.5 MVP 验证暴露了 MCP 通路的结构性问题：三个 runtime 虽然都通过了 MCP tool call 验收，但各自用不同的 workaround（env var / subprocess / McpBridge），**L2 和 L4 完全不参与 MCP 编排**。这不是平台级行为——L1 Runtime 不应自己找 MCP server。
+
+**目标**：L2 管理 → L4 下发 → L1 被动接收。消除所有 runtime 的 MCP workaround。
+
+#### 已锁定决策（2026-04-13 Brainstorming）
+
+| ID | 决策 | 理由 |
+|---|------|------|
+| **D69** | L2 MCP Orchestrator Phase 0.75 只做**注册表 + 查询 API**，进程管理留 Phase 1 | dev 环境用 `dev-eaasp.sh` 手动启动够用，生产环境要 container orchestrator |
+| **D70** | ConnectMCP 三 runtime 统一实现 **stdio / SSE / streamable-http** 三种 transport | proto 已定义 MCPServerConfig.transport 字段 |
+| **D71** | claude-code-runtime 接受 **SDK 自管 MCP 连接**，只要配置来源统一为 L4 下发即可 | SDK 内部 MCP 实现成熟（Anthropic 官方），重写无必要 |
+| **D72** | 验收标准：三 runtime MCP 配置**全部来自 L4 ConnectMCP**，**零 env var workaround** | 平台级统一行为的最低要求 |
+
+#### 目标架构
+
+```
+L2 MCP Orchestrator (注册表 + 查询 API)
+  ├── GET /v1/mcp/servers → server 列表 + transport + endpoint
+  └── MCP server 分两类：
+      A 类：L2 独立管理的服务进程（memory engine、外部系统）
+      B 类：可随 runtime/skill 伴生的工具
+
+L4 Session Create (编排)
+  ├── 读取 skill dependencies 中的 mcp:* 依赖
+  ├── 查询 L2 → 获取 server 连接信息
+  └── 调用 L1 ConnectMCP RPC → 下发 server 列表
+
+L1 Runtime (三 runtime 统一行为)
+  ├── ConnectMCP 收到 MCPServerConfig 列表
+  ├── 按 transport 类型建立连接
+  └── 注册 MCP tools → agent 可用
+```
+
+#### 设计问题
+
+| # | 问题 | Phase 0.75 范围 |
+|---|------|----------------|
+| 1 | L2 MCP 分类管理 | A/B 分类定义 + 注册表 schema + 查询 API |
+| 2 | MCP transport 统一 | 三 runtime ConnectMCP 真实实现（stdio/SSE/HTTP） |
+| 3 | L4 编排流程 | session create → 查询 L2 → ConnectMCP 下发 |
+| 4 | L2 Memory MCP transport | Memory Engine 提供 SSE MCP transport（D67） |
+| 5 | 移除 workaround | 三 runtime 移除所有 env var / subprocess 直连 |
+
+**关联 Deferred**: D67, D68（本 Phase 关闭）；D62-D65（Phase 1）
+
+**出口标准**：
+
+```bash
+make dev-eaasp                    # L2 MCP Orchestrator 启动
+eaasp-cli mcp list                # → 显示已注册的 MCP servers
+
+# 三 runtime 均通过 L4 ConnectMCP 获取 MCP 配置，成功调用 mock-scada
+eaasp-cli session create --skill threshold-calibration --runtime grid-runtime
+eaasp-cli session send "校准 Transformer-001"
+
+eaasp-cli session create --skill threshold-calibration --runtime claude-code-runtime
+eaasp-cli session send "校准 Transformer-001"
+
+eaasp-cli session create --skill threshold-calibration --runtime hermes-runtime
+eaasp-cli session send "校准 Transformer-001"
+```
+
+### 3.6 Phase 间边界原则
+
+- Phase 0.5 → Phase 0.75：系统可真实运行 agent，但 MCP 通路依赖各 runtime 各自实现的 workaround。Phase 0.75 统一为 L2→L4→L1 平台级编排
+- Phase 0.75 → Phase 1：MCP 通路统一后，Phase 1 开始前必须解 ADR-V2-001/002/003（Event Engine 相关）
 - 每个后续 Phase 的验收都必须在前一 Phase 的人工可执行基础上**增量叠加**新的可观测能力，而不是推翻重来
 
 ---
@@ -205,6 +271,15 @@ eaasp-cli session send "再校准一次 Transformer-001"
 | **D20** | **L1 Runtime LLM Provider 配置铁律**：(1) **所有 LLM API Key 在 `.env` 文件中**，通过 OpenRouter 统一接入，不要再问 key 在哪里。(2) **配置不存在就报错退出，绝不 fallback 猜测**——不跨 provider fallback（如 OPENAI→ANTHROPIC），不猜默认值。(3) 每个 runtime 读**自己约定的环境变量**：grid-runtime 读 `LLM_PROVIDER` + `OPENAI_API_KEY` + `OPENAI_BASE_URL` + `LLM_MODEL`；claude-code-runtime 读 `ANTHROPIC_API_KEY`；hermes-runtime 读 `HERMES_API_KEY`→`OPENROUTER_API_KEY`。(4) `dev-eaasp.sh` 在启动前 source `.env` 并校验所有必要变量，缺一个就退出。**此策略适用于所有 L1 Runtime，后续新增 runtime 遵循同一规则** | 2026-04-12 用户多次强调 |
 | **D18** | **ADR 治理机制按最佳实践建立**（模板 + 状态机 + ID 规则 + 校验）。运行成熟后转为 Claude Code Skill（`/adr` 命令），时机到时提醒用户 make skill | ADR 管理现状分析 |
 | **D19** | **T0-T3 定义需更新**，包括 EVOLUTION_PATH §2.3 + v2.0 设计规范对应章节。先产出中英文对照修正附录，供合入 spec docx。L1 Runtime Pool 研究出结论后增补各 tier 的实例说明 | L1_RUNTIME_CANDIDATE_ANALYSIS.md §13 校正 |
+
+### 2026-04-13 Brainstorming — Phase 0.75 平台级 MCP 统一
+
+| ID | 决策 | 理由/上下文 |
+|---|---|---|
+| **D69** | L2 MCP Orchestrator Phase 0.75 只做**注册表 + 查询 API**，进程管理留 Phase 1 | dev 环境用 `dev-eaasp.sh` 手动启动够用，生产环境要 container orchestrator，Phase 0.75 做进程管理意义不大 |
+| **D70** | ConnectMCP 三 runtime 统一实现 **stdio / SSE / streamable-http** 三种 transport | proto 已定义 MCPServerConfig.transport 字段，三 runtime 必须按统一契约处理 |
+| **D71** | claude-code-runtime 接受 **SDK 自管 MCP 连接**，只要配置来源统一为 L4 ConnectMCP 下发即可 | SDK 内部 MCP 实现成熟（Anthropic 官方），重写无必要。配置来源统一 = 平台级统一 |
+| **D72** | 验收标准：三 runtime MCP 配置**全部来自 L4 ConnectMCP**，**零 env var workaround** | Phase 0.5 的 env var workaround 不是平台级行为，L1 不应自己找 MCP server |
 
 ---
 
