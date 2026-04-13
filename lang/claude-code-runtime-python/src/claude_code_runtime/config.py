@@ -24,7 +24,7 @@ class RuntimeConfig:
     # Claude Agent SDK config
     max_turns: int = 10
     max_budget_usd: float | None = None
-    permission_mode: str = "auto"
+    permission_mode: str = "bypassPermissions"
 
     @classmethod
     def from_env(cls, env_file: str | Path | None = None) -> "RuntimeConfig":
@@ -47,5 +47,5 @@ class RuntimeConfig:
                 "ANTHROPIC_MODEL_NAME", "claude-sonnet-4-20250514"
             ),
             max_turns=int(os.getenv("CLAUDE_MAX_TURNS", "10")),
-            permission_mode=os.getenv("CLAUDE_PERMISSION_MODE", "auto"),
+            permission_mode=os.getenv("CLAUDE_PERMISSION_MODE", "bypassPermissions"),
         )
