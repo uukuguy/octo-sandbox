@@ -77,19 +77,24 @@ cleanup() {
     echo ""
     echo -e "${BOLD}=== Stopping EAASP services ===${RESET}"
     _kill_tree "L4 orchestration" "$L4_PID"
-    docker stop eaasp-hermes-runtime >/dev/null 2>&1 || true
-    _kill_tree "mock-scada-sse" "$MOCK_SCADA_SSE_PID"
+    # Docker container: use short timeout to avoid OrbStack hang on SIGTERM.
+    # --time=2 sends SIGTERM, waits 2s, then SIGKILL.
+    docker stop --time=2 eaasp-hermes-runtime >/dev/null 2>&1 || true
+    docker rm -f eaasp-hermes-runtime >/dev/null 2>&1 || true
     _kill_tree "claude-code-runtime" "$CLAUDE_PID"
     _kill_tree "grid-runtime" "$GRID_PID"
+    _kill_tree "MCP Orchestrator" "$MCP_ORCH_PID"
+    _kill_tree "mock-scada-sse" "$MOCK_SCADA_SSE_PID"
     _kill_tree "L3 governance" "$L3_PID"
     _kill_tree "L2 memory-engine" "$L2_PID"
     _kill_tree "skill-registry" "$SKILL_REG_PID"
     # Sweep orphaned listeners
     _kill_port "L4 orchestration" "$L4_ORCH_PORT"
     _kill_port "hermes-runtime" "$HERMES_RT_PORT"
-    _kill_port "mock-scada-sse" "$MOCK_SCADA_SSE_PORT"
     _kill_port "claude-code-runtime" "$CLAUDE_RT_PORT"
     _kill_port "grid-runtime" "$GRID_RT_PORT"
+    _kill_port "MCP Orchestrator" "$MCP_ORCH_PORT"
+    _kill_port "mock-scada-sse" "$MOCK_SCADA_SSE_PORT"
     _kill_port "L3 governance" "$L3_GOV_PORT"
     _kill_port "L2 memory-engine" "$L2_MEM_PORT"
     _kill_port "skill-registry" "$SKILL_REG_PORT"
