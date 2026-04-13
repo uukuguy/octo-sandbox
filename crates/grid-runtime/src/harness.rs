@@ -576,9 +576,6 @@ impl RuntimeContract for GridHarness {
         handle: &SessionHandle,
         servers: Vec<McpServerConfig>,
     ) -> anyhow::Result<()> {
-        let mcp_manager = self.runtime.mcp_manager();
-        let mut mcp_guard = mcp_manager.lock().await;
-
         for server in &servers {
             let transport = match server.transport.as_str() {
                 "stdio" => EngineMcpTransport::Stdio,
@@ -602,8 +599,20 @@ impl RuntimeContract for GridHarness {
                 oauth: None,
             };
 
-            if let Err(e) = mcp_guard.add_server(config.into()).await {
-                warn!(server = %server.name, error = %e, "Failed to add MCP server");
+            // Use AgentRuntime.add_mcp_server — it connects the MCP server AND
+            // registers tools into the global ToolRegistry. Previously we called
+            // McpManager.add_server which only connects but doesn't register tools.
+            match self.runtime.add_mcp_server(config.into()).await {
+                Ok(tools) => {
+                    info!(
+                        server = %server.name,
+                        tool_count = tools.len(),
+                        "MCP server connected and tools registered"
+                    );
+                }
+                Err(e) => {
+                    warn!(server = %server.name, error = %e, "Failed to add MCP server");
+                }
             }
         }
 
