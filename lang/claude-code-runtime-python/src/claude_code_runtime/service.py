@@ -296,33 +296,25 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
                 )
 
         # MCP server auto-connect from P4 skill dependencies.
-        # Create a .mcp.json in a temp dir so the Claude Agent SDK (which
-        # runs Claude Code CLI underneath) auto-discovers the MCP servers.
+        # Build mcp_servers dict for ClaudeAgentOptions.mcp_servers
+        # (SDK passes --mcp-config to CLI with the server definitions).
         has_si = payload.HasField("skill_instructions")
         skill_deps = list(payload.skill_instructions.dependencies) if has_si else []
         mcp_deps = [d for d in skill_deps if d.startswith("mcp:")]
         logger.info("MCP auto-connect: has_si=%s deps=%s mcp=%s", has_si, skill_deps, mcp_deps)
+        mcp_servers: dict = {}
         if mcp_deps:
-            import tempfile, os
-            mcp_dir = tempfile.mkdtemp(prefix=f"eaasp-mcp-{sid}-")
-            mcp_config: dict = {"mcpServers": {}}
+            import os
             for dep in mcp_deps:
                 name = dep.removeprefix("mcp:")
-                # Resolve command from env var: EAASP_MCP_SERVER_<NAME>_CMD
                 env_key = f"EAASP_MCP_SERVER_{name.upper().replace('-', '_')}_CMD"
                 cmd = os.environ.get(env_key, "")
                 if cmd:
-                    mcp_config["mcpServers"][name] = {
-                        "command": cmd,
-                        "args": [],
-                    }
-                    logger.info("MCP server configured for SDK: %s → %s", name, cmd)
-            if mcp_config["mcpServers"]:
-                mcp_json_path = os.path.join(mcp_dir, ".mcp.json")
-                with open(mcp_json_path, "w") as f:
-                    json.dump(mcp_config, f)
-                session.mcp_cwd = mcp_dir
-                logger.info("MCP config written to %s (%d servers)", mcp_json_path, len(mcp_config["mcpServers"]))
+                    mcp_servers[name] = {"command": cmd, "args": []}
+                    logger.info("MCP server configured: %s → %s", name, cmd)
+        if mcp_servers:
+            session.mcp_servers_config = mcp_servers
+            logger.info("MCP servers for SDK: %d configured", len(mcp_servers))
 
         self._active_session_id = sid
         logger.info("Session initialized: %s (user=%s)", sid, user_id)
@@ -386,10 +378,11 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
                 len(session.memory_refs),
             )
 
-        # Pass MCP cwd to SDK if session has MCP servers configured.
-        cwd = getattr(session, "mcp_cwd", None)
+        # Pass MCP servers to SDK via options.mcp_servers (--mcp-config).
+        mcp_servers = getattr(session, "mcp_servers_config", None)
         async for chunk in self.sdk.send_message(
-            prompt=message.content, system_prompt=system_prompt, cwd=cwd
+            prompt=message.content, system_prompt=system_prompt,
+            mcp_servers=mcp_servers,
         ):
             yield chunk_to_proto(chunk)
 

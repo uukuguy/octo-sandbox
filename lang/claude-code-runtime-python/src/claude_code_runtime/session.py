@@ -32,7 +32,7 @@ class Session:
     # Runtime state
     skills: list[dict] = field(default_factory=list)
     mcp_servers: list[str] = field(default_factory=list)
-    mcp_cwd: str | None = None  # temp dir with .mcp.json for SDK auto-discovery
+    mcp_servers_config: dict | None = None  # MCP server configs for SDK options.mcp_servers
     telemetry_events: list[dict] = field(default_factory=list)
     context: dict[str, str] = field(default_factory=dict)
     hook_bridge_url: str = ""

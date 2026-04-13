@@ -69,12 +69,12 @@ class SdkWrapper:
         prompt: str,
         system_prompt: str | None = None,
         allowed_tools: list[str] | None = None,
-        cwd: str | None = None,
+        mcp_servers: dict | None = None,
     ) -> AsyncIterator[ChunkEvent]:
         """Send a message and yield response chunks."""
         options = self._build_options(system_prompt, allowed_tools)
-        if cwd:
-            options.cwd = cwd
+        if mcp_servers:
+            options.mcp_servers = mcp_servers
         # Output CLI stderr to our stderr for debugging
         import sys
         options.debug_stderr = sys.stderr
