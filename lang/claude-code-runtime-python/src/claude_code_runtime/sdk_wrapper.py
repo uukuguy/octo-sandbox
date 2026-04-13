@@ -75,6 +75,9 @@ class SdkWrapper:
         options = self._build_options(system_prompt, allowed_tools)
         if cwd:
             options.cwd = cwd
+        # Output CLI stderr to our stderr for debugging
+        import sys
+        options.debug_stderr = sys.stderr
 
         try:
             async for message in query(prompt=prompt, options=options):
@@ -106,7 +109,11 @@ class SdkWrapper:
                 elif isinstance(message, ResultMessage):
                     yield ChunkEvent(chunk_type="done", content="")
         except Exception as e:
-            logger.error("SDK error: %s", e)
+            # Log full exception details including stderr from CLI subprocess
+            stderr_output = getattr(e, 'stderr', None) or getattr(e, 'error_output', None) or ''
+            logger.error("SDK error: %s\nstderr: %s", e, stderr_output)
+            import traceback
+            logger.error("SDK traceback:\n%s", traceback.format_exc())
             yield ChunkEvent(
                 chunk_type="error",
                 content=str(e),
