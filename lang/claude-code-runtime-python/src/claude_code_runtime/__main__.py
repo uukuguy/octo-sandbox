@@ -1,5 +1,11 @@
 """claude-code-runtime gRPC server entry point."""
 
+# MUST be set before importing grpc — enables fork safety for subprocess
+# spawning (Claude Agent SDK forks Claude Code CLI as a child process).
+import os
+os.environ.setdefault("GRPC_ENABLE_FORK_SUPPORT", "1")
+os.environ.setdefault("GRPC_POLL_STRATEGY", "poll")
+
 import argparse
 import asyncio
 import logging
