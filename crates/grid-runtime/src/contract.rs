@@ -9,7 +9,7 @@
 //!
 //! - `SessionPayload` is now a **structured priority stack** of 5 blocks
 //!   (P1 PolicyContext → P5 UserPreferences). See §8.6.
-//! - 12 MUST + 4 OPTIONAL + 1 PLACEHOLDER (`EmitEvent`, ADR-V2-001 pending).
+//! - 12 MUST + 5 OPTIONAL (incl. `EmitEvent`, ADR-V2-001 Accepted).
 //! - Deterministic context budget trimming: P5 → P4 → P3, never P1/P2.
 
 use std::pin::Pin;
@@ -105,14 +105,19 @@ pub trait RuntimeContract: Send + Sync {
     /// Resume a previously paused session.
     async fn resume_session(&self, session_id: &str) -> anyhow::Result<SessionHandle>;
 
-    // ── PLACEHOLDER method (ADR-V2-001 pending) ──
+    // ── OPTIONAL method (ADR-V2-001 Accepted — Phase 1) ──
 
-    /// EmitEvent — exposed to L4 orchestration once ADR-V2-001 lands.
-    /// Phase 0 MVP: default impl returns `unimplemented`.
+    /// EmitEvent — OPTIONAL per ADR-V2-001.
+    ///
+    /// T1 runtimes SHOULD implement to emit enriched events (THINKING,
+    /// TOKEN_USAGE, PRE_COMPACT) that the L4 interceptor cannot capture.
+    /// Core events (PRE_TOOL_USE, POST_TOOL_USE, STOP) are already
+    /// captured by the L4 platform interceptor.
+    ///
+    /// Default: no-op (silently succeeds). T1 implementations can override
+    /// to POST events to L4's `/v1/events/ingest` endpoint.
     async fn emit_event(&self, _entry: EventStreamEntry) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!(
-            "EmitEvent placeholder: not implemented (ADR-V2-001 pending)"
-        ))
+        Ok(())
     }
 }
 

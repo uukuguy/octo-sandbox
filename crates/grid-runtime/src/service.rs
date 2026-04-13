@@ -530,16 +530,27 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
         Ok(Response::new(proto::Empty {}))
     }
 
-    // ── PLACEHOLDER — ADR-V2-001 pending ──
+    // ── OPTIONAL — ADR-V2-001 Accepted (Phase 1) ──
     //
-    // emit_event returns Unimplemented for Phase 0 MVP. Runtimes MAY
-    // override via their RuntimeContract::emit_event implementation.
+    // EmitEvent is OPTIONAL per ADR-V2-001. Default: delegate to
+    // RuntimeContract::emit_event (no-op by default). T1 runtimes
+    // can override to POST events to L4's /v1/events/ingest.
+    // Core events are already captured by the L4 platform interceptor.
     async fn emit_event(
         &self,
-        _request: Request<proto::EventStreamEntry>,
+        request: Request<proto::EventStreamEntry>,
     ) -> Result<Response<proto::Empty>, Status> {
-        Err(Status::unimplemented(
-            "EmitEvent placeholder — ADR-V2-001 pending",
-        ))
+        let entry = request.into_inner();
+        self.contract
+            .emit_event(contract::EventStreamEntry {
+                session_id: entry.session_id,
+                event_id: entry.event_id,
+                event_type: entry.event_type.to_string(),
+                payload_json: entry.payload_json,
+                timestamp: entry.timestamp,
+            })
+            .await
+            .map_err(|e| Status::internal(format!("emit_event failed: {e}")))?;
+        Ok(Response::new(proto::Empty {}))
     }
 }

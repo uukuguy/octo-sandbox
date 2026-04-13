@@ -329,10 +329,10 @@ async fn test_resume_session_degrades_gracefully() {
 }
 
 #[tokio::test]
-async fn test_emit_event_is_unimplemented() {
-    // ADR-V2-001 pending — the placeholder method must return
-    // tonic::Code::Unimplemented on Phase 0 MVP so certifier and
-    // upstream runtimes can detect its status.
+async fn test_emit_event_returns_ok() {
+    // ADR-V2-001 Accepted (Phase 1) — EmitEvent is OPTIONAL.
+    // Default implementation is no-op (returns Ok).
+    // Core events are captured by L4 platform interceptor.
     let mut client = setup_grpc().await;
 
     let result = client
@@ -345,9 +345,7 @@ async fn test_emit_event_is_unimplemented() {
         })
         .await;
 
-    let status = result.expect_err("emit_event must return Unimplemented");
-    assert_eq!(status.code(), tonic::Code::Unimplemented);
-    assert!(status.message().contains("ADR-V2-001"));
+    result.expect("emit_event should return Ok (no-op default)");
 }
 
 // ──────────────────────────────────────────────────────────────

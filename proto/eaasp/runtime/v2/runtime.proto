@@ -66,12 +66,13 @@ service RuntimeService {
   rpc PauseSession(Empty) returns (StateResponse);
   rpc ResumeSession(StateResponse) returns (Empty);
 
-  // ── PLACEHOLDER — ADR-V2-001 pending ──
+  // ── OPTIONAL — ADR-V2-001 Accepted (Phase 1) ──
   //
-  // EmitEvent exposes the session's emergent event stream to L4. The
-  // wire format and backend are still open (see ADR-V2-001 / -002 / -003
-  // deferred to Phase 1). Runtimes MAY implement as no-op during Phase 0
-  // (return Empty); certifier reports "placeholder: present" as metadata.
+  // EmitEvent exposes the session's emergent event stream to L4.
+  // OPTIONAL: T1 runtimes SHOULD implement to emit enriched events
+  // (THINKING, TOKEN_USAGE, PRE_COMPACT). Core events (PRE_TOOL_USE,
+  // POST_TOOL_USE, STOP) are captured by L4 platform interceptor.
+  // Default: no-op (return Empty).
   rpc EmitEvent(EventStreamEntry) returns (Empty);
 }
 
@@ -254,11 +255,11 @@ enum HookEventType {
   POST_SESSION_END = 13;
 }
 
-// ── EmitEvent placeholder (ADR-V2-001 pending) ──────────────
+// ── EmitEvent (ADR-V2-001 Accepted — Phase 1) ──────────────
 //
-// Phase 0 MVP treats event stream as opaque best-effort. Runtimes
-// MAY stash entries in-memory and no-op, or bridge to L4 via side
-// channel. Wire format + backend storage locked in Phase 1.
+// Event stream entry for EmitEvent RPC. Backend: SQLite WAL
+// (ADR-V2-002). Pipeline: Ingest→Dedup→Cluster→Index (ADR-V2-003).
+// T1 runtimes emit via this RPC or REST POST /v1/events/ingest.
 message EventStreamEntry {
   string session_id = 1;
   string event_id = 2;
