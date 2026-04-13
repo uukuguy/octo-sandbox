@@ -346,6 +346,7 @@ echo ""
 echo -e "${BOLD}=== Starting grid-runtime on :${GRID_RT_PORT} ===${RESET}"
 GRID_RUNTIME_PORT=$GRID_RT_PORT \
 RUST_LOG=grid_runtime=info,grid_engine=info \
+PATH="$PROJECT_ROOT/tools/mock-scada/.venv/bin:$PROJECT_ROOT/tools/eaasp-l2-memory-engine/.venv/bin:$PATH" \
     "$PROJECT_ROOT/target/debug/grid-runtime" 2>&1 | sed 's/^/  [grid-rt]   /' &
 GRID_PID=$!
 echo "  PID: $GRID_PID"
