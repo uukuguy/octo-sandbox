@@ -388,6 +388,8 @@ if [ "$SKIP_HERMES" = "false" ]; then
         -e HERMES_MODEL="${HERMES_MODEL:-${OPENAI_MODEL_NAME:-anthropic/claude-sonnet-4-20250514}}" \
         -e HERMES_PROVIDER="${HERMES_PROVIDER:-}" \
         -e HOOK_BRIDGE_URL="${HOOK_BRIDGE_URL:-}" \
+        -e EAASP_L2_HOST=host.docker.internal \
+        -e EAASP_L2_PORT="$L2_MEM_PORT" \
         -e NO_PROXY=host.docker.internal,127.0.0.1,localhost \
         hermes-runtime:latest \
         python -m hermes_runtime --port "$HERMES_RT_PORT" >/dev/null 2>&1

@@ -36,6 +36,7 @@ from .handshake import (
     UpstreamError,
 )
 from .l1_client import L1RuntimeError
+from .mcp_resolver import McpResolver
 from .session_orchestrator import (
     InvalidStateTransition,
     SessionNotFound,
@@ -96,6 +97,7 @@ def create_app(
             client, base_url=skill_registry_base_url or SKILL_REGISTRY_URL_DEFAULT
         )
         app.state.event_stream = SessionEventStream(db_path)
+        app.state.mcp_resolver = McpResolver(client)
         app.state.orchestrator = SessionOrchestrator(
             db_path,
             l2=app.state.l2,
@@ -103,6 +105,7 @@ def create_app(
             skill_registry=app.state.skill_registry,
             event_stream=app.state.event_stream,
             l1_factory=l1_factory,
+            mcp_resolver=app.state.mcp_resolver,
         )
         try:
             yield
