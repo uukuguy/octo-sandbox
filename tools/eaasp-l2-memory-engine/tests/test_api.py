@@ -20,6 +20,7 @@ async def test_list_tools_manifest(app: AsyncClient) -> None:
     assert resp.status_code == 200
     tools = resp.json()["tools"]
     names = {t["name"] for t in tools}
+    # S2.T3: manifest now exposes 7 tools (added memory_confirm).
     assert names == {
         "memory_search",
         "memory_read",
@@ -27,6 +28,7 @@ async def test_list_tools_manifest(app: AsyncClient) -> None:
         "memory_write_file",
         "memory_list",
         "memory_archive",
+        "memory_confirm",
     }
 
 

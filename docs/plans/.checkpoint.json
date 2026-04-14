@@ -5,9 +5,9 @@
   "previous_design_doc": "docs/design/EAASP/PHASE1_EVENT_ENGINE_DESIGN.md",
   "phase": "phase-2",
   "created_at": "2026-04-14T13:00:00+08:00",
-  "updated_at": "2026-04-15T00:30:00+08:00",
-  "last_commit": "262d28d feat(eaasp/phase2): S2.T2 — Hybrid retrieval (keyword + semantic + time-decay)",
-  "test_baseline": "l2-memory-engine 95/95 PASS (+11 hybrid retrieval); ruff clean",
+  "updated_at": "2026-04-15T02:30:00+08:00",
+  "last_commit": "PENDING — S2.T3 memory_read/list/confirm completion",
+  "test_baseline": "l2-memory-engine 103/103 PASS (+8 S2.T3); ruff clean",
   "completed_tasks": [
     "S0.T1 (ADR-V2-015 Accepted)",
     "S0.T2 (ADR-V2-016 Accepted 2026-04-14 — multi-model E2E verified)",
@@ -20,15 +20,16 @@
     "S1.T7 (Graduated retry — RetryPolicy::graduated() + ±15% jitter + FailoverReason::recovery_actions routing; 42 lib tests + 4 integration PASS @ 8b532cb)",
     "S2.T1 (Vector embedding 基础设施 — Provider Protocol + Ollama/Mock + HNSWVectorIndex + schema migration + dual-write path; 26 new tests, 84/84 PASS; ADR-V2-015 三铁律 PASS; D12 partial, D78 deferred to S2.T2)",
     "S2.T2 (Hybrid retrieval — FTS + HNSW + time-decay fusion score = (w_fts*fts + w_sem*sem) * decay; env EAASP_HYBRID_WEIGHTS; 4 graceful-degrade paths; 11 new tests, 95/95 PASS @ 262d28d; ADR-V2-015 三铁律 PASS; reviewer APPROVE-WITH-COMMENTS)",
-    "Deferred Ledger 建立 (docs/design/EAASP/DEFERRED_LEDGER.md — single source of truth for D1-D98)"
+    "S2.T3 (MCP tool completion — MemoryFileOut surfaces embedding_model_id+embedding_dim (not blob); memory_list gains offset parameter; memory_confirm becomes 7th MCP tool with parity to memory_archive; 8 new tests covering embedding metadata + graceful-degrade + pagination + state machine suggested→confirmed→archived; 103/103 PASS; ruff clean; reviewer APPROVE-WITH-COMMENTS 0 Criticals 1 Major→D99)",
+    "Deferred Ledger 建立 (docs/design/EAASP/DEFERRED_LEDGER.md — single source of truth for D1-D99)"
   ],
   "deferred_ledger": "docs/design/EAASP/DEFERRED_LEDGER.md",
-  "current_task": "S2.T3 (memory_read / memory_archive 完善 — 补齐 6 个 MCP tool 中的遗漏)",
+  "current_task": "S2.T4 (Memory 状态机测试 — agent_suggested → confirmed → archived 流转正确性)",
   "total_tasks": 23,
   "task_delta_log": "2026-04-14: 22 → 23 after Deferred 重分类 (S3.T5 scoped-hook executor 新增，合并 D50+D51+D53)",
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 Phase 2 — Memory and Evidence",
-  "status": "S0 DONE (2/2). S1 DONE (7/7). S2 IN PROGRESS (2/5 — T1 vector infra + T2 hybrid retrieval landed). Plan 11/23. Next: S2.T3 memory_read/memory_archive 完善.",
+  "status": "S0 DONE (2/2). S1 DONE (7/7). S2 IN PROGRESS (3/5 — T1 vector infra + T2 hybrid retrieval + T3 tool completion). Plan 12/23. Next: S2.T4 state machine tests.",
 
   "previous_phase": {
     "name": "Phase 1 — Event-driven Foundation",
@@ -50,7 +51,7 @@
       "remaining": [],
       "note": "Batch A landed 2026-04-14. All inherited Phase-1 Deferred (D83/D85/D86) closed + retry infrastructure complete. Follow-up candidate: ServerMessage WS tool_name extension (D90?)."
     },
-    "S2": { "name": "L2 Memory Engine 增强 + tool-result 三层截断 (批次 B)", "tasks": 5, "status": "in_progress", "completed": ["S2.T1 (embedding infrastructure)", "S2.T2 (hybrid retrieval)"], "remaining": ["S2.T3 memory_read/archive", "S2.T4 state machine tests", "S2.T5 tool-result 三层截断 + D60"], "note": "S2.T1 landed 2026-04-14 + S2.T2 landed 2026-04-15 @ 262d28d: HybridIndex 扩展 FTS + HNSW 语义召回 + time-decay 三路融合 score = (w_fts*fts + w_sem*sem) * decay，默认 (0.5,0.5) 可 env 覆盖。4 条 graceful-degrade (embed 失败/HNSW 加载失败/HNSW 搜索失败/model_id mismatch) 全 fall back 到 keyword-only。11 new tests → 95/95 PASS。新 Deferred D95-D98: FTS 回填 semantic_score / memory_id `:v` 冲突 / weights=(0,0) 告警 / HNSW 每 search 重建。D78 (event embedding) 仍挂在本 Stage 但未在 T2 落地，移到 S2.T3 或 S2.T5 专项处理。" },
+    "S2": { "name": "L2 Memory Engine 增强 + tool-result 三层截断 (批次 B)", "tasks": 5, "status": "in_progress", "completed": ["S2.T1 (embedding infrastructure)", "S2.T2 (hybrid retrieval)", "S2.T3 (MCP tool completion)"], "remaining": ["S2.T4 state machine tests", "S2.T5 tool-result 三层截断 + D60"], "note": "S2.T3 landed 2026-04-15: 3 code changes + 8 new tests. MemoryFileOut surfaces embedding_model_id+embedding_dim (blob withheld); memory_list gains offset parameter (clamp ≥0); memory_confirm becomes 7th MCP tool (manifest + dispatcher handler + _HANDLERS registry, delegates to existing files.confirm()). Tests: embedding visibility + graceful-degrade on embed failure + pagination + offset default + confirm happy path + archived→confirm invalid + not_found + confirmed→confirmed self-loop (inline reviewer fix) + full suggested→confirmed→archived state machine. 103/103 PASS, ruff clean. Reviewer 0 Criticals, 1 Major→D99 (MCP dispatcher type coercion abstraction deferred to Phase 2.5 sweep), 1 Minor (confirmed→confirmed self-loop) applied inline. ADR-V2-015 三铁律 PASS. Non-goals confirmed untouched: D12/D78/D91-D98. D78 (event embedding) 仍未落地，移到 S2.T5 或 Phase 2.5。" },
     "S3": { "name": "PreCompact + Skill Extraction + Stop hooks + scoped-hook executor (批次 B)", "tasks": 5, "status": "unblocked", "note": "S3.T5 新增合并 D50+D51+D53，前置 ADR-V2-006 envelope 契约. S1 DONE → unblocked." },
     "S4": { "name": "CLI + E2E 验证 + thread-scoped interrupt (批次 C)", "tasks": 4, "status": "blocked_by_S1_S2_S3" }
   },

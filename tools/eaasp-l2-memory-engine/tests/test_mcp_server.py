@@ -56,7 +56,8 @@ def test_server_identity() -> None:
     assert SERVER_VERSION == "0.1.0"
 
 
-def test_tool_manifest_exposes_six_tools() -> None:
+def test_tool_manifest_exposes_seven_tools() -> None:
+    # S2.T3: manifest grew from 6 → 7 tools (added memory_confirm).
     names = {tool.name for tool in _TOOL_MANIFEST}
     expected = {
         "memory_search",
@@ -65,6 +66,7 @@ def test_tool_manifest_exposes_six_tools() -> None:
         "memory_write_file",
         "memory_list",
         "memory_archive",
+        "memory_confirm",
     }
     assert names == expected
 

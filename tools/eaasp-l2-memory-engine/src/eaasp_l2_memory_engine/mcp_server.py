@@ -1,6 +1,6 @@
 """EAASP L2 Memory Engine — MCP Server (stdio / SSE transport).
 
-Wraps the 6 memory tools as a proper MCP server so L1 runtimes can
+Wraps the 7 memory tools as a proper MCP server so L1 runtimes can
 connect via ConnectMCP instead of using the REST facade.
 
 Run via stdio transport (the ``eaasp-l2-memory`` console script):
@@ -57,7 +57,7 @@ _TOOL_MANIFEST: list[Tool] = [
 
 
 def build_server(db_path: str | None = None) -> tuple[Server, str]:
-    """Build an MCP Server with all 6 memory tools wired in.
+    """Build an MCP Server with all 7 memory tools wired in.
 
     Returns ``(server, resolved_db_path)`` so callers (tests, CLI) can
     inspect the DB path that will be used.

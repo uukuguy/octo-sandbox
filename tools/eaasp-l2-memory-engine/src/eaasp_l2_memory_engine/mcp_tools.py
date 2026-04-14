@@ -1,4 +1,10 @@
-"""6 MCP tools exposed via REST facade (per S3.T1 pattern, D10 deferred)."""
+"""7 MCP tools exposed via REST facade (per S3.T1 pattern, D10 deferred).
+
+Tools:
+    memory_search, memory_read, memory_write_anchor, memory_write_file,
+    memory_list (paginated via offset, S2.T3), memory_archive,
+    memory_confirm (S2.T3).
+"""
 
 from __future__ import annotations
 
@@ -98,12 +104,23 @@ MCP_TOOL_MANIFEST: list[ToolManifestEntry] = [
                     "enum": ["agent_suggested", "confirmed", "archived"],
                 },
                 "limit": {"type": "integer", "default": 50},
+                "offset": {"type": "integer", "default": 0, "minimum": 0},
             },
         },
     ),
     ToolManifestEntry(
         name="memory_archive",
         description="Transition a memory file's status to archived.",
+        input_schema={
+            "type": "object",
+            "properties": {"memory_id": {"type": "string"}},
+            "required": ["memory_id"],
+        },
+    ),
+    ToolManifestEntry(
+        name="memory_confirm",
+        description="Transition a memory file's status to confirmed "
+        "(from agent_suggested).",
         input_schema={
             "type": "object",
             "properties": {"memory_id": {"type": "string"}},
@@ -172,11 +189,15 @@ class McpToolDispatcher:
 
     async def _memory_list(self, args: dict[str, Any]) -> dict[str, Any]:
         limit = max(1, min(int(args.get("limit", 50)), MAX_LIST_LIMIT))
+        # S2.T3: offset defaults to 0 and is clamped to >= 0 so negative
+        # inputs cannot produce SQL errors or surprise pagination semantics.
+        offset = max(0, int(args.get("offset", 0)))
         memories = await self.files.list(
             scope=args.get("scope"),
             category=args.get("category"),
             status=args.get("status"),
             limit=limit,
+            offset=offset,
         )
         return {"memories": [m.model_dump() for m in memories]}
 
@@ -184,6 +205,23 @@ class McpToolDispatcher:
         memory_id = _require(args, "memory_id", str)
         try:
             out = await self.files.archive(memory_id)
+        except KeyError as exc:
+            raise ToolError("not_found", str(exc)) from exc
+        except InvalidStatusTransition as exc:
+            raise ToolError("invalid_transition", str(exc)) from exc
+        return out.model_dump()
+
+    async def _memory_confirm(self, args: dict[str, Any]) -> dict[str, Any]:
+        """S2.T3: transition agent_suggested → confirmed.
+
+        Raises ToolError("not_found") when memory_id is unknown and
+        ToolError("invalid_transition") when the latest status cannot
+        legally move to confirmed (i.e. already archived, or already
+        confirmed — the _ALLOWED_TRANSITIONS table forbids self-loops).
+        """
+        memory_id = _require(args, "memory_id", str)
+        try:
+            out = await self.files.confirm(memory_id)
         except KeyError as exc:
             raise ToolError("not_found", str(exc)) from exc
         except InvalidStatusTransition as exc:
@@ -198,6 +236,7 @@ _HANDLERS: dict[str, Any] = {
     "memory_write_file": McpToolDispatcher._memory_write_file,
     "memory_list": McpToolDispatcher._memory_list,
     "memory_archive": McpToolDispatcher._memory_archive,
+    "memory_confirm": McpToolDispatcher._memory_confirm,
 }
 
 

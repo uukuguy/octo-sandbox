@@ -43,6 +43,11 @@ class MemoryFileOut(BaseModel):
     status: MemoryStatus
     created_at: int
     updated_at: int
+    # S2.T3: surface embedding metadata for observability. NOTE: embedding_vec
+    # (raw f32 blob) is NOT surfaced — it is an internal HNSW detail and
+    # surfacing it would waste bandwidth and leak format choices.
+    embedding_model_id: str | None = None
+    embedding_dim: int | None = None
 
 
 class InvalidStatusTransition(ValueError):
@@ -231,8 +236,22 @@ class MemoryFileStore:
         category: str | None = None,
         status: MemoryStatus | None = None,
         limit: int = 50,
+        offset: int = 0,
     ) -> list[MemoryFileOut]:
-        """Latest version of each memory_id matching filters."""
+        """Latest version of each memory_id matching filters.
+
+        Args:
+            scope: optional exact-match filter on ``scope``.
+            category: optional exact-match filter on ``category``.
+            status: optional exact-match filter on ``status``.
+            limit: max rows returned (default 50).
+            offset: skip N rows before returning (default 0, S2.T3).
+
+        Ordered by ``updated_at DESC``. ``offset`` is clamped to ``>= 0`` by
+        callers (see :func:`mcp_tools._memory_list`); this method itself
+        passes the value through unchanged so the SQL-level default keeps
+        working when called programmatically.
+        """
         where: list[str] = []
         params: list[Any] = []
         if scope is not None:
@@ -257,9 +276,10 @@ class MemoryFileStore:
               ON mf.memory_id = latest.memory_id AND mf.version = latest.max_v
             {where_clause}
             ORDER BY mf.updated_at DESC
-            LIMIT ?
+            LIMIT ? OFFSET ?
         """
         params.append(limit)
+        params.append(offset)
 
         db = await connect(self.db_path)
         try:
@@ -312,6 +332,15 @@ class MemoryFileStore:
 def _row_to_memory(row: Any) -> MemoryFileOut:
     refs_raw = row["evidence_refs"]
     refs = json.loads(refs_raw) if refs_raw else []
+    # S2.T3: defensive read of embedding columns. The migration in
+    # apply_embedding_migration() is idempotent so these should always be
+    # present on post-S2.T1 DBs, but legacy rows (or projections that do
+    # not SELECT them) may lack the columns entirely. ``aiosqlite.Row`` is
+    # backed by sqlite3.Row whose .keys() returns a list, so membership
+    # testing works; missing keys otherwise raise IndexError (not KeyError).
+    keys = row.keys()
+    embedding_model_id = row["embedding_model_id"] if "embedding_model_id" in keys else None
+    embedding_dim = row["embedding_dim"] if "embedding_dim" in keys else None
     return MemoryFileOut(
         memory_id=row["memory_id"],
         version=row["version"],
@@ -322,4 +351,6 @@ def _row_to_memory(row: Any) -> MemoryFileOut:
         status=row["status"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        embedding_model_id=embedding_model_id,
+        embedding_dim=embedding_dim,
     )
