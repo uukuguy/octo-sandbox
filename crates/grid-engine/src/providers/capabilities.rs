@@ -110,10 +110,34 @@ fn static_baseline(key: &CapabilityKey) -> CapabilitySet {
         };
     }
 
-    // OpenRouter — routes dynamically to different backends; capability
-    // depends on the backend actually selected, which can change per
-    // request. Leave as Unknown so we probe at session start.
+    // OpenRouter — capability depends on the dynamically routed backend.
+    // 2026-04-14 empirical results inform a small per-model overlay so we
+    // can skip the probe round-trip for known-good and known-bad combos.
+    // Anything not matched here falls through to `Unknown` and gets
+    // probed at session start.
     if key.base_url.contains("openrouter.ai") {
+        let m = key.model.to_lowercase();
+
+        // Known to reject `tool_choice` (small Qwen variants on AtlasCloud).
+        // Skipping the probe avoids one wasted LLM call per startup.
+        let unsupported = m.contains("qwen") && (m.contains("122b") || m.contains("27b"));
+        if unsupported {
+            return CapabilitySet {
+                tool_choice: Capability::Unsupported,
+            };
+        }
+
+        // Known to honor `tool_choice` (verified end-to-end 2026-04-14).
+        let supported = m.starts_with("openai/")
+            || m.starts_with("anthropic/")
+            || m.contains("glm-4")
+            || (m.contains("qwen") && m.contains("397b"));
+        if supported {
+            return CapabilitySet {
+                tool_choice: Capability::Supported,
+            };
+        }
+
         return CapabilitySet {
             tool_choice: Capability::Unknown,
         };
@@ -322,14 +346,64 @@ mod tests {
     }
 
     #[test]
-    fn openrouter_is_unknown_by_default() {
+    fn openrouter_qwen_122b_is_unsupported_by_baseline() {
+        // 2026-04-14 empirical: AtlasCloud rejects tool_choice for this model.
         let key = CapabilityKey::new(
             "openai",
             "qwen/qwen3.5-122b-a10b",
             "https://openrouter.ai/api/v1",
         );
-        let caps = static_baseline(&key);
-        assert_eq!(caps.tool_choice, Capability::Unknown);
+        assert_eq!(static_baseline(&key).tool_choice, Capability::Unsupported);
+    }
+
+    #[test]
+    fn openrouter_qwen_27b_is_unsupported_by_baseline() {
+        let key = CapabilityKey::new(
+            "openai",
+            "qwen/qwen3.5-27b",
+            "https://openrouter.ai/api/v1",
+        );
+        assert_eq!(static_baseline(&key).tool_choice, Capability::Unsupported);
+    }
+
+    #[test]
+    fn openrouter_qwen_397b_is_supported_by_baseline() {
+        let key = CapabilityKey::new(
+            "openai",
+            "qwen/qwen3.5-397b-a17b",
+            "https://openrouter.ai/api/v1",
+        );
+        assert_eq!(static_baseline(&key).tool_choice, Capability::Supported);
+    }
+
+    #[test]
+    fn openrouter_glm4_is_supported_by_baseline() {
+        let key = CapabilityKey::new(
+            "openai",
+            "z-ai/glm-4.7-flash",
+            "https://openrouter.ai/api/v1",
+        );
+        assert_eq!(static_baseline(&key).tool_choice, Capability::Supported);
+    }
+
+    #[test]
+    fn openrouter_openai_passthrough_is_supported_by_baseline() {
+        let key = CapabilityKey::new(
+            "openai",
+            "openai/gpt-4o",
+            "https://openrouter.ai/api/v1",
+        );
+        assert_eq!(static_baseline(&key).tool_choice, Capability::Supported);
+    }
+
+    #[test]
+    fn openrouter_unknown_model_remains_unknown() {
+        let key = CapabilityKey::new(
+            "openai",
+            "some-vendor/exotic-model-9000",
+            "https://openrouter.ai/api/v1",
+        );
+        assert_eq!(static_baseline(&key).tool_choice, Capability::Unknown);
     }
 
     #[test]

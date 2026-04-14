@@ -5,17 +5,17 @@
   "previous_design_doc": "docs/design/EAASP/PHASE1_EVENT_ENGINE_DESIGN.md",
   "phase": "phase-2",
   "created_at": "2026-04-14T13:00:00+08:00",
-  "updated_at": "2026-04-14T16:40:00+08:00",
+  "updated_at": "2026-04-14T22:00:00+08:00",
   "completed_tasks": [
     "S0.T1 (ADR-V2-015 Accepted)",
-    "S0.T2 (ADR-V2-016 Proposed — direction revised to hermes intermediate-ack)",
-    "S1.T1 (D87 fix — hermes intermediate-ack injection, unit+regression verified, E2E pending)"
+    "S0.T2 (ADR-V2-016 Accepted 2026-04-14 — multi-model E2E verified)",
+    "S1.T1 (D87 fix — capability matrix + tool_choice=Required + L1 metadata required_tools; multi-model E2E PASS)"
   ],
   "current_task": "S1.T2 (D88 hermes stdio MCP) OR S1.T6 (ErrorClassifier) — both unblocked",
   "total_tasks": 22,
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 Phase 2 — Memory and Evidence",
-  "status": "S0 DONE. S1.T1 code-complete (regression+baseline+full 2250 tests PASS). Awaiting E2E runtime verification (user-run). Plan 3/22.",
+  "status": "S0 DONE. S1.T1 fully complete (capability matrix + L1 metadata; E2E verified across qwen-397b/glm-4/openai/anthropic; qwen-122b/qwen-27b correctly identified as Unsupported and gracefully degraded). Plan 3/22.",
 
   "previous_phase": {
     "name": "Phase 1 — Event-driven Foundation",
@@ -44,7 +44,7 @@
 
   "prerequisite_adrs": {
     "ADR-V2-015": "Accepted 2026-04-14 — L2 Memory Engine semantic 检索选型 (四层抽象 + HNSW in-process + pgvector 迁移三触发条件)",
-    "ADR-V2-016": "Proposed 2026-04-14 revised — direction changed from 'simplify exit condition' to 'hermes-style intermediate-ack continuation injection'. Implementation landed; awaiting E2E verification to upgrade to Accepted."
+    "ADR-V2-016": "Accepted 2026-04-14 — capability matrix + Eager probe + tool_choice=Required + L1 metadata required_tools. Multi-model E2E verified. See ADR for full Decision Evolution + E2E Verification Record."
   },
 
   "inherited_deferred_from_phase1": {
@@ -52,7 +52,7 @@
     "D84": "CLI --follow SSE → S4.T2",
     "D85": "STOP response_text 空 → S1.T5",
     "D86": "claude-code-runtime ToolResultBlock 丢失 → S1.T3",
-    "D87": "grid-engine agent loop 多步工作流 (🚨 CRITICAL) → S1.T1 FIXED 2026-04-14 (hermes intermediate-ack; regression test + 2250 full-suite PASS; E2E pending)",
+    "D87": "grid-engine agent loop 多步工作流 (🚨 CRITICAL) → S1.T1 ✅ FULLY FIXED 2026-04-14 (capability matrix + tool_choice=Required + L1 metadata; 2375+ tests PASS; multi-model E2E verified across qwen-397b/glm-4/openai/anthropic; gracefully degraded on qwen-122b/qwen-27b which don't support tool_choice)",
     "D88": "hermes-runtime stdio MCP 支持缺失 → 幻觉 (🚨 CRITICAL) → S1.T2",
     "D89": "CLI session close 未实装 → S4.T1"
   },

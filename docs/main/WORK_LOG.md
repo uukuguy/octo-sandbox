@@ -1,5 +1,89 @@
 # Grid Platform 开发工作日志
 
+## 2026-04-14 — Phase 2 S1.T1 D87 完整修复 + 多模型 E2E 验证通过 🟢
+
+### 会话概要
+
+D87 (CRITICAL) 完整修复 + ADR-V2-016 升 Accepted。整套迭代经历 3 次方案演化，最终落地为 **provider 层 `tool_choice=Required` 强制 + capability matrix（启动 probe）+ skill `workflow.required_tools` L1 metadata + 不支持 provider 平静退出**。多模型 E2E 验证通过：`qwen/qwen3.5-397b-a17b`, `z-ai/glm-4.7-flash`, `openai/*`, `anthropic/*` 全跑通完整 4-step workflow；`qwen/qwen3.5-122b-a10b`, `qwen/qwen3.5-27b` capability gate 正确识别为 Unsupported，session 平静退出不崩。
+
+### 决策演化
+
+1. **初诊（错误）**：以为 `harness.rs:1169` 退出条件是 bug。实操发现新旧表达式逻辑等价，无效。
+2. **Fix 1（弃用）**：CJK `？` 启发式 + system message prompt 注入。能 work 但脆弱、违反"不靠 LLM 配合"原则。
+3. **Fix 2 v1（弃用）**：仅 `tool_choice=Required` + 自动 fallback 重试。fallback 隐藏配置错误，违反"loud failure"原则。
+4. **Fix 2 v2（最终）**：capability matrix + Eager probe + L1 metadata 驱动 `Specific(next)` + 移除所有 prompt 注入。
+
+### 技术变更（关键文件）
+
+| 文件 | 改动 |
+|------|------|
+| `crates/grid-engine/src/providers/capabilities.rs` | 新建：`Capability/CapabilitySet/CapabilityStore/ProbeStrategy/probe_tool_choice` + 静态 baseline（含 OpenRouter 快路径）+ 11 单测 |
+| `crates/grid-engine/src/providers/openai.rs` | 撤销 fallback；400 时 loud error |
+| `crates/grid-engine/src/providers/anthropic.rs` | 加 `tool_choice` 字段序列化 |
+| `crates/grid-types/src/provider.rs` | `ToolChoice {Auto/Required/Specific/None}` 枚举 + `CompletionRequest.tool_choice` |
+| `crates/grid-engine/src/agent/harness.rs` | D87 触发块：`tool_choice_supported` gate + L1 metadata 决策（Specific/Required） + 移除所有启发式和 prompt 注入 |
+| `crates/grid-engine/src/agent/runtime.rs` | `capability_store` 字段 + start_session 时设 `executor.tool_choice_supported` |
+| `crates/grid-engine/src/agent/executor.rs` | `set_tool_choice_supported` + `set_required_tools` setter + `AgentMessage::SetRequiredTools` |
+| `crates/grid-engine/src/agent/loop_config.rs` | `tool_choice_supported` + `required_tools: Option<Vec<String>>` 字段 |
+| `crates/grid-engine/src/agent/events.rs` | `AgentEvent::WorkflowContinuation { attempt, max_attempts }` |
+| `crates/grid-runtime/src/main.rs` | Eager probe at startup + `GRID_PROBE_STRATEGY` env |
+| `crates/grid-runtime/src/harness.rs` | `event_to_chunk` 映射 WorkflowContinuation；`load_skill` 转发 required_tools |
+| `crates/grid-runtime/src/contract.rs` | `SkillInstructions.required_tools` + `SkillContent.required_tools` |
+| `proto/eaasp/runtime/v2/common.proto` | `SkillInstructions.required_tools = 7` |
+| `tools/eaasp-skill-registry/src/skill_parser.rs` | `V2Frontmatter.workflow.required_tools` |
+| `tools/eaasp-l4-orchestration/src/.../session_orchestrator.py` | 提取 `parsed_v2.workflow.required_tools` 写入 SkillInstructions |
+| `tools/eaasp-l4-orchestration/src/.../l1_client.py` | proto field 7 序列化 |
+| `tools/eaasp-l4-orchestration/src/.../_proto/...` | 重新生成 |
+| `examples/skills/threshold-calibration/SKILL.md` | 新增 `workflow.required_tools` 4 个 tool 声明 |
+| `docs/design/EAASP/AGENT_LOOP_ROOT_CAUSE_ANALYSIS.md` | 完整根因分析 |
+| `docs/design/EAASP/AGENT_LOOP_PATTERNS_TO_ADOPT.md` | 4 个开源 runtime 调研可吸收 loop 优点 |
+| `docs/design/EAASP/PROVIDER_CAPABILITY_MATRIX.md` | capability matrix 设计 + Phase 路线 |
+| `docs/design/EAASP/adrs/ADR-V2-016-...` | Status: Accepted + Decision Evolution + E2E Verification Record |
+| `docs/plans/2026-04-14-v2-phase2-plan.md` | 22 任务，含批次 A/B/C/D 分层 |
+| `docs/plans/2026-04-14-s1t1-d87-fix-implementation.md` | 标记 SUPERSEDED |
+
+### 测试结果
+
+- D87 regression (`test_d87_multi_step_workflow_no_early_exit`): **PASS**
+- D87 baseline (`test_d87_single_tool_workflow_still_works`): **PASS**
+- grid-engine 全量: **2255 passed / 0 failed / 3 ignored**
+- grid-runtime 全量: **97 passed**
+- eaasp-skill-registry 全量: **23 passed**
+- 合计 **2375+ tests PASS**
+
+### E2E 验证（多模型）
+
+| Model | tool_choice probe | D87 workflow | PRE_TOOL_USE |
+|-------|------------------|-------------|-------------|
+| `qwen/qwen3.5-122b-a10b` | Unsupported | gracefully degraded | 1 |
+| `qwen/qwen3.5-27b` | Unsupported | gracefully degraded | 1 |
+| `qwen/qwen3.5-397b-a17b` | **Supported** | ✅ 完整 | ≥4 |
+| `z-ai/glm-4.7-flash` | **Supported** | ✅ 完整 | ≥4 |
+| `openai/*`, `anthropic/*` | **Supported** | ✅ 完整 | ≥4 |
+
+详见 `docs/design/EAASP/adrs/ADR-V2-016-agent-loop-generic-principle.md` E2E Verification Record 段。
+
+### Phase 2 进度
+
+- S0: 2/2 done (ADR-V2-015 + ADR-V2-016 Accepted)
+- **S1: 1/7 done**（S1.T1 D87 完成）
+- 剩余 S1.T2 (D88) / T3 (D86) / T4 (D83) / T5 (D85) / T6 (ErrorClassifier) / T7 (withRetry)
+- 总进度 3/22
+
+### 后续相关 Plan（独立）
+
+- **Phase 3 plan**：原生 OpenRouter provider (`OpenAICompatibleProvider + OpenAIFlavor`)、vLLM/LM Studio provider、capability YAML override、cache 持久化
+- **Phase 2 S2/S3**：批次 B（tool result 三层截断、上下文压缩混合、stop hooks 扩展）
+
+### 关联 Commits
+
+- `bdc4fd5` — D87 初次修复（hermes intermediate-ack 风格，含问号启发式 + prompt 注入）
+- `c0f98f9` — Fix 1 改进（CJK 问号支持 + WorkflowContinuation 事件可观测）
+- `8a738b1` — Fix 2 完整方案（capability matrix + L1 metadata + 撤销启发式/fallback/prompt 注入）
+- `<本次>` — capability 静态表扩展 + ADR Accepted + 文档收口
+
+---
+
 ## 2026-04-14 — Phase 2 S1.T1 D87 修复代码完成（E2E 待验证）
 
 ### 会话概要

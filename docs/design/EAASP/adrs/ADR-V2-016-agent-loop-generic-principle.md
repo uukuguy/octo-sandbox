@@ -1,6 +1,6 @@
 # ADR-V2-016 — Agent Loop 通用性原则
 
-**Status:** Proposed（E2E 验收通过后升 Accepted）
+**Status:** **Accepted (2026-04-14)** — 多模型 E2E 验证通过（见文末记录）
 **Date:** 2026-04-14
 **Phase:** Phase 2 — Memory and Evidence
 **Author:** Claude + 用户 brainstorming 决策
@@ -168,3 +168,62 @@ LLM 返回 text-only 时 runtime 自动注入 `User: Continue with the next step
   - `crates/grid-engine/src/agent/loop_guard.rs`
   - `crates/grid-engine/src/agent/self_repair.rs`
   - `crates/grid-engine/src/agent/harness.rs:420` (for loop)
+
+---
+
+## Decision Evolution / 决策演化记录
+
+最初版（2026-04-14 早）方案是"修改 `harness.rs:1169` 退出条件"——实操后发现新旧表达式逻辑等价，无效。深入调研 hermes / claude-code / goose / agno 4 个开源 runtime 后，根因被改写为：
+
+> **grid-engine harness 与 claude-code 的 loop 终止逻辑等价**（无 tool_use 即退出）。**claude-code MVP 能过是因为 Claude Sonnet 4 自主连续调 tool 不触发退出分支**。OpenAI/GPT 类模型习惯调一次后问"是否继续"，触发退出。**hermes 在同样模型上能多轮，是因为 hermes loop 有 intermediate-ack continuation 注入**（但 hermes 的实现是英文文本启发式，比"?"还脆，且只在首轮 ack 生效，不通用）。
+
+详见 `docs/design/EAASP/AGENT_LOOP_ROOT_CAUSE_ANALYSIS.md`。
+
+最终采用的方案：**provider 层 `tool_choice=Required` 强制 + capability matrix（启动 probe）+ skill workflow.required_tools L1 metadata（点名 Specific tool）+ 对不支持的 provider 平静退出（不靠任何 prompt 说服）**。
+
+具体演化过程：
+1. **Fix 1**（弃用）：`?` 启发式 + system message prompt 注入。能 work 但脆弱、违反"不靠 LLM 配合"原则。
+2. **Fix 2 v1**（弃用）：仅 `tool_choice=Required` + 自动 fallback 重试。fallback 隐藏配置错误，违反"loud failure"原则。
+3. **Fix 2 v2**（已落地）：capability matrix + Eager probe + 不支持时不触发 + L1 metadata 驱动 `tool_choice=Specific` + 移除所有 prompt 注入。
+
+---
+
+## E2E Verification Record / E2E 验收记录
+
+- **Date**: 2026-04-14
+- **Setup**: grid-runtime（debug build, capability matrix + Eager probe）+ threshold-calibration skill (含 `workflow.required_tools: [scada_read_snapshot, memory_search, memory_write_anchor, memory_write_file]`) + mock-scada MCP + l2-memory MCP + L4 完整传 SkillInstructions.required_tools
+
+### 多模型矩阵（OpenRouter 路由）
+
+| Model | tool_choice probe | D87 workflow 完成 |
+|-------|------------------|-----------------|
+| `qwen/qwen3.5-122b-a10b` | Unsupported | 跳过（capability gate 阻止）— 仅 1 个 PRE_TOOL_USE，session 平静 STOP |
+| `qwen/qwen3.5-27b` | Unsupported | 同上 |
+| `qwen/qwen3.5-397b-a17b` | **Supported** | ✅ 完整 4-step workflow |
+| `z-ai/glm-4.7-flash` | **Supported** | ✅ 完整 |
+| 其他模型（`openai/*`, `anthropic/*` 等） | **Supported** | ✅ |
+
+### 验证要点
+
+- **"支持的 provider"**：D87 完整修复生效，多步 workflow 无中断。
+- **"不支持的 provider"**：probe 提前发现，gracefully degrade 到无 D87 模式，session 不崩、不报错、不浪费 LLM 调用。
+- **L1 metadata 通路**：threshold-calibration `workflow.required_tools` → L4 → grid-runtime → AgentExecutor → harness 全链路打通（从 SessionPayload 事件可以看到 4 个 tool name 完整传输）。
+- **可观测性**：harness 触发时发 `AgentEvent::WorkflowContinuation { attempt, max_attempts }`，grid-runtime 映射为 `chunk_type=workflow_continuation`，L4 ingest 为 `WORKFLOW_CONTINUATION` 事件类型。
+
+### 静态 capability 表（基于本次经验扩展）
+
+代码: `crates/grid-engine/src/providers/capabilities.rs::static_baseline()`
+
+OpenRouter 已知后端的快路径（避免重复 probe）：
+- **Unsupported**: `qwen/*-122b-*`, `qwen/*-27b-*`
+- **Supported**: `openai/*`, `anthropic/*`, `*glm-4*`, `qwen/*-397b-*`
+- 其他 → Unknown → 启动时 probe
+
+### Conclusion
+
+ADR-V2-016 fix 在多个 provider × model 组合下端到端验证通过，状态升 **Accepted**。
+
+下一步关注点（独立 plan）：
+- Phase 3：原生 OpenRouter provider（`OpenAICompatibleProvider + OpenAIFlavor`），可读 `x-openrouter-provider` 响应头按真实后端做更精准的 capability 记录
+- Phase 3+：vLLM / LM Studio provider；YAML capability override；持久化 capability 缓存
+
