@@ -105,7 +105,8 @@
     "D85": "STOP event payload.response_text 为空（grid-runtime done chunk 不带 response_text） → Phase 2 或更晚",
     "D86": "claude-code-runtime SDK wrapper 只处理 AssistantMessage，丢 ToolResultBlock (sdk_wrapper.py:94) → POST_TOOL_USE 完全缺失，PRE_TOOL_USE 正常 → Phase 2",
     "D87": "grid-engine agent loop 过早终止 — harness.rs:1169 stop_reason!=ToolUse||tool_uses.empty() 过于激进。LLM 返回非 tool_use text 时立即退出，跳过多步 skill 工作流。threshold-calibration E2E: grid-runtime 只调 1 tool vs claude-code-runtime 调 4 tools。修复: tool_result → UserMessage → re-invoke LLM (like Anthropic SDK) → Phase 2 首个任务 [regression test @ crates/grid-engine/tests/d87_multi_step_workflow_regression.rs]",
-    "D88": "hermes-runtime stdio MCP 支持缺失 → LLM 幻觉式工作流。service.py:374-382 对 stdio transport 谎报 connected=True 但 inject_mcp_tools 未执行 (line 384 if bridges)。结果: SESSION_MCP_CONNECTED 发出但 agent 无 tool，LLM 编造 SCADA 数据冒充真实证据。违反 v2.0 Anti-Pattern 14 (Agent overreach)。修复: (a) hermes 支持 stdio MCP，或 (b) 诚实上报 failed + L4 硬失败 → Phase 2 高优先级"
+    "D88": "hermes-runtime stdio MCP 支持缺失 → LLM 幻觉式工作流。service.py:374-382 对 stdio transport 谎报 connected=True 但 inject_mcp_tools 未执行 (line 384 if bridges)。结果: SESSION_MCP_CONNECTED 发出但 agent 无 tool，LLM 编造 SCADA 数据冒充真实证据。违反 v2.0 Anti-Pattern 14 (Agent overreach)。修复: (a) hermes 支持 stdio MCP，或 (b) 诚实上报 failed + L4 硬失败 → Phase 2 高优先级",
+    "D89": "CLI 缺 eaasp session close 子命令 — L4 API 已有 /v1/sessions/{id}/close，但 cmd_session.py 只有 create/list/show/send/run/events，close 未实装。Workaround: curl 或 kill runtime 进程 → Phase 2 低优先级"
   },
 
   "next_phase": "Phase 2 — Memory and Evidence"
