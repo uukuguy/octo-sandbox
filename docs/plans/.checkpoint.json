@@ -5,13 +5,13 @@
   "previous_design_doc": "docs/design/EAASP/PHASE1_EVENT_ENGINE_DESIGN.md",
   "phase": "phase-2",
   "created_at": "2026-04-14T13:00:00+08:00",
-  "updated_at": "2026-04-14T13:00:00+08:00",
-  "completed_tasks": [],
-  "current_task": "S0.T1 (ADR-V2-015 semantic 检索选型)",
+  "updated_at": "2026-04-14T13:45:00+08:00",
+  "completed_tasks": ["S0.T1 (ADR-V2-015 Accepted)", "S0.T2 (ADR-V2-016 Proposed — E2E 验收待定)"],
+  "current_task": "S1.T1 (D87 修复 — grid-engine agent loop 过早退出)",
   "total_tasks": 17,
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 Phase 2 — Memory and Evidence",
-  "status": "PLANNED — ready to start. S0 ADR decisions pending.",
+  "status": "S0 DONE. S1 starting with D87 fix. ADR-V2-016 stays Proposed until E2E verified.",
 
   "previous_phase": {
     "name": "Phase 1 — Event-driven Foundation",
@@ -23,22 +23,22 @@
   },
 
   "stages": {
-    "S0": { "name": "ADR 决策", "tasks": 2, "status": "pending" },
+    "S0": { "name": "ADR 决策", "tasks": 2, "status": "done" },
     "S1": {
       "name": "Runtime 修复 (Phase 1 遗留)",
       "tasks": 5,
-      "status": "blocked_by_S0",
+      "status": "active",
       "priority": "HIGH",
       "note": "D87/D88/D86/D83/D85 — 必须修完才能进 S2+"
     },
-    "S2": { "name": "L2 Memory Engine 增强", "tasks": 4, "status": "blocked_by_S0" },
+    "S2": { "name": "L2 Memory Engine 增强", "tasks": 4, "status": "unblocked", "note": "可与 S1 并行" },
     "S3": { "name": "PreCompact + Skill Extraction", "tasks": 3, "status": "blocked_by_S1" },
     "S4": { "name": "CLI + E2E 验证", "tasks": 3, "status": "blocked_by_S1_S2_S3" }
   },
 
   "prerequisite_adrs": {
-    "ADR-V2-015": "Proposed — L2 Memory Engine semantic 检索选型",
-    "ADR-V2-NEW": "Proposed — Agent loop 多步工作流设计原则 (Phase 2 自产)"
+    "ADR-V2-015": "Accepted 2026-04-14 — L2 Memory Engine semantic 检索选型 (四层抽象 + HNSW in-process + pgvector 迁移三触发条件)",
+    "ADR-V2-016": "Proposed 2026-04-14 — Agent loop 通用性原则 (仅看 tool_uses.is_empty()，E2E 验收通过后升 Accepted)"
   },
 
   "inherited_deferred_from_phase1": {

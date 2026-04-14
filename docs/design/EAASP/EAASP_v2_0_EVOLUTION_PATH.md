@@ -330,7 +330,8 @@ eaasp-cli session send "校准 Transformer-001"
 | **ADR-V2-012** | L3 治理后端选型（Microsoft AGT vs OPA vs cedar-agent） | Proposed | Phase 1 | L3 Policy Engine 真实后端 |
 | **ADR-V2-013** | L1 Runtime Pool 扩充策略 + 贡献者接入规范 | Proposed | Phase 1 | 生态开放 |
 | **ADR-V2-014** | T0-T3 分层判据正式定义（含代表项目 + adapter 厚度指南） | Proposed | 立即 | L1 选型依据 |
-| **ADR-V2-015** | L2 Memory Engine semantic 检索选型（pgvector / 独立向量库 / HNSW in-process）— 原 ADR-V2-004(b) 拆出 | Proposed | Phase 2 | hybrid retrieval index |
+| **ADR-V2-015** | L2 Memory Engine semantic 检索选型：四层抽象 + HNSW in-process + pgvector 迁移三触发条件 | **Accepted** (2026-04-14) | Phase 2 | [`adrs/ADR-V2-015-l2-memory-semantic-retrieval.md`](adrs/ADR-V2-015-l2-memory-semantic-retrieval.md) |
+| **ADR-V2-016** | Agent loop 通用性原则：仅看 tool_uses.is_empty() 决定退出，不看 stop_reason | **Proposed** (2026-04-14，E2E 验收后升 Accepted) | Phase 2 | [`adrs/ADR-V2-016-agent-loop-generic-principle.md`](adrs/ADR-V2-016-agent-loop-generic-principle.md) |
 
 ---
 

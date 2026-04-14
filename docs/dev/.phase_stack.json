@@ -1,5 +1,16 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase 2 — Memory and Evidence (EAASP v2.0)",
+      "started_at": "2026-04-14T13:10:00+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "plan": "docs/plans/2026-04-14-v2-phase2-plan.md",
+      "progress": "0/17",
+      "stages": ["S0 ADR", "S1 Runtime Fixes", "S2 L2 Memory", "S3 Skill Extraction", "S4 CLI+E2E"],
+      "first_task": "S0.T1 ADR-V2-015 semantic 检索选型"
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
     {
