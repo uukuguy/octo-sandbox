@@ -116,7 +116,7 @@
 | **Phase 0** | Infrastructure Foundation | **圈 2** | 接口契约 + 5 层服务骨架 + 15 断言脚本验证 | ⚠️ 仅脚本验证（历史遗留，已标注为 Foundation 而非 MVP） | 🟢 Completed (2026-04-12) |
 | **Phase 0.5** | **MVP — 全层贯通** | **圈 2+** | L4→L1 真 gRPC + LLM agent 执行 + tool 调用 + memory 读写 + hook 触发 + 流式输出 | 用户 `eaasp-cli session send` → 看到 agent 调 tool、写 memory、流式输出结果 | 🟢 Completed (2026-04-13) |
 | **Phase 0.75** | **L2 MCP 编排与部署架构** | **圈 2 补强** | L2 MCP Orchestrator 职责定义 + MCP transport 统一策略 + 容器化 runtime MCP 发现机制 + claude-code-runtime MCP 通路修复 | 三个 runtime 的 MCP tool call 全部通过真实 MCP server（非 workaround）；`eaasp-cli session send` 在 claude-code-runtime 上调用 mock-scada 成功 | 🟢 Completed (2026-04-13) |
-| **Phase 1** | Event-driven foundation | 圈 3 | L4 Event Engine + Session Event Stream + L4 hooks | 用户能在 CLI 观察事件流实时更新；event 从 ingest 到 clustering 的全过程可查 | 🟡 Started (2026-04-13) |
+| **Phase 1** | Event-driven foundation | 圈 3 | L4 Event Engine + Session Event Stream + L4 hooks | 用户能在 CLI 观察事件流实时更新；event 从 ingest 到 clustering 的全过程可查 | 🟢 Completed (2026-04-14) |
 | **Phase 2** | Memory and evidence | 圈 2 增强 + 圈 3 | Memory 完整三层 + Skill extraction + PreCompact | 用户能搜索/浏览 semantic 检索结果；skill extraction 产出可人工审阅 | ⏸ |
 | **Phase 3** | Approval and verification | 圈 4 | 审批链 + Verifier + OPA + Sandbox Tiers | 用户能触发审批流程并看到 approve/deny 决策路径；sandbox 隔离可演示 | ⏸ |
 | **Phase 4** | Multi-agent collaboration | 圈 4 | A2A Router + ReviewSet + T0 Harness | 用户能发起多 agent 评审任务并观察协作过程和汇总结果 | ⏸ |

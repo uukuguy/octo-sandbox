@@ -4,25 +4,28 @@
   "design_doc": "docs/design/EAASP/PHASE1_EVENT_ENGINE_DESIGN.md",
   "phase": "phase-1",
   "created_at": "2026-04-13T22:30:00+08:00",
-  "updated_at": "2026-04-14T00:00:00+08:00",
+  "updated_at": "2026-04-14T12:20:00+08:00",
   "completed_tasks": ["S0.T1", "S0.T2", "S0.T3", "S1.T1", "S1.T2", "S2.T1", "S2.T2", "S2.T3", "S3.T1", "S3.T2", "S3.T3", "S4.T1", "S4.T2"],
   "current_task": null,
   "total_tasks": 13,
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 Phase 1 — Event-driven Foundation",
-  "status": "13/13 tasks complete. E2E verified 2026-04-14 — grid-runtime session produced SESSION_START/PRE_TOOL_USE/POST_TOOL_USE/STOP via interceptor. Ready for end-phase.",
+  "status": "ARCHIVED — Phase 1 closed 2026-04-14. 13/13 tasks, 124 tests, E2E verified.",
 
   "e2e_verification": {
     "date": "2026-04-14",
-    "runtime": "grid-runtime",
-    "session_flow": "CREATED → INITIALIZED → SESSION_START → MCP_CONNECTED → USER_MESSAGE → RESPONSE_CHUNKs → PRE_TOOL_USE(scada_read_snapshot) → POST_TOOL_USE → STOP",
+    "session_verified": "sess_7a5654e7c6d4 (grid-runtime)",
+    "session_flow": "SESSION_CREATED → RUNTIME_INITIALIZED → SESSION_START → SESSION_MCP_CONNECTED → USER_MESSAGE → RESPONSE_CHUNKs → PRE_TOOL_USE(scada_read_snapshot) → POST_TOOL_USE → STOP",
     "interceptor_verified": true,
     "agent_called_real_tool": true,
-    "observed_findings": [
-      "D83: POST_TOOL_USE tool= shows empty (grid-runtime ToolResult chunk missing tool_name) — harness.rs:254",
-      "runtime_id diverges: L1 handle returns 'grid-harness', L4 stores 'grid-runtime' (informational, does not affect correctness)"
-    ],
-    "claude_code_runtime_verified": false
+    "phase1_fields_verified": {
+      "event_id": "UUID format confirmed (e.g. dd6d58ff-146b-4062-9e75-c450c534a5ac)",
+      "source": "interceptor:grid-runtime (all events)",
+      "cluster_id": "c-e8db24de (all same-session events in same 30s window)",
+      "pipeline_worker": "ran — cluster_id written back to all events"
+    },
+    "claude_code_runtime_verified": false,
+    "note": "claude-code-runtime T2 interceptor path covered by unit + integration tests; explicit E2E deferred"
   },
 
   "implementation_tasks": {
@@ -35,14 +38,20 @@
     "Task 7": "CLI session events command (3 tests) @ 9454f45",
     "Task 8": "Checkpoint (this file)",
     "Task 9": "grid-runtime EmitEvent OPTIONAL no-op (1 test) @ 6b7aaa2",
-    "Task 10": "E2E验证 — pending manual execution"
+    "Task 10": "E2E verified 2026-04-14 — grid-runtime session 7a5654e7c6d4"
+  },
+
+  "audit_fixes": {
+    "First audit (pre-E2E)": "4 critical bugs fixed @ 081c21b (chunk_type, send_message, FK, test lies)",
+    "Second audit (pre-E2E)": "2 bugs fixed @ 8c174c2 (stream resilience, FTS backfill)",
+    "E2E-exposed bug": "list_events dropped Phase 1 fields @ 6f8548b"
   },
 
   "test_results": {
-    "L4_python": "113 PASS, 0 FAIL",
+    "L4_python": "124 PASS, 0 FAIL",
     "CLI_session": "13 PASS, 0 FAIL",
-    "grid_runtime_emit": "1 PASS (test_emit_event_returns_ok)",
-    "new_tests": 46,
+    "grid_runtime_emit": "1 PASS",
+    "new_tests_total": 50,
     "regression": "zero"
   },
 
@@ -51,7 +60,13 @@
     "c68328a — Task 4-5: EventEngine pipeline + EventInterceptor",
     "9454f45 — Task 6-7: Orchestrator wiring + CLI events command",
     "6b7aaa2 — Task 9: grid-runtime EmitEvent OPTIONAL",
-    "9d55e02 — Task 8+10: ADRs + design doc + plans"
+    "9d55e02 — Task 8+10: ADRs + design doc + plans",
+    "0360151 — Final checkpoint",
+    "081c21b — First audit: 4 critical integration bugs fixed",
+    "8c174c2 — Second audit: stream resilience + FTS backfill",
+    "fa00da3 — E2E verification guide",
+    "1b33796 — E2E initial pass + D83/D84 deferred",
+    "6f8548b — E2E-exposed bug: list_events Phase 1 fields"
   ],
 
   "prerequisite_adrs": {
@@ -66,14 +81,22 @@
     "tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/event_backend_sqlite.py",
     "tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/event_handlers.py",
     "tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/event_engine.py",
-    "tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/event_interceptor.py"
+    "tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/event_interceptor.py",
+    "tools/eaasp-l4-orchestration/tests/test_event_integration.py",
+    "tools/eaasp-l4-orchestration/tests/test_fts_migration.py",
+    "docs/design/EAASP/PHASE1_EVENT_ENGINE_DESIGN.md",
+    "docs/design/EAASP/adrs/ADR-V2-001-emit-event-interface.md",
+    "docs/design/EAASP/adrs/ADR-V2-002-event-stream-backend.md",
+    "docs/design/EAASP/adrs/ADR-V2-003-event-clustering-interface.md",
+    "docs/main/PHASE1_E2E_VERIFICATION_GUIDE.md"
   ],
 
   "new_deferred": {
     "D79": "TopologyAwareClusterer (needs Ontology Service) → Phase 5 [per ADR-V2-003]",
     "D80": "CausalGraphClusterer (parent_event_id DAG) → Phase 4 [per ADR-V2-003]",
-    "D83": "grid-runtime AgentEvent::ToolResult chunk 缺 tool_name (harness.rs:254) — E2E 2026-04-14 发现。不影响 Event Engine 正确性，仅 CLI 可读性 → Phase 2 或更晚",
-    "D84": "CLI eaasp session events --follow SSE 实时流未实现，仅支持一次性列表 → Phase 2 可选"
+    "D83": "grid-runtime AgentEvent::ToolResult chunk 缺 tool_name (harness.rs:254) → Phase 2 或更晚",
+    "D84": "CLI eaasp session events --follow SSE 实时流未实现 → Phase 2 可选",
+    "D85": "STOP event payload.response_text 为空（grid-runtime done chunk 不带 response_text） → Phase 2 或更晚"
   },
 
   "next_phase": "Phase 2 — Memory and Evidence"
