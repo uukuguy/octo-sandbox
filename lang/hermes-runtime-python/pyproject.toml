@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "hermes-runtime"
 version = "0.1.0"
-description = "Grid EAASP L1 Runtime — hermes-agent T2 Aligned adapter"
+description = "[DEPRECATED 2026-04-14, see ADR-V2-017] Grid EAASP L1 Runtime — hermes-agent T2 Aligned adapter. Frozen due to fork+grpc+auxiliary_client/monkey-patch/session-lifecycle systemic issues. Replaced by goose (Phase 2.5 W1) + nanobot (Phase 2.5 W2)."
 requires-python = ">=3.11"
 dependencies = [
   "grpcio>=1.80.0,<2",

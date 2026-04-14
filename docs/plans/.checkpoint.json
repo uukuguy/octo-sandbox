@@ -5,17 +5,18 @@
   "previous_design_doc": "docs/design/EAASP/PHASE1_EVENT_ENGINE_DESIGN.md",
   "phase": "phase-2",
   "created_at": "2026-04-14T13:00:00+08:00",
-  "updated_at": "2026-04-14T22:00:00+08:00",
+  "updated_at": "2026-04-14T23:30:00+08:00",
   "completed_tasks": [
     "S0.T1 (ADR-V2-015 Accepted)",
     "S0.T2 (ADR-V2-016 Accepted 2026-04-14 — multi-model E2E verified)",
-    "S1.T1 (D87 fix — capability matrix + tool_choice=Required + L1 metadata required_tools; multi-model E2E PASS)"
+    "S1.T1 (D87 fix — capability matrix + tool_choice=Required + L1 metadata required_tools; multi-model E2E PASS)",
+    "S1.T2 (hermes-runtime 冻结 + ADR-V2-017 Accepted — D88 延至 Phase 2.5 由 goose 替代解决)"
   ],
-  "current_task": "S1.T2 (D88 hermes stdio MCP) OR S1.T6 (ErrorClassifier) — both unblocked",
+  "current_task": "S1.T6 (ErrorClassifier) — 纯 Rust，无 Python runtime 依赖，解锁 S1.T7 retry 和 S3.T1 PreCompact",
   "total_tasks": 22,
   "execution_mode": "ruflo-orchestrated",
   "phase_name": "EAASP v2.0 Phase 2 — Memory and Evidence",
-  "status": "S0 DONE. S1.T1 fully complete (capability matrix + L1 metadata; E2E verified across qwen-397b/glm-4/openai/anthropic; qwen-122b/qwen-27b correctly identified as Unsupported and gracefully degraded). Plan 3/22.",
+  "status": "S0 DONE (2/2). S1 in progress 2/7 (T1 D87 fixed, T2 hermes frozen). ADR-V2-017 accepted — L1 Runtime 生态策略确立（主力+样板+对比三轨）。Phase 2.5 规划：goose-runtime (W1) + nanobot-runtime (W2)。Plan 4/22.",
 
   "previous_phase": {
     "name": "Phase 1 — Event-driven Foundation",
@@ -33,18 +34,39 @@
       "tasks": 7,
       "status": "active",
       "priority": "HIGH",
-      "completed": ["S1.T1 (D87 intermediate-ack)"],
-      "remaining": ["S1.T2 (D88)", "S1.T3 (D86)", "S1.T4 (D83)", "S1.T5 (D85)", "S1.T6 (ErrorClassifier)", "S1.T7 (withRetry)"],
-      "note": "S1.T1 done. D87 full fix pending E2E verification."
+      "completed": ["S1.T1 (D87 intermediate-ack)", "S1.T2 (hermes freeze)"],
+      "remaining": ["S1.T3 (D86)", "S1.T4 (D83)", "S1.T5 (D85)", "S1.T6 (ErrorClassifier)", "S1.T7 (withRetry)"],
+      "note": "S1.T2 hermes 冻结完成。D88 重定义为 Phase 2.5 goose-runtime 实装。"
     },
     "S2": { "name": "L2 Memory Engine 增强 + tool-result 三层截断 (批次 B)", "tasks": 5, "status": "unblocked", "note": "可与 S1 并行" },
     "S3": { "name": "PreCompact + Skill Extraction + Stop hooks (批次 B)", "tasks": 4, "status": "blocked_by_S1" },
     "S4": { "name": "CLI + E2E 验证 + thread-scoped interrupt (批次 C)", "tasks": 4, "status": "blocked_by_S1_S2_S3" }
   },
 
+  "phase_2_5_planned": {
+    "name": "Phase 2.5 — Runtime 生态首批落地",
+    "trigger": "Phase 2 S2 完成后启动",
+    "scope": "ADR-V2-017 L1 Runtime 生态策略首批实装",
+    "w1_tasks": [
+      "共享契约测试套件 tests/contract/",
+      "docs/design/EAASP/L1_RUNTIME_ADAPTATION_GUIDE.md",
+      "docs/design/EAASP/L1_RUNTIME_COMPARISON_MATRIX.md",
+      "crates/eaasp-goose-runtime/ (对比首选，Rust，完整 16 方法)"
+    ],
+    "w2_tasks": [
+      "lang/nanobot-runtime-python/ (T2 样板)"
+    ],
+    "phase_3_tasks": [
+      "lang/pydantic-ai-runtime-python/ (T3 样板)",
+      "crates/eaasp-claw-code-runtime/ (对比 #2)",
+      "lang/eaasp-ccb-runtime-ts/ (内部对比，不商用)"
+    ]
+  },
+
   "prerequisite_adrs": {
     "ADR-V2-015": "Accepted 2026-04-14 — L2 Memory Engine semantic 检索选型 (四层抽象 + HNSW in-process + pgvector 迁移三触发条件)",
-    "ADR-V2-016": "Accepted 2026-04-14 — capability matrix + Eager probe + tool_choice=Required + L1 metadata required_tools. Multi-model E2E verified. See ADR for full Decision Evolution + E2E Verification Record."
+    "ADR-V2-016": "Accepted 2026-04-14 — capability matrix + Eager probe + tool_choice=Required + L1 metadata required_tools. Multi-model E2E verified. See ADR for full Decision Evolution + E2E Verification Record.",
+    "ADR-V2-017": "Accepted 2026-04-14 — L1 Runtime 生态策略（主力 grid-runtime + 样板 hermes/nanobot/pydantic-ai/claude-code + 对比 goose/ccb/claw-code 三轨）。hermes 冻结，D88 由 Phase 2.5 goose-runtime 替代解决。"
   },
 
   "inherited_deferred_from_phase1": {
@@ -53,9 +75,9 @@
     "D85": "STOP response_text 空 → S1.T5",
     "D86": "claude-code-runtime ToolResultBlock 丢失 → S1.T3",
     "D87": "grid-engine agent loop 多步工作流 (🚨 CRITICAL) → S1.T1 ✅ FULLY FIXED 2026-04-14 (capability matrix + tool_choice=Required + L1 metadata; 2375+ tests PASS; multi-model E2E verified across qwen-397b/glm-4/openai/anthropic; gracefully degraded on qwen-122b/qwen-27b which don't support tool_choice)",
-    "D88": "hermes-runtime stdio MCP 支持缺失 → 幻觉 (🚨 CRITICAL) → S1.T2",
+    "D88": "hermes-runtime stdio MCP 缺失 → ⏸️ 不修，由 ADR-V2-017 决策：hermes 冻结，D88 由 Phase 2.5 goose-runtime 完整解决（goose 原生支持 stdio+SSE MCP）",
     "D89": "CLI session close 未实装 → S4.T1"
   },
 
-  "next_phase": "Phase 3 — Approval and Verification"
+  "next_phase": "Phase 2.5 — Runtime 生态首批落地 (goose + nanobot) → Phase 3 — Approval and Verification"
 }

@@ -749,24 +749,42 @@ verify-dual-runtime:
 	./scripts/verify-dual-runtime.sh
 
 # ============================================================
-# hermes-runtime (Python EAASP L1 Runtime — T2 Aligned)
+# hermes-runtime (Python EAASP L1 Runtime — ⏸️ DEPRECATED)
+#
+# Frozen 2026-04-14 per ADR-V2-017 (L1 Runtime 生态策略).
+# Root cause: fork+grpc+asyncio 致命崩溃 / auxiliary_client 无法注入 /
+#             stdio MCP 缺失 / monkey-patch 叠加 / session 生命周期失控.
+# Replacement roadmap: goose (Phase 2.5 W1) + nanobot (Phase 2.5 W2).
+# See docs/design/EAASP/adrs/ADR-V2-017-l1-runtime-ecosystem-strategy.md
 # ============================================================
 
+HERMES_DEPRECATION_WARNING := \
+	echo ""; \
+	echo "⏸️  DEPRECATED: hermes-runtime was frozen 2026-04-14."; \
+	echo "   See docs/design/EAASP/adrs/ADR-V2-017-l1-runtime-ecosystem-strategy.md"; \
+	echo "   Use grid-runtime (main) or wait for goose-runtime (Phase 2.5 W1)."; \
+	echo ""
+
 hermes-runtime-setup:
+	@$(HERMES_DEPRECATION_WARNING)
 	cd lang/hermes-runtime-python && uv venv .venv --python 3.11 && \
 		. .venv/bin/activate && uv pip install -e ".[dev]"
 
 hermes-runtime-test:
+	@$(HERMES_DEPRECATION_WARNING)
 	cd lang/hermes-runtime-python && . .venv/bin/activate && pytest tests/ -xvs
 
 hermes-runtime-start:
+	@$(HERMES_DEPRECATION_WARNING)
 	cd lang/hermes-runtime-python && . .venv/bin/activate && python -m hermes_runtime
 
 hermes-runtime-build:
+	@$(HERMES_DEPRECATION_WARNING)
 	docker build -f lang/hermes-runtime-python/Dockerfile -t hermes-runtime:latest .
 
 # 容器运行 (需要 LLM API Key)
 hermes-runtime-run:
+	@$(HERMES_DEPRECATION_WARNING)
 	docker run --rm -p 50053:50053 \
 		-e HERMES_API_KEY=$${OPENROUTER_API_KEY} \
 		-e HERMES_BASE_URL=$${OPENAI_BASE_URL} \
@@ -775,6 +793,7 @@ hermes-runtime-run:
 
 # Verify hermes-runtime gRPC contract (requires hermes-runtime-run in another terminal)
 hermes-runtime-verify:
+	@$(HERMES_DEPRECATION_WARNING)
 	cargo run -p eaasp-certifier -- verify --endpoint http://localhost:50053
 
 # ============================================================
@@ -941,7 +960,7 @@ dev-eaasp-stop:
 # EAASP CLI shortcuts (wraps tools/eaasp-cli-v2/.venv/bin/eaasp)
 # Usage:
 #   make eaasp-skill-list
-#   make eaasp-skill-submit SKILL=examples/skills/threshold-calibration/SKILL.md
+#   make eaasp-skill-submit SKILL=examples/skills/threshold-calibration  # directory, not SKILL.md
 #   make eaasp-policy-deploy CONFIG=scripts/assets/mvp-managed-settings.json
 #   make eaasp-session-run SKILL=threshold-calibration MSG="校准温度"
 #   make eaasp-session-run SKILL=threshold-calibration RUNTIME=claude-code-runtime MSG="校准温度"
