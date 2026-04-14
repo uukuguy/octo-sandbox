@@ -28,8 +28,11 @@ class EventInterceptor:
         Returns Event or None (chunk 不对应任何事件类型)。
         """
         chunk_type = chunk.get("chunk_type", "")
+        source = f"interceptor:{runtime_id}" if runtime_id else "interceptor"
 
-        if chunk_type == "tool_call_start":
+        # Tool call start — grid-runtime uses "tool_start"; other runtimes may
+        # use "tool_call_start". Accept both.
+        if chunk_type in ("tool_start", "tool_call_start"):
             return Event(
                 session_id=session_id,
                 event_type="PRE_TOOL_USE",
@@ -37,9 +40,7 @@ class EventInterceptor:
                     "tool_name": chunk.get("tool_name", ""),
                     "arguments": chunk.get("arguments", {}),
                 },
-                metadata=EventMetadata(
-                    source=f"interceptor:{runtime_id}" if runtime_id else "interceptor"
-                ),
+                metadata=EventMetadata(source=source),
             )
 
         if chunk_type == "tool_result":
@@ -52,9 +53,20 @@ class EventInterceptor:
                     "result": chunk.get("content", ""),
                     "is_error": is_error,
                 },
-                metadata=EventMetadata(
-                    source=f"interceptor:{runtime_id}" if runtime_id else "interceptor"
-                ),
+                metadata=EventMetadata(source=source),
+            )
+
+        if chunk_type == "error":
+            # Runtime error during send — capture as POST_TOOL_USE_FAILURE-like event.
+            return Event(
+                session_id=session_id,
+                event_type="POST_TOOL_USE_FAILURE",
+                payload={
+                    "tool_name": chunk.get("tool_name", ""),
+                    "result": chunk.get("content", ""),
+                    "is_error": True,
+                },
+                metadata=EventMetadata(source=source),
             )
 
         if chunk_type == "done":
@@ -65,11 +77,10 @@ class EventInterceptor:
                     "reason": "complete",
                     "response_text": chunk.get("response_text", ""),
                 },
-                metadata=EventMetadata(
-                    source=f"interceptor:{runtime_id}" if runtime_id else "interceptor"
-                ),
+                metadata=EventMetadata(source=source),
             )
 
+        # "text_delta" and "thinking" are not lifecycle events — not captured.
         return None
 
     def create_session_start(

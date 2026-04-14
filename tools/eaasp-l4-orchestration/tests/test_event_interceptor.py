@@ -5,7 +5,8 @@ from __future__ import annotations
 from eaasp_l4_orchestration.event_interceptor import EventInterceptor
 
 
-def test_extract_tool_call_start():
+def test_extract_tool_call_start_legacy_name():
+    """Some runtimes use "tool_call_start" — must still map to PRE_TOOL_USE."""
     interceptor = EventInterceptor()
     chunk = {
         "chunk_type": "tool_call_start",
@@ -18,6 +19,35 @@ def test_extract_tool_call_start():
     assert event.payload["tool_name"] == "scada_read"
     assert event.payload["arguments"] == {"id": "T-001"}
     assert "interceptor:grid-runtime" in event.metadata.source
+
+
+def test_extract_tool_start_grid_runtime_actual_name():
+    """grid-runtime harness.rs emits chunk_type='tool_start' — THIS is the name
+    that was silently being dropped before the fix."""
+    interceptor = EventInterceptor()
+    chunk = {
+        "chunk_type": "tool_start",
+        "tool_name": "scada_read_snapshot",
+        "arguments": {"device_id": "T-001"},
+    }
+    event = interceptor.extract_from_chunk("s1", chunk, runtime_id="grid-runtime")
+    assert event is not None, "tool_start must be recognized as PRE_TOOL_USE"
+    assert event.event_type == "PRE_TOOL_USE"
+    assert event.payload["tool_name"] == "scada_read_snapshot"
+
+
+def test_extract_error_chunk_produces_failure_event():
+    """grid-runtime emits 'error' chunk_type on runtime errors."""
+    interceptor = EventInterceptor()
+    chunk = {
+        "chunk_type": "error",
+        "content": "connection refused",
+        "tool_name": "scada_read",
+    }
+    event = interceptor.extract_from_chunk("s1", chunk, runtime_id="grid-runtime")
+    assert event is not None
+    assert event.event_type == "POST_TOOL_USE_FAILURE"
+    assert event.payload["is_error"] is True
 
 
 def test_extract_tool_result_success():
@@ -64,15 +94,24 @@ def test_extract_done():
 
 
 def test_extract_text_delta_returns_none():
+    """text_delta is streaming output, not a lifecycle event."""
     interceptor = EventInterceptor()
     chunk = {"chunk_type": "text_delta", "content": "hello"}
     event = interceptor.extract_from_chunk("s1", chunk)
     assert event is None
 
 
-def test_extract_unknown_chunk_type_returns_none():
+def test_extract_thinking_returns_none():
+    """thinking chunks are extended thinking output, not lifecycle events."""
     interceptor = EventInterceptor()
     chunk = {"chunk_type": "thinking", "content": "hmm"}
+    event = interceptor.extract_from_chunk("s1", chunk)
+    assert event is None
+
+
+def test_extract_unknown_chunk_type_returns_none():
+    interceptor = EventInterceptor()
+    chunk = {"chunk_type": "unrecognized_future_type", "content": "?"}
     event = interceptor.extract_from_chunk("s1", chunk)
     assert event is None
 

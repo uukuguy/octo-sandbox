@@ -351,6 +351,15 @@ class SessionOrchestrator:
         # Use L1's own session_id (may differ from L4's).
         l1_sid = self._l1_session_ids.get(session_id, session_id)
 
+        # Resolve runtime_id for interceptor source tagging (Phase 1).
+        _runtime_id = ""
+        if self.event_engine is not None:
+            try:
+                _sess_info = await self.get_session(session_id)
+                _runtime_id = _sess_info.get("runtime_id", "")
+            except Exception:
+                pass
+
         chunks: list[dict[str, Any]] = []
         full_text_parts: list[str] = []
         events: list[dict[str, Any]] = [
@@ -369,6 +378,16 @@ class SessionOrchestrator:
                     chunk,
                 )
                 events.append({"seq": seq, "event_type": "RESPONSE_CHUNK", **chunk})
+
+                # Phase 1: Interceptor extracts lifecycle events from chunks.
+                # Must also fire in send_message (not just stream_message) —
+                # both endpoints call L1.send().
+                if self.event_engine is not None:
+                    extracted = self.event_interceptor.extract_from_chunk(
+                        session_id, chunk, runtime_id=_runtime_id
+                    )
+                    if extracted:
+                        await self.event_engine.ingest(extracted)
         except L1RuntimeError as exc:
             seq_err = await self.event_stream.append(
                 session_id,

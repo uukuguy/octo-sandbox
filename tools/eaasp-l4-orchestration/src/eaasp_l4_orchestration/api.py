@@ -296,8 +296,27 @@ def create_app(
 
     # ─── Phase 1: Event ingest (ADR-V2-001 REST fallback) ──────────────
     @app.post("/v1/events/ingest")
-    async def ingest_event(body: EventIngestRequest) -> dict[str, Any]:
-        """Accept an event from L1 EmitEvent REST fallback."""
+    async def ingest_event(
+        body: EventIngestRequest,
+        orchestrator: SessionOrchestrator = Depends(get_orchestrator),
+    ) -> dict[str, Any]:
+        """Accept an event from L1 EmitEvent REST fallback.
+
+        Validates that the session exists before accepting the event
+        to prevent dangling FK rows in session_events.
+        """
+        # Validate session existence — prevents FK violation + silent failures.
+        try:
+            await orchestrator.get_session(body.session_id)
+        except SessionNotFound as exc:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "code": "session_not_found",
+                    "session_id": exc.session_id,
+                },
+            ) from exc
+
         engine: EventEngine = app.state.event_engine
         event = Event(
             session_id=body.session_id,

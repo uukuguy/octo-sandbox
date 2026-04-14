@@ -39,12 +39,12 @@ class EventStreamBackend(Protocol):
         """查询事件列表（升序）。"""
         ...
 
-    async def subscribe(
+    def subscribe(
         self,
         session_id: str,
         from_seq: int = 0,
     ) -> AsyncIterator[dict[str, Any]]:
-        """订阅事件流（用于 follow mode）。"""
+        """订阅事件流（用于 follow mode）。返回 async generator。"""
         ...
 
     async def count(self, session_id: str) -> int:
