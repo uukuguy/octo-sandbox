@@ -272,6 +272,17 @@ impl GridHarness {
                 tool_id: None,
                 is_error: false,
             }),
+            // D87: surface workflow-continuation injections so they are
+            // ingestable as `WORKFLOW_CONTINUATION` events by L3/L4. Without
+            // this, the fix silently fires but downstream tooling can't
+            // observe it, making E2E debugging painful.
+            AgentEvent::WorkflowContinuation { attempt, max_attempts } => Some(ResponseChunk {
+                chunk_type: "workflow_continuation".into(),
+                content: format!("attempt {attempt}/{max_attempts}"),
+                tool_name: None,
+                tool_id: None,
+                is_error: false,
+            }),
             // Other events are internal — not exposed through contract
             _ => None,
         }

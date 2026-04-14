@@ -80,6 +80,19 @@ class EventInterceptor:
                 metadata=EventMetadata(source=source),
             )
 
+        # D87 observability: grid-engine injects a workflow-continuation prompt
+        # when the LLM stops mid-workflow with a clarifying question. We surface
+        # it as a lifecycle event so E2E tests can assert the fix fired.
+        if chunk_type == "workflow_continuation":
+            return Event(
+                session_id=session_id,
+                event_type="WORKFLOW_CONTINUATION",
+                payload={
+                    "content": chunk.get("content", ""),
+                },
+                metadata=EventMetadata(source=source),
+            )
+
         # "text_delta" and "thinking" are not lifecycle events — not captured.
         return None
 

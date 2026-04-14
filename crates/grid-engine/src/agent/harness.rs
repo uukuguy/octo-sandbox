@@ -65,6 +65,26 @@ const MAX_STREAM_ERROR_RETRIES: u32 = 2;
 /// additional tools.
 const MAX_WORKFLOW_CONTINUATIONS: u32 = 3;
 
+/// D87 fix: heuristic to decide whether a text-only turn looks like a
+/// clarifying question the LLM is asking the user (vs. a legitimate final
+/// answer). Needs to be multi-script aware — Chinese skill prompts drive
+/// models that speak CJK, where the question mark is `？` (U+FF1F), not the
+/// ASCII `?` (U+003F).
+///
+/// This is intentionally a weak signal: Fix 2 (see
+/// `docs/design/EAASP/AGENT_LOOP_PATTERNS_TO_ADOPT.md`) should replace it
+/// with a provider-layer `tool_choice="required"` retry that does not depend
+/// on natural-language heuristics at all.
+fn text_looks_like_clarifying_question(text: &str) -> bool {
+    const QUESTION_MARKS: &[char] = &[
+        '?',        // ASCII
+        '\u{FF1F}', // FULLWIDTH QUESTION MARK (CJK)
+        '\u{037E}', // GREEK QUESTION MARK
+        '\u{061F}', // ARABIC QUESTION MARK
+    ];
+    text.chars().any(|c| QUESTION_MARKS.contains(&c))
+}
+
 /// Interval (in rounds) at which Zone B working memory is refreshed.
 /// This allows agent's memory_edit changes to take effect mid-conversation.
 const ZONE_B_REFRESH_INTERVAL: u32 = 5;
@@ -1204,7 +1224,7 @@ async fn run_agent_loop_inner(
         if stop_reason == StopReason::EndTurn
             && tool_uses.is_empty()
             && total_tool_calls > 0
-            && full_text.contains('?')
+            && text_looks_like_clarifying_question(&full_text)
             && workflow_continuation_count < MAX_WORKFLOW_CONTINUATIONS
         {
             workflow_continuation_count += 1;
