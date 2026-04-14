@@ -10,8 +10,10 @@
     "S0.T1 (ADR-V2-015 Accepted)",
     "S0.T2 (ADR-V2-016 Accepted 2026-04-14 — multi-model E2E verified)",
     "S1.T1 (D87 fix — capability matrix + tool_choice=Required + L1 metadata required_tools; multi-model E2E PASS)",
-    "S1.T2 (hermes-runtime 冻结 + ADR-V2-017 Accepted — D88 延至 Phase 2.5 由 goose 替代解决)"
+    "S1.T2 (hermes-runtime 冻结 + ADR-V2-017 Accepted — D88 延至 Phase 2.5 由 goose 替代解决)",
+    "Deferred Ledger 建立 (docs/design/EAASP/DEFERRED_LEDGER.md — single source of truth for D1-D89)"
   ],
+  "deferred_ledger": "docs/design/EAASP/DEFERRED_LEDGER.md",
   "current_task": "S1.T6 (ErrorClassifier) — 纯 Rust，无 Python runtime 依赖，解锁 S1.T7 retry 和 S3.T1 PreCompact",
   "total_tasks": 22,
   "execution_mode": "ruflo-orchestrated",
