@@ -3,6 +3,7 @@ pub mod capabilities;
 pub mod chain;
 pub mod config;
 pub mod defaults;
+pub mod error_classifier;
 pub mod metering_provider;
 pub mod openai;
 pub mod pipeline;
@@ -18,6 +19,7 @@ pub use capabilities::{
 };
 pub use chain::*;
 pub use config::*;
+pub use error_classifier::{FailoverReason, RecoveryActions};
 pub use metering_provider::MeteringProvider;
 pub use openai::create_openai_provider;
 pub use pipeline::{CircuitBreakerConfig, CircuitState, CostBudget, ProviderPipelineBuilder};
