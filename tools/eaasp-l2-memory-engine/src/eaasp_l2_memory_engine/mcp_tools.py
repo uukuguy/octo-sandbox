@@ -22,7 +22,7 @@ class ToolManifestEntry(BaseModel):
 MCP_TOOL_MANIFEST: list[ToolManifestEntry] = [
     ToolManifestEntry(
         name="memory_search",
-        description="Hybrid keyword + time-decay ranked search over memory files.",
+        description="Hybrid keyword + semantic + time-decay ranked search over memory files.",
         input_schema={
             "type": "object",
             "properties": {

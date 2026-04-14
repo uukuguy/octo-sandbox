@@ -230,13 +230,17 @@
 | **D92** | MockEmbedding 64-bit seed 碰撞审查 | 🔵 P3-defer | SHA-256(text)[:8] 生日碰撞约 2^32。测试场景可接受；若被误用于 staging，两条不同文本可能撞同向量。加宽到完整 32-byte digest 或明确标注 "tests-only"。衍生自 S2.T1 → **Phase 3 GA 前** |
 | **D93** | `embed_batch` 顺序实现 | 🟡 P1-defer | `OllamaEmbedding` / `MockEmbedding` 均 `for text in texts: await embed(text)` N 次。Ollama/TEI 均支持真正 batched POST。衍生自 S2.T1 → **S2.T4 或 Phase 2.5** hybrid-search perf pass |
 | **D94** | MemoryStore 单例 + 共享连接重构（D12 收尾） | 🟡 P1-defer | S2.T1 仅完成 schema 迁移 + pack/unpack helper；`MemoryFileStore`/`AnchorStore`/`HybridIndex` 仍 per-call `connect()`。全 store 单例化需求较大，与 Phase 2.5 runtime ecosystem 工作合并推进 |
+| **D95** | FTS 命中的语义分数从 DB `embedding_vec` 回填 | 🔵 P2-defer | S2.T2 union 阶段只对同时出现在 HNSW 结果中的 FTS 命中打 `semantic_score`；若 HNSW add 静默失败，FTS 命中永远 `sem_score=0`。可从 DB BLOB unpack + 与 query_vec 计算 cosine 回填。衍生自 S2.T2 → **S2.T4 或 Phase 2.5** |
+| **D96** | 用户自定义 memory_id 含 `:v` 子串导致 HNSW key 解析丢失 | 🔵 P3-defer | HNSW key 格式 `{memory_id}:v{N}`，`split(":v")` 在 memory_id 含 `:v` 时产生 3 段被静默跳过。建议 (a) `MemoryFileIn.memory_id` 校验禁止 `:v`，或 (b) `rsplit(":v", 1)`。默认自动生成 `mem_{uuid}` 不受影响，仅用户传入自定 id 的边角场景。衍生自 S2.T2 reviewer M1 → **Phase 3 前** |
+| **D97** | `weights=(0.0, 0.0)` 退化情形缺少构造期告警 | 🔵 P3-defer | 所有候选 `score==0`，插入序生效无信息。运维场景罕见，但建议 `HybridIndex.__init__` 下发 `logger.warning("Both weights zero; results will be unordered")`。衍生自 S2.T2 reviewer M2 → **Phase 2.5** |
+| **D98** | `HybridIndex.search()` 每次重建 HNSWVectorIndex | 🟡 P1-defer | 每次 search 重新 `_try_load_sync()` 读磁盘 ~10ms；小索引可接受，QPS 上升后变成 perf 热点。承继 T1 同类问题。应随 D94 MemoryStore 单例化一起改为进程级缓存。衍生自 S2.T2 reviewer N3 → **Phase 2.5** |
 
 ---
 
 ## 新增 Deferred 编号规则
 
-**当前最大编号**: D94
-**下一个可用**: **D95** (跳过保留段 D67-D72 / D81-D82)
+**当前最大编号**: D98
+**下一个可用**: **D99** (跳过保留段 D67-D72 / D81-D82)
 
 **引入流程**:
 1. 在新 Deferred 产生的 plan 文件里以表格形式定义 `| D90 | 标题 | 去向 |`
@@ -269,6 +273,10 @@
 | 2026-04-14 | D92 | **新增** 🔵 P3-defer | MockEmbedding 碰撞审查，S2.T1 review 提出，→ Phase 3 GA 前 |
 | 2026-04-14 | D93 | **新增** 🟡 P1-defer | embed_batch 顺序实现，S2.T1 review 提出，→ S2.T4 或 Phase 2.5 |
 | 2026-04-14 | D94 | **新增** 🟡 P1-defer | MemoryStore 单例 refactor（D12 收尾），S2.T1 review 提出，→ Phase 2.5 |
+| 2026-04-15 | D95 | **新增** 🔵 P2-defer | FTS 命中的 semantic_score 从 DB `embedding_vec` 回填，S2.T2 衍生 → S2.T4 或 Phase 2.5 |
+| 2026-04-15 | D96 | **新增** 🔵 P3-defer | 用户自定 memory_id 含 `:v` 子串 HNSW key 解析丢失（reviewer M1），→ Phase 3 前 |
+| 2026-04-15 | D97 | **新增** 🔵 P3-defer | `weights=(0,0)` 退化情形缺构造期告警（reviewer M2），→ Phase 2.5 |
+| 2026-04-15 | D98 | **新增** 🟡 P1-defer | HybridIndex 每次 search 重建 HNSW（reviewer N3，承继 T1）→ Phase 2.5 |
 | 2026-04-14 | — | **ledger 创建** | 收敛 D1–D89 到 single source of truth |
 | 2026-04-12 | D1, D2 | active → ✅ closed | ADR-V2-004 S4.T2 4b-lite |
 | 2026-04-12 | D47, D49, D52 | active → ✅ closed | S4.T2 前置修复 |
@@ -289,7 +297,9 @@
 | ⏸️ **frozen** | 2 | D66, D88 | hermes 冻结，Phase 2.5 goose 替代 |
 | 🔥 **P0-active** | 2 | D84 (含D35), D89 | **Phase 2 plan S4 排期** |
 | 🟡 **P1-active** | 4 | D50, D51, D53, D78 | **挂到 S2/S3 新任务必做** |
-| 🟡 **P1-defer** | 1 | D90 | ServerMessage WS schema tool_name，前置 frontend UI 决策 |
+| 🟡 **P1-defer** | 4 | D90, D93, D94, D98 | 前置 frontend UI / Phase 2.5 refactor 合并 |
+| 🔵 **P2-defer** | 1 | D95 | FTS semantic_score 回填，S2.T4 或 Phase 2.5 |
+| 🔵 **P3-defer** | 3 | D96, D97, D92 | 边角场景 / 告警优化，Phase 3 GA 前 |
 | 🟢 **P2-active** | 2 | D12, D60 | S2 顺带完成 |
 | 🔵 **P3-active** | 1 | D74 | Phase 2 可选加速 |
 | 🤔 **revisit-after-S2** | 4 | D3, D5, D6, D37 | 等 S2 context engineering 决策 |
