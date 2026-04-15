@@ -22,6 +22,9 @@ use crate::tools::rate_limiter::ToolRateLimiter;
 
 use super::estop::EStopReason;
 use super::self_repair::RepairResult;
+use super::stop_hooks::{
+    dispatch_stop_hooks, StopHookDecision, MAX_STOP_HOOK_INJECTIONS,
+};
 
 use crate::context::{
     CompactionContext, CompactionPipeline, ContextCollapser, ContextPruner, DegradationLevel,
@@ -472,6 +475,11 @@ async fn run_agent_loop_inner(
     // system prompt to nudge the LLM to keep executing tools after a
     // text-only mid-workflow turn. See `MAX_WORKFLOW_CONTINUATIONS`.
     let mut workflow_continuation_count: u32 = 0;
+    // S3.T4: stop-hook re-entry counter — bumped each time a stop hook
+    // returns `InjectAndContinue` and we push messages back into the loop.
+    // Bounded by `MAX_STOP_HOOK_INJECTIONS` to prevent a buggy hook from
+    // producing an infinite loop. Local-only; never shared across sessions.
+    let mut stop_hook_injection_count: u32 = 0;
     // L2b (Fix 2): when set, the next provider call will carry
     // `tool_choice=Required`, forcing the LLM to produce a tool_use block at
     // the API layer. `Option::take` consumes the flag in a single call so it
@@ -1709,6 +1717,53 @@ async fn run_agent_loop_inner(
                             }
                         }
                     }
+                }
+            }
+
+            // S3.T4 — Stop hooks: fired ONLY at the natural termination boundary
+            // (EndTurn with no pending tool uses, after all safety / continuation
+            // / autonomous paths declined to re-enter the loop). API-error and
+            // SecurityBlocked paths above return directly without touching this
+            // block, so stop hooks are inherently skipped on those exits.
+            //
+            // If a hook returns `InjectAndContinue`, we push the messages and
+            // `continue` instead of finalizing. The injection counter caps total
+            // re-entries; the final response is committed unchanged on overflow.
+            if !config.stop_hooks.is_empty() {
+                let stop_ctx = build_rich_hook_context(
+                    &config,
+                    round,
+                    total_tool_calls,
+                    &recent_tools,
+                )
+                .with_result(true, turn_start.elapsed().as_millis() as u64);
+                match dispatch_stop_hooks(&config.stop_hooks, &stop_ctx).await {
+                    StopHookDecision::InjectAndContinue(injected) => {
+                        if stop_hook_injection_count >= MAX_STOP_HOOK_INJECTIONS {
+                            warn!(
+                                cap = MAX_STOP_HOOK_INJECTIONS,
+                                "Stop hook re-entry cap reached, committing final response"
+                            );
+                            // Fall through to the normal completion path below.
+                        } else {
+                            stop_hook_injection_count += 1;
+                            debug!(
+                                attempt = stop_hook_injection_count,
+                                injected = injected.len(),
+                                "Stop hook InjectAndContinue: re-entering loop"
+                            );
+                            messages.extend(injected);
+                            let _ = tx
+                                .send(AgentEvent::IterationEnd {
+                                    round,
+                                    input_tokens: total_input_tokens,
+                                    output_tokens: total_output_tokens,
+                                })
+                                .await;
+                            continue;
+                        }
+                    }
+                    StopHookDecision::Noop => {}
                 }
             }
 

@@ -33,6 +33,7 @@ pub mod streaming_executor;
 mod runtime_lifecycle;
 mod runtime_mcp;
 mod runtime_scheduler;
+pub mod stop_hooks;
 pub mod store;
 pub mod subagent;
 pub mod subagent_runtime;
@@ -76,6 +77,9 @@ pub use manifest_loader::AgentManifestLoader;
 pub use queue::{MessageQueue, QueueKind, QueueMode};
 pub use router::{AgentProfile, AgentRouter, RouteAlternative, RouteResult};
 pub use runtime::{AgentRuntime, AgentRuntimeConfig, IdleDistribution, SessionEntry, SessionMetrics};
+pub use stop_hooks::{
+    dispatch_stop_hooks, NoOpStopHook, StopHook, StopHookDecision, MAX_STOP_HOOK_INJECTIONS,
+};
 pub use store::AgentStore;
 pub use task_tracker::{TaskTracker, TrackedTask, TaskStatus};
 pub use team::{Team, TeamManager, TeamMember, TeamRole};

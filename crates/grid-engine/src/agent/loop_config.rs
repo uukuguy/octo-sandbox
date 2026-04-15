@@ -25,6 +25,7 @@ use super::events::AgentLoopResult;
 use super::estop::EmergencyStop;
 use super::self_repair::SelfRepairManager;
 use super::loop_guard::LoopGuard;
+use super::stop_hooks::StopHook;
 use super::subagent::SubAgentManager;
 use super::CancellationToken;
 
@@ -218,6 +219,15 @@ pub struct AgentLoopConfig {
     /// Optional callback invoked when the agent loop completes with a result.
     /// Enables agent definitions to register post-completion logic.
     pub on_completion: Option<CompletionCallback>,
+
+    // === Stop Hooks (S3.T4) ===
+    /// Hooks that run when the agent loop reaches its natural termination
+    /// (`EndTurn` with no tool uses pending). Each hook can return either
+    /// `Noop` (let termination proceed) or `InjectAndContinue(messages)`
+    /// to push messages and re-enter the loop. Bounded by
+    /// [`super::stop_hooks::MAX_STOP_HOOK_INJECTIONS`] per loop invocation.
+    /// Empty by default — the harness skips dispatch entirely if empty.
+    pub stop_hooks: Vec<Arc<dyn StopHook>>,
 }
 
 /// Pre-collected git information for system prompt injection.
@@ -284,6 +294,7 @@ impl Default for AgentLoopConfig {
             working_dir: None,
             git_context: None,
             on_completion: None,
+            stop_hooks: Vec::new(),
         }
     }
 }
@@ -586,6 +597,18 @@ impl AgentLoopConfigBuilder {
 
     pub fn git_context(mut self, v: GitContext) -> Self {
         self.config.git_context = Some(v);
+        self
+    }
+
+    /// S3.T4: register a stop hook fired at natural loop termination.
+    pub fn stop_hook(mut self, hook: Arc<dyn StopHook>) -> Self {
+        self.config.stop_hooks.push(hook);
+        self
+    }
+
+    /// S3.T4: replace the entire stop-hook list (chiefly for tests).
+    pub fn stop_hooks(mut self, hooks: Vec<Arc<dyn StopHook>>) -> Self {
+        self.config.stop_hooks = hooks;
         self
     }
 
