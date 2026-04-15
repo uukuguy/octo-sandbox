@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
@@ -47,6 +48,8 @@ from .session_orchestrator import (
     SessionNotFound,
     SessionOrchestrator,
 )
+
+logger = logging.getLogger(__name__)
 
 # ─── Request models ─────────────────────────────────────────────────────────
 
@@ -302,48 +305,74 @@ def create_app(
             ) from exc
 
         async def _sse_generator() -> AsyncIterator[str]:
+            # D124 (S4.T2 reviewer note): log follow-stream lifecycle for ops
+            # visibility. Starlette detects client disconnect via is_disconnected()
+            # polling in the response-sender task and raises CancelledError inside
+            # our await points — we catch it here, log, and re-raise so Starlette
+            # can complete its cleanup.
+            logger.info(
+                "sse_follow_start session_id=%s from=%s", session_id, from_
+            )
             last_seen = from_ - 1
             last_heartbeat = asyncio.get_event_loop().time()
             poll_s = poll_interval_ms / 1000.0
             idle_polls = 0
-            while True:
-                try:
-                    events = await orchestrator.list_events(
-                        session_id,
-                        from_seq=last_seen + 1,
-                        limit=500,
-                    )
-                except SessionNotFound:
-                    # Session deleted mid-stream — emit a terminal error frame
-                    # and break rather than raising (can't raise inside a
-                    # started StreamingResponse body).
-                    yield (
-                        "event: error\n"
-                        "data: "
-                        + json.dumps(
-                            {
-                                "code": "session_not_found",
-                                "session_id": session_id,
-                            }
+            try:
+                while True:
+                    try:
+                        events = await orchestrator.list_events(
+                            session_id,
+                            from_seq=last_seen + 1,
+                            limit=500,
                         )
-                        + "\n\n"
-                    )
-                    return
-                if events:
-                    idle_polls = 0
-                    for ev in events:
-                        payload = json.dumps(ev, ensure_ascii=False, default=str)
-                        yield f"event: event\ndata: {payload}\n\n"
-                        last_seen = int(ev["seq"])
-                else:
-                    idle_polls += 1
-                    if max_idle_polls and idle_polls >= max_idle_polls:
+                    except SessionNotFound:
+                        # Session deleted mid-stream — emit a terminal error frame
+                        # and break rather than raising (can't raise inside a
+                        # started StreamingResponse body).
+                        logger.info(
+                            "sse_follow_session_gone session_id=%s last_seen=%s",
+                            session_id,
+                            last_seen,
+                        )
+                        yield (
+                            "event: error\n"
+                            "data: "
+                            + json.dumps(
+                                {
+                                    "code": "session_not_found",
+                                    "session_id": session_id,
+                                }
+                            )
+                            + "\n\n"
+                        )
                         return
-                now = asyncio.get_event_loop().time()
-                if now - last_heartbeat >= heartbeat_secs:
-                    yield ": hb\n\n"
-                    last_heartbeat = now
-                await asyncio.sleep(poll_s)
+                    if events:
+                        idle_polls = 0
+                        for ev in events:
+                            payload = json.dumps(ev, ensure_ascii=False, default=str)
+                            yield f"event: event\ndata: {payload}\n\n"
+                            last_seen = int(ev["seq"])
+                    else:
+                        idle_polls += 1
+                        if max_idle_polls and idle_polls >= max_idle_polls:
+                            logger.debug(
+                                "sse_follow_idle_exit session_id=%s last_seen=%s",
+                                session_id,
+                                last_seen,
+                            )
+                            return
+                    now = asyncio.get_event_loop().time()
+                    if now - last_heartbeat >= heartbeat_secs:
+                        yield ": hb\n\n"
+                        last_heartbeat = now
+                    await asyncio.sleep(poll_s)
+            except asyncio.CancelledError:
+                logger.info(
+                    "sse_follow_disconnect session_id=%s last_seen=%s",
+                    session_id,
+                    last_seen,
+                )
+                raise
 
         return StreamingResponse(
             _sse_generator(),

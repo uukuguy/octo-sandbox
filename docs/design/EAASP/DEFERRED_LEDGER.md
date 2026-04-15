@@ -166,9 +166,9 @@
 | **D48** | `ScopedHookBody` 无 `matcher` / `tool_filter` 字段 | 🧹 tech-debt | hook schema v2.1 |
 | **D49** | `${SKILL_DIR}` 变量替换 helper | ✅ closed | `substitute_hook_vars` (2026-04-12) |
 | **D50** | `ScopedHookBody::Prompt` executor loop 未实装 | 🟡 **P1-active** | **S3 新 T5 hook executor** |
-| **D51** | Hook stdin envelope schema 未 ADR 化 | 🟡 **P1-active** | **S3 T5 前置 ADR-V2-006** |
+| **D51** | Hook stdin envelope schema 未 ADR 化 | ✅ closed 2026-04-15 | S3.T5 @ `7cb48eb` (ADR-V2-006 Accepted) |
 | **D52** | SKILL.md prose 与 L2 MCP tool schema 一致性 | ✅ closed | 逐字对照验证 (2026-04-12) |
-| **D53** | D49 helper 写了但 runtime 没调用 | 🟡 **P1-active** | **S3 新 T5 hook executor** |
+| **D53** | D49 helper 写了但 runtime 没调用 | ✅ closed 2026-04-15 | S3.T5 @ `7cb48eb` (harness `substitute_hook_vars` wiring) |
 
 ### D54–D61: Phase 0 S4.T2 (4b-lite + E2E verify)
 
@@ -180,7 +180,7 @@
 | **D57** | `harness_payload_integration.rs` 复制 `build_memory_preamble` | 🧹 tech-debt | pub fn 升级 |
 | **D58** | `test_initialize_injects_memory_refs_preamble` 未走 Send 全路径 | 🧹 tech-debt | SdkWrapper 替身 |
 | **D59** | `Makefile::mcp-orch-start` 硬编码 `--port 8082` | 🧹 tech-debt | 改为 18082 |
-| **D60** | verify-v2-mvp assertion 11 hybrid search 降级 | 🟢 **P2-active** | **S2.T5 收尾升级为硬断言** |
+| **D60** | verify-v2-mvp assertion 11 hybrid search 降级 | ✅ closed 2026-04-15 | S2.T5 @ `bad4269` (升级为 `raise AssertionError`) |
 | **D61** | `threshold-calibration-skill.md` fixture 硬编码 `version` | 🧹 tech-debt | 解析 submit 响应 |
 
 ### D62–D66: Phase 1 Plan (容器化 + MCP 池)
@@ -246,7 +246,7 @@
 | **D108** | S3.T2 — Hook script 自动化回归测试（bats/shellcheck） | 🟡 P1-defer | S3.T2 C1 靠 orchestrator 手动 4-case 回归才发现，没有持续 CI 保障。应加 `examples/skills/*/hooks/*.bats` 或 unified `scripts/test_hook_scripts.sh` 覆盖 allow/deny/edge-case envelope，集成到 `make verify`。衍生自 S3.T2 reviewer → **S3.T3 E2E 验证 或 Phase 2.5** |
 | **D109** | S3.T2 — `workflow.required_tools` 只能列 agent 真正 invoke 的 tool 的不变量未文档化 | 🟡 P1-defer | 列入 unreachable tool（如 S3.T2 故意排除的 `skill_submit_draft`）会让 D87 fix 的 `tool_choice=Specific(next)` 卡死不能推进。S3.T2 测试注释捕获了意图，但 ADR-V2-016 + `skill_parser.rs::WorkflowMetadata` docstring 都没显式写这条。应补 ADR 脚注 + parser 校验（例如：若 tool 不在 MCP dependencies 解析结果中，parse-time warn）。衍生自 S3.T2 设计决策 → **Phase 2.5 ADR-V2-016 修订 + schema v2.1** |
 | **D110** | S3.T2 — `dependencies` 字段 soft-intent vs runtime-required 语义不分 | 🔵 P3-defer | `dependencies: - mcp:eaasp-skill-registry` 对 skill-extraction 是 soft intent（skill 自己从不调），但 schema 不区分此与 `mcp:eaasp-l2-memory`（runtime-required）。L4 resolution 时可能误把 soft-intent 服务拉起来浪费资源。应有 `dependencies_intent:` vs `dependencies_runtime:` 或每条加 `kind: runtime|intent` 标签。衍生自 S3.T2 设计决策 → **Phase 3 schema refactor（breaking）** |
-| **D124** | S4.T2 — L4 `/events/stream` 无 client-disconnect 结构化日志 | 🔵 P3-defer | Starlette 检测到客户端断开后会 cancel 生成器（`asyncio.sleep` 抛 `CancelledError`），资源释放干净。但没有运维日志记录"session X 的 follow 流被断开"。建议在 `_sse_generator` 里 `try/except asyncio.CancelledError: logger.info(...)`。衍生自 S4.T2 reviewer 注记 → **Phase 2+ 可选观测增强** |
+| **D124** | S4.T2 — L4 `/events/stream` 无 client-disconnect 结构化日志 | ✅ closed 2026-04-15 | 4 结构化日志点：`sse_follow_start`（INFO, 入口）/ `sse_follow_session_gone`（INFO, mid-stream SessionNotFound）/ `sse_follow_idle_exit`（DEBUG, max_idle_polls 触发）/ `sse_follow_disconnect`（INFO, client 断开 → `asyncio.CancelledError` 捕获后 re-raise）。zero regressions (127/127 L4 tests PASS). ruff clean. |
 | **D125** | S4.T2 — L4 events 流单次 poll 上限 500 events，burst 超限静默丢失 | 🟡 P1-defer | `list_events(limit=500)` + 默认 poll_interval_ms=500 → 1000 events/sec 上限。若 L1 在一轮 500ms 内 emit >500 events，第 501 起会进入下一轮，但如果持续过载会无限滞后。应加 overflow 检测 (`len(events) == 500 → log.warning + 缩短下次 poll 间隔`) 或把 limit 提升到 2000。衍生自 S4.T2 reviewer 注记 → **Phase 2.5 if L1 bursts > 1k/sec** |
 
 **引入流程**:
@@ -291,6 +291,10 @@
 | 2026-04-15 | D89 | active → ✅ closed | S4.T1 @ `28e6b21` (CLI session close subcommand) |
 | 2026-04-15 | D84 | active → ✅ closed | S4.T2 @ `bd55bc4` (CLI events --follow + L4 SSE endpoint) |
 | 2026-04-15 | D124 | **新增** 🔵 P3-defer | L4 events/stream client-disconnect 无结构化日志（S4.T2 reviewer 注记）→ Phase 2+ 观测增强 |
+| 2026-04-15 | D51 | 🟡 P1-active → ✅ closed | S3.T5 @ `7cb48eb` (ADR-V2-006 Accepted) — 账本同步修正 |
+| 2026-04-15 | D53 | 🟡 P1-active → ✅ closed | S3.T5 @ `7cb48eb` (harness substitute_hook_vars wiring) — 账本同步修正 |
+| 2026-04-15 | D60 | 🟢 P2-active → ✅ closed | S2.T5 @ `bad4269` (verify-v2-mvp.py assertion 11 raise AssertionError) — 账本同步修正 |
+| 2026-04-15 | D124 | 🔵 P3-defer → ✅ closed | api.py `_sse_generator` 4 结构化日志点（sse_follow_{start,session_gone,idle_exit,disconnect}），127/127 L4 tests PASS |
 | 2026-04-15 | D125 | **新增** 🟡 P1-defer | events/stream poll 上限 500 events/s，burst 超限静默滞后（S4.T2 reviewer 注记）→ Phase 2.5 if L1 >1k/sec |
 | 2026-04-15 | D103 | **新增** 🔵 P3-defer | find_tail_boundary O(N²) risk（S3.T1 coder）→ Phase 3 perf |
 | 2026-04-15 | D104 | **新增** 🔵 P3-defer | 反应式 guard 在 harness 而非 pipeline（S3.T1 coder）→ Phase 3 if needed |
@@ -325,16 +329,17 @@
 
 | 状态 | 数量 | D 编号 | 含义 |
 |------|------|--------|------|
-| ✅ **closed** | 12 | D1, D2, D4, D7, D47, D49, D52, D54, D83, D85, D86, D87 | 已完成（2026-04-14 新增 D83/D85/D86） |
-| 🔄 **superseded** | 2 | D27→D54, D40→D54 | 被其他 D 或 ADR 取代 |
+| ✅ **closed** | 19 | D1, D2, D4, D7, D47, D49, D51, D52, D53, D54, D60, D83, D84, D85, D86, D87, D89, D124 + S3.T5 legacy D50→D117 renamed | 已完成（2026-04-15 新增 D51/D53/D60/D84/D89/D124） |
+| 🔄 **superseded** | 3 | D27→D54, D40→D54, D50→D117 (renamed) | 被其他 D 或 ADR 取代 |
 | ⏸️ **frozen** | 2 | D66, D88 | hermes 冻结，Phase 2.5 goose 替代 |
-| 🔥 **P0-active** | 2 | D84 (含D35), D89 | **Phase 2 plan S4 排期** |
-| 🟡 **P1-active** | 4 | D50, D51, D53, D78 | **挂到 S2/S3 新任务必做** |
-| 🟡 **P1-defer** | 4 | D90, D93, D94, D98 | 前置 frontend UI / Phase 2.5 refactor 合并 |
-| 🔵 **P2-defer** | 1 | D95 | FTS semantic_score 回填，S2.T4 或 Phase 2.5 |
-| 🔵 **P3-defer** | 4 | D96, D97, D92, D99 | 边角场景 / 告警优化，Phase 3 GA 前 |
-| 🟢 **P2-active** | 2 | D12, D60 | S2 顺带完成 |
+| 🔥 **P0-active** | 0 | — | Phase 2 S4 全部归档 |
+| 🟡 **P1-active** | 1 | D78 | event payload embedding 未完成，延到 Phase 2.5 |
+| 🟡 **P1-defer** | 8 | D90, D93, D94, D98, D102, D105, D108, D109, D120, D125 | 前置 frontend UI / Phase 2.5 refactor / Phase 3 breaking |
+| 🔵 **P2-defer** | 1 | D95 | FTS semantic_score 回填，Phase 2.5 |
+| 🔵 **P3-defer** | 15 | D92, D96, D97, D99, D100, D101, D103, D104, D106, D107, D110, D118, D119, D121, D122, D123 | 边角场景 / 告警优化 |
+| 🟢 **P2-active** | 0 | — | D12→D94 renamed, D60 closed |
 | 🔵 **P3-active** | 1 | D74 | Phase 2 可选加速 |
+| 🟡 **P1-active（renamed）** | 1 | D117 (原 D50) | Prompt-body 执行器，用户同意推迟 |
 | 🤔 **revisit-after-S2** | 4 | D3, D5, D6, D37 | 等 S2 context engineering 决策 |
 | 🔴 **phase3-gated** | 9 | D8, D9, D34, D38, D41, D46, D62, D63, D64 | Phase 3 身份/租户模型 |
 | 📦 **long-term** | 11 | D21, D25, D32, D36, D56, D73, D75, D76, D77, D79, D80 | Phase 4/5/6 |
