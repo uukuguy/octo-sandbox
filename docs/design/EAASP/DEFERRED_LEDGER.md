@@ -39,7 +39,7 @@
 | **D83** | grid-runtime ToolResult chunk 缺 `tool_name` | ✅ **S1.T4 closed 2026-04-14** @ `bdc5b8b` | runtime 侧工具识别（已修；衍生 D90 follow-up） |
 | **D85** | `STOP` event `response_text` 空串 | ✅ **S1.T5 closed 2026-04-14** @ `bdc5b8b`+`d0e6cb0` | 上层 CLI 显示不出最终回答（已修 Rust+Python 双侧） |
 | **D86** | claude-code-runtime SDK wrapper 丢 `ToolResultBlock` | ✅ **S1.T3 closed 2026-04-14** @ `d0e6cb0` | POST_TOOL_USE hook 空链路（已修） |
-| **D84** | CLI `session events --follow` SSE 未实现 | **S4.T2** | CLI UX |
+| **D84** | CLI `session events --follow` SSE 未实现 | ✅ **S4.T2 closed 2026-04-15** @ `bd55bc4` | CLI UX |
 | **D89** | CLI `session close` 未实现 | **S4.T1** | CLI UX |
 | (非 D) | S1.T6 ErrorClassifier | ✅ **closed 2026-04-14** @ `4001de2` | 解锁 S1.T7 + S3.T1 |
 | (非 D) | S1.T7 withRetry | ✅ **closed 2026-04-14** @ `8b532cb` | Runtime 容错（graduated retry + jitter + FailoverReason routing） |
@@ -219,7 +219,7 @@
 | ID | 标题 | 状态 | 处理位置 |
 |----|------|------|----------|
 | **D83** | grid-runtime ToolResult chunk 缺 `tool_name` | ✅ closed 2026-04-14 | S1.T4 @ `bdc5b8b` (衍生 D90) |
-| **D84** | CLI `session events --follow` SSE 未实现 (合并 D35) | 🔥 P0-active | **S4.T2** |
+| **D84** | CLI `session events --follow` SSE 未实现 (合并 D35) | ✅ closed 2026-04-15 | S4.T2 @ `bd55bc4` |
 | **D85** | `STOP` event `response_text` 空 | ✅ closed 2026-04-14 | S1.T5 @ `bdc5b8b`+`d0e6cb0` |
 | **D86** | claude-code-runtime SDK wrapper 丢 `ToolResultBlock` | ✅ closed 2026-04-14 | S1.T3 @ `d0e6cb0` |
 | **D87** 🚨 | grid-engine agent loop 多步工作流过早终止 | ✅ closed 2026-04-14 | ADR-V2-016 · `bdc4fd5`/`c0f98f9`/`8a738b1` · Multi-model E2E |
@@ -246,6 +246,8 @@
 | **D108** | S3.T2 — Hook script 自动化回归测试（bats/shellcheck） | 🟡 P1-defer | S3.T2 C1 靠 orchestrator 手动 4-case 回归才发现，没有持续 CI 保障。应加 `examples/skills/*/hooks/*.bats` 或 unified `scripts/test_hook_scripts.sh` 覆盖 allow/deny/edge-case envelope，集成到 `make verify`。衍生自 S3.T2 reviewer → **S3.T3 E2E 验证 或 Phase 2.5** |
 | **D109** | S3.T2 — `workflow.required_tools` 只能列 agent 真正 invoke 的 tool 的不变量未文档化 | 🟡 P1-defer | 列入 unreachable tool（如 S3.T2 故意排除的 `skill_submit_draft`）会让 D87 fix 的 `tool_choice=Specific(next)` 卡死不能推进。S3.T2 测试注释捕获了意图，但 ADR-V2-016 + `skill_parser.rs::WorkflowMetadata` docstring 都没显式写这条。应补 ADR 脚注 + parser 校验（例如：若 tool 不在 MCP dependencies 解析结果中，parse-time warn）。衍生自 S3.T2 设计决策 → **Phase 2.5 ADR-V2-016 修订 + schema v2.1** |
 | **D110** | S3.T2 — `dependencies` 字段 soft-intent vs runtime-required 语义不分 | 🔵 P3-defer | `dependencies: - mcp:eaasp-skill-registry` 对 skill-extraction 是 soft intent（skill 自己从不调），但 schema 不区分此与 `mcp:eaasp-l2-memory`（runtime-required）。L4 resolution 时可能误把 soft-intent 服务拉起来浪费资源。应有 `dependencies_intent:` vs `dependencies_runtime:` 或每条加 `kind: runtime|intent` 标签。衍生自 S3.T2 设计决策 → **Phase 3 schema refactor（breaking）** |
+| **D124** | S4.T2 — L4 `/events/stream` 无 client-disconnect 结构化日志 | 🔵 P3-defer | Starlette 检测到客户端断开后会 cancel 生成器（`asyncio.sleep` 抛 `CancelledError`），资源释放干净。但没有运维日志记录"session X 的 follow 流被断开"。建议在 `_sse_generator` 里 `try/except asyncio.CancelledError: logger.info(...)`。衍生自 S4.T2 reviewer 注记 → **Phase 2+ 可选观测增强** |
+| **D125** | S4.T2 — L4 events 流单次 poll 上限 500 events，burst 超限静默丢失 | 🟡 P1-defer | `list_events(limit=500)` + 默认 poll_interval_ms=500 → 1000 events/sec 上限。若 L1 在一轮 500ms 内 emit >500 events，第 501 起会进入下一轮，但如果持续过载会无限滞后。应加 overflow 检测 (`len(events) == 500 → log.warning + 缩短下次 poll 间隔`) 或把 limit 提升到 2000。衍生自 S4.T2 reviewer 注记 → **Phase 2.5 if L1 bursts > 1k/sec** |
 
 **引入流程**:
 1. 在新 Deferred 产生的 plan 文件里以表格形式定义 `| D90 | 标题 | 去向 |`
@@ -286,6 +288,10 @@
 | 2026-04-15 | D100 | **新增** 🔵 P3-defer | write/confirm/archive embedding 字段不 surface（S2.T4 test 10）→ Phase 2.5 |
 | 2026-04-15 | D101 | **新增** 🔵 P3-defer | FastAPI detail 嵌套 erratum（S2.T4 blueprint nit）→ blueprint 审校 |
 | 2026-04-15 | D102 | **新增** 🟡 P1-defer | AgentLoopConfig.compaction YAML binding（S3.T1 coder）→ Phase 2.5 |
+| 2026-04-15 | D89 | active → ✅ closed | S4.T1 @ `28e6b21` (CLI session close subcommand) |
+| 2026-04-15 | D84 | active → ✅ closed | S4.T2 @ `bd55bc4` (CLI events --follow + L4 SSE endpoint) |
+| 2026-04-15 | D124 | **新增** 🔵 P3-defer | L4 events/stream client-disconnect 无结构化日志（S4.T2 reviewer 注记）→ Phase 2+ 观测增强 |
+| 2026-04-15 | D125 | **新增** 🟡 P1-defer | events/stream poll 上限 500 events/s，burst 超限静默滞后（S4.T2 reviewer 注记）→ Phase 2.5 if L1 >1k/sec |
 | 2026-04-15 | D103 | **新增** 🔵 P3-defer | find_tail_boundary O(N²) risk（S3.T1 coder）→ Phase 3 perf |
 | 2026-04-15 | D104 | **新增** 🔵 P3-defer | 反应式 guard 在 harness 而非 pipeline（S3.T1 coder）→ Phase 3 if needed |
 | 2026-04-15 | D105 | **新增** 🟡 P1-defer | ContextDegraded 字符串别名保留（S3.T1 coder）→ Phase 3 breaking |

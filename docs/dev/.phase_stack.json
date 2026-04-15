@@ -6,13 +6,13 @@
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "plan": "docs/plans/2026-04-14-v2-phase2-plan.md",
-      "progress": "20/23",
+      "progress": "21/23",
       "stages": [
         "S0 ADR ✅",
         "S1 Runtime Fixes ✅ 7/7",
         "S2 L2 Memory + tool-result truncation ✅ 5/5",
         "S3 PreCompact + Skill Extraction + Stop hooks + Scoped executor ✅ 5/5",
-        "S4 CLI+E2E + thread-scoped interrupt 1/4 (T1 ✅)"
+        "S4 CLI+E2E + thread-scoped interrupt 2/4 (T1 ✅ T2 ✅)"
       ],
       "first_task": "S0.T1 ADR-V2-015 semantic 检索选型",
       "completed_tasks": [
@@ -35,10 +35,11 @@
         "S3.T3 (Skill Extraction E2E — Hybrid B1 deterministic fixture replay; 6-event TOOL_RESULT fixture + 12 pytest tests covering hook 3-way guard + workflow replay + N14 honeypot; reviewer M1+M2+M3 inline-fixed; 12/12 PASS in 0.15s, ruff clean, lock test unchanged @ c2b5307)",
         "S3.T4 (Stop hooks extension claude-code style — stop_hooks.rs 261 LOC + stop_hooks_integration.rs 404 LOC + harness.rs/loop_config.rs/mod.rs surgical mods; 5 files 747 insertions; StopHookDecision::{Noop, InjectAndContinue} + dispatch 'first decisive verdict' + MAX_STOP_HOOK_INJECTIONS=3 cap; death-spiral prevention across 14 error return paths watertight; reviewer M2 inline-fixed M1+N1→D114/D115/D116; 4+4 PASS + 11 regressions PASS @ a209716)",
         "S3.T5 (Scoped-hook executor — ADR-V2-006 envelope contract + Rust G1 substitute_hook_vars wiring + Rust G7 ScopedStopHookBridge + Python ScopedCommandExecutor subprocess path + Python substitution wiring + 10 new tests. 9 files changed (+1700 LOC across ADR/Rust-harness/Rust-bridge/Python-executor/Python-service/4-rust-integration-tests/6-python-integration-tests). Rust: 107+2323 PASS, 0 regressions. Python: 104+6 PASS, 0 new regressions (1 pre-existing D110). Scope: D50 deferred→D117, D51+D53 closed. Reviewer APPROVE-WITH-COMMENTS 0 Criticals, 3 Majors all deferred (D120 cross-runtime envelope parity / D121 stop-hook additive / D122 hook_id drift) + N1 inline-fixed. Key design lessons: (1) Rust execute_command + HookContext predates ADR-V2-006 and omits event/skill_id/* fields → D120 catchup for Phase 2.5 goose cert; (2) Python dispatch helpers extracted per-event to avoid 3x duplication; (3) DashMap for session_stop_hooks matches existing AgentRuntime concurrency pattern; (4) build_and_spawn_executor_filtered is sync → DashMap is the right primitive vs tokio::sync::RwLock. RuFlo swarm-1776243400662 hierarchical: scout (Explore) blueprint /tmp/s3t5-blueprint.md 698 lines → T5.A-E sequenced coders → reviewer APPROVE. Plan 19/23)",
-        "S4.T1 (D89 closed — CLI session close + 3 tests)"
+        "S4.T1 (D89 closed — CLI session close + 3 tests)",
+        "S4.T2 (D84 closed — CLI events --follow + L4 SSE endpoint + 6 tests)"
       ],
-      "next_task": "S4.T2 (D84 — CLI eaasp session events --follow SSE)",
-      "last_updated": "2026-04-15T19:10:00+08:00",
+      "next_task": "S4.T3 (端到端验收 — threshold-calibration 6-step × 3 runtimes)",
+      "last_updated": "2026-04-15T19:30:00+08:00",
       "commits_so_far": [
         "bdc4fd5",
         "c0f98f9",
@@ -61,7 +62,8 @@
         "c2b5307",
         "a209716",
         "7cb48eb",
-        "28e6b21"
+        "28e6b21",
+        "bd55bc4"
       ]
     }
   ],
