@@ -20,6 +20,7 @@
         l2-memory-setup l2-memory-test l2-memory-start l2-memory-mcp-start l2-memory-mcp-test \
         l3-setup l3-start l3-test l4-setup l4-proto-gen l4-start l4-test \
         cli-v2-setup cli-v2-test v2-mvp-e2e \
+        v2-phase2-e2e v2-phase2-e2e-full v2-phase2-e2e-build test-phase2-batch-ab \
         mock-scada-setup mock-scada-test mock-scada-start \
         dev-eaasp dev-eaasp-stop \
         eaasp-skill-list eaasp-skill-submit eaasp-policy-list eaasp-policy-deploy \
@@ -941,6 +942,27 @@ build-eaasp-all: runtime-build-binary skill-registry-build mcp-orch-build certif
 
 v2-mvp-e2e:
 	@bash scripts/verify-v2-mvp.sh
+
+# ============================================================
+# EAASP v2.0 Phase 2 E2E (S4.T3) — automated acceptance gate
+# ============================================================
+
+v2-phase2-e2e:
+	@bash scripts/verify-v2-phase2.sh
+
+v2-phase2-e2e-full:
+	@bash scripts/verify-v2-phase2.sh --with-runtimes
+
+v2-phase2-e2e-build:
+	@bash scripts/verify-v2-phase2.sh --with-build
+
+test-phase2-batch-ab:
+	@echo "=== Batch A/B unit tests ==="
+	cargo test -p grid-engine --test d87_multi_step_workflow_regression -- --test-threads=1
+	cargo test -p grid-engine --test tool_result_aggregate_spill -- --test-threads=1
+	cargo test -p grid-engine --test stop_hooks_integration -- --test-threads=1
+	cargo test -p grid-engine error_classifier -- --test-threads=1
+	@echo "=== Batch A/B: all passed ==="
 
 # ============================================================
 # EAASP v2.0 Dev Server — start/stop all services interactively
