@@ -296,6 +296,14 @@
 | 2026-04-15 | D108 | **新增** 🟡 P1-defer | Hook script 自动化回归测试（bats/shellcheck）避免 C1-class 退化（S3.T2 reviewer 候选 2）→ S3.T3 E2E 或 Phase 2.5 |
 | 2026-04-15 | D109 | **新增** 🟡 P1-defer | `workflow.required_tools` 不变量（只列 agent 真正 invoke 的 tool）未文档化，避免 D87 tool_choice=Specific(next) 卡死（S3.T2 设计决策）→ Phase 2.5 ADR-V2-016 修订 + parse-time warn |
 | 2026-04-15 | D110 | **新增** 🔵 P3-defer | `dependencies` 字段 soft-intent vs runtime-required 语义不分（S3.T2 设计决策）→ Phase 3 schema refactor breaking |
+| 2026-04-15 | — | **S3.T5 reviewer N1 inline-fixed** | skill_dir=None 日志渲染为 literal "None" → `skill_dir or "<unresolved>"`. 改动随 S3.T5 commit 一并落盘 |
+| 2026-04-15 | D117 | **新增** 🟡 P1-defer | Prompt-body 执行器（LLM-driven yes/no），原 D50 重编号；S3.T5 blueprint §F 明确不收，等真实 skill 使用再落地 → Phase 2.5+ |
+| 2026-04-15 | D118 | **新增** 🔵 P3-defer | SkillDir materialization 在 session 结束无 cleanup（S3.T5 blueprint §G）→ S4 cleanup sweep |
+| 2026-04-15 | D119 | **新增** 🔵 P3-defer | Envelope `schema_version` 字段未强制（ADR-V2-006 §9）→ Phase 3 首次 breaking change 时引入 |
+| 2026-04-15 | D120 | **新增** 🟡 P1-defer | **Cross-runtime envelope parity**：Rust `HookContext::to_json/to_env_vars` 缺 ADR-V2-006 §2/§3 字段（`event` / `skill_id` / `draft_memory_id` / `evidence_anchor_id` / `created_at` / `GRID_EVENT` / `GRID_SKILL_ID`），Python 已符合。S3.T5 reviewer M1，前置 Phase 2.5 goose 契约测试 → 补 HookContext 扩展 + cross-runtime parity tests |
+| 2026-04-15 | D121 | **新增** 🔵 P3-defer | `register_session_stop_hooks` 额外调用累加而非替换（S3.T5 reviewer M2）→ 加 dedupe 或 warn-on-duplicate semantics |
+| 2026-04-15 | D122 | **新增** 🔵 P3-defer | Python envelope 包含 top-level `hook_id` 字段，Rust 未含（S3.T5 reviewer M3）→ D120 统一修 |
+| 2026-04-15 | D123 | **新增** 🔵 P3-defer | `scoped_hook_wiring_integration.rs` 测试用 `std::env::set_var` + Mutex，poison 恢复静默（reviewer N5）→ 改为 RAII env guard |
 | 2026-04-14 | — | **ledger 创建** | 收敛 D1–D89 到 single source of truth |
 | 2026-04-12 | D1, D2 | active → ✅ closed | ADR-V2-004 S4.T2 4b-lite |
 | 2026-04-12 | D47, D49, D52 | active → ✅ closed | S4.T2 前置修复 |

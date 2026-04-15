@@ -3,10 +3,21 @@
 //!
 //! Each instance wraps ONE scoped hook (one command at one hook point).
 //! Multiple ScopedHookHandlers are registered per-point during initialize().
+//!
+//! S3.T5 (G7): `ScopedStopHookBridge` (below) provides a sibling adapter
+//! for the natural-termination boundary. Stop-scope hooks cannot ride the
+//! regular `HookRegistry` path because the engine's loop consults a typed
+//! `StopHook` trait (see `grid_engine::agent::StopHook`) whose decisions
+//! (`Noop` / `InjectAndContinue(Vec<ChatMessage>)`) cannot be expressed
+//! through `HookAction`. The bridge reuses `execute_command` so the
+//! subprocess wire protocol (env vars + stdin JSON envelope + exit-2
+//! deny contract per ADR-V2-006) stays identical across hook points.
 
 use async_trait::async_trait;
+use grid_engine::agent::stop_hooks::{StopHook, StopHookDecision};
 use grid_engine::hooks::declarative::{execute_command, HookDecision};
 use grid_engine::hooks::{HookAction, HookContext, HookFailureMode, HookHandler};
+use grid_types::{ChatMessage, ContentBlock, MessageRole};
 use tracing::{debug, warn};
 
 /// A HookHandler that wraps a single EAASP skill-frontmatter scoped hook.
@@ -124,6 +135,119 @@ impl ScopedHookHandler {
         } else {
             // allow or ask → continue
             Ok(HookAction::Continue)
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ScopedStopHookBridge (S3.T5 G7) — bash Stop hook → grid-engine StopHook
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// Bridges a single EAASP skill-frontmatter `Stop`-scoped hook into the
+/// `grid_engine::agent::StopHook` trait expected by the agent loop.
+///
+/// The regular [`ScopedHookHandler`] cannot cover Stop hooks: the loop's
+/// typed decisions (`StopHookDecision::Noop` / `InjectAndContinue`) have
+/// no equivalent in `HookAction`. This bridge fills the gap without
+/// duplicating the subprocess protocol by re-using
+/// [`grid_engine::hooks::declarative::execute_command`] — the same wire
+/// format (env vars + stdin JSON envelope + exit-2 deny contract) used
+/// by [`ScopedHookHandler`] for `PreToolUse` / `PostToolUse`.
+///
+/// ## Decision mapping (ADR-V2-006 §2.3, §4)
+///
+/// | Hook exit | `HookDecision` | `StopHookDecision` |
+/// |-----------|----------------|--------------------|
+/// | 0 + `{"decision":"allow"}` | `is_deny()==false` | `Noop` (allow termination) |
+/// | 0 + empty stdout           | `is_deny()==false` | `Noop` |
+/// | 0 + `{"decision":"deny",…}` | `is_deny()==true`  | `InjectAndContinue([system_msg])` |
+/// | 2 + stderr reason          | `is_deny()==true`  | `InjectAndContinue([system_msg])` |
+/// | other non-zero / timeout   | err path           | `Noop` (fail-open, warn) |
+///
+/// The injected message is a single system-role `ChatMessage` carrying
+/// the hook's reason (stderr for exit 2, `"reason"` JSON field for
+/// exit 0 deny). It lands in conversation history so the LLM can see
+/// the feedback and decide how to continue on the next round. Per
+/// ADR-V2-006 §7 fail-open semantics, any subprocess failure returns
+/// `Noop` — a buggy Stop hook must never block termination.
+///
+/// ## Re-entry safety
+///
+/// `MAX_STOP_HOOK_INJECTIONS` is enforced by
+/// `grid_engine::agent::harness::run_agent_loop_inner` at the dispatch
+/// site; this bridge is oblivious to the cap. Bridges wired via
+/// `GridHarness::register_scoped_hooks` inherit the cap automatically.
+pub struct ScopedStopHookBridge {
+    hook_id: String,
+    /// Shell command to execute (already variable-substituted by
+    /// `register_scoped_hooks`).
+    command: String,
+    /// Subprocess timeout. 5s matches the default used by
+    /// [`ScopedHookHandler`] and ADR-V2-006 §6.
+    timeout_secs: u32,
+}
+
+impl ScopedStopHookBridge {
+    /// Create a new Stop-hook bridge.
+    ///
+    /// - `hook_id`: Unique identifier from skill frontmatter (used for
+    ///   `StopHook::name()` logging).
+    /// - `command`: Shell command to run — caller is responsible for
+    ///   resolving `${SKILL_DIR}` / `${SESSION_DIR}` / `${RUNTIME_DIR}`
+    ///   placeholders before constructing the bridge (mirrors the
+    ///   `ScopedHookHandler` contract).
+    pub fn new(hook_id: String, command: String) -> Self {
+        Self {
+            hook_id,
+            command,
+            timeout_secs: 5,
+        }
+    }
+}
+
+#[async_trait]
+impl StopHook for ScopedStopHookBridge {
+    fn name(&self) -> &str {
+        &self.hook_id
+    }
+
+    async fn execute(&self, ctx: &HookContext) -> anyhow::Result<StopHookDecision> {
+        debug!(
+            hook_id = %self.hook_id,
+            command = %self.command,
+            "ScopedStopHookBridge: executing Stop hook"
+        );
+
+        match execute_command(&self.command, ctx, self.timeout_secs).await {
+            Ok(decision) if decision.is_deny() => {
+                let reason = decision.reason.unwrap_or_else(|| {
+                    format!("Denied by Stop hook '{}'", self.hook_id)
+                });
+                // Build a system-role ChatMessage carrying the hook's
+                // feedback so the LLM can observe the rejection reason
+                // on the re-entered round. `ChatMessage` exposes only
+                // `user()` / `assistant()` constructors; build the
+                // System variant directly.
+                let msg = ChatMessage {
+                    role: MessageRole::System,
+                    content: vec![ContentBlock::Text { text: reason }],
+                };
+                Ok(StopHookDecision::InjectAndContinue(vec![msg]))
+            }
+            Ok(_) => Ok(StopHookDecision::Noop),
+            Err(e) => {
+                // Fail-open per ADR-V2-006 §7: any subprocess error
+                // (timeout, spawn failure, malformed JSON, …) must NOT
+                // block termination. The dispatcher (`dispatch_stop_hooks`)
+                // also treats `Err` as Noop, but collapsing the error
+                // here yields a cleaner log line and is easier to test.
+                warn!(
+                    hook_id = %self.hook_id,
+                    error = %e,
+                    "ScopedStopHookBridge execution failed (fail-open → Noop)"
+                );
+                Ok(StopHookDecision::Noop)
+            }
         }
     }
 }
@@ -265,6 +389,87 @@ mod tests {
             matches!(action, HookAction::Continue),
             "expected Continue, got {:?}",
             action
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    // ScopedStopHookBridge unit tests (S3.T5 G7)
+    // ─────────────────────────────────────────────────────────────────────
+
+    /// Exit 0 with `{"decision":"allow"}` → bridge reports `Noop`, letting
+    /// the agent loop terminate normally. This exercises the happy-path
+    /// delegation through `execute_command` → `HookDecision { is_deny==false }`
+    /// → `StopHookDecision::Noop`.
+    #[tokio::test]
+    async fn stop_bridge_exit0_returns_noop() {
+        let bridge = ScopedStopHookBridge::new(
+            "test-stop-allow".into(),
+            r#"echo '{"decision":"allow"}'"#.into(),
+        );
+        let ctx = HookContext::new().with_session("s1");
+        let decision = bridge.execute(&ctx).await.unwrap();
+        assert!(
+            matches!(decision, StopHookDecision::Noop),
+            "expected Noop, got {:?}",
+            decision
+        );
+        assert_eq!(bridge.name(), "test-stop-allow");
+    }
+
+    /// Exit 2 with stderr reason → bridge reports `InjectAndContinue` with
+    /// exactly one System-role ChatMessage whose text equals the stderr
+    /// content. This is the sole path the loop uses to re-enter termination
+    /// with bash-hook feedback visible to the LLM.
+    #[tokio::test]
+    async fn stop_bridge_exit2_returns_inject() {
+        let bridge = ScopedStopHookBridge::new(
+            "test-stop-deny".into(),
+            "echo 'stop reason' >&2; exit 2".into(),
+        );
+        let ctx = HookContext::new().with_session("s1");
+        let decision = bridge.execute(&ctx).await.unwrap();
+
+        match decision {
+            StopHookDecision::InjectAndContinue(msgs) => {
+                assert_eq!(msgs.len(), 1, "exactly one message must be injected");
+                let msg = &msgs[0];
+                assert!(
+                    matches!(msg.role, MessageRole::System),
+                    "injected message must be System role, got {:?}",
+                    msg.role
+                );
+                let text = msg.text_content();
+                assert!(
+                    text.contains("stop reason"),
+                    "injected message must carry stderr reason; got: {:?}",
+                    text
+                );
+            }
+            other => panic!(
+                "expected InjectAndContinue with stderr reason, got {:?}",
+                other
+            ),
+        }
+    }
+
+    /// Subprocess failure path (timeout) → bridge swallows the error and
+    /// returns `Noop`, satisfying the ADR-V2-006 §7 fail-open contract:
+    /// a buggy / slow Stop hook must never block natural termination.
+    /// `timeout_secs` is hard-coded to 5 via `new()`, so we construct the
+    /// bridge directly with a tiny override to avoid a 5-second test.
+    #[tokio::test]
+    async fn stop_bridge_failure_returns_noop_on_timeout() {
+        let bridge = ScopedStopHookBridge {
+            hook_id: "test-stop-timeout".into(),
+            command: "sleep 10".into(),
+            timeout_secs: 1,
+        };
+        let ctx = HookContext::new().with_session("s1");
+        let decision = bridge.execute(&ctx).await.unwrap();
+        assert!(
+            matches!(decision, StopHookDecision::Noop),
+            "timeout must map to Noop (fail-open per ADR-V2-006 §7); got {:?}",
+            decision
         );
     }
 }

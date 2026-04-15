@@ -216,6 +216,15 @@ pub struct AgentRuntime {
     // first use (Lazy). harness queries it before arming features like
     // tool_choice=Required for D87 continuation.
     pub(crate) capability_store: Arc<crate::providers::CapabilityStore>,
+    // S3.T5 (G7): per-session Stop hooks registered by runtime wrappers
+    // (notably `grid-runtime::GridHarness` for EAASP scoped Stop hooks).
+    // Keyed by `SessionId`; drained into the executor at spawn time by
+    // `build_and_spawn_executor_filtered`. `DashMap` mirrors the
+    // concurrency pattern used by `sessions` / `agent_handles` so
+    // non-async call sites (the executor builder is sync) can mutate
+    // without an `.await`.
+    pub(crate) session_stop_hooks:
+        DashMap<SessionId, Vec<Arc<dyn super::stop_hooks::StopHook>>>,
 }
 
 impl AgentRuntime {
@@ -561,6 +570,7 @@ impl AgentRuntime {
             primary_session_id: Mutex::new(None),
             max_concurrent_sessions: config.max_concurrent_sessions.unwrap_or(DEFAULT_MAX_CONCURRENT_SESSIONS),
             agent_handles: DashMap::new(),
+            session_stop_hooks: DashMap::new(),
             catalog,
             provider,
             tools: Arc::new(StdMutex::new(tools)),
@@ -1473,12 +1483,59 @@ impl AgentRuntime {
             tool_choice_cap == crate::providers::Capability::Supported,
         );
 
+        // S3.T5 (G7): drain any Stop hooks registered for this session by
+        // a runtime wrapper (GridHarness → scoped Stop hooks from skill
+        // frontmatter). Must happen AFTER `AgentExecutor::new` but BEFORE
+        // the executor's spawn loop so the hooks land in the first
+        // `AgentLoopConfig` built on UserMessage. Using `remove` (rather
+        // than a clone) ensures the map never grows unbounded across
+        // session churn — each SessionId is consumed exactly once.
+        if let Some((_, stop_hooks)) = self.session_stop_hooks.remove(&session_id) {
+            if !stop_hooks.is_empty() {
+                tracing::info!(
+                    session_id = %session_id,
+                    count = stop_hooks.len(),
+                    "Forwarding scoped Stop hooks into AgentExecutor"
+                );
+                executor.set_stop_hooks(stop_hooks);
+            }
+        }
+
         // Spawn 持久化主循环
         tokio::spawn(async move {
             executor.run().await;
         });
 
         (handle, session_tools)
+    }
+
+    /// S3.T5 (G7): register Stop hooks for a session.
+    ///
+    /// Called by runtime wrappers (notably `grid-runtime::GridHarness`)
+    /// **before** invoking `start_session_*`. Hooks are consumed once by
+    /// `build_and_spawn_executor_filtered` when the executor is spawned;
+    /// subsequent calls for the same `SessionId` are additive until the
+    /// executor spawn drains them.
+    ///
+    /// This API accepts `Vec<Arc<dyn StopHook>>` so callers can mix
+    /// concrete types (e.g. `ScopedStopHookBridge` for bash hooks +
+    /// future native Rust `StopHook` impls) in a single registration.
+    /// Passing an empty vec is a no-op.
+    pub fn register_session_stop_hooks(
+        &self,
+        session_id: &SessionId,
+        hooks: Vec<Arc<dyn super::stop_hooks::StopHook>>,
+    ) {
+        if hooks.is_empty() {
+            return;
+        }
+        // Merge with any previously registered hooks for the same
+        // session (idempotent-friendly: harness may register multiple
+        // hook groups across initialization phases).
+        self.session_stop_hooks
+            .entry(session_id.clone())
+            .or_insert_with(Vec::new)
+            .extend(hooks);
     }
 
     /// 创建并启动新会话（Phase AJ-T6）

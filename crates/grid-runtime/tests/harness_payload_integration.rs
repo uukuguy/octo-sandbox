@@ -279,10 +279,23 @@ async fn initialize_with_skill_no_dependencies() {
 
 #[tokio::test]
 async fn initialize_with_scoped_hooks_registers_handlers() {
-    // S3.T2 — initialize() with SkillInstructions carrying frontmatter
-    // scoped hooks must register them into the AgentRuntime's HookRegistry.
-    // We verify that PreToolUse and Stop hook points have handlers after
-    // initialize completes.
+    // S3.T2 + S3.T5 — initialize() with SkillInstructions carrying
+    // frontmatter scoped hooks must register them where the agent loop
+    // can consume them:
+    //   * PreToolUse / PostToolUse → `AgentRuntime::hook_registry()`
+    //     (the general-purpose `HookRegistry`).
+    //   * Stop → `AgentRuntime::session_stop_hooks` staging map, drained
+    //     into `AgentExecutor.stop_hooks` on session spawn (S3.T5 G7).
+    //     Stop hooks do NOT land in `HookRegistry` because the typed
+    //     `StopHookDecision` (Noop / InjectAndContinue) cannot be
+    //     expressed via `HookAction`. The typed dispatch path is
+    //     exercised end-to-end by `stop_hooks_integration.rs` (engine)
+    //     + the `stop_bridge_*` unit tests in `scoped_hook_handler.rs`.
+    //
+    // We verify here that:
+    //   * PreToolUse has handlers after init (unchanged contract).
+    //   * Stop does NOT have handlers in `HookRegistry` after init
+    //     (new contract — Stop is routed to the typed StopHook path).
 
     let harness = build_harness().await;
     let mut payload = SessionPayload::new();
@@ -319,19 +332,27 @@ async fn initialize_with_scoped_hooks_registers_handlers() {
         .expect("initialize must succeed with scoped hooks");
     assert!(!handle.session_id.is_empty());
 
-    // Verify hooks were registered at the expected hook points.
     let registry = harness.runtime().hook_registry();
+
+    // Unchanged: PreToolUse hooks still land in HookRegistry.
     assert!(
         registry
             .has_handlers(grid_engine::HookPoint::PreToolUse)
             .await,
         "PreToolUse must have handlers after scoped hook registration"
     );
+
+    // New (S3.T5 G7): Stop hooks are routed via the typed StopHook
+    // trait, so HookRegistry SHOULD NOT see them at HookPoint::Stop.
+    // End-to-end Stop dispatch is covered by stop_hooks_integration.rs
+    // (grid-engine) + the `stop_bridge_*` unit tests in
+    // scoped_hook_handler.rs.
     assert!(
-        registry
+        !registry
             .has_handlers(grid_engine::HookPoint::Stop)
             .await,
-        "Stop must have handlers after scoped hook registration"
+        "Stop hooks must NOT land in HookRegistry after S3.T5 — they are \
+         routed to the typed StopHook path on AgentExecutor"
     );
 
     harness.terminate(&handle).await.ok();

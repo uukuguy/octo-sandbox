@@ -191,6 +191,12 @@ pub struct AgentExecutor {
     // runtime after parsing the skill frontmatter. None = no constraint;
     // harness falls back to generic `tool_choice=Required` continuation.
     required_tools: Option<Vec<String>>,
+    // S3.T5 (G7): Stop hooks registered by a runtime wrapper (e.g.
+    // `grid-runtime::GridHarness` bridging EAASP scoped Stop bash hooks).
+    // Forwarded into every `AgentLoopConfig` built at round start so the
+    // harness dispatches them at the natural termination boundary.
+    // Empty by default — the harness skips dispatch entirely when empty.
+    stop_hooks: Vec<Arc<dyn super::stop_hooks::StopHook>>,
 }
 
 impl AgentExecutor {
@@ -264,6 +270,7 @@ impl AgentExecutor {
             transcript_writer,
             tool_choice_supported: false,
             required_tools: None,
+            stop_hooks: Vec::new(),
         }
     }
 
@@ -272,6 +279,23 @@ impl AgentExecutor {
     /// `CapabilityStore`. Forwarded into `AgentLoopConfig` for each turn.
     pub fn set_tool_choice_supported(&mut self, supported: bool) {
         self.tool_choice_supported = supported;
+    }
+
+    /// S3.T5 (G7): install Stop hooks for this executor's session.
+    ///
+    /// Called by `AgentRuntime::build_and_spawn_executor_filtered` after
+    /// constructing the executor but before the spawn loop — picks up
+    /// hooks previously stashed via
+    /// [`AgentRuntime::register_session_stop_hooks`] by runtime wrappers
+    /// such as `grid-runtime::GridHarness` (for EAASP scoped bash Stop
+    /// hooks). The vector is cloned into every `AgentLoopConfig` built
+    /// at round start so the harness dispatches it at the natural
+    /// termination boundary (see `harness.rs::run_agent_loop_inner`).
+    ///
+    /// Replaces any previously set hooks (last writer wins). Pass an
+    /// empty vec to clear.
+    pub fn set_stop_hooks(&mut self, hooks: Vec<Arc<dyn super::stop_hooks::StopHook>>) {
+        self.stop_hooks = hooks;
     }
 
     /// Agent 主循环入口 — 持续等待消息，处理，广播结果
@@ -472,6 +496,11 @@ impl AgentExecutor {
                         git_context,
                         tool_choice_supported: self.tool_choice_supported,
                         required_tools: self.required_tools.clone(),
+                        // S3.T5 (G7): forward Stop hooks (e.g. bash hooks
+                        // bridged by `ScopedStopHookBridge`) into the
+                        // per-round AgentLoopConfig so the harness fires
+                        // them at natural termination.
+                        stop_hooks: self.stop_hooks.clone(),
                         ..AgentLoopConfig::default()
                     };
 

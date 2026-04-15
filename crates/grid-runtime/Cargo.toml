@@ -14,6 +14,10 @@ sandbox-docker = ["grid-engine/sandbox-docker"]
 grid-types = { workspace = true }
 grid-engine = { workspace = true }
 grid-sandbox = { workspace = true }
+# S3.T5 (G1): scoped-hook variable substitution helper + HookVars struct.
+# The registry crate is a workspace member but not yet re-exported through
+# `[workspace.dependencies]`; reference it by path.
+eaasp-skill-registry = { path = "../../tools/eaasp-skill-registry" }
 
 # Async runtime
 tokio = { workspace = true }

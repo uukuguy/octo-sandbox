@@ -70,6 +70,17 @@ class SkillLoader:
     def get(self, skill_id: str) -> LoadedSkill | None:
         return self._skills.get(skill_id)
 
+    def first_skill_id(self) -> str:
+        """Return the first loaded skill_id, or empty string if none.
+
+        Used by S3.T5 scoped-hook envelope building to populate the
+        ADR-V2-006 §2 ``skill_id`` field. Empty string is the spec-
+        compliant default when no skill is attached to the session.
+        """
+        for skill in self._skills.values():
+            return skill.skill_id or ""
+        return ""
+
     def all_system_prompt_fragments(self) -> str:
         """Concatenate all skill prose for system prompt injection."""
         fragments = [

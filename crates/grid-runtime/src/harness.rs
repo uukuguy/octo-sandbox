@@ -18,8 +18,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tokio_stream::{Stream, StreamExt};
-use tracing::{info, warn};
+use tracing::{error, info, warn};
 
+use eaasp_skill_registry::skill_parser::{substitute_hook_vars, HookVars};
 use grid_engine::{
     AgentEvent, AgentMessage, AgentRuntime,
     McpServerConfigV2, McpTransport as EngineMcpTransport,
@@ -176,11 +177,32 @@ impl GridHarness {
     ///
     /// Each `ScopedHook` from P4 SkillInstructions is wrapped in a
     /// `ScopedHookHandler` and registered at the corresponding `HookPoint`.
-    async fn register_scoped_hooks(&self, hooks: &[ScopedHook]) {
-        use crate::scoped_hook_handler::ScopedHookHandler;
+    ///
+    /// S3.T5 (G1): `hook_vars` resolves `${SKILL_DIR}` / `${SESSION_DIR}` /
+    /// `${RUNTIME_DIR}` in each hook's `action` body before registration.
+    /// Per ADR-V2-006 §7 (fail-open), substitution failures for a single hook
+    /// are logged at ERROR and that hook is skipped — other hooks still
+    /// register normally, and Initialize never fails on hook substitution
+    /// errors (hook errors must never block a session).
+    async fn register_scoped_hooks(
+        &self,
+        session_id: &SessionId,
+        hooks: &[ScopedHook],
+        hook_vars: HookVars,
+    ) {
+        use crate::scoped_hook_handler::{ScopedHookHandler, ScopedStopHookBridge};
+        use grid_engine::agent::StopHook;
         use grid_engine::hooks::HookPoint;
 
         let registry = self.runtime.hook_registry();
+
+        // S3.T5 (G7): accumulate bridges for Stop-scope hooks; they must be
+        // forwarded to AgentRuntime via `register_session_stop_hooks` so
+        // `build_and_spawn_executor_filtered` picks them up when the
+        // executor spawns. Stop hooks cannot ride the general-purpose
+        // `HookRegistry` (typed StopHookDecision has no HookAction match);
+        // this Vec carries them out of the loop instead.
+        let mut stop_bridges: Vec<Arc<dyn StopHook>> = Vec::new();
 
         for hook in hooks {
             // Proto mapping: condition = scope (PreToolUse/PostToolUse/Stop),
@@ -201,9 +223,46 @@ impl GridHarness {
                 }
             };
 
+            // S3.T5 (G1): resolve ${SKILL_DIR} / ${SESSION_DIR} / ${RUNTIME_DIR}
+            // before the command reaches the subprocess. Substitution errors
+            // (Unbound / Unknown / Malformed) are per-hook failures: log loudly
+            // and skip this hook so other hooks still fire. Per ADR-V2-006 §7,
+            // a hook substitution error NEVER aborts the session.
+            let resolved_command = match substitute_hook_vars(&hook.action, &hook_vars) {
+                Ok(cmd) => cmd,
+                Err(e) => {
+                    error!(
+                        hook_id = %hook.hook_id,
+                        error_kind = ?std::mem::discriminant(&e),
+                        error_msg = %e,
+                        "Scoped hook substitution failed, skipping this hook"
+                    );
+                    continue;
+                }
+            };
+
+            // S3.T5 (G7): Stop-scope hooks take a separate path.
+            // `HookRegistry` dispatches via `HookAction`, which cannot
+            // express `StopHookDecision::InjectAndContinue`. Wrap in the
+            // typed `StopHook` trait instead and stage for forwarding
+            // into the executor via `AgentRuntime::register_session_stop_hooks`.
+            if matches!(hook_point, HookPoint::Stop) {
+                let bridge = Arc::new(ScopedStopHookBridge::new(
+                    hook.hook_id.clone(),
+                    resolved_command.clone(),
+                ));
+                stop_bridges.push(bridge as Arc<dyn StopHook>);
+                info!(
+                    hook_id = %hook.hook_id,
+                    hook_type = %hook.hook_type,
+                    "Scoped Stop hook bridged to StopHook trait"
+                );
+                continue;
+            }
+
             let handler = ScopedHookHandler::new(
                 hook.hook_id.clone(),
-                hook.action.clone(),
+                resolved_command,
                 hook.condition.clone(),
                 hook.precedence,
             );
@@ -218,6 +277,109 @@ impl GridHarness {
                 "Scoped hook registered"
             );
         }
+
+        // S3.T5 (G7): hand the accumulated bridges to AgentRuntime so
+        // they land in the AgentLoopConfig when the executor is built.
+        // Must happen BEFORE `start_session_*` (the executor spawn drains
+        // the stash). Empty stash is a no-op.
+        if !stop_bridges.is_empty() {
+            let count = stop_bridges.len();
+            self.runtime
+                .register_session_stop_hooks(session_id, stop_bridges);
+            info!(
+                session_id = %session_id,
+                count = count,
+                "Staged scoped Stop-hook bridges for session"
+            );
+        }
+    }
+
+    /// Build `HookVars` for a session at Initialize time.
+    ///
+    /// S3.T5 (G1) — variable resolution for scoped-hook command bodies.
+    ///
+    /// `skill_dir` resolution priority:
+    /// 1. If `payload.skill_instructions.content` is non-empty AND there is
+    ///    at least one scoped hook declared, materialize SKILL.md under
+    ///    `{runtime_workspace}/grid-session-{session_id}/skill/` and use
+    ///    that directory.
+    /// 2. Else if `EAASP_SKILL_CACHE_DIR` env var is set AND
+    ///    `{cache}/{skill_id}` exists on disk, use that.
+    /// 3. Else `None`. `substitute_hook_vars` will raise `Unbound` on any
+    ///    hook containing `${SKILL_DIR}` and that hook is skipped at
+    ///    registration (fail-open per hook, never per session).
+    ///
+    /// `session_dir` is always created (mirrors claude-code-runtime's
+    /// `{workspace}/{session_id}` convention) so hooks can always resolve
+    /// `${SESSION_DIR}`. `runtime_dir` is optional (platform-level mount
+    /// point supplied via `EAASP_RUNTIME_DIR`).
+    ///
+    /// Returns an `anyhow::Result` because I/O failures at Initialize
+    /// (e.g. unwritable workspace) SHOULD fail the session — that is a
+    /// distinct failure mode from hook-substitution errors.
+    fn build_hook_vars(
+        &self,
+        session_id: &str,
+        skill_instructions: Option<&SkillInstructions>,
+    ) -> anyhow::Result<HookVars> {
+        use std::path::PathBuf;
+
+        // SESSION_DIR — real directory under runtime workspace. Mirrors
+        // claude-code-runtime's per-session layout so cross-runtime hook
+        // authors see the same path shape.
+        let session_dir = {
+            let base = std::env::var("EAASP_RUNTIME_WORKSPACE")
+                .unwrap_or_else(|_| std::env::temp_dir().to_string_lossy().into_owned());
+            let path = PathBuf::from(base).join(format!("grid-session-{}", session_id));
+            std::fs::create_dir_all(&path)?;
+            path.to_string_lossy().into_owned()
+        };
+
+        // RUNTIME_DIR — optional, sourced from env. Empty string treated as
+        // unset so ops can "unset" without removing the var.
+        let runtime_dir = std::env::var("EAASP_RUNTIME_DIR")
+            .ok()
+            .filter(|s| !s.is_empty());
+
+        // SKILL_DIR resolution — try inline materialization first, then the
+        // on-disk cache fallback, else leave it unset.
+        let skill_dir = match skill_instructions {
+            Some(si) if !si.content.is_empty() && !si.frontmatter_hooks.is_empty() => {
+                // Materialize inline skill content to {session_dir}/skill/SKILL.md
+                // so hooks referencing ${SKILL_DIR}/hooks/*.sh can (in future
+                // iterations) also receive those hook files on disk via the
+                // same materialization step. For S3.T5 scope, only SKILL.md
+                // is written — per-file hook materialization is D118 cleanup
+                // territory.
+                let dir = PathBuf::from(&session_dir).join("skill");
+                std::fs::create_dir_all(&dir)?;
+                let skill_md = dir.join("SKILL.md");
+                std::fs::write(&skill_md, &si.content)?;
+                Some(dir.to_string_lossy().into_owned())
+            }
+            Some(si) if !si.skill_id.is_empty() => {
+                // Cache fallback — only adopt if the directory actually
+                // exists on disk (prevents dangling unresolved paths).
+                std::env::var("EAASP_SKILL_CACHE_DIR")
+                    .ok()
+                    .filter(|s| !s.is_empty())
+                    .and_then(|root| {
+                        let p = PathBuf::from(root).join(&si.skill_id);
+                        if p.exists() {
+                            Some(p.to_string_lossy().into_owned())
+                        } else {
+                            None
+                        }
+                    })
+            }
+            _ => None,
+        };
+
+        Ok(HookVars {
+            skill_dir,
+            session_dir: Some(session_dir),
+            runtime_dir,
+        })
     }
 
     /// Map a single AgentEvent to an optional ResponseChunk.
@@ -421,9 +583,33 @@ impl RuntimeContract for GridHarness {
             }
         }
 
+        // S3.T5 (G1): resolve ${SKILL_DIR} / ${SESSION_DIR} / ${RUNTIME_DIR}
+        // so scoped hook bodies can reference absolute paths instead of
+        // literal placeholders. Materialize inline skill content to per-session
+        // workspace when present; fall back to EAASP_SKILL_CACHE_DIR/{skill_id}
+        // when set; otherwise skill_dir=None and substitute_hook_vars will
+        // refuse to expand ${SKILL_DIR} — the affected hook is skipped at
+        // registration with a loud ERROR log (other hooks still register).
+        let hook_vars = self.build_hook_vars(
+            session_id.as_str(),
+            payload.skill_instructions.as_ref(),
+        )?;
+
+        info!(
+            session_id = %session_id,
+            skill_dir = ?hook_vars.skill_dir,
+            session_dir = ?hook_vars.session_dir,
+            runtime_dir = ?hook_vars.runtime_dir,
+            "GridHarness: hook_vars resolved (S3.T5 G1)"
+        );
+
         // Register scoped hooks into global HookRegistry (visible to all sessions).
+        // S3.T5 (G7): pass `session_id` so Stop-scope hooks can be staged
+        // in `AgentRuntime.session_stop_hooks` and drained into the executor
+        // when it spawns — Stop hooks require a typed dispatch path distinct
+        // from the generic HookRegistry (see `register_scoped_hooks`).
         if !scoped_hooks.is_empty() {
-            self.register_scoped_hooks(&scoped_hooks).await;
+            self.register_scoped_hooks(&session_id, &scoped_hooks, hook_vars).await;
         }
 
         let tool_filter: Option<Vec<String>> = None;

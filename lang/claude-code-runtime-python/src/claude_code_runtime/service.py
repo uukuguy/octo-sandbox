@@ -30,8 +30,14 @@ import grpc
 from ._proto.eaasp.runtime.v2 import common_pb2, runtime_pb2, runtime_pb2_grpc
 from .config import RuntimeConfig
 from .hook_executor import HookExecutor
+from .hook_substitution import (
+    HookSubstitutionError,
+    HookVars,
+    substitute_scoped_hooks,
+)
 from .l2_memory_client import L2MemoryClient
 from .mapper import chunk_to_proto, telemetry_batch_to_proto
+from .scoped_command_executor import ScopedCommandExecutor, ScopedHookBundle
 from .sdk_wrapper import SdkWrapper
 from .session import SessionManager
 from .skill_loader import SkillLoader
@@ -114,6 +120,10 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
         self._hooks: dict[str, HookExecutor] = {}
         self._telemetry: dict[str, TelemetryCollector] = {}
         self._skills: dict[str, SkillLoader] = {}
+        # S3.T5 — per-session scoped hook executor + substituted-hook bundle.
+        # Populated in Initialize when P4 frontmatter_hooks is non-empty.
+        self._scoped_bundles: dict[str, ScopedHookBundle] = {}
+        self._scoped_executors: dict[str, ScopedCommandExecutor] = {}
         # Active session for Empty-input lifecycle methods (per_session tier)
         self._active_session_id: str | None = None
         self._start_time = time.time()
@@ -321,6 +331,96 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
         session.workspace = workspace
         logger.info("Runtime workspace: %s", workspace)
 
+        # S3.T5 (G3) — Build HookVars, substitute ${SKILL_DIR}/etc, and store
+        # a per-session ScopedCommandExecutor + ScopedHookBundle. This runs
+        # AFTER workspace setup so SKILL_DIR materialization can land under
+        # {workspace}/skill/ for inline skill content. Mirrors Rust harness
+        # G1. Per-hook fail-open: if substitution fails for one hook, only
+        # that hook is skipped; others still register.
+        if skill_for_hooks and skill_for_hooks.frontmatter_hooks:
+            import pathlib
+
+            skill_id_for_vars = skill_for_hooks.skill_id or ""
+            skill_dir: str | None = None
+
+            # Resolution order (ADR-V2-006 §5):
+            # 1) Inline skill content → materialize to {workspace}/skill/SKILL.md
+            # 2) EAASP_SKILL_CACHE_DIR/{skill_id} if directory exists
+            # 3) Leave None (hooks referencing ${SKILL_DIR} will be skipped)
+            if skill_for_hooks.content:
+                try:
+                    materialized = pathlib.Path(workspace) / "skill"
+                    materialized.mkdir(parents=True, exist_ok=True)
+                    (materialized / "SKILL.md").write_text(
+                        skill_for_hooks.content, encoding="utf-8"
+                    )
+                    skill_dir = str(materialized)
+                except OSError as e:
+                    logger.error(
+                        "Scoped hooks: SkillDir materialize failed session_id=%s "
+                        "error=%s (hooks referencing ${SKILL_DIR} will be skipped)",
+                        sid,
+                        e,
+                    )
+                    skill_dir = None
+            if skill_dir is None:
+                cache_root = os.environ.get("EAASP_SKILL_CACHE_DIR", "")
+                if cache_root and skill_id_for_vars:
+                    candidate = pathlib.Path(cache_root) / skill_id_for_vars
+                    if candidate.exists():
+                        skill_dir = str(candidate)
+
+            hook_vars = HookVars(
+                skill_dir=skill_dir,
+                session_dir=workspace,
+                runtime_dir=os.environ.get("EAASP_RUNTIME_DIR", "") or None,
+            )
+
+            # Project proto ScopedHook -> dict shape expected by
+            # substitute_scoped_hooks (keys: command/prompt). We pass
+            # ``action`` as ``command`` so the substitutor touches it, then
+            # restore the ``action`` key on the resolved hook.
+            substituted: list[dict] = []
+            for h in skill_for_hooks.frontmatter_hooks:
+                raw: dict = {
+                    "hook_id": h.hook_id,
+                    "hook_type": h.hook_type,
+                    "condition": h.condition,
+                    "action": h.action,
+                    "precedence": h.precedence,
+                }
+                sub_input = dict(raw)
+                sub_input["command"] = sub_input["action"]
+                try:
+                    resolved = substitute_scoped_hooks([sub_input], hook_vars)
+                    resolved_cmd = resolved[0].get("command", raw["action"])
+                    resolved_hook = dict(raw)
+                    resolved_hook["action"] = resolved_cmd
+                    substituted.append(resolved_hook)
+                except HookSubstitutionError as e:
+                    logger.warning(
+                        "Scoped hook %s skipped: %s — %s "
+                        "(error_kind=%s action=skip)",
+                        raw["hook_id"] or "?",
+                        type(e).__name__,
+                        e,
+                        type(e).__name__.replace("Error", "").lower(),
+                    )
+
+            bundle = ScopedHookBundle.from_hooks(substituted)
+            self._scoped_bundles[sid] = bundle
+            self._scoped_executors[sid] = ScopedCommandExecutor(timeout_secs=5.0)
+            logger.info(
+                "Scoped command executor ready session_id=%s count=%d "
+                "(pre=%d post=%d stop=%d) skill_dir=%s",
+                sid,
+                len(substituted),
+                len(bundle.pre),
+                len(bundle.post),
+                len(bundle.stop),
+                skill_dir or "<unresolved>",
+            )
+
         self._active_session_id = sid
         logger.info("Session initialized: %s (user=%s)", sid, user_id)
         return runtime_pb2.InitializeResponse(
@@ -431,6 +531,30 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
         sid = request.session_id
         hook_exe = self._hooks.get(sid)
 
+        # S3.T5 (G3) — Scoped PreToolUse hook dispatch. Runs BEFORE the
+        # pattern-based HookExecutor so a scoped deny short-circuits. Uses
+        # ADR-V2-006 §2.1 envelope + §3 env vars. Fail-open per §7.
+        scoped_decision = await self._dispatch_scoped_pre_tool_use(
+            sid, request.tool_name, request.input_json
+        )
+        if scoped_decision is not None and scoped_decision.action == "deny":
+            tc = self._telemetry.get(sid)
+            if tc:
+                tc.record(
+                    "hook_evaluated",
+                    payload={
+                        "hook_type": "pre_tool_call",
+                        "tool": request.tool_name,
+                        "decision": "deny",
+                        "source": "scoped",
+                    },
+                )
+            return runtime_pb2.ToolCallAck(
+                decision="deny",
+                mutated_input_json="",
+                reason=scoped_decision.reason or "denied by scoped hook",
+            )
+
         if hook_exe is not None:
             decision, reason = hook_exe.evaluate_pre_tool_call(
                 request.tool_name, request.input_json
@@ -457,6 +581,29 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     async def OnToolResult(self, request, context):
         sid = request.session_id
         hook_exe = self._hooks.get(sid)
+
+        # S3.T5 (G3) — Scoped PostToolUse dispatch BEFORE pattern-based
+        # HookExecutor. Deny wins and short-circuits, but L2 evidence writes
+        # below are skipped in the deny path.
+        scoped_decision = await self._dispatch_scoped_post_tool_use(
+            sid, request.tool_name, request.output, request.is_error
+        )
+        if scoped_decision is not None and scoped_decision.action == "deny":
+            tc = self._telemetry.get(sid)
+            if tc:
+                tc.record(
+                    "hook_evaluated",
+                    payload={
+                        "hook_type": "post_tool_result",
+                        "tool": request.tool_name,
+                        "decision": "deny",
+                        "source": "scoped",
+                    },
+                )
+            return runtime_pb2.ToolResultAck(
+                decision="deny",
+                reason=scoped_decision.reason or "denied by scoped hook",
+            )
 
         if hook_exe is not None:
             decision, reason = hook_exe.evaluate_post_tool_result(
@@ -513,6 +660,24 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
     async def OnStop(self, request, context):
         sid = request.session_id
         hook_exe = self._hooks.get(sid)
+
+        # S3.T5 (G3) — Scoped Stop dispatch BEFORE pattern-based HookExecutor.
+        # On deny, emit a force-continue ack with the hook's reason as
+        # feedback; this mirrors the "continue" semantics the v1 HookExecutor
+        # uses and aligns with the Rust ScopedStopHookBridge
+        # InjectAndContinue behavior.
+        scoped_decision = await self._dispatch_scoped_stop(sid)
+        if scoped_decision is not None and scoped_decision.action == "deny":
+            tc = self._telemetry.get(sid)
+            if tc:
+                tc.record(
+                    "stop_evaluated",
+                    payload={"decision": "deny", "source": "scoped"},
+                )
+            return runtime_pb2.StopAck(
+                decision="deny",
+                reason=scoped_decision.reason or "stop denied by scoped hook",
+            )
 
         if hook_exe is not None:
             decision, feedback = hook_exe.evaluate_stop()
@@ -725,6 +890,169 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
 
     # ── internal ─────────────────────────────────────────────────
 
+    # S3.T5 (G3) — scoped-hook dispatch helpers. Each returns None when the
+    # session has no scoped hooks for this point, a ScopedHookDecision
+    # otherwise. First matching hook that denies short-circuits the chain
+    # ("deny wins"). Precedence ordering is handled by ScopedHookBundle.matching.
+
+    async def _dispatch_scoped_pre_tool_use(
+        self, sid: str, tool_name: str, input_json: str
+    ):
+        """Run all matching PreToolUse scoped hooks. Return first deny, else allow."""
+        bundle = self._scoped_bundles.get(sid)
+        executor = self._scoped_executors.get(sid)
+        if bundle is None or executor is None:
+            return None
+        hooks = bundle.matching("PreToolUse", tool_name)
+        if not hooks:
+            return None
+
+        from datetime import datetime, timezone
+
+        try:
+            tool_args = json.loads(input_json) if input_json else {}
+        except (json.JSONDecodeError, ValueError):
+            tool_args = {}
+        if not isinstance(tool_args, dict):
+            tool_args = {"raw": tool_args}
+
+        skill_id = ""
+        loader = self._skills.get(sid)
+        if loader is not None:
+            skill_id = loader.first_skill_id()
+
+        envelope = {
+            "event": "PreToolUse",
+            "session_id": sid,
+            "skill_id": skill_id,
+            "tool_name": tool_name,
+            "tool_args": tool_args,
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        env_extras = {
+            "GRID_SESSION_ID": sid,
+            "GRID_TOOL_NAME": tool_name,
+            "GRID_SKILL_ID": skill_id,
+            "GRID_EVENT": "PreToolUse",
+        }
+
+        last_decision = None
+        for hook in hooks:
+            env_per_hook = dict(env_extras)
+            # Thread hook_id into envelope for log-correlation only
+            # (ADR §2.5 forward-compat: unknown keys are ignored by hooks).
+            env_with_id = dict(envelope)
+            env_with_id["hook_id"] = hook.get("hook_id", "")
+            decision = await executor.execute(
+                hook.get("action", ""), env_with_id, env_per_hook
+            )
+            last_decision = decision
+            if decision.action == "deny":
+                return decision
+        return last_decision
+
+    async def _dispatch_scoped_post_tool_use(
+        self, sid: str, tool_name: str, output: str, is_error: bool
+    ):
+        """Run all matching PostToolUse scoped hooks. Return first deny, else allow."""
+        bundle = self._scoped_bundles.get(sid)
+        executor = self._scoped_executors.get(sid)
+        if bundle is None or executor is None:
+            return None
+        hooks = bundle.matching("PostToolUse", tool_name)
+        if not hooks:
+            return None
+
+        from datetime import datetime, timezone
+
+        # ADR §2.2: tool_result must be a string (serialized tool output).
+        if not isinstance(output, str):
+            try:
+                tool_result = json.dumps(output, default=str)
+            except (TypeError, ValueError):
+                tool_result = str(output)
+        else:
+            tool_result = output
+
+        skill_id = ""
+        loader = self._skills.get(sid)
+        if loader is not None:
+            skill_id = loader.first_skill_id()
+
+        envelope = {
+            "event": "PostToolUse",
+            "session_id": sid,
+            "skill_id": skill_id,
+            "tool_name": tool_name,
+            "tool_result": tool_result,
+            "is_error": bool(is_error),
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        env_extras = {
+            "GRID_SESSION_ID": sid,
+            "GRID_TOOL_NAME": tool_name,
+            "GRID_SKILL_ID": skill_id,
+            "GRID_EVENT": "PostToolUse",
+        }
+
+        last_decision = None
+        for hook in hooks:
+            env_with_id = dict(envelope)
+            env_with_id["hook_id"] = hook.get("hook_id", "")
+            decision = await executor.execute(
+                hook.get("action", ""), env_with_id, dict(env_extras)
+            )
+            last_decision = decision
+            if decision.action == "deny":
+                return decision
+        return last_decision
+
+    async def _dispatch_scoped_stop(self, sid: str):
+        """Run all Stop scoped hooks. Return first deny, else allow."""
+        bundle = self._scoped_bundles.get(sid)
+        executor = self._scoped_executors.get(sid)
+        if bundle is None or executor is None:
+            return None
+        hooks = bundle.matching("Stop")
+        if not hooks:
+            return None
+
+        from datetime import datetime, timezone
+
+        skill_id = ""
+        loader = self._skills.get(sid)
+        if loader is not None:
+            skill_id = loader.first_skill_id()
+
+        # Per ADR §2.3, draft_memory_id / evidence_anchor_id are optional; we
+        # MUST emit empty string when absent (not null, not missing).
+        envelope = {
+            "event": "Stop",
+            "session_id": sid,
+            "skill_id": skill_id,
+            "draft_memory_id": "",
+            "evidence_anchor_id": "",
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        env_extras = {
+            "GRID_SESSION_ID": sid,
+            "GRID_TOOL_NAME": "",
+            "GRID_SKILL_ID": skill_id,
+            "GRID_EVENT": "Stop",
+        }
+
+        last_decision = None
+        for hook in hooks:
+            env_with_id = dict(envelope)
+            env_with_id["hook_id"] = hook.get("hook_id", "")
+            decision = await executor.execute(
+                hook.get("action", ""), env_with_id, dict(env_extras)
+            )
+            last_decision = decision
+            if decision.action == "deny":
+                return decision
+        return last_decision
+
     @staticmethod
     def _scoped_hooks_to_rules(frontmatter_hooks) -> list[dict]:
         """Convert P4 frontmatter ScopedHook messages to HookExecutor rule dicts.
@@ -790,6 +1118,11 @@ class RuntimeServiceImpl(runtime_pb2_grpc.RuntimeServiceServicer):
             telemetry_batch_to_proto(tc.flush(), session_id=sid)
         self._hooks.pop(sid, None)
         self._skills.pop(sid, None)
+        # S3.T5 — per-session scoped executor + bundle are discarded on
+        # teardown. SkillDir materialization on disk is NOT cleaned here;
+        # that sweep is tracked as D118 (ADR-V2-006 §9).
+        self._scoped_bundles.pop(sid, None)
+        self._scoped_executors.pop(sid, None)
         self.session_mgr.terminate(sid)
         if self._active_session_id == sid:
             self._active_session_id = None
