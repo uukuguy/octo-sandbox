@@ -79,6 +79,29 @@ def list_cmd(
     )
 
 
+@app.command("close")
+def close(session_id: str = typer.Argument(...)) -> None:
+    """Close a session via L4 (terminates L1 + transitions status to closed)."""
+    cfg = CliConfig.from_env()
+
+    async def _do() -> Any:
+        client = _main.make_client(cfg)
+        try:
+            return await client.call(
+                "POST", f"{cfg.l4_url}/v1/sessions/{session_id}/close"
+            )
+        finally:
+            await client.aclose()
+
+    result = _main.run_async(_do())
+    row = result if isinstance(result, dict) else {"value": result}
+    print_table(
+        "Session closed",
+        [row],
+        ["session_id", "status"],
+    )
+
+
 @app.command("show")
 def show(session_id: str = typer.Argument(...)) -> None:
     """Fetch a session + its event stream and render the evidence pack."""

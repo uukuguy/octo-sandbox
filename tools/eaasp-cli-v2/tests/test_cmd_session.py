@@ -143,3 +143,64 @@ def test_send_stream_default(runner: CliRunner, install_mock) -> None:
     # Should contain the streamed text.
     assert "Hello " in result.output
     assert "world" in result.output
+
+
+# ── close command (D89 — S4.T1) ──────────────────────────────────────────
+
+
+def test_close_happy(runner: CliRunner, install_mock) -> None:
+    """`session close` POSTs to /v1/sessions/{id}/close and renders status."""
+    captured: dict = {}
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        captured["method"] = req.method
+        captured["url_path"] = req.url.path
+        return json_response(
+            200,
+            {"session_id": "sess_close1", "status": "closed"},
+        )
+
+    install_mock(handler)
+    result = runner.invoke(cli_main.app, ["session", "close", "sess_close1"])
+    assert result.exit_code == 0, result.stdout + result.stderr
+    assert captured["method"] == "POST"
+    assert captured["url_path"] == "/v1/sessions/sess_close1/close"
+    assert "sess_close1" in result.stdout
+    assert "closed" in result.stdout
+
+
+def test_close_not_found(runner: CliRunner, install_mock) -> None:
+    """404 from L4 → exit code 2 (4xx client error per ServiceClient taxonomy)."""
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return json_response(
+            404,
+            {"detail": {"code": "session_not_found", "session_id": "sess_missing"}},
+        )
+
+    install_mock(handler)
+    result = runner.invoke(cli_main.app, ["session", "close", "sess_missing"])
+    assert result.exit_code == 2
+    assert "404 client error" in result.stderr
+
+
+def test_close_invalid_state(runner: CliRunner, install_mock) -> None:
+    """409 (already-closed / invalid transition) → exit code 2 with detail surfaced."""
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        return json_response(
+            409,
+            {
+                "detail": {
+                    "code": "invalid_state_transition",
+                    "session_id": "sess_done",
+                    "current": "closed",
+                    "target": "closed",
+                }
+            },
+        )
+
+    install_mock(handler)
+    result = runner.invoke(cli_main.app, ["session", "close", "sess_done"])
+    assert result.exit_code == 2
+    assert "409 client error" in result.stderr
