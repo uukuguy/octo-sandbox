@@ -159,6 +159,94 @@ fn parse_threshold_calibration_example_skill() {
         .any(|d| d.contains("eaasp-l2-memory")));
 }
 
+#[test]
+fn parse_skill_extraction_example_skill() {
+    // Read the example skill file and split frontmatter from prose.
+    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../examples/skills/skill-extraction/SKILL.md");
+    let content = std::fs::read_to_string(&path)
+        .unwrap_or_else(|e| panic!("failed to read {}: {e}", path.display()));
+
+    // Strip the --- frontmatter delimiters the same way store.rs does.
+    assert!(
+        content.starts_with("---\n"),
+        "SKILL.md must start with frontmatter"
+    );
+    let rest = &content[4..];
+    let end_idx = rest
+        .find("\n---\n")
+        .expect("SKILL.md must close frontmatter with ---");
+    let frontmatter_yaml = &rest[..end_idx + 1];
+
+    let fm = parse_v2_frontmatter(frontmatter_yaml)
+        .expect("skill-extraction frontmatter must parse");
+
+    assert_eq!(fm.name.as_deref(), Some("skill-extraction"));
+    assert_eq!(fm.version.as_deref(), Some("0.1.0"));
+    assert_eq!(fm.access_scope.as_deref(), Some("org:eaasp-mvp"));
+    assert_eq!(
+        fm.runtime_affinity.preferred.as_deref(),
+        Some("grid-runtime")
+    );
+    assert!(fm
+        .runtime_affinity
+        .compatible
+        .contains(&"grid-runtime".to_string()));
+    assert!(fm
+        .runtime_affinity
+        .compatible
+        .contains(&"claude-code-runtime".to_string()));
+
+    // Scoped hooks: 0 pre + 1 post (verify_skill_draft) + 1 stop (check_final_output)
+    assert_eq!(fm.scoped_hooks.pre_tool_use.len(), 0);
+    assert_eq!(fm.scoped_hooks.post_tool_use.len(), 1);
+    assert_eq!(fm.scoped_hooks.post_tool_use[0].name, "verify_skill_draft");
+    match &fm.scoped_hooks.post_tool_use[0].body {
+        ScopedHookBody::Command { command } => {
+            assert!(command.contains("verify_skill_draft.sh"));
+        }
+        _ => panic!("PostToolUse[0] must be a command hook"),
+    }
+
+    assert_eq!(fm.scoped_hooks.stop.len(), 1);
+    assert_eq!(fm.scoped_hooks.stop[0].name, "check_final_output");
+    match &fm.scoped_hooks.stop[0].body {
+        ScopedHookBody::Command { command } => {
+            assert!(command.contains("check_final_output.sh"));
+        }
+        _ => panic!("Stop[0] must be a command hook"),
+    }
+
+    // Verify workflow.required_tools contains exactly the four tools the agent
+    // actually invokes. skill_submit_draft is intentionally excluded: submission
+    // to skill-registry is a human-gated step (MVP_SCOPE N14) and listing it
+    // here would trap D87 continuation logic into forcing an unreachable call.
+    assert!(fm.workflow.is_some());
+    let workflow = fm.workflow.unwrap();
+    assert_eq!(workflow.required_tools.len(), 4);
+    assert!(workflow.required_tools.contains(&"memory_search".to_string()));
+    assert!(workflow.required_tools.contains(&"memory_read".to_string()));
+    assert!(workflow
+        .required_tools
+        .contains(&"memory_write_anchor".to_string()));
+    assert!(workflow
+        .required_tools
+        .contains(&"memory_write_file".to_string()));
+
+    // Verify dependencies: both eaasp-l2-memory (tool MCP) and eaasp-skill-registry
+    // (soft intent declaration — draft output is destined for the registry even
+    // though this skill never calls it directly).
+    assert_eq!(fm.dependencies.len(), 2);
+    assert!(fm
+        .dependencies
+        .iter()
+        .any(|d| d.contains("eaasp-l2-memory")));
+    assert!(fm
+        .dependencies
+        .iter()
+        .any(|d| d.contains("eaasp-skill-registry")));
+}
+
 // ─── Integration tests ──────────────────────────────────────────────────────
 
 async fn build_test_app() -> (axum::Router, tempfile::TempDir) {
