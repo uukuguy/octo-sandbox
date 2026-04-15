@@ -32,7 +32,7 @@
       ],
       "next_task": "S4.T1 (D89 — CLI eaasp session close 子命令) — S4 unlocked, batch C CLI+E2E starts",
       "last_updated": "2026-04-15T17:30:00+08:00",
-      "commits_so_far": ["bdc4fd5", "c0f98f9", "8a738b1", "9870342", "4001de2", "8b532cb", "bdc5b8b", "d0e6cb0", "c6d7b89", "15da7ae", "2f48bb7", "1cb6446", "262d28d", "220f53e", "bd7545d", "bad4269", "794fb98", "27de415", "c2b5307", "a209716", "PENDING-S3.T5"]
+      "commits_so_far": ["bdc4fd5", "c0f98f9", "8a738b1", "9870342", "4001de2", "8b532cb", "bdc5b8b", "d0e6cb0", "c6d7b89", "15da7ae", "2f48bb7", "1cb6446", "262d28d", "220f53e", "bd7545d", "bad4269", "794fb98", "27de415", "c2b5307", "a209716", "7cb48eb"]
     }
   ],
   "suspended_phases": [],
