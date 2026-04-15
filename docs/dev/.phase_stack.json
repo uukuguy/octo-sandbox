@@ -6,13 +6,13 @@
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "plan": "docs/plans/2026-04-14-v2-phase2-plan.md",
-      "progress": "22/23",
+      "progress": "23/23",
       "stages": [
         "S0 ADR ✅",
         "S1 Runtime Fixes ✅ 7/7",
         "S2 L2 Memory + tool-result truncation ✅ 5/5",
         "S3 PreCompact + Skill Extraction + Stop hooks + Scoped executor ✅ 5/5",
-        "S4 CLI+E2E + thread-scoped interrupt 3/4 (T1 ✅ T2 ✅ T3 ✅)"
+        "S4 CLI+E2E + thread-scoped interrupt ✅ 4/4 (T1 ✅ T2 ✅ T3 ✅ T4 ✅)"
       ],
       "first_task": "S0.T1 ADR-V2-015 semantic 检索选型",
       "completed_tasks": [
@@ -37,10 +37,13 @@
         "S3.T5 (Scoped-hook executor — ADR-V2-006 envelope contract + Rust G1 substitute_hook_vars wiring + Rust G7 ScopedStopHookBridge + Python ScopedCommandExecutor subprocess path + Python substitution wiring + 10 new tests. 9 files changed (+1700 LOC across ADR/Rust-harness/Rust-bridge/Python-executor/Python-service/4-rust-integration-tests/6-python-integration-tests). Rust: 107+2323 PASS, 0 regressions. Python: 104+6 PASS, 0 new regressions (1 pre-existing D110). Scope: D50 deferred→D117, D51+D53 closed. Reviewer APPROVE-WITH-COMMENTS 0 Criticals, 3 Majors all deferred (D120 cross-runtime envelope parity / D121 stop-hook additive / D122 hook_id drift) + N1 inline-fixed. Key design lessons: (1) Rust execute_command + HookContext predates ADR-V2-006 and omits event/skill_id/* fields → D120 catchup for Phase 2.5 goose cert; (2) Python dispatch helpers extracted per-event to avoid 3x duplication; (3) DashMap for session_stop_hooks matches existing AgentRuntime concurrency pattern; (4) build_and_spawn_executor_filtered is sync → DashMap is the right primitive vs tokio::sync::RwLock. RuFlo swarm-1776243400662 hierarchical: scout (Explore) blueprint /tmp/s3t5-blueprint.md 698 lines → T5.A-E sequenced coders → reviewer APPROVE. Plan 19/23)",
         "S4.T1 (D89 closed — CLI session close + 3 tests)",
         "S4.T2 (D84 closed — CLI events --follow + L4 SSE endpoint + 6 tests)",
-        "S4.T3 (automated acceptance gate + runtime runbook — 4 deliverables / +1404 LOC: verify-v2-phase2.sh 363 LOC + verify-v2-phase2.py 621 LOC / 14 @assertions + s4t3-runtime-verification.sh 398 LOC + Makefile +22 LOC / 4 new targets. Pattern-faithful to MVP harness with 2 deliberate inversions: SKIP_RUNTIMES=true default + WITH_BUILD=false default. A10 SKIP_RUNTIMES-guarded because /v1/sessions/create needs grid-runtime gRPC. Reviewer REQUEST-CHANGES → C1 (A10 502)+M1 (skill-registry binary check)+M4 (A13 comment)+N1 (chmod 755) inline-fixed. Runtime 6-step × 2 runtimes deferred to human runbook per ADR-V2-017. @ a5101d5)"
+        "S4.T3 (automated acceptance gate + runtime runbook — 4 deliverables / +1404 LOC: verify-v2-phase2.sh 363 LOC + verify-v2-phase2.py 621 LOC / 14 @assertions + s4t3-runtime-verification.sh 398 LOC + Makefile +22 LOC / 4 new targets. Pattern-faithful to MVP harness with 2 deliberate inversions: SKIP_RUNTIMES=true default + WITH_BUILD=false default. A10 SKIP_RUNTIMES-guarded because /v1/sessions/create needs grid-runtime gRPC. Reviewer REQUEST-CHANGES → C1 (A10 502)+M1 (skill-registry binary check)+M4 (A13 comment)+N1 (chmod 755) inline-fixed. Runtime 6-step × 2 runtimes deferred to human runbook per ADR-V2-017. @ a5101d5)",
+        "S4.T4 (thread-scoped interrupt — SessionInterruptRegistry Arc<DashMap<SessionId, CancellationToken>> + THREAD_SCOPED compile-time lockdown + AgentRuntime::cancel_session dual-path + clone-handle-out-of-guard-before-await + tracing::debug! send-Err; 8 files / +149/-3 / 7 unit + 5 integration + 24 regression ALL PASS; two-stage RuFlo spec APPROVE-WITH-COMMENTS C1+M1+M2 inline-fixed + quality APPROVE-WITH-COMMENTS M1+M2+N2 inline-fixed; D131/D132/D133 closed inline + D130 filed for Phase 2.5 consolidation; Phase 2 23/23 CLOSES. @ f4bf9ad)"
       ],
-      "next_task": "S4.T4 (thread-scoped interrupt — hermes 模式，per-session CancelToken)",
-      "last_updated": "2026-04-15T22:50:00+08:00",
+      "next_task": null,
+      "completed_at": "2026-04-16T03:00:00+08:00",
+      "last_updated": "2026-04-16T03:00:00+08:00",
+      "s4t4_completion": "2026-04-16 @ f4bf9ad — thread-scoped interrupt closes Phase 2 23/23. SessionInterruptRegistry Arc<DashMap<SessionId, CancellationToken>> + THREAD_SCOPED compile-time lockdown + AgentRuntime::cancel_session(sid) dual-path (registry flag + AgentMessage::Cancel channel — latter is authoritative mid-turn interrupt reaching executor.cancel_token via harness.rs:642/1687). 8 files / +149/-3 / 7 unit + 5 integration + 24 regression ALL PASS. Two-stage RuFlo review: spec APPROVE-WITH-COMMENTS C1+M1+M2 inline-fixed (scope-bleed via surgical xargs git checkout HEAD reset of 169-file pre-existing cargo fmt drift mirrors S2.T5 discipline; pub const THREAD_SCOPED + module-level const _: () = assert!(); #[doc(hidden)] pub get_session_cancel_token) then quality APPROVE-WITH-COMMENTS M1+M2+N2 inline-fixed (DashMap-Ref-across-await clone-out-of-guard matching runtime_lifecycle.rs:55-63; clippy::assertions_on_constants → compile-time const assert; tracing::debug! on send-Err). clippy -D warnings clean on scoped files. D131/D132/D133 candidates all closed inline. D130 filed (session-lifetime vs per-turn cancel token consolidation → Phase 2.5, P1-defer).",
       "s4t3_live_validation": "2026-04-15 @ 9a756be — make v2-phase2-e2e default 14/14 PASS from port-free state. 4 services (L2/L3/L4/skill-registry) up in ~1s each, A10 SKIP_RUNTIMES guard correctly skip-with-note, ports clean post-teardown. C1+M1+M4+N1 fixes proven in real execution. D129 filed (trap cleanup sweeps external ports on pre-flight fail, local-dev ergonomics only).",
       "commits_so_far": [
         "bdc4fd5",
@@ -72,7 +75,8 @@
         "a5101d5",
         "c484f64",
         "d5be5f9",
-        "9a756be"
+        "9a756be",
+        "f4bf9ad"
       ]
     }
   ],
