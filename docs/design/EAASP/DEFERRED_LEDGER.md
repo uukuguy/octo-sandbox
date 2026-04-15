@@ -224,7 +224,7 @@
 | **D86** | claude-code-runtime SDK wrapper 丢 `ToolResultBlock` | ✅ closed 2026-04-14 | S1.T3 @ `d0e6cb0` |
 | **D87** 🚨 | grid-engine agent loop 多步工作流过早终止 | ✅ closed 2026-04-14 | ADR-V2-016 · `bdc4fd5`/`c0f98f9`/`8a738b1` · Multi-model E2E |
 | **D88** 🚨 | hermes-runtime stdio MCP 缺失 | ⏸️ frozen / superseded | ADR-V2-017 → Phase 2.5 goose |
-| **D89** | CLI `session close` 未实现 | 🔥 P0-active | **S4.T1** |
+| **D89** | CLI `session close` 未实现 | ✅ closed 2026-04-15 | S4.T1 @ `28e6b21` |
 | **D90** | `ServerMessage::ToolResult` WS schema 缺 `tool_name` 字段（grid-server + grid-platform） | 🟡 P1-defer | 下游 TS 类型级联改造，衍生自 D83。前置条件：frontend workbench/platform UI 决定是否需要工具名显示。目前 CLI / L4 gRPC 已有 tool_name；仅 WS 端丢失 |
 | **D91** | HNSW 软删 tombstone rebuild 策略 | 🟡 P1-defer | `mark_deleted` 标签单调累积；达到 N% 删除率后索引膨胀/搜索延迟劣化。需要触发阈值（建议 30%）+ 后台 compaction 任务。衍生自 S2.T1 → **Phase 2.5** |
 | **D92** | MockEmbedding 64-bit seed 碰撞审查 | 🔵 P3-defer | SHA-256(text)[:8] 生日碰撞约 2^32。测试场景可接受；若被误用于 staging，两条不同文本可能撞同向量。加宽到完整 32-byte digest 或明确标注 "tests-only"。衍生自 S2.T1 → **Phase 3 GA 前** |

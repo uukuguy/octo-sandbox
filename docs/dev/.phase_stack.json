@@ -6,8 +6,14 @@
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "plan": "docs/plans/2026-04-14-v2-phase2-plan.md",
-      "progress": "19/23",
-      "stages": ["S0 ADR ✅", "S1 Runtime Fixes ✅ 7/7", "S2 L2 Memory + tool-result truncation ✅ 5/5", "S3 PreCompact + Skill Extraction + Stop hooks + Scoped executor ✅ 5/5", "S4 CLI+E2E + thread-scoped interrupt (批次 C)"],
+      "progress": "20/23",
+      "stages": [
+        "S0 ADR ✅",
+        "S1 Runtime Fixes ✅ 7/7",
+        "S2 L2 Memory + tool-result truncation ✅ 5/5",
+        "S3 PreCompact + Skill Extraction + Stop hooks + Scoped executor ✅ 5/5",
+        "S4 CLI+E2E + thread-scoped interrupt 1/4 (T1 ✅)"
+      ],
       "first_task": "S0.T1 ADR-V2-015 semantic 检索选型",
       "completed_tasks": [
         "S0.T1 (ADR-V2-015 Accepted)",
@@ -28,11 +34,35 @@
         "S3.T2 (Skill Extraction meta-skill — examples/skills/skill-extraction/{SKILL.md,hooks/} + Rust parser test; 4 required_tools 排除 skill_submit_draft 避开 D87 trap; reviewer C1+M1+M2+M3 inline-fixed; 10/10 PASS @ 27de415)",
         "S3.T3 (Skill Extraction E2E — Hybrid B1 deterministic fixture replay; 6-event TOOL_RESULT fixture + 12 pytest tests covering hook 3-way guard + workflow replay + N14 honeypot; reviewer M1+M2+M3 inline-fixed; 12/12 PASS in 0.15s, ruff clean, lock test unchanged @ c2b5307)",
         "S3.T4 (Stop hooks extension claude-code style — stop_hooks.rs 261 LOC + stop_hooks_integration.rs 404 LOC + harness.rs/loop_config.rs/mod.rs surgical mods; 5 files 747 insertions; StopHookDecision::{Noop, InjectAndContinue} + dispatch 'first decisive verdict' + MAX_STOP_HOOK_INJECTIONS=3 cap; death-spiral prevention across 14 error return paths watertight; reviewer M2 inline-fixed M1+N1→D114/D115/D116; 4+4 PASS + 11 regressions PASS @ a209716)",
-        "S3.T5 (Scoped-hook executor — ADR-V2-006 envelope contract + Rust G1 substitute_hook_vars wiring + Rust G7 ScopedStopHookBridge + Python ScopedCommandExecutor subprocess path + Python substitution wiring + 10 new tests. 9 files changed (+1700 LOC across ADR/Rust-harness/Rust-bridge/Python-executor/Python-service/4-rust-integration-tests/6-python-integration-tests). Rust: 107+2323 PASS, 0 regressions. Python: 104+6 PASS, 0 new regressions (1 pre-existing D110). Scope: D50 deferred→D117, D51+D53 closed. Reviewer APPROVE-WITH-COMMENTS 0 Criticals, 3 Majors all deferred (D120 cross-runtime envelope parity / D121 stop-hook additive / D122 hook_id drift) + N1 inline-fixed. Key design lessons: (1) Rust execute_command + HookContext predates ADR-V2-006 and omits event/skill_id/* fields → D120 catchup for Phase 2.5 goose cert; (2) Python dispatch helpers extracted per-event to avoid 3x duplication; (3) DashMap for session_stop_hooks matches existing AgentRuntime concurrency pattern; (4) build_and_spawn_executor_filtered is sync → DashMap is the right primitive vs tokio::sync::RwLock. RuFlo swarm-1776243400662 hierarchical: scout (Explore) blueprint /tmp/s3t5-blueprint.md 698 lines → T5.A-E sequenced coders → reviewer APPROVE. Plan 19/23)"
+        "S3.T5 (Scoped-hook executor — ADR-V2-006 envelope contract + Rust G1 substitute_hook_vars wiring + Rust G7 ScopedStopHookBridge + Python ScopedCommandExecutor subprocess path + Python substitution wiring + 10 new tests. 9 files changed (+1700 LOC across ADR/Rust-harness/Rust-bridge/Python-executor/Python-service/4-rust-integration-tests/6-python-integration-tests). Rust: 107+2323 PASS, 0 regressions. Python: 104+6 PASS, 0 new regressions (1 pre-existing D110). Scope: D50 deferred→D117, D51+D53 closed. Reviewer APPROVE-WITH-COMMENTS 0 Criticals, 3 Majors all deferred (D120 cross-runtime envelope parity / D121 stop-hook additive / D122 hook_id drift) + N1 inline-fixed. Key design lessons: (1) Rust execute_command + HookContext predates ADR-V2-006 and omits event/skill_id/* fields → D120 catchup for Phase 2.5 goose cert; (2) Python dispatch helpers extracted per-event to avoid 3x duplication; (3) DashMap for session_stop_hooks matches existing AgentRuntime concurrency pattern; (4) build_and_spawn_executor_filtered is sync → DashMap is the right primitive vs tokio::sync::RwLock. RuFlo swarm-1776243400662 hierarchical: scout (Explore) blueprint /tmp/s3t5-blueprint.md 698 lines → T5.A-E sequenced coders → reviewer APPROVE. Plan 19/23)",
+        "S4.T1 (D89 closed — CLI session close + 3 tests)"
       ],
-      "next_task": "S4.T1 (D89 — CLI eaasp session close 子命令) — S4 unlocked, batch C CLI+E2E starts",
-      "last_updated": "2026-04-15T17:30:00+08:00",
-      "commits_so_far": ["bdc4fd5", "c0f98f9", "8a738b1", "9870342", "4001de2", "8b532cb", "bdc5b8b", "d0e6cb0", "c6d7b89", "15da7ae", "2f48bb7", "1cb6446", "262d28d", "220f53e", "bd7545d", "bad4269", "794fb98", "27de415", "c2b5307", "a209716", "7cb48eb"]
+      "next_task": "S4.T2 (D84 — CLI eaasp session events --follow SSE)",
+      "last_updated": "2026-04-15T19:10:00+08:00",
+      "commits_so_far": [
+        "bdc4fd5",
+        "c0f98f9",
+        "8a738b1",
+        "9870342",
+        "4001de2",
+        "8b532cb",
+        "bdc5b8b",
+        "d0e6cb0",
+        "c6d7b89",
+        "15da7ae",
+        "2f48bb7",
+        "1cb6446",
+        "262d28d",
+        "220f53e",
+        "bd7545d",
+        "bad4269",
+        "794fb98",
+        "27de415",
+        "c2b5307",
+        "a209716",
+        "7cb48eb",
+        "28e6b21"
+      ]
     }
   ],
   "suspended_phases": [],
@@ -41,81 +71,215 @@
       "name": "Phase BI — hermes-runtime: Grid L1 T2 Aligned Runtime",
       "completed_at": "2026-04-09T21:30:00+08:00",
       "progress": "100%",
-      "commits": ["ed8caf9", "8ce6151", "9bd5eb1", "82b8695", "16032af", "083d806", "db0f2d5", "4b5604a", "1a21cfc"],
+      "commits": [
+        "ed8caf9",
+        "8ce6151",
+        "9bd5eb1",
+        "82b8695",
+        "16032af",
+        "083d806",
+        "db0f2d5",
+        "4b5604a",
+        "1a21cfc"
+      ],
       "tasks": "6/6 (W1: skeleton+config ✅, W2: proto+session ✅, W3: governance plugin ✅, W4: adapter+mapper ✅, W5: 16-method service ✅, W6: Dockerfile+Makefile ✅)",
       "tests": "12 new (Python)",
-      "deferred": ["HR-D1", "HR-D2", "HR-D3", "HR-D4", "HR-D5", "HR-D6", "HR-D7", "HR-D8", "HR-D9", "HR-D10"],
+      "deferred": [
+        "HR-D1",
+        "HR-D2",
+        "HR-D3",
+        "HR-D4",
+        "HR-D5",
+        "HR-D6",
+        "HR-D7",
+        "HR-D8",
+        "HR-D9",
+        "HR-D10"
+      ],
       "extras": "Post-phase: MockAgent fallback, Cargo workspace fix, Docker build fixes, Makefile verify targets"
     },
     {
       "name": "Phase BH-MVP — E2E 业务智能体全流程验证",
       "completed_at": "2026-04-07T23:30:00+08:00",
       "progress": "100%",
-      "commits": ["1493259", "821bc80", "8a8b014", "76fd05b", "51faa75", "430bd0a", "1124c62", "a95844c", "5ce0f8b"],
+      "commits": [
+        "1493259",
+        "821bc80",
+        "8a8b014",
+        "76fd05b",
+        "51faa75",
+        "430bd0a",
+        "1124c62",
+        "a95844c",
+        "5ce0f8b"
+      ],
       "tasks": "7/7 + D3/D5/D10 (W1: 策略DSL ✅, W2: L3 API ✅, W3: L4四平面 ✅, W4: SDK run ✅, W5: E2E tests ✅, W6: HR audit ✅, W7: Makefile ✅)",
       "tests": "71 new (33 L3 + 10 L4 + 8 SDK + 20 E2E)",
-      "deferred": ["BH-D1", "BH-D2", "BH-D4", "BH-D6", "BH-D7", "BH-D8", "BH-D9", "BH-D11", "BH-D12"],
+      "deferred": [
+        "BH-D1",
+        "BH-D2",
+        "BH-D4",
+        "BH-D6",
+        "BH-D7",
+        "BH-D8",
+        "BH-D9",
+        "BH-D11",
+        "BH-D12"
+      ],
       "extras": "EAASP v1.8 Architecture Blueprint (5ce0f8b)"
     },
     {
       "name": "Phase BG — Enterprise SDK 基石",
       "completed_at": "2026-04-07T12:35:00+08:00",
       "progress": "100%",
-      "commits": ["cca61bb", "12e795f", "bd17aa5", "a8f4cf0", "ea0780c", "4e82439"],
+      "commits": [
+        "cca61bb",
+        "12e795f",
+        "bd17aa5",
+        "a8f4cf0",
+        "ea0780c",
+        "4e82439"
+      ],
       "tasks": "6/6 (W1: specs+models ✅, W2: authoring ✅, W3: GridCliSandbox ✅, W4: RuntimeSandbox ✅, W5: CLI+example ✅, W6: docs+Makefile ✅)",
       "tests": "107 new (Python SDK)",
-      "deferred": ["BG-D1", "BG-D2", "BG-D3", "BG-D4", "BG-D5", "BG-D6", "BG-D7", "BG-D8", "BG-D9", "BG-D10"]
+      "deferred": [
+        "BG-D1",
+        "BG-D2",
+        "BG-D3",
+        "BG-D4",
+        "BG-D5",
+        "BG-D6",
+        "BG-D7",
+        "BG-D8",
+        "BG-D9",
+        "BG-D10"
+      ]
     },
     {
       "name": "Phase BF — L2 技能资产层 + L1 抽象机制",
       "completed_at": "2026-04-07T04:40:00+08:00",
       "progress": "100%",
-      "commits": ["1a54f95", "9e8bac5", "9e982e0", "b6af473", "59bb58e", "0a929ad", "ff5ad56"],
+      "commits": [
+        "1a54f95",
+        "9e8bac5",
+        "9e982e0",
+        "b6af473",
+        "59bb58e",
+        "0a929ad",
+        "ff5ad56"
+      ],
       "tasks": "7/7 (W1: proto v1.3 ✅, W2: Skill Registry ✅, W3: MCP Orchestrator ✅, W4: L1-L2 集成 ✅, W5: RuntimeSelector ✅, W6: 盲盒 ✅, W7: 设计文档 ✅)",
       "tests": "30 new",
-      "deferred": ["BF-D1", "BF-D2", "BF-D3", "BF-D4", "BF-D5", "BF-D6", "BF-D7", "BF-D8", "BF-D9", "BF-D10"]
+      "deferred": [
+        "BF-D1",
+        "BF-D2",
+        "BF-D3",
+        "BF-D4",
+        "BF-D5",
+        "BF-D6",
+        "BF-D7",
+        "BF-D8",
+        "BF-D9",
+        "BF-D10"
+      ]
     },
     {
       "name": "Phase BE — EAASP 协议层 + 第二个 L1 Runtime",
       "completed_at": "2026-04-06T20:30:00+08:00",
       "progress": "100%",
-      "commits": ["b5d7e54", "c6fdb68", "40a231e", "5eba80a", "2958f37", "bf1daab", "bd2c967", "7ffb37c"],
+      "commits": [
+        "b5d7e54",
+        "c6fdb68",
+        "40a231e",
+        "5eba80a",
+        "2958f37",
+        "bf1daab",
+        "bd2c967",
+        "7ffb37c"
+      ],
       "tasks": "6/6 (W1: proto refactor ✅, W2: hook-bridge ✅, W3: certifier ✅, W4: Python skeleton ✅, W5: hooks+telemetry ✅, W6: verification+Docker ✅)",
       "tests": "54 Rust + 39 Python = 93",
-      "deferred": ["BE-D1", "BE-D3", "BE-D4", "BE-D5", "BE-D7", "BE-D8", "BE-D9", "BE-D10"]
+      "deferred": [
+        "BE-D1",
+        "BE-D3",
+        "BE-D4",
+        "BE-D5",
+        "BE-D7",
+        "BE-D8",
+        "BE-D9",
+        "BE-D10"
+      ]
     },
     {
       "name": "Phase BD — grid-runtime (EAASP L1)",
       "completed_at": "2026-04-06T16:00:00+08:00",
       "progress": "100%",
-      "commits": ["02dfa82", "f8b8e3d", "3834fd9", "d85794d", "ae4b337"],
+      "commits": [
+        "02dfa82",
+        "f8b8e3d",
+        "3834fd9",
+        "d85794d",
+        "ae4b337"
+      ],
       "tasks": "6/6 (W1: crate+proto ✅, W2: harness ✅, W3: gRPC server ✅, W4: telemetry ✅, W5: certifier tests ✅, W6: Dockerfile ✅)",
       "tests": 37,
-      "deferred": ["BD-D1", "BD-D2", "BD-D3", "BD-D4", "BD-D5", "BD-D6", "BD-D7"]
+      "deferred": [
+        "BD-D1",
+        "BD-D2",
+        "BD-D3",
+        "BD-D4",
+        "BD-D5",
+        "BD-D6",
+        "BD-D7"
+      ]
     },
     {
       "name": "Phase BC — TUI Deferred Items 补齐",
       "completed_at": "2026-04-04T21:10:00+08:00",
       "progress": "100%",
-      "commits": ["41a0fcf"],
+      "commits": [
+        "41a0fcf"
+      ],
       "tasks": "5/5",
       "tests": 499,
-      "deferred": ["BC-D1", "BC-D2", "BC-D3"]
+      "deferred": [
+        "BC-D1",
+        "BC-D2",
+        "BC-D3"
+      ]
     },
     {
       "name": "Phase BB — TUI 视觉升级",
       "completed_at": "2026-04-04T17:45:00+08:00",
       "progress": "100%",
-      "commits": ["4f5159a", "9b61990", "04a5f3b"],
+      "commits": [
+        "4f5159a",
+        "9b61990",
+        "04a5f3b"
+      ],
       "tasks": "11/11",
       "tests": 499,
-      "deferred": ["BB-D1", "BB-D2", "BB-D3", "BB-D4"]
+      "deferred": [
+        "BB-D1",
+        "BB-D2",
+        "BB-D3",
+        "BB-D4"
+      ]
     },
     {
       "name": "Phase BA — Octo to Grid",
       "completed_at": "2026-04-04T16:00:00+08:00",
       "progress": "100%",
-      "commits": ["9432e1e", "f5ca284", "c136dec", "a50d2a9", "dd0200f", "13678ff", "39de430", "4d1d7fe"],
+      "commits": [
+        "9432e1e",
+        "f5ca284",
+        "c136dec",
+        "a50d2a9",
+        "dd0200f",
+        "13678ff",
+        "39de430",
+        "4d1d7fe"
+      ],
       "tasks": "11/11",
       "tests": 496,
       "deferred": []
