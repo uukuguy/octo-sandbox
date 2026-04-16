@@ -12,12 +12,12 @@ Per ADR-V2-006:
   ``GRID_TOOL_NAME``, ``GRID_SKILL_ID``, ``GRID_EVENT``.
 
 Python runtime (claude-code-runtime) is already compliant — verified in
-Phase 2 S3.T5. Rust runtime (grid-runtime) is NOT — closing that gap is
-D120 / S0.T3.
+Phase 2 S3.T5. Rust runtime (grid-runtime) has envelope-mode support
+via `HookContext::with_event` (S0.T3 / D120). S0.T4 wires the tests
+against a real probe-skill subprocess.
 
-RED policy: every case xfails via the hook-envelope capture fixtures
-in ``conftest.py`` until S0.T4 wires real bash-hook fixtures that echo
-stdin+env to a temp file.
+If the probe-skill does not fire an expected hook for this runtime, the
+test xfails with D136 rather than falsely passing.
 """
 
 from __future__ import annotations
