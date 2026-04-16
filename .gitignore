@@ -49,6 +49,12 @@ data-platform/*.db-wal
 eval_output/
 .octo/
 
-# Root-level temp tests only (crates/*/tests/ are real integration tests, must be committed)
-/tests/
+# Root-level temp tests only (crates/*/tests/ are real integration tests, must be committed).
+# Exception: tests/contract/ is the EAASP v2.0 cross-runtime contract suite
+# (Phase 2.5 S0, ADR-V2-017). Listing excluded subpaths individually so that
+# tests/contract/ stays tracked (git cannot re-include under a wildcard-excluded parent).
+/tests/*
+!/tests/contract/
 tests/e2e/__pycache__/
+tests/contract/**/__pycache__/
+tests/contract/.pytest_cache/

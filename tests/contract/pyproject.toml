@@ -1,0 +1,29 @@
+[project]
+name = "contract-harness"
+version = "0.1.0"
+description = "EAASP v2.0 cross-runtime contract-v1 test suite harness"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+    "httpx>=0.27",
+    "pydantic>=2.0",
+    "grpcio>=1.70.0",
+    "grpcio-tools>=1.70.0",
+    "protobuf>=5.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+# Tests import via ``tests.contract.harness.*`` — need repo root on sys.path.
+# Invocation from repo root (``pytest tests/contract``) resolves this.
+pythonpath = ["../.."]
+markers = [
+    "contract_v1: frozen contract-v1 cross-runtime assertion (see ADR-V2-017 §2)",
+]
