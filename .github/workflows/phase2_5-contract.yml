@@ -1,0 +1,76 @@
+name: Phase 2.5 Contract Matrix
+
+on:
+  pull_request:
+    paths:
+      - 'crates/eaasp-goose-runtime/**'
+      - 'lang/nanobot-runtime-python/**'
+      - 'tests/contract/**'
+      - 'crates/grid-runtime/**'
+      - 'lang/claude-code-runtime-python/**'
+      - 'crates/grid-engine/src/hooks/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'tests/contract/**'
+
+jobs:
+  contract:
+    name: Contract v1 — ${{ matrix.runtime }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [grid, claude-code, goose, nanobot]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Rust toolchain
+        if: matrix.runtime == 'grid' || matrix.runtime == 'goose'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        if: matrix.runtime == 'grid' || matrix.runtime == 'goose'
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install contract test dependencies
+        run: make v2-phase2_5-ci-setup
+
+      - name: Build runtime binary (grid)
+        if: matrix.runtime == 'grid'
+        run: cargo build -p grid-runtime --bin grid-runtime
+
+      - name: Build runtime binary (goose)
+        if: matrix.runtime == 'goose'
+        run: cargo build -p eaasp-goose-runtime --bin eaasp-goose-runtime
+        env:
+          GOOSE_BIN: ''
+
+      - name: Set up Python runtime (claude-code)
+        if: matrix.runtime == 'claude-code'
+        run: |
+          cd lang/claude-code-runtime-python
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Set up Python runtime (nanobot)
+        if: matrix.runtime == 'nanobot'
+        run: |
+          cd lang/nanobot-runtime-python
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Run contract v1
+        run: make v2-phase2_5-contract-${{ matrix.runtime }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_MODEL_NAME: ${{ secrets.OPENAI_MODEL_NAME }}

@@ -1056,3 +1056,32 @@ eaasp-mcp-resolve:
 	@curl -s -X POST http://127.0.0.1:18082/v1/mcp/resolve \
 		-H "Content-Type: application/json" \
 		-d '{"dependencies": ["mcp:mock-scada", "mcp:eaasp-l2-memory"]}' | python3 -m json.tool
+
+# ── Phase 2.5 Contract Gate ──────────────────────────────────────────────────
+.PHONY: v2-phase2_5-e2e v2-phase2_5-contract-grid v2-phase2_5-contract-cc \
+        v2-phase2_5-contract-goose v2-phase2_5-contract-nanobot \
+        v2-phase2_5-ci-setup
+
+## Install contract test dependencies (Python)
+v2-phase2_5-ci-setup:
+	pip install grpcio grpcio-tools pytest pytest-asyncio httpx uvicorn fastapi
+
+## Run contract v1 against grid-runtime
+v2-phase2_5-contract-grid:
+	cd tests/contract && python -m pytest contract_v1/ --runtime=grid -v
+
+## Run contract v1 against claude-code-runtime
+v2-phase2_5-contract-cc:
+	cd tests/contract && python -m pytest contract_v1/ --runtime=claude-code -v
+
+## Run contract v1 against eaasp-goose-runtime (skips if goose binary absent)
+v2-phase2_5-contract-goose:
+	cd tests/contract && python -m pytest contract_v1/ --runtime=goose -v
+
+## Run contract v1 against nanobot-runtime (skips if venv absent)
+v2-phase2_5-contract-nanobot:
+	cd tests/contract && python -m pytest contract_v1/ --runtime=nanobot -v
+
+## Run all 4 runtime contracts (Phase 2.5 full gate)
+v2-phase2_5-e2e: v2-phase2_5-contract-grid v2-phase2_5-contract-cc v2-phase2_5-contract-goose v2-phase2_5-contract-nanobot
+	@echo "✅ Phase 2.5 automated gate PASS (4 runtimes × contract v1)"

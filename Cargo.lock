@@ -2107,9 +2107,12 @@ name = "eaasp-goose-runtime"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "eaasp-scoped-hook-mcp",
  "prost",
+ "serde_json",
  "tokio",
+ "tokio-stream",
  "tonic",
  "tonic-build",
  "tracing",
@@ -2144,8 +2147,11 @@ dependencies = [
  "anyhow",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
+ "tokio-stream",
  "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
