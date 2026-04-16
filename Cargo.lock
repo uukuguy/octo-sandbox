@@ -2103,6 +2103,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "eaasp-goose-runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "eaasp-scoped-hook-mcp",
+ "prost",
+ "tokio",
+ "tonic",
+ "tonic-build",
+ "tracing",
+ "uuid",
+]
+
+[[package]]
 name = "eaasp-mcp-orchestrator"
 version = "0.1.0"
 dependencies = [
@@ -2119,6 +2133,17 @@ dependencies = [
  "tower-http",
  "tracing",
  "tracing-subscriber",
+]
+
+[[package]]
+name = "eaasp-scoped-hook-mcp"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

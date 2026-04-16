@@ -1,0 +1,20 @@
+[package]
+name = "eaasp-goose-runtime"
+edition.workspace = true
+version.workspace = true
+description = "EAASP L1 runtime adapter for block/goose (Outcome B: subprocess via ACP/MCP)"
+
+[dependencies]
+tonic = "0.12"
+tokio = { version = "1", features = ["full", "process"] }   # "process" for Child
+prost = "0.13"
+anyhow = "1"
+tracing = "0.1"
+uuid = { version = "1", features = ["v4"] }
+# NOTE: intentionally no `goose` dep — Outcome B subprocess-via-ACP/MCP.
+# git-dep fallback line stays commented out as escape hatch (see T2 header).
+# goose = { git = "https://github.com/block/goose", tag = "v1.31.0", default-features = false, features = ["rustls-tls"] }
+eaasp-scoped-hook-mcp = { path = "../eaasp-scoped-hook-mcp" }
+
+[build-dependencies]
+tonic-build = "0.12"
