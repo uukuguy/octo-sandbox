@@ -1,4 +1,13 @@
-// Placeholder build script. Proto codegen wiring lands in T3 once the
-// L1 runtime .proto path is decided. Kept as a no-op at T1 so cargo
-// treats this crate uniformly across scaffolding and later stages.
-fn main() {}
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    tonic_build::configure()
+        .build_server(true)
+        .build_client(false)
+        .compile_protos(
+            &[
+                "../../proto/eaasp/runtime/v2/common.proto",
+                "../../proto/eaasp/runtime/v2/runtime.proto",
+            ],
+            &["../../proto"],
+        )?;
+    Ok(())
+}

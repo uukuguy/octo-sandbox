@@ -7,12 +7,15 @@ description = "EAASP L1 runtime adapter for block/goose (Outcome B: subprocess v
 [dependencies]
 tonic = "0.12"
 tokio = { version = "1", features = ["full", "process"] }   # "process" for Child
+tokio-stream = "0.1"
 prost = "0.13"
 anyhow = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 uuid = { version = "1", features = ["v4"] }
 which = "6"
+chrono = { version = "0.4", features = ["serde"] }
+serde_json = "1"
 # NOTE: intentionally no `goose` dep — Outcome B subprocess-via-ACP/MCP.
 # git-dep fallback line stays commented out as escape hatch (see T2 header).
 # goose = { git = "https://github.com/block/goose", tag = "v1.31.0", default-features = false, features = ["rustls-tls"] }

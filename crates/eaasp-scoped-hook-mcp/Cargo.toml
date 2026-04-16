@@ -6,9 +6,18 @@ description = "EAASP wrapping MCP middleware — intercepts tools/call and dispa
 
 [dependencies]
 tokio = { version = "1", features = ["full", "process", "io-util"] }
+tokio-stream = "0.1"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 anyhow = "1"
 tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # NOTE: rmcp + eaasp-skill-registry deps intentionally omitted at T1 (scaffold only).
 # Wiring of tools/call interception + SKILL.md envelope dispatch lands in T3.
+
+[[bin]]
+name = "eaasp-scoped-hook-mcp"
+path = "src/main.rs"
+
+[dev-dependencies]
+tempfile = "3"
