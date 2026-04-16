@@ -3,7 +3,7 @@
   "design_file": "docs/plans/2026-04-16-v2-phase2_5-design.md",
   "phase": "execution",
   "created_at": "2026-04-16T04:05:00+08:00",
-  "updated_at": "2026-04-16T20:45:00+08:00",
+  "updated_at": "2026-04-16T21:15:00+08:00",
   "completed_tasks": [
     "S0.T1 (Contract harness scaffolding — 10 files @ d5ee72b, 6/6 smoke PASS)",
     "S0.T2 (Contract v1 RED ~35 cases @ 7b19ed8, 1 PASS + 29 SKIP + 5 xfail awaiting T4/T5 fixtures)",
@@ -15,10 +15,11 @@
     "S1.W1.T1 (scaffold eaasp-goose-runtime + eaasp-scoped-hook-mcp crates @ c3310c9 — 10 files / +105 LOC; cargo check+test GREEN 4/4)",
     "S1.W2.T1 (scaffold nanobot-runtime-python @ 514a41c — 6 files / +97 LOC; pytest 2/2 PASS on Python 3.14.2)",
     "S1.W1.T2 (GooseAdapter subprocess+ACP @ 17d751c — Cargo.toml +which dep; goose_adapter.rs +76/-8 subprocess Child + ACP stdio spawn + F3 SIGTERM+5s+SIGKILL; adapter_test.rs +22 2 tests; D141 filed; cargo test 4/4 PASS with goose-gated test skipping gracefully)",
-    "S1.W2.T2 (OpenAICompatProvider @ 46f06dc — provider.py 93 LOC httpx trust_env=False strict OAI subset ban HTTP-Referer/X-Title/provider routing; test_provider.py 92 LOC 3 tests; pyproject.toml +pytest-httpx; pytest 5/5 PASS)"
+    "S1.W2.T2 (OpenAICompatProvider @ 46f06dc — provider.py 93 LOC httpx trust_env=False strict OAI subset ban HTTP-Referer/X-Title/provider routing; test_provider.py 92 LOC 3 tests; pyproject.toml +pytest-httpx; pytest 5/5 PASS)",
+    "S1.W1.T2.5 (Dockerfile + multi-session deployment @ e78d858+2cf5af9 — 6 files Dockerfile/.dockerignore/main.rs/goose_adapter.rs/Cargo.toml/Makefile + Cargo.lock side-effect; goose v1.30.0 baked into image 361MB; F1 gate PASS via docker run goose info; smoke run exits clean with mode=shared; with_mode()+max_sessions gate+4 new unit tests; 3 build iterations documented inline (plan-template GOOSE_VERSION URL/env conflation + libgomp1 missing in bookworm-slim + ldd forensic added). D141 ✅ CLOSED.)"
   ],
   "current_task": null,
-  "next_task": "W1.T2.5 Dockerfile + multi-session deployment per ADR-V2-019 (closes D141). Then parallel: W1.T3 ∥ W2.T3.",
+  "next_task": "parallel: W1.T3 (16 gRPC + eaasp-scoped-hook-mcp middleware +1 day; unblocked by T2.5 D141 closure) ∥ W2.T3 (agent loop + session state)",
   "execution_mode": "subagent-driven-development",
   "phase_name": "Phase 2.5 — Consolidation + goose-runtime (EAASP v2.0)",
   "total_tasks": 25,
@@ -37,7 +38,8 @@
     "S1.W1": {
       "name": "goose-runtime (Rust, subprocess-via-ACP/MCP per W1.T0 Outcome B; +Dockerfile per ADR-V2-019)",
       "tasks": 7,
-      "completed": 3,
+      "completed": 4,
+      "t2_5_completion": "2026-04-16 @ e78d858 + 2cf5af9. Dockerfile multi-stage (rust:1.92-bookworm builder → debian:bookworm-slim runtime) bakes goose v1.30.0 via GitHub release download_cli.sh with GOOSE_VERSION env passthrough (plan template had URL/env conflation bug — fixed + documented inline). libgomp1 added to apt install keep-after-purge (debian-slim omits it; ldd diagnostic added for forensics). Image 361MB, SHA fce46f95e216. Makefile +3 targets goose-runtime-container-{build,run,verify-f1}. main.rs +tracing_subscriber fmt::init + EAASP_DEPLOYMENT_MODE env read + log. goose_adapter.rs +max_sessions+with_mode()+getter+start_session cap check per ADR-V2-019 D2 + 4 new unit tests. F1 gate PASS: docker run --entrypoint goose eaasp-goose-runtime:dev info → exit 0, prints v1.30.0 config paths. Smoke PASS: docker run eaasp-goose-runtime:dev → prints `mode=shared (stub, no server bind yet)` exits clean. cargo test 8/8 PASS (4 T2 + 2 smoke + 4 new with_mode). 3 build iterations: 1st fail template GOOSE_VERSION, 2nd fail libgomp1, 3rd GREEN with ldd fix. D141 ✅ CLOSED. Replaces frozen hermes-runtime as L1 container reference template.",
       "task_count_amendment": "2026-04-16 — T2.5 Dockerfile inserted between T2 and T3. Rationale: D141 exposed that goose binary must be container-baked not locally-installed to match EAASP deployment model; ADR-V2-019 codifies multi-session Shared-default. T2.5 closes D141 + replaces frozen hermes-runtime as L1 container reference.",
       "t2_completion": "2026-04-16 @ 17d751c — GooseAdapter subprocess+ACP lifecycle via RuFlo swarm-1776334245838 coder (parallel with W2.T2). Cargo.toml +which=6 (binary resolution fallback). goose_adapter.rs rewrite (+76/-8): SessionConfig empty+TODO(T3), SessionHandle{child:Child}+acp_client placeholder, GooseAdapter{sessions:Arc<Mutex<HashMap>>}, start_session GOOSE_BIN→which::which fallback→Command spawn kill_on_drop+args(['acp','--stdio'])+F1-pending TODO, close_session 5s wait+kill per F3 with rustdoc→§9 Q#4. adapter_test.rs new (+22): adapter_creates_without_goose_binary unconditional + adapter_start_and_close_session graceful skip per plan spec line 717-721. impl Default for GooseAdapter (clippy additive). D141 filed: F1 gate OPEN — goose not installed locally; ACP CLI flags per Block docs but unvalidated. cargo test 4/4 PASS with goose-gated test skip-returning.",
       "t1_completion": "2026-04-16 @ c3310c9 — 2-crate scaffold via RuFlo swarm-1776334245838 coder (parallel with W2.T1). crates/eaasp-goose-runtime/ (6 files, 47 LOC) + crates/eaasp-scoped-hook-mcp/ (3 files, 33 LOC). Workspace auto-registered via crates/* glob, default-members untouched. rmcp + eaasp-skill-registry deps deliberately deferred to T3. build.rs is no-op placeholder (proto wiring in T3). cargo test 4/4 PASS in 0.00s.",
@@ -52,7 +54,7 @@
         "T5": "E2E verifies subprocess+middleware stack"
       },
       "open_items": {
-        "F1": "🟡 STILL OPEN (tracked as D141 P1-defer) — goose not installed on local dev; ACP CLI flags + extensions config format written per Block docs but unvalidated at runtime. Blocks W1.T3/T4/T5. Install goose on CI runner or dev machine to resolve.",
+        "F1": "✅ CLOSED 2026-04-16 @ e78d858 — W1.T2.5 Dockerfile bakes goose v1.30.0 into image; F1 gate verified via `make goose-runtime-container-verify-f1` exit 0. D141 ✅ CLOSED.",
         "F3": "✅ MITIGATED 2026-04-16 via T2: SIGTERM+5s-wait+SIGKILL fallback implemented in goose_adapter.rs close_session; rustdoc links design §9 Q#4",
         "F4": "✅ RESOLVED 2026-04-16: Option A own crate crates/eaasp-scoped-hook-mcp/ chosen for W2 nanobot + Phase 3 T3 reuse"
       }
@@ -135,13 +137,17 @@
     "514a41c (S1.W2.T1 scaffold nanobot-runtime-python — 6 files / +97 LOC; 2/2 pytest PASS)",
     "549b922 (chore checkpoint W1.T1 + W2.T1 complete — Plan 9/24)",
     "17d751c (S1.W1.T2 GooseAdapter subprocess+ACP — 5 files / +118 LOC; 4/4 cargo test PASS w/ goose-gated skip; D141 filed)",
-    "46f06dc (S1.W2.T2 OpenAICompatProvider strict OAI subset — 3 files / +186 LOC; 5/5 pytest PASS)"
+    "46f06dc (S1.W2.T2 OpenAICompatProvider strict OAI subset — 3 files / +186 LOC; 5/5 pytest PASS)",
+    "ab193a7 (docs ADR-V2-019 + W1.T2.5 plan amendment — 4 files / +442 LOC)",
+    "e78d858 (S1.W1.T2.5 Dockerfile + multi-session per ADR-V2-019 — 6 files / +157 LOC; docker image 361MB; F1 ✅)",
+    "2cf5af9 (build Makefile targets for goose-runtime container — +22 LOC)"
   ],
   "new_deferred_this_batch": [
-    "D141 (P1-defer: F1 goose extensions config middleware insertion runtime verification — blocks W1.T3/T4/T5 until goose installed on CI) — to be CLOSED by W1.T2.5 Dockerfile",
     "D142 (P2-defer: grid-runtime ADR-V2-019 compliance — read EAASP_DEPLOYMENT_MODE env, map to existing DeploymentMode enum; ~20 LOC)",
     "D143 (P2-defer: claude-code-runtime ADR-V2-019 compliance — add EAASP_DEPLOYMENT_MODE env reading + max_sessions gate; ~20 LOC)"
   ],
-  "closed_deferred_this_batch": [],
-  "notes": "Checkpoint after ADR-V2-019 + W1.T2.5 plan amendment. Plan 11/25 (total bumped 24→25 due to T2.5 insertion). Architecture clarification: EAASP L1 runtime deployment is container-first Shared-multi-session by default, per_session by env toggle. Replaces frozen hermes-runtime as L1 container reference template. W1.T2.5 next — bakes goose CLI into Dockerfile, validates F1 inside image via `goose info` smoke, closes D141. After T2.5 lands, W1.T3 unblocks immediately (middleware + 16 gRPC methods). D142/D143 batched to S3 CI gate to retrofit grid/claude-code for ADR-V2-019 env var compliance."
+  "closed_deferred_this_batch": [
+    "D141 (W1.T2.5 Dockerfile @ e78d858 closed F1 gate — goose v1.30.0 baked into image, F1 verified via make goose-runtime-container-verify-f1 exit 0, ldd confirmed libgomp1 fix)"
+  ],
+  "notes": "Checkpoint after W1.T2.5 COMPLETE. Plan 12/25 (S0 6/6 + W1 4/7 + W2 2/6). W1.T2.5 replaces frozen hermes-runtime as L1 container reference template per ADR-V2-019. 3 build iterations documented in commit/memory: 1st fail (plan template GOOSE_VERSION URL/env conflation), 2nd fail (libgomp1 missing), 3rd GREEN with ldd forensic. Image 361MB < 500MB target. D141 ✅ CLOSED; D142/D143 new P2-defer for grid+claude-code env compliance (S3 CI gate batch). Next parallel: W1.T3 (16 gRPC + eaasp-scoped-hook-mcp middleware +1 day — now unblocked) ∥ W2.T3 (agent loop + session state). Plan-template errata: line 836-840 Dockerfile snippet needs amendment (GOOSE_VERSION semantics + libgomp1 dep) before T3 pydantic-ai/claw-code/ccb copy it — filed as soft follow-up not new Deferred."
 }

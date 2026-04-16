@@ -6,21 +6,22 @@
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "plan": "docs/plans/2026-04-16-v2-phase2_5-plan.md",
-      "progress": "11/25",
+      "progress": "12/25",
       "theme": "Consolidation + goose-runtime (+ ADR-V2-019 L1 deployment model)",
       "stages": [
         "S0 Contract Suite v1 + D120 envelope parity ✅ 6/6 (T1 ✅ T2 ✅ T3 ✅ T4 ✅ T5 ✅ T6 ✅)",
-        "S1.W1 goose-runtime ⏳ 3/7 (T0 ✅ T1 ✅ T2 ✅; +T2.5 Dockerfile inserted per ADR-V2-019)",
+        "S1.W1 goose-runtime ⏳ 4/7 (T0 ✅ T1 ✅ T2 ✅ T2.5 ✅ — D141 ✅ CLOSED via Dockerfile)",
         "S1.W2 nanobot-runtime ⏳ 2/6 (T1 ✅ T2 ✅)",
         "S2 Reference Docs ⏳ 0/2",
         "S3 Automated CI Gate ⏳ 0/2",
         "S4 Manual E2E Runbook ⏳ 0/2"
       ],
-      "next_task": "W1.T2.5 Dockerfile + multi-session deployment per ADR-V2-019 (closes D141; replaces frozen hermes as L1 container template). Then parallel W1.T3 ∥ W2.T3.",
+      "next_task": "parallel: W1.T3 (16 gRPC + eaasp-scoped-hook-mcp middleware +1 day — unblocked by T2.5) ∥ W2.T3 (agent loop + session state)",
       "paused_reason": null,
+      "w1_t2_5_completion": "2026-04-16 @ e78d858 + 2cf5af9. W1.T2.5 Dockerfile + multi-session deployment. crates/eaasp-goose-runtime/Dockerfile multi-stage bakes goose v1.30.0 via GitHub release (URL path /releases/download/stable/download_cli.sh + GOOSE_VERSION=v1.30.0 env passthrough — plan template had conflation bug, fixed + documented inline). debian:bookworm-slim runtime + libgomp1 kept after purge (bookworm-slim missing GCC OpenMP runtime; ldd confirmed all 9 libs resolve). Image SHA fce46f95e216 size 361MB <500MB target. main.rs reads EAASP_DEPLOYMENT_MODE env + tracing::info!. goose_adapter.rs +max_sessions+with_mode()+getter+cap check per ADR-V2-019 D2 + 4 new unit tests (8 total PASS). Makefile +3 targets. 3 build iterations: 1st fail plan template, 2nd fail libgomp1, 3rd GREEN. F1 gate PASS docker run --entrypoint goose info exit 0. Smoke PASS docker run prints mode=shared exits clean. D141 ✅ CLOSED; D142/D143 new P2-defer for grid + claude-code ADR-V2-019 env compliance (S3 CI gate batch).",
       "adr_v2_019": "2026-04-16 Proposed — L1 Runtime Deployment Model. D1 multi-session 内在 + D2 EAASP_DEPLOYMENT_MODE={shared,per_session} env + D3 L4 调度权 + D4 容错分级 + D5 session/container lifecycle 解耦. W1 tasks 6→7 (T2.5 inserted); total 24→25. New Deferred D142/D143 (grid + claude-code env compliance, P2-defer to S3). ADR path: docs/design/EAASP/adrs/ADR-V2-019-l1-runtime-deployment-model.md.",
       "sub_plan_amendment_commit": "151c779 — docs(phase2.5/w1): sub-plan update for Outcome B; plan §S1 W1 lines 520-810 rewritten; F4 resolved (Option A own crate); F1 gate folded into T2 prologue; F3 SIGTERM+kill fallback baked into T2 close_session.",
-      "last_updated": "2026-04-16T20:45:00+08:00",
+      "last_updated": "2026-04-16T21:15:00+08:00",
       "commits_so_far": [
         "d5ee72b (S0.T1 contract harness scaffolding)",
         "7b19ed8 (S0.T2 contract v1 RED ~35 cases)",
@@ -34,7 +35,10 @@
         "514a41c (S1.W2.T1 scaffold nanobot-runtime-python — 6 files / 2/2 PASS)",
         "549b922 (chore checkpoint W1.T1 + W2.T1 — Plan 9/24)",
         "17d751c (S1.W1.T2 GooseAdapter subprocess+ACP — 5 files / 4/4 PASS; D141 filed)",
-        "46f06dc (S1.W2.T2 OpenAICompatProvider — 3 files / 5/5 PASS)"
+        "46f06dc (S1.W2.T2 OpenAICompatProvider — 3 files / 5/5 PASS)",
+        "ab193a7 (docs ADR-V2-019 + W1.T2.5 plan amendment — 4 files / +442 LOC)",
+        "e78d858 (S1.W1.T2.5 Dockerfile per ADR-V2-019 — image 361MB; F1 ✅; D141 ✅ CLOSED)",
+        "2cf5af9 (build Makefile targets goose-runtime-container-{build,run,verify-f1})"
       ],
       "w1_t2_w2_t2_completion": "2026-04-16 @ 17d751c + 46f06dc — parallel T2 dispatch via RuFlo swarm-1776334245838 (2 coder agents in 1 Task message). W1.T2 GooseAdapter subprocess+ACP: Cargo.toml +which=6; goose_adapter.rs rewrite (+76/-8) with Arc<Mutex<HashMap>> sessions, GOOSE_BIN→which::which fallback→Command spawn kill_on_drop+args(['acp','--stdio']), F3 SIGTERM+5s wait+kill; adapter_test.rs new (+22) with unconditional construct + goose-gated skip; cargo 4/4 PASS. W2.T2 OpenAICompatProvider: provider.py 93 LOC httpx trust_env=False per macOS proxy precedent strict OAI subset (no HTTP-Referer/X-Title/provider routing); test_provider.py 92 LOC 3 tests; pyproject.toml +pytest-httpx>=0.32; pytest 5/5 PASS. F-items: F3 ✅ MITIGATED (code-baked fallback); F1 🟡 STILL OPEN → D141 P1-defer (goose not installed locally; ACP CLI flags + extensions format per Block docs unvalidated at runtime; blocks W1.T3/T4/T5 on CI). Pyright diagnostics on test_provider.py (editable-install venv not indexed by IDE); runtime unaffected — pytest PASS cleanly. 1 new Deferred D141 filed; 0 closed. Plan 11/24 (S0 6/6 + W1 3/6 + W2 2/6).",
       "w1_t1_w2_t1_completion": "2026-04-16 @ c3310c9 + 514a41c — parallel scaffold via RuFlo swarm-1776334245838 (2 coder agents in one Claude Task message). W1.T1 crates/eaasp-goose-runtime/ (6 files, 47 LOC) + crates/eaasp-scoped-hook-mcp/ (3 files, 33 LOC); workspace auto-registered via crates/* glob; build.rs no-op placeholder (proto wiring → T3); rmcp + eaasp-skill-registry deps deferred to T3 per brief; cargo test 4/4 PASS. W2.T1 lang/nanobot-runtime-python/ 6 files hatchling backend matching claude-code-runtime-python convention; src/nanobot_runtime/__init__.py __version__ pinned '0.1.0'; _proto/ empty placeholder; Makefile uv-preferred with stdlib venv fallback mirroring repo-root claude-runtime-* target idioms; pytest 2/2 PASS on Python 3.14.2. Both surgical diffs — no cargo fmt bleed, no root Cargo.toml mod. Pyright diagnostic 'reportMissingImports' appeared for nanobot tests (editable install not indexed by IDE); runtime unaffected, tests PASS cleanly.",
