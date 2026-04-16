@@ -3,7 +3,7 @@
   "design_file": "docs/plans/2026-04-16-v2-phase2_5-design.md",
   "phase": "execution",
   "created_at": "2026-04-16T04:05:00+08:00",
-  "updated_at": "2026-04-17T00:15:00+08:00",
+  "updated_at": "2026-04-17T01:30:00+08:00",
   "completed_tasks": [
     "S0.T1 (Contract harness scaffolding — 10 files @ d5ee72b, 6/6 smoke PASS)",
     "S0.T2 (Contract v1 RED ~35 cases @ 7b19ed8, 1 PASS + 29 SKIP + 5 xfail awaiting T4/T5 fixtures)",
@@ -22,10 +22,12 @@
     "S1.W1.T4 (goose-runtime contract v1 config wired @ 310e0ff — conftest.py goose branch: GOOSE_BIN check + shutil.which + pytest.skip-if-absent + prebuilt/cargo-run detection + grpc_port _free_port() + full env dict; dry-run --runtime=goose produces 10 skips in 0.15s — designed behaviour when goose not installed)",
     "S1.W2.T4 (16 gRPC methods for nanobot-runtime-python @ a8408c9+14ed549 — proto stubs copied+patched from claude-code-runtime _proto/eaasp/runtime/v2/; service.py NanobotRuntimeService all 16 methods wrapping AgentSession; __main__.py real grpc.aio server port 50054/NANOBOT_RUNTIME_PORT; tests/test_service.py 8 new tests; 18/18 pytest PASS; .pyi stubs added)",
     "S1.W1.T5 (skill-extraction E2E smoke through goose gRPC stack @ 2189800 — tests/skill_extraction_e2e_test.rs: in-process tonic server Initialize→Send→Terminate; asserts session_id non-empty + ≥1 SendResponse chunk + last chunk_type=='done'; graceful skip if goose absent (GOOSE_BIN/which gate); build.rs +build_client(true); Cargo.toml +tokio-stream net feature; 11/11 cargo test PASS)",
-    "S1.W2.T5 (nanobot-runtime contract v1 config wired @ 602c1dc — conftest.py nanobot branch: nanobot-runtime-python venv python + free port + OPENAI_BASE_URL/API_KEY/MODEL_NAME + EAASP_DEPLOYMENT_MODE + proxy bypass; skip-if-venv-absent guard; syntax OK; venv exists Python 3.14)"
+    "S1.W2.T5 (nanobot-runtime contract v1 config wired @ 602c1dc — conftest.py nanobot branch: nanobot-runtime-python venv python + free port + OPENAI_BASE_URL/API_KEY/MODEL_NAME + EAASP_DEPLOYMENT_MODE + proxy bypass; skip-if-venv-absent guard; syntax OK; venv exists Python 3.14)",
+    "S1.W2.T6 (skill-extraction E2E smoke through nanobot @ 13aa959 — tests/test_skill_extraction_e2e.py 222 LOC 8 tests; in-process AgentSession + mock provider; asserts 4×(TOOL_CALL+TOOL_RESULT)+CHUNK+STOP; tool ordering search→read→write_anchor→write_file; N14 skill_submit_draft guard; provider.chat() count=5; 8/8 pytest PASS on Python 3.14.2)",
+    "S2.T1 (L1_RUNTIME_ADAPTATION_GUIDE.md @ 13aa959 — docs/design/EAASP/L1_RUNTIME_ADAPTATION_GUIDE.md 322 LOC Chinese; sections: contract suite, 16 gRPC methods quick-ref, 7 chunk_type semantics, MCP bridge modes, ADR-V2-006 hook envelope §2/§3, skeleton structure Py+Rust, 8 common pitfalls, ADR-V2-019 deployment model, 6-day implementation path)"
   ],
   "current_task": null,
-  "next_task": "parallel: W2.T6 (skill-extraction E2E smoke through nanobot → mock_openai_server) ∥ S2.T1 (L1_RUNTIME_ADAPTATION_GUIDE.md) — W1.T5+W2.T5 both DONE, S1 W1 7/7 COMPLETE, W2 5/6",
+  "next_task": "S2.T2 (L1_RUNTIME_COMPARISON_MATRIX.md) — then S3.T1 (Makefile v2-phase2_5-e2e target) ∥ S3.T2 (GitHub Actions contract matrix) — S1 W1 7/7 + W2 6/6 COMPLETE, S2 1/2",
   "execution_mode": "subagent-driven-development",
   "phase_name": "Phase 2.5 — Consolidation + goose-runtime (EAASP v2.0)",
   "total_tasks": 25,
@@ -68,7 +70,7 @@
     "S1.W2": {
       "name": "nanobot-runtime (Python, OpenAI-Compatible)",
       "tasks": 6,
-      "completed": 4,
+      "completed": 6,
       "type": "parallel-after-S0",
       "t2_completion": "2026-04-16 @ 46f06dc — OpenAICompatProvider via RuFlo coder (parallel with W1.T2). provider.py 93 LOC: httpx.AsyncClient(trust_env=False) per MEMORY macOS Clash proxy precedent; chat() payload = {model, messages, [tools]} strict OAI subset — no HTTP-Referer, no X-Title, no provider routing; 2 headers only (Authorization Bearer + Content-Type JSON); aclose() for lifecycle. test_provider.py 92 LOC 3 tests: standard payload shape / banned headers asserted absent / tools round-trip asserting provider field absent. pyproject.toml += pytest-httpx>=0.32 in dev. pytest 5/5 PASS.",
       "t1_completion": "2026-04-16 @ 514a41c — Python scaffold via RuFlo coder (parallel with W1.T1). lang/nanobot-runtime-python/ 6 files hatchling backend matching claude-code-runtime-python convention. src/nanobot_runtime/__init__.py __version__ pinned. _proto/ empty placeholder for T4/T5 codegen. Makefile uv-preferred with stdlib venv fallback. pytest 2/2 PASS in 0.00s on Python 3.14.2 (editable install via .venv/bin/pip install -e .[dev])."
@@ -76,7 +78,7 @@
     "S2": {
       "name": "Reference Documentation",
       "tasks": 2,
-      "completed": 0,
+      "completed": 1,
       "type": "after-W1-W2"
     },
     "S3": {
@@ -152,7 +154,11 @@
     "ff311c0 (S1.W2.T3 multi-turn agent loop + event mapping — session.py 178 LOC + test_session.py 124 LOC; AgentSession.run() AsyncGenerator; ADR-V2-006 PostToolUse envelope; 5/5 pytest PASS)",
     "310e0ff (S1.W1.T4 goose-runtime contract v1 config — conftest.py goose branch; skip-if-absent; 10 skips dry-run)",
     "a8408c9 (S1.W2.T4 16 gRPC methods nanobot-runtime-python — service.py NanobotRuntimeService; __main__.py grpc.aio server; 18/18 pytest PASS)",
-    "14ed549 (chore W2.T4 proto .pyi stubs — Pyright fix)"
+    "14ed549 (chore W2.T4 proto .pyi stubs — Pyright fix)",
+    "2189800 (S1.W1.T5 skill-extraction E2E smoke goose gRPC stack — 11/11 cargo test PASS)",
+    "602c1dc (S1.W2.T5 nanobot-runtime contract v1 config wired — conftest.py nanobot branch; skip-if-venv-absent)",
+    "1e9bc72 (chore phase2.5 checkpoint W1.T5+W2.T5 COMPLETE — Plan 18/25)",
+    "13aa959 (feat phase2.5/w2+s2 W2.T6 skill-extraction E2E smoke + S2.T1 adaptation guide — 8/8 pytest PASS)"
   ],
   "new_deferred_this_batch": [
     "D142 (P2-defer: grid-runtime ADR-V2-019 compliance — read EAASP_DEPLOYMENT_MODE env, map to existing DeploymentMode enum; ~20 LOC)",
@@ -161,5 +167,5 @@
   "closed_deferred_this_batch": [
     "D141 (W1.T2.5 Dockerfile @ e78d858 closed F1 gate — goose v1.30.0 baked into image, F1 verified via make goose-runtime-container-verify-f1 exit 0, ldd confirmed libgomp1 fix)"
   ],
-  "notes": "Checkpoint after W1.T4 + W2.T4 COMPLETE. Plan 16/25 (S0 6/6 + W1 6/7 + W2 4/6). W1.T4: conftest.py goose branch added — GOOSE_BIN/shutil.which skip-if-absent gate, prebuilt/cargo-run detection, port _free_port(), full env dict; dry-run produces 10 skips (designed). W2.T4: NanobotRuntimeService 16 gRPC methods in service.py wrapping AgentSession; real grpc.aio server in __main__.py; proto stubs copied+patched from claude-code-runtime; 18/18 pytest PASS. Next parallel: W1.T5 (skill-extraction E2E smoke goose subprocess+middleware) ∥ W2.T5 (nanobot-runtime contract v1 GREEN — add nanobot config to conftest)."
+  "notes": "Checkpoint after W2.T6 + S2.T1 COMPLETE. Plan 20/25 (S0 6/6 + W1 7/7 + W2 6/6 + S2 1/2). S1 FULLY COMPLETE. W2.T6: nanobot skill-extraction E2E smoke 8/8 pytest PASS — in-process AgentSession + mock provider; 4×(TOOL_CALL+TOOL_RESULT)+CHUNK+STOP; tool ordering + N14 guard. S2.T1: L1_RUNTIME_ADAPTATION_GUIDE.md (Chinese, 322 LOC) — contract suite, 16 methods, 7 events, MCP bridge, ADR-V2-006 hook envelope, skeleton (Py+Rust), 8 pitfalls, ADR-V2-019 deployment model, 6-day path. Next: S2.T2 (L1_RUNTIME_COMPARISON_MATRIX.md), then S3.T1+S3.T2 parallel (Makefile + GitHub Actions), then S4."
 }
