@@ -1,5 +1,102 @@
 # Grid Platform 开发工作日志
 
+## 2026-04-16 — EAASP v2.0 Phase 2 Memory and Evidence COMPLETE 🟢 23/23
+
+### 会话概要
+
+Phase 2 (Memory and Evidence) 闭环。23/23 任务全部交付，零 P0 escalation，所有 reviewer 发现均 inline-fixed 或路由到 P1/P3-defer 非阻塞 Deferred。本阶段 S4.T4 (thread-scoped interrupt) 为最后一项，由 /subagent-driven-development 通过两阶段 RuFlo review 落地，commit `f4bf9ad` + checkpoint sync `35c20af`。
+
+### Stage 完成情况
+
+| Stage | 任务数 | 状态 | 关键产出 |
+|-------|-------|------|---------|
+| **S0 ADR 决策** | 2/2 ✅ | ADR-V2-015 (semantic 检索选型 HNSW in-process) + ADR-V2-016 (agent loop 设计原则 hermes intermediate-ack) 全部 Accepted |
+| **S1 Runtime 修复 + 错误基础设施** | 7/7 ✅ | D87 根治 (capability matrix + tool_choice=Required + L1 required_tools) + ADR-V2-017 (hermes 冻结，Phase 2.5 goose 替代) + D83/D85/D86 closed + ErrorClassifier 14 FailoverReason + Graduated retry with jitter |
+| **S2 L2 Memory Engine 增强** | 5/5 ✅ | Vector embedding (Ollama/Mock + HNSW + dual-write) + Hybrid retrieval (FTS+HNSW+time-decay fusion) + 7th MCP tool memory_confirm + 状态机 invariants + tool-result aggregate spill L3 |
+| **S3 PreCompact + Skill Extraction + Stop hooks + Scoped executor** | 5/5 ✅ | ADR-V2-018 PreCompact + proactive/reactive compaction + Skill Extraction meta-skill + E2E fixture replay + Stop hooks (StopHookDecision InjectAndContinue) + ADR-V2-006 scoped-hook envelope + cross-runtime executor |
+| **S4 CLI + E2E 验证 + 多 session 隔离** | 4/4 ✅ | D89 CLI session close + D84 CLI events --follow/SSE + 端到端验收 gate (14 assertions) + S4.T4 thread-scoped interrupt (SessionInterruptRegistry) |
+
+### 关键技术成果
+
+- **3 个新 ADR 落地 (Accepted)**：ADR-V2-015 (semantic)、ADR-V2-016 (agent loop 原则 + 多模型 E2E 验证)、ADR-V2-017 (L1 runtime 生态策略 hermes 冻结)、ADR-V2-018 (PreCompact hook + linear summary chain)、ADR-V2-006 (scoped-hook envelope 契约 278 LOC §2-§10)
+- **根治 5 个 runtime 层深层 bug**：D87 (grid-engine agent loop 过早终止) / D86 (claude-code ToolResultBlock forwarding) / D83 (ToolResult.tool_name field) / D85 (STOP event response_text) / D84 (L4 SSE event streaming)
+- **SessionInterruptRegistry**：`Arc<DashMap<SessionId, CancellationToken>>` 隔离 per-session cancel，dual-path 触发 (registry flag + `AgentMessage::Cancel` channel) 保证 mid-turn interrupt 真实生效 (详见 D130 consolidation)
+- **L2 Memory Engine**：FTS + HNSW + time-decay 三路融合，4 条 graceful-degrade 路径 (embed/load/search/model_id mismatch)，tenant-isolated dual-write，7 MCP tools 齐全 (search/read/write_anchor/write_file/confirm/archive + list offset)
+- **Skill Extraction**：examples/skills/skill-extraction/ 三文件 (SKILL.md 158 LOC + verify_skill_draft.sh + check_final_output.sh)，workflow.required_tools 4 项避开 D87 tool_choice trap + N14 人工审批门，E2E via 148-line fixture replay (12 pytest tests)
+- **Thread-scoped interrupt**：7 unit + 5 integration 测试，实证锁定 "cancel A → B 不受影响" 不变量
+
+### 测试增量
+
+- **新测试**: ~170 个 (Rust interrupt 7 + integration 5 + stop_hooks 8 + 其他；Python L2 ~60 + L4 ~40 + cli-v2 ~30 + fixture replay 12)
+- **回归套件**：多轮验证零回归，每个 stage commit 附带 targeted 回归证据
+- **Full-suite**：S4.T3 automated gate 14 @assertions A1-A14 live-run 14/14 PASS
+
+### 新增 Deferred (Phase 2 执行中产生)
+
+共 47 个新 Deferred (D91–D130)：
+- **P1-defer** (P1-active 清零)：D90/D93/D94/D98/D102/D105/D108/D109/D120/D125/**D130** → Phase 2.5 consolidation 首选
+- **P3-defer**：D92/D96/D97/D99-D101/D103-D104/D106-D107/D110/D118-D119/D121-D123/D126-D129 → Phase 2.5 polish 或 Phase 3 breaking
+- **P1-active (renamed)**：D117 (原 D50 Prompt executor)，用户同意推迟
+- **D87/D88/D83/D84/D85/D86/D89/D124/D60/D51/D53** 全部 ✅ closed
+- **D130 (S4.T4 产出)**：session-lifetime vs per-turn cancel token 合并（ChildCancellationToken parent propagation），Phase 2.5 首选
+
+### 技术变更 (文件路径)
+
+新增：
+- `crates/grid-engine/src/agent/interrupt.rs` — SessionInterruptRegistry
+- `crates/grid-engine/src/agent/stop_hooks.rs` — StopHookDecision
+- `crates/grid-engine/src/agent/turn_budget.rs` — enforce_turn_aggregate_budget
+- `crates/grid-runtime/src/scoped_hook_handler.rs` — ScopedStopHookBridge
+- `crates/grid-engine/tests/session_interrupt_integration.rs` + `stop_hooks_integration.rs` + `scoped_hook_wiring_integration.rs`
+- `lang/claude-code-runtime-python/src/.../scoped_command_executor.py`
+- `examples/skills/skill-extraction/{SKILL.md,hooks/}` + `threshold-calibration/` 样板
+- `scripts/verify-v2-phase2.{sh,py}` + `scripts/s4t3-runtime-verification.sh` + Makefile v2-phase2-e2e 4 targets
+- `docs/design/EAASP/adrs/ADR-V2-006/015/016/017/018.md`
+- `docs/design/EAASP/DEFERRED_LEDGER.md` (Phase 2 中期建立为 D 编号 single source of truth)
+
+修改：
+- `crates/grid-engine/src/agent/runtime.rs` — session_interrupts + cancel_session + session_stop_hooks 注册
+- `crates/grid-engine/src/agent/harness.rs` — scoped hook wiring + SkillDir 物化 + rustdoc 澄清
+- `crates/grid-engine/src/providers/` — ErrorClassifier + RetryPolicy::graduated + capability matrix
+- `crates/grid-engine/src/context/compaction_pipeline.rs` — PreCompact + reactive_summary_ratio
+- `lang/claude-code-runtime-python/src/.../service.py` — scoped hook dispatch helpers
+- `tools/eaasp-cli-v2/src/eaasp_cli_v2/cmd_session.py` — close + events --follow
+- `tools/eaasp-l4-orchestration/src/.../api.py` — /events/stream SSE endpoint
+
+### 待续问题 (Outstanding)
+
+- **无 P0 blocker**。所有未决项均为 Phase 2.5+ 明确归属。
+- **D78** (event payload embedding) 是唯一仍 P1-active，但计划就延到 Phase 2.5 与 memory semantic 共 HNSW 架构
+
+### Next Steps (Phase 2.5 Consolidation)
+
+1. **goose-runtime 引入**（ADR-V2-017）— 替代冻结的 hermes，原生 stdio+SSE MCP，解决 D88/T2 样板空缺
+2. **D130 token consolidation** — AgentExecutor 持 session-lifetime parent token，`parent.child()` 出 per-turn，消除双路径 workaround
+3. **D120 cross-runtime envelope parity** — Rust `HookContext::to_json/to_env_vars` 补齐 ADR-V2-006 §2/§3 所缺字段 (event/skill_id/draft_memory_id/evidence_anchor_id/created_at + GRID_EVENT/GRID_SKILL_ID env)，前置 goose 契约测试
+4. **D78 event payload embedding** — 与 memory semantic 共 HNSW 架构落地
+5. **D94 MemoryStore 单例 refactor** (收尾 D12)
+6. **D98 HybridIndex HNSW 持久化** (当前每次 search 重建)
+7. **D108 hook script bats/shellcheck 自动回归**
+8. **D125 events/stream burst cap** (if L1 >1k/sec 需要)
+
+### Phase 2 Exit Gate
+
+- [x] 所有 23 任务完成
+- [x] Stage S0-S4 全 ✅
+- [x] 5 个 P0 bug (D87/D88/D86/D83/D85) 根治或冻结
+- [x] Semantic memory search 可用 (graceful-degrade 覆盖)
+- [x] Skill extraction 产出可人工审阅
+- [x] PreCompact 事件能触发
+- [x] 批次 A/B/C 全部通过单测
+- [x] 三 runtime 6 步工作流 — **human runbook** 形式交付 (hermes 冻结 → 2 runtimes 由 ADR-V2-017 决策)
+- [x] 所有 reviewer 发现 closed 或路由到 non-blocking Deferred
+- [x] Checkpoint + phase_stack + MEMORY_INDEX 同步
+- [x] Deferred Ledger 建立并维护为 single source of truth
+
+**Phase 2 正式归档。Phase 2.5 (consolidation + goose-runtime) 为下一阶段起点。**
+
+---
+
 ## 2026-04-14 — Phase 2 S1.T1 D87 完整修复 + 多模型 E2E 验证通过 🟢
 
 ### 会话概要

@@ -1,5 +1,7 @@
 {
-  "active_phases": [
+  "active_phases": [],
+  "suspended_phases": [],
+  "archived_phases": [
     {
       "name": "Phase 2 — Memory and Evidence (EAASP v2.0)",
       "started_at": "2026-04-14T13:10:00+08:00",
@@ -77,11 +79,9 @@
         "d5be5f9",
         "9a756be",
         "f4bf9ad"
-      ]
-    }
-  ],
-  "suspended_phases": [],
-  "archived_phases": [
+      ],
+      "archived_at": "2026-04-16T03:30:00+08:00"
+    },
     {
       "name": "Phase BI — hermes-runtime: Grid L1 T2 Aligned Runtime",
       "completed_at": "2026-04-09T21:30:00+08:00",
