@@ -26,6 +26,9 @@ struct SessionHandle {
 
 pub struct GooseAdapter {
     sessions: Arc<Mutex<HashMap<String, SessionHandle>>>,
+    // ADR-V2-019 D2: None = shared (unlimited); Some(1) = per_session.
+    // Gate applied at start_session() entry.
+    max_sessions: Option<usize>,
 }
 
 impl Default for GooseAdapter {
@@ -36,12 +39,42 @@ impl Default for GooseAdapter {
 
 impl GooseAdapter {
     pub fn new() -> Self {
+        Self::with_mode("shared")
+    }
+
+    /// Construct an adapter parameterized by `EAASP_DEPLOYMENT_MODE` per ADR-V2-019 D2.
+    ///
+    /// - `"per_session"` → caps concurrent sessions at 1 (container-level isolation)
+    /// - anything else (including `"shared"`) → uncapped shared mode
+    pub fn with_mode(mode: &str) -> Self {
+        let max_sessions = match mode {
+            "per_session" => Some(1),
+            _ => None,
+        };
         Self {
             sessions: Arc::new(Mutex::new(HashMap::new())),
+            max_sessions,
         }
     }
 
+    /// Read-only accessor for tests + future T3 observability.
+    pub fn max_sessions(&self) -> Option<usize> {
+        self.max_sessions
+    }
+
     pub async fn start_session(&self, _cfg: SessionConfig) -> Result<String> {
+        // ADR-V2-019 D2: per_session mode rejects 2nd concurrent session inside the same container.
+        if let Some(cap) = self.max_sessions {
+            let count = self.sessions.lock().await.len();
+            if count >= cap {
+                anyhow::bail!(
+                    "per_session mode: container already has {} session(s); cap={}",
+                    count,
+                    cap
+                );
+            }
+        }
+
         let goose_bin = std::env::var("GOOSE_BIN")
             .ok()
             .or_else(|| which::which("goose").ok().map(|p| p.to_string_lossy().into_owned()))
@@ -75,5 +108,35 @@ impl GooseAdapter {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn with_mode_per_session_caps_at_one() {
+        let adapter = GooseAdapter::with_mode("per_session");
+        assert_eq!(adapter.max_sessions(), Some(1));
+    }
+
+    #[tokio::test]
+    async fn with_mode_shared_has_no_cap() {
+        let adapter = GooseAdapter::with_mode("shared");
+        assert_eq!(adapter.max_sessions(), None);
+    }
+
+    #[tokio::test]
+    async fn with_mode_unknown_defaults_to_shared() {
+        // ADR-V2-019 D2: anything other than "per_session" → uncapped shared mode.
+        let adapter = GooseAdapter::with_mode("bogus-mode");
+        assert_eq!(adapter.max_sessions(), None);
+    }
+
+    #[tokio::test]
+    async fn new_delegates_to_shared_mode() {
+        let adapter = GooseAdapter::new();
+        assert_eq!(adapter.max_sessions(), None);
     }
 }

@@ -1,0 +1,10 @@
+target/
+.git/
+.grid/
+docs/
+lang/
+web/
+web-platform/
+tests/
+*.md
+.env*
