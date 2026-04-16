@@ -6,17 +6,19 @@
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "plan": "docs/plans/2026-04-16-v2-phase2_5-plan.md",
-      "progress": "6/24",
+      "progress": "7/24",
       "theme": "Consolidation + goose-runtime",
       "stages": [
         "S0 Contract Suite v1 + D120 envelope parity ✅ 6/6 (T1 ✅ T2 ✅ T3 ✅ T4 ✅ T5 ✅ T6 ✅)",
-        "S1.W1 goose-runtime ⏳ 0/6",
+        "S1.W1 goose-runtime ⏳ 1/6 (T0 ✅ — Outcome B primary)",
         "S1.W2 nanobot-runtime ⏳ 0/6",
         "S2 Reference Docs ⏳ 0/2",
         "S3 Automated CI Gate ⏳ 0/2",
         "S4 Manual E2E Runbook ⏳ 0/2"
       ],
-      "next_task": "S1.W1.T0 goose availability spike",
+      "next_task": "S1.W1.T1 scaffold eaasp-goose-runtime + eaasp-scoped-hook-mcp crates (2-crate scaffold per F4 Option A)",
+      "paused_reason": null,
+      "sub_plan_amendment_commit": "151c779 — docs(phase2.5/w1): sub-plan update for Outcome B; plan §S1 W1 lines 520-810 rewritten; F4 resolved (Option A own crate); F1 gate folded into T2 prologue; F3 SIGTERM+kill fallback baked into T2 close_session.",
       "last_updated": "2026-04-16T18:30:00+08:00",
       "commits_so_far": [
         "d5ee72b (S0.T1 contract harness scaffolding)",
@@ -24,8 +26,11 @@
         "7e083c7 (S0.T3 D120 HookContext envelope parity — D120 CLOSED)",
         "cfda161 (S0.T4 grid-runtime contract v1 GREEN 13/22)",
         "fd1abbf (S0.T5 claude-code-runtime contract v1 GREEN 18/17)",
-        "b26bcc2 (S0.T6 freeze contract v1.0.0 + D136-D140 ledger; tag contract-v1.0.0)"
+        "d17cdb8 (S0.T6 freeze contract v1.0.0 + D136-D140 ledger; tag contract-v1.0.0)",
+        "9b21112 (S1.W1.T0 goose availability spike — Outcome B primary, Q#1+Q#4 closed)",
+        "151c779 (docs phase2.5/w1 sub-plan update for Outcome B — F4 resolved)"
       ],
+      "w1_t0_completion": "2026-04-16 @ 9b21112 — goose availability spike via RuFlo swarm-1776331122253 (researcher agent direct). Outcome B primary (subprocess-via-ACP/MCP); git-dep P2 fallback. Q#1 closed: block/goose NOT on crates.io (`goose` crate there is Tag1 HTTP load-tester unrelated); workspace `publish=false` blocks direct cargo dep; `goose-sdk` is ACP client not embeddable library. Q#4 closed: `ToolInspector` trait in `crates/goose/src/tool_inspection.rs` (Allow/Deny/RequireApproval semantics = PreToolUse) reachable via `ToolInspectionManager::add_inspector(Box<dyn ToolInspector>)` but ONLY via git-dep; ACP/MCP surface has NO equivalent interface. Hook injection strategy = wrapping MCP middleware `eaasp-scoped-hook-mcp` intercepting `tools/call` per ADR-V2-006 §2/§3 envelope, dispatching bash hooks, mirroring Allow/Deny/InjectAndContinue, forwarding to real tool server. Fallback (if emulation drift): flip to git-dep `goose = { git = 'https://github.com/block/goose', tag = 'v1.31.0', default-features = false, features = ['rustls-tls'] }` → `agent.tool_inspection_manager_mut().add_inspector(Box::new(EaaspScopedHookInspector))`. Scope amendments cascade: T1 drops goose cargo dep (scaffold = tonic/tokio/prost/anyhow/tracing + proto only); T2 pivots to subprocess Child + ACP client per session; T3 GROWS +1 day (16 gRPC methods PLUS new eaasp-scoped-hook-mcp middleware crate); T4 contract needs GOOSE_BIN env + middleware child lifecycle; T5 E2E verifies subprocess+middleware stack. §9 Q#1+Q#4 replaced with ✅ CLOSED Chinese findings; §3.3 diagram line 143 fallback callout re-read as primary/fallback axis swap. Open items F1 (extensions config middleware insertion pre-T2), F3 (no ACP cancellation → SIGTERM+kill fallback), F4 (middleware crate location — recommend own crate for W2 reuse). Memory saved: project_s1_w1_t0_goose_spike.md.",
       "priorities_p1_defer": [
         "goose-runtime 引入 (ADR-V2-017 W1)",
         "D130 session-lifetime parent token consolidation",

@@ -10,13 +10,16 @@
     "S0.T3 (D120 HookContext envelope parity @ 7e083c7, 10 integration tests PASS, byte-parity locked to ADR §2.1/2.2/2.3 canonical JSON, Python already compliant — D120 ✅ closed)",
     "S0.T4 (grid contract v1 GREEN — 13/22 @ cfda161)",
     "S0.T5 (claude-code contract v1 GREEN — 18/17 @ fd1abbf)",
-    "S0.T6 (freeze v1.0.0 + ledger D136-D140 — VERSION + CHANGELOG + README versioning section + ledger formalization; tag contract-v1.0.0 local-only)"
+    "S0.T6 (freeze v1.0.0 + ledger D136-D140 — VERSION + CHANGELOG + README versioning section + ledger formalization; tag contract-v1.0.0 local-only)",
+    "S1.W1.T0 (goose availability spike @ 9b21112 — Outcome B primary subprocess-via-ACP/MCP; git-dep fallback; Q#1+Q#4 closed in design §9)"
   ],
   "current_task": null,
-  "next_task": "S1.W1.T0 — goose availability spike (open question #1); may run in parallel with W2.T1",
+  "next_task": "S1.W1.T1 scaffold eaasp-goose-runtime + eaasp-scoped-hook-mcp crates (2 crates per F4 Option A); may run in parallel with W2.T1 nanobot scaffold",
   "execution_mode": "subagent-driven-development",
   "phase_name": "Phase 2.5 — Consolidation + goose-runtime (EAASP v2.0)",
   "total_tasks": 24,
+  "paused_reason": null,
+  "sub_plan_amendment": "2026-04-16 @ 151c779 — plan §S1 W1 lines 520-810 rewritten for Outcome B. T1 scaffolds 2 crates (eaasp-goose-runtime + eaasp-scoped-hook-mcp). T2 adds F1 gate + F3 SIGTERM+kill fallback. T3 grows +1 day for middleware server. T4 adds GOOSE_BIN env + skip-if-absent. T5 verifies full subprocess+middleware stack. F4 resolved: Option A (own crate) for W2 reuse + Phase 3 T3 reuse.",
   "stages": {
     "S0": {
       "name": "Shared Contract Suite v1 + D120 Envelope Parity",
@@ -27,17 +30,31 @@
       "batch_2_completion": "2026-04-16 T4-T6 — T4 grid GREEN 13/22 @ cfda161, T5 claude-code GREEN 18/17 @ fd1abbf, T6 freeze v1.0.0 (VERSION + CHANGELOG + README Versioning section + D136-D140 ledger formalization; tag contract-v1.0.0 local-only, user controls push). 5 new Deferred: D136 (grid hook-not-fired probe), D137 (multi-turn+MCP+PreCompact 10 xfail), D138 (deny-path mock LLM), D139 (double-terminate semantics), D140 (grid dispatch-site 3-5 LOC hot fix)."
     },
     "S1.W1": {
-      "name": "goose-runtime (Rust, Thin Wrap)",
+      "name": "goose-runtime (Rust, subprocess-via-ACP/MCP per W1.T0 Outcome B)",
       "tasks": 6,
-      "completed": 0,
+      "completed": 1,
       "type": "parallel-after-S0",
-      "first_task_note": "W1.T0 is availability spike (2-4h) — may branch outcome A (cargo lib) vs B (subprocess-via-MCP)"
+      "outcome": "B (primary) — subprocess-via-ACP/MCP; git-dep fallback",
+      "t0_completion": "2026-04-16 @ 9b21112. Outcome B primary (block/goose not on crates.io; workspace publish=false; goose-sdk is ACP client not embeddable). Hook injection via wrapping MCP middleware eaasp-scoped-hook-mcp at tools/call boundary per ADR-V2-006 §2/§3. W1.T3 scope grew +1 day (middleware server is new deliverable). Design §9 Q#1+Q#4 closed. Open items F1 (extensions config middleware insertion), F3 (no ACP cancellation API), F4 (middleware crate location).",
+      "scope_amendments": {
+        "T1": "Drop goose cargo dep; scaffold is tonic/tokio/prost/anyhow/tracing + proto build.rs only",
+        "T2": "GooseAdapter pivots to subprocess Child handle + ACP client per session (from in-process goose::session::new())",
+        "T3": "16 gRPC methods PLUS new eaasp-scoped-hook-mcp middleware server crate (NEW DELIVERABLE, +1 day)",
+        "T4": "contract harness needs GOOSE_BIN env + middleware child lifecycle",
+        "T5": "E2E verifies subprocess+middleware stack"
+      },
+      "open_items": {
+        "F1": "Verify goose ~/.config/goose/config.yaml extensions section supports first-class middleware insertion — pre-T2 check (in-flight, gate in T2 blueprint)",
+        "F3": "No confirmed ACP cancellation API → SIGTERM+5s-wait+SIGKILL fallback baked into T2 close_session impl",
+        "F4": "✅ RESOLVED 2026-04-16: Option A own crate crates/eaasp-scoped-hook-mcp/ chosen for W2 nanobot + Phase 3 T3 reuse"
+      }
     },
     "S1.W2": {
       "name": "nanobot-runtime (Python, OpenAI-Compatible)",
       "tasks": 6,
       "completed": 0,
-      "type": "parallel-after-S0"
+      "type": "parallel-after-S0",
+      "first_task_note": "W2.T1 can start in parallel with S1.W1 sub-plan amendment; unblocked by S0 complete"
     },
     "S2": {
       "name": "Reference Documentation",
@@ -62,7 +79,7 @@
     "Q1_driver": "stick-to-ADR — ADR-V2-017 W1+W2 only, not consolidation",
     "Q2_W1_W2_order": "parallel, S0 contract first",
     "Q3_contract_depth": "medium (~35 cases)",
-    "Q4_goose_strategy": "thin wrap via cargo dep, fallback subprocess-via-MCP",
+    "Q4_goose_strategy": "W1.T0 closed 2026-04-16 — subprocess-via-ACP/MCP primary (Outcome B); git-dep fallback",
     "Q5_nanobot_scope": "minimal real runtime (not pure reference)",
     "Q6_nanobot_provider": "self-contained OAI-compat (3 env vars), no OpenRouter lock-in",
     "Q7_D120_merge": "merged into S0 (TDD-driven)",
@@ -81,9 +98,14 @@
     "ccb-runtime"
   ],
   "open_questions": [
-    "Q1 (W1.T0 spike): goose crate available on crates.io vs binary-only",
-    "Q4 (W1.T0 spike): goose managed hook injection API"
+    "Q1 ✅ CLOSED 2026-04-16 @ 9b21112 — goose not on crates.io, Outcome B primary",
+    "Q4 ✅ CLOSED 2026-04-16 @ 9b21112 — hook injection via MCP middleware emulation"
   ],
+  "new_open_items_from_t0": {
+    "F1": "Verify goose extensions config first-class middleware insertion point (pre-T2)",
+    "F3": "Confirm ACP cancellation API presence (T3 may need SIGTERM+kill fallback)",
+    "F4": "eaasp-scoped-hook-mcp own-crate vs submodule decision (T1 Cargo.toml gate)"
+  },
   "prereq_commits": [
     "f4bf9ad — S4.T4 thread-scoped interrupt (Phase 2 last task)",
     "35c20af — Phase 2 phase-stack close 23/23",
@@ -97,19 +119,11 @@
     "7e083c7 (S0.T3 D120 HookContext envelope parity — D120 ✅ closed)",
     "cfda161 (S0.T4 grid-runtime contract v1 GREEN — 13/22)",
     "fd1abbf (S0.T5 claude-code-runtime contract v1 GREEN — 18/17)",
-    "b26bcc2 (S0.T6 freeze contract v1.0.0 + D136-D140 ledger formalization; tag contract-v1.0.0)"
+    "d17cdb8 (S0.T6 freeze contract v1.0.0 + D136-D140 ledger formalization; tag contract-v1.0.0)",
+    "9b21112 (S1.W1.T0 goose availability spike — Outcome B primary, Q#1+Q#4 closed)",
+    "151c779 (docs phase2.5/w1 sub-plan update for Outcome B — F4 resolved Option A own crate)"
   ],
-  "new_deferred_this_batch": [
-    "D134 🟡 P1-defer — shipped skill hooks read nested .output.* vs ADR top-level envelope (Phase 2.5 W1 前置)",
-    "D135 🔵 P3-defer — T4 must graduate xfail fixtures to positive assertions",
-    "D136 🟡 P1-defer — Pre/PostToolUse hook not fired during probe turn (grid-only, blocks test_hook_envelope.py 5/5 on grid; Python runtime already compliant)",
-    "D137 🟡 P1-defer — Multi-turn observability + MCP bridge live + PRE_COMPACT threshold (10 xfail across event/proto/MCP)",
-    "D138 🟡 P2-defer — skill-workflow enforcement needs scriptable deny-path mock LLM (5 xfail test_skill_workflow.py)",
-    "D139 🔵 P3-defer — double-terminate + unknown-session canonical error code undefined (2 xfail test_e2e_smoke.py)",
-    "D140 🟡 P1-defer — grid-runtime envelope-mode dispatch sites not calling HookContext::with_event (3-5 LOC hot fix; post-fix grid test_hook_envelope.py 0/5 → 5/5)"
-  ],
-  "closed_deferred_this_batch": [
-    "D120 ✅ closed via S0.T3 @ 7e083c7"
-  ],
-  "notes": "Design + plan phase complete via /superpowers:brainstorming (8 Q/A) then /superpowers:writing-plans (24 bite-sized tasks). Recommended next step: Parallel Session via /superpowers:executing-plans in fresh context pointing at plan_file, starting with S0.T1 contract harness scaffolding. Subagent-Driven (this session) also viable for rapid momentum. W1.T0 goose spike MUST run before W1.T1 — it determines thin wrap vs subprocess-via-MCP branching. Open Q#1+Q#4 close during W1.T0."
+  "new_deferred_this_batch": [],
+  "closed_deferred_this_batch": [],
+  "notes": "Checkpoint after sub-plan amendment. Plan 7/24 (S0 6/6 + W1 1/6). F4 resolved (Option A own crate for eaasp-scoped-hook-mcp). F1 gate moved into T2 blueprint prologue. F3 SIGTERM+5s+SIGKILL fallback baked into T2 close_session. Ready to dispatch W1.T1 scaffold coder via subagent-driven-development (2-crate scaffold per amended plan). W2.T1 nanobot may start in parallel (Python track, unblocked by S0). Per user orchestration rules: batch compile/test after W1.T2 + W1.T3, not per-task; incremental cargo check -p eaasp-goose-runtime preferred; mem-save after each task commit; mem-summarize at S1.W1 completion."
 }
