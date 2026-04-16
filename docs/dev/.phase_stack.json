@@ -6,22 +6,25 @@
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "plan": "docs/plans/2026-04-16-v2-phase2_5-plan.md",
-      "progress": "3/24",
+      "progress": "6/24",
       "theme": "Consolidation + goose-runtime",
       "stages": [
-        "S0 Contract Suite v1 + D120 envelope parity 🟡 3/6 (T1 ✅ T2 ✅ T3 ✅)",
+        "S0 Contract Suite v1 + D120 envelope parity ✅ 6/6 (T1 ✅ T2 ✅ T3 ✅ T4 ✅ T5 ✅ T6 ✅)",
         "S1.W1 goose-runtime ⏳ 0/6",
         "S1.W2 nanobot-runtime ⏳ 0/6",
         "S2 Reference Docs ⏳ 0/2",
         "S3 Automated CI Gate ⏳ 0/2",
         "S4 Manual E2E Runbook ⏳ 0/2"
       ],
-      "next_task": "S0.T4 grid-runtime contract tests GREEN",
-      "last_updated": "2026-04-16T15:10:00+08:00",
+      "next_task": "S1.W1.T0 goose availability spike",
+      "last_updated": "2026-04-16T18:30:00+08:00",
       "commits_so_far": [
         "d5ee72b (S0.T1 contract harness scaffolding)",
         "7b19ed8 (S0.T2 contract v1 RED ~35 cases)",
-        "7e083c7 (S0.T3 D120 HookContext envelope parity — D120 CLOSED)"
+        "7e083c7 (S0.T3 D120 HookContext envelope parity — D120 CLOSED)",
+        "cfda161 (S0.T4 grid-runtime contract v1 GREEN 13/22)",
+        "fd1abbf (S0.T5 claude-code-runtime contract v1 GREEN 18/17)",
+        "b26bcc2 (S0.T6 freeze contract v1.0.0 + D136-D140 ledger; tag contract-v1.0.0)"
       ],
       "priorities_p1_defer": [
         "goose-runtime 引入 (ADR-V2-017 W1)",
@@ -30,7 +33,11 @@
         "D78 event payload embedding",
         "D94 MemoryStore 单例 refactor",
         "D98 HybridIndex HNSW 持久化",
-        "D134 shipped Stop hooks nesting mismatch (W1 前置)"
+        "D134 shipped Stop hooks nesting mismatch (W1 前置)",
+        "D136 grid Pre/PostToolUse hook not fired during probe turn (W1 前置)",
+        "D137 multi-turn observability + MCP bridge live + PRE_COMPACT (W1/W2 成熟期)",
+        "D138 skill-workflow deny-path mock LLM (W1)",
+        "D140 grid envelope-mode dispatch-site 3-5 LOC hot fix (W1 前置)"
       ],
       "prereq_commits": [
         "f4bf9ad (S4.T4 thread-scoped interrupt)",

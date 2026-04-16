@@ -18,7 +18,9 @@ tests/contract/
 │   ├── runtime_launcher.py      # RuntimeLauncher + RuntimeConfig
 │   ├── mock_openai_server.py    # FastAPI mock for /v1/chat/completions
 │   └── assertions.py            # shared schema constants + helpers
-├── contract_v1/                 # S0.T2 frozen contract tests
+├── contract_v1/                 # Frozen contract v1.0.0 (2026-04-16)
+│   ├── VERSION                  # single line: v1.0.0
+│   ├── CHANGELOG.md             # version history + policy
 │   ├── test_proto_shape.py
 │   ├── test_event_type.py
 │   ├── test_mcp_bridge.py
@@ -55,3 +57,39 @@ tests skip with a descriptive reason.
 
 No test in this directory may be skipped silently after T6. Adding or
 modifying assertions after the freeze requires a new contract version.
+
+## Versioning & Freeze Policy
+
+Contract v1.0.0 is the first stable snapshot, frozen on **2026-04-16** at
+the close of Phase 2.5 S0. From this point on, changes to
+`tests/contract/contract_v1/` are governed by a version-bump protocol
+instead of ad-hoc edits.
+
+### Adding new tests
+
+Every new test case or file requires:
+
+1. A version bump in `contract_v1/VERSION` (patch for single additions,
+   minor for whole-file additions).
+2. A new entry in `contract_v1/CHANGELOG.md` describing the addition,
+   cross-referenced to a ledger item or ADR.
+3. Validation on all currently-green runtimes before merge — a new test
+   MUST NOT silently break a previously-passing runtime.
+
+### Breaking changes
+
+Any change that invalidates a previously-green runtime (proto method
+removal, renamed event types, altered envelope contract, etc.) is a
+major bump and requires:
+
+1. A new ADR documenting the migration path.
+2. A parallel `tests/contract/contract_v2/` directory so existing
+   runtimes remain certifiable against v1 while they migrate.
+3. CHANGELOG entries in both `contract_v1/` (marking the freeze final)
+   and `contract_v2/` (starting v2.0.0).
+
+### Reference files
+
+- `contract_v1/VERSION` — authoritative version string (single line).
+- `contract_v1/CHANGELOG.md` — per-version scope, validated runtimes,
+  deferred items, and the full versioning policy details.

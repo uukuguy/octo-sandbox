@@ -3,14 +3,17 @@
   "design_file": "docs/plans/2026-04-16-v2-phase2_5-design.md",
   "phase": "execution",
   "created_at": "2026-04-16T04:05:00+08:00",
-  "updated_at": "2026-04-16T15:10:00+08:00",
+  "updated_at": "2026-04-16T18:30:00+08:00",
   "completed_tasks": [
     "S0.T1 (Contract harness scaffolding — 10 files @ d5ee72b, 6/6 smoke PASS)",
     "S0.T2 (Contract v1 RED ~35 cases @ 7b19ed8, 1 PASS + 29 SKIP + 5 xfail awaiting T4/T5 fixtures)",
-    "S0.T3 (D120 HookContext envelope parity @ 7e083c7, 10 integration tests PASS, byte-parity locked to ADR §2.1/2.2/2.3 canonical JSON, Python already compliant — D120 ✅ closed)"
+    "S0.T3 (D120 HookContext envelope parity @ 7e083c7, 10 integration tests PASS, byte-parity locked to ADR §2.1/2.2/2.3 canonical JSON, Python already compliant — D120 ✅ closed)",
+    "S0.T4 (grid contract v1 GREEN — 13/22 @ cfda161)",
+    "S0.T5 (claude-code contract v1 GREEN — 18/17 @ fd1abbf)",
+    "S0.T6 (freeze v1.0.0 + ledger D136-D140 — VERSION + CHANGELOG + README versioning section + ledger formalization; tag contract-v1.0.0 local-only)"
   ],
   "current_task": null,
-  "next_task": "S0.T4 — grid-runtime contract tests GREEN",
+  "next_task": "S1.W1.T0 — goose availability spike (open question #1); may run in parallel with W2.T1",
   "execution_mode": "subagent-driven-development",
   "phase_name": "Phase 2.5 — Consolidation + goose-runtime (EAASP v2.0)",
   "total_tasks": 24,
@@ -18,9 +21,10 @@
     "S0": {
       "name": "Shared Contract Suite v1 + D120 Envelope Parity",
       "tasks": 6,
-      "completed": 3,
+      "completed": 6,
       "type": "serial-prerequisite",
-      "batch_1_completion": "2026-04-16 T1-T3 via RuFlo swarm-1776322960829 hierarchical (scout Explore /tmp/s0-t1-t3-blueprint.md 638 lines → coder 3 commits first-pass → reviewer APPROVE-WITH-COMMENTS 0 Criticals 2 Majors deferred D134/D135). Next batch: T4-T6 (grid+claude-code runtime GREEN + v1.0.0 freeze tag)."
+      "batch_1_completion": "2026-04-16 T1-T3 via RuFlo swarm-1776322960829 hierarchical (scout Explore /tmp/s0-t1-t3-blueprint.md 638 lines → coder 3 commits first-pass → reviewer APPROVE-WITH-COMMENTS 0 Criticals 2 Majors deferred D134/D135).",
+      "batch_2_completion": "2026-04-16 T4-T6 — T4 grid GREEN 13/22 @ cfda161, T5 claude-code GREEN 18/17 @ fd1abbf, T6 freeze v1.0.0 (VERSION + CHANGELOG + README Versioning section + D136-D140 ledger formalization; tag contract-v1.0.0 local-only, user controls push). 5 new Deferred: D136 (grid hook-not-fired probe), D137 (multi-turn+MCP+PreCompact 10 xfail), D138 (deny-path mock LLM), D139 (double-terminate semantics), D140 (grid dispatch-site 3-5 LOC hot fix)."
     },
     "S1.W1": {
       "name": "goose-runtime (Rust, Thin Wrap)",
@@ -90,11 +94,19 @@
   "phase2_5_commits": [
     "d5ee72b (S0.T1 contract harness scaffolding)",
     "7b19ed8 (S0.T2 contract v1 ~35 cases RED)",
-    "7e083c7 (S0.T3 D120 HookContext envelope parity — D120 ✅ closed)"
+    "7e083c7 (S0.T3 D120 HookContext envelope parity — D120 ✅ closed)",
+    "cfda161 (S0.T4 grid-runtime contract v1 GREEN — 13/22)",
+    "fd1abbf (S0.T5 claude-code-runtime contract v1 GREEN — 18/17)",
+    "b26bcc2 (S0.T6 freeze contract v1.0.0 + D136-D140 ledger formalization; tag contract-v1.0.0)"
   ],
   "new_deferred_this_batch": [
     "D134 🟡 P1-defer — shipped skill hooks read nested .output.* vs ADR top-level envelope (Phase 2.5 W1 前置)",
-    "D135 🔵 P3-defer — T4 must graduate xfail fixtures to positive assertions"
+    "D135 🔵 P3-defer — T4 must graduate xfail fixtures to positive assertions",
+    "D136 🟡 P1-defer — Pre/PostToolUse hook not fired during probe turn (grid-only, blocks test_hook_envelope.py 5/5 on grid; Python runtime already compliant)",
+    "D137 🟡 P1-defer — Multi-turn observability + MCP bridge live + PRE_COMPACT threshold (10 xfail across event/proto/MCP)",
+    "D138 🟡 P2-defer — skill-workflow enforcement needs scriptable deny-path mock LLM (5 xfail test_skill_workflow.py)",
+    "D139 🔵 P3-defer — double-terminate + unknown-session canonical error code undefined (2 xfail test_e2e_smoke.py)",
+    "D140 🟡 P1-defer — grid-runtime envelope-mode dispatch sites not calling HookContext::with_event (3-5 LOC hot fix; post-fix grid test_hook_envelope.py 0/5 → 5/5)"
   ],
   "closed_deferred_this_batch": [
     "D120 ✅ closed via S0.T3 @ 7e083c7"
