@@ -2,17 +2,30 @@
 # dev-eaasp.sh — Start all EAASP v2.0 services for interactive development.
 #
 # Services (in start order):
-#   skill-registry    :${EAASP_SKILL_REGISTRY_PORT:-18081}
-#   L2 memory-engine  :${EAASP_L2_PORT:-18085}
-#   L3 governance     :${EAASP_L3_PORT:-18083}
-#   grid-runtime      :${GRID_RUNTIME_PORT:-50051}
-#   L4 orchestration  :${EAASP_L4_PORT:-18084}
+#   skill-registry       :${EAASP_SKILL_REGISTRY_PORT:-18081}
+#   L2 memory-engine     :${EAASP_L2_PORT:-18085}
+#   L3 governance        :${EAASP_L3_PORT:-18083}
+#   mock-scada SSE       :${EAASP_MOCK_SCADA_SSE_PORT:-18090}
+#   L2 MCP Orchestrator  :${EAASP_MCP_ORCHESTRATOR_PORT:-18082}
+#   grid-runtime         :${GRID_RUNTIME_PORT:-50051}
+#   claude-code-runtime  :${CLAUDE_RUNTIME_PORT:-50052}
+#   nanobot-runtime      :${NANOBOT_RUNTIME_PORT:-50054}   (Phase 2.5 W2)
+#   goose-runtime        :${GOOSE_RUNTIME_PORT:-50063}     (Phase 2.5 W1, Docker)
+#   L4 orchestration     :${EAASP_L4_PORT:-18084}
+#
+# Per ADR-V2-017 L1 runtime 生态策略:
+#   - 主力: grid-runtime
+#   - 样板: claude-code-runtime (Anthropic), nanobot-runtime (OpenAI-compat)
+#   - 对比: goose-runtime (Phase 2.5 W1 container-first baseline)
+#   - 冻结: hermes-runtime (2026-04-14, removed from dev-eaasp)
 #
 # After all services are up, the script stays foreground. Ctrl+C kills everything.
 #
 # Usage:
 #   ./scripts/dev-eaasp.sh
 #   ./scripts/dev-eaasp.sh --skip-build        # skip cargo build
+#   ./scripts/dev-eaasp.sh --skip-goose        # skip goose-runtime Docker
+#   ./scripts/dev-eaasp.sh --skip-nanobot      # skip nanobot-runtime
 #   make dev-eaasp                              # via Makefile
 
 set -euo pipefail
@@ -34,12 +47,15 @@ L3_GOV_PORT="${EAASP_L3_PORT:-18083}"
 L4_ORCH_PORT="${EAASP_L4_PORT:-18084}"
 GRID_RT_PORT="${GRID_RUNTIME_PORT:-50051}"
 CLAUDE_RT_PORT="${CLAUDE_RUNTIME_PORT:-50052}"
-HERMES_RT_PORT="${HERMES_RUNTIME_PORT:-50053}"
+NANOBOT_RT_PORT="${NANOBOT_RUNTIME_PORT:-50054}"
+GOOSE_RT_PORT="${GOOSE_RUNTIME_PORT:-50063}"
 MOCK_SCADA_SSE_PORT="${EAASP_MOCK_SCADA_SSE_PORT:-18090}"
 MCP_ORCH_PORT="${EAASP_MCP_ORCHESTRATOR_PORT:-18082}"
 
 # ── Runtime flags ─────────────────────────────────────────────────────────
 SKIP_BUILD=false
+SKIP_NANOBOT=false
+SKIP_GOOSE=false
 
 # ── Background PIDs (for cleanup) ────────────────────────────────────────
 SKILL_REG_PID=""
@@ -48,7 +64,8 @@ L3_PID=""
 L4_PID=""
 GRID_PID=""
 CLAUDE_PID=""
-HERMES_PID=""
+NANOBOT_PID=""
+GOOSE_PID=""
 MOCK_SCADA_SSE_PID=""
 MCP_ORCH_PID=""
 
@@ -78,10 +95,10 @@ cleanup() {
     echo ""
     echo -e "${BOLD}=== Stopping EAASP services ===${RESET}"
     _kill_tree "L4 orchestration" "$L4_PID"
-    # Docker container: use short timeout to avoid OrbStack hang on SIGTERM.
-    # --time=2 sends SIGTERM, waits 2s, then SIGKILL.
-    docker stop --time=2 eaasp-hermes-runtime >/dev/null 2>&1 || true
-    docker rm -f eaasp-hermes-runtime >/dev/null 2>&1 || true
+    # goose-runtime Docker container (Phase 2.5 W1): short timeout to avoid OrbStack SIGTERM hang.
+    docker stop --time=2 eaasp-goose-runtime >/dev/null 2>&1 || true
+    docker rm -f eaasp-goose-runtime >/dev/null 2>&1 || true
+    _kill_tree "nanobot-runtime" "$NANOBOT_PID"
     _kill_tree "claude-code-runtime" "$CLAUDE_PID"
     _kill_tree "grid-runtime" "$GRID_PID"
     _kill_tree "MCP Orchestrator" "$MCP_ORCH_PID"
@@ -91,7 +108,8 @@ cleanup() {
     _kill_tree "skill-registry" "$SKILL_REG_PID"
     # Sweep orphaned listeners
     _kill_port "L4 orchestration" "$L4_ORCH_PORT"
-    _kill_port "hermes-runtime" "$HERMES_RT_PORT"
+    _kill_port "goose-runtime" "$GOOSE_RT_PORT"
+    _kill_port "nanobot-runtime" "$NANOBOT_RT_PORT"
     _kill_port "claude-code-runtime" "$CLAUDE_RT_PORT"
     _kill_port "grid-runtime" "$GRID_RT_PORT"
     _kill_port "MCP Orchestrator" "$MCP_ORCH_PORT"
@@ -106,12 +124,16 @@ trap cleanup EXIT INT TERM
 # ── Arg parsing ───────────────────────────────────────────────────────────
 for arg in "$@"; do
     case "$arg" in
-        --skip-build) SKIP_BUILD=true ;;
+        --skip-build)   SKIP_BUILD=true ;;
+        --skip-nanobot) SKIP_NANOBOT=true ;;
+        --skip-goose)   SKIP_GOOSE=true ;;
         -h|--help)
             cat <<EOF
-Usage: $0 [--skip-build]
+Usage: $0 [--skip-build] [--skip-nanobot] [--skip-goose]
 
-  --skip-build  Skip 'cargo build' step (use existing binaries).
+  --skip-build    Skip 'cargo build' step (use existing binaries).
+  --skip-nanobot  Skip nanobot-runtime startup (Phase 2.5 W2).
+  --skip-goose    Skip goose-runtime Docker startup (Phase 2.5 W1).
 
 Starts all EAASP v2.0 services and stays foreground. Ctrl+C kills everything.
 
@@ -121,6 +143,9 @@ Ports (override via env vars):
   EAASP_L3_PORT              (default: 18083)
   EAASP_L4_PORT              (default: 18084)
   GRID_RUNTIME_PORT          (default: 50051)
+  CLAUDE_RUNTIME_PORT        (default: 50052)
+  NANOBOT_RUNTIME_PORT       (default: 50054)
+  GOOSE_RUNTIME_PORT         (default: 50063)
 EOF
             exit 0
             ;;
@@ -188,7 +213,8 @@ check_port_free $L3_GOV_PORT "L3 governance"
 check_port_free $L4_ORCH_PORT "L4 orchestration"
 check_port_free $GRID_RT_PORT "grid-runtime"
 check_port_free $CLAUDE_RT_PORT "claude-code-runtime"
-check_port_free $HERMES_RT_PORT "hermes-runtime"
+[ "$SKIP_NANOBOT" = false ] && check_port_free $NANOBOT_RT_PORT "nanobot-runtime"
+[ "$SKIP_GOOSE" = false ] && check_port_free $GOOSE_RT_PORT "goose-runtime"
 check_port_free $MOCK_SCADA_SSE_PORT "mock-scada-sse"
 echo -e "  ${GREEN}All ports free.${RESET}"
 echo ""
@@ -198,14 +224,25 @@ check_venv "tools/eaasp-l2-memory-engine" "l2-memory-setup"
 check_venv "tools/eaasp-l3-governance" "l3-setup"
 check_venv "tools/eaasp-l4-orchestration" "l4-setup"
 check_venv "lang/claude-code-runtime-python" "claude-runtime-setup"
-# hermes-runtime uses Docker — check image exists (non-fatal: skip if missing)
-SKIP_HERMES=false
-if ! docker image inspect hermes-runtime:latest >/dev/null 2>&1; then
-    echo -e "  ${YELLOW}WARN${RESET}: Docker image hermes-runtime:latest not found. Hermes will be skipped."
-    echo "         To enable: make hermes-runtime-build"
-    SKIP_HERMES=true
-else
-    echo -e "  ${GREEN}hermes-runtime:latest Docker image found.${RESET}"
+# nanobot-runtime .venv (Phase 2.5 W2) — non-fatal: skip if missing
+if [ "$SKIP_NANOBOT" = false ]; then
+    if [ ! -x "$PROJECT_ROOT/lang/nanobot-runtime-python/.venv/bin/python" ]; then
+        echo -e "  ${YELLOW}WARN${RESET}: lang/nanobot-runtime-python/.venv is missing. Nanobot will be skipped."
+        echo "         To enable: cd lang/nanobot-runtime-python && uv sync"
+        SKIP_NANOBOT=true
+    else
+        echo -e "  ${GREEN}nanobot-runtime .venv present.${RESET}"
+    fi
+fi
+# goose-runtime uses Docker (Phase 2.5 W1) — check image exists (non-fatal: skip if missing)
+if [ "$SKIP_GOOSE" = false ]; then
+    if ! docker image inspect eaasp-goose-runtime:dev >/dev/null 2>&1; then
+        echo -e "  ${YELLOW}WARN${RESET}: Docker image eaasp-goose-runtime:dev not found. Goose will be skipped."
+        echo "         To enable: make goose-runtime-container-build"
+        SKIP_GOOSE=true
+    else
+        echo -e "  ${GREEN}eaasp-goose-runtime:dev Docker image found.${RESET}"
+    fi
 fi
 echo -e "  ${GREEN}All .venvs present.${RESET}"
 echo ""
@@ -373,37 +410,55 @@ CLAUDE_PID=$!
 echo "  PID: $CLAUDE_PID"
 wait_for_port $CLAUDE_RT_PORT "claude-code-runtime"
 
-# ── Step 7: Start hermes-runtime (Docker) ───────────────────────────────
-if [ "$SKIP_HERMES" = "false" ]; then
+# ── Step 7: Start nanobot-runtime (Phase 2.5 W2, native Python) ─────────
+if [ "$SKIP_NANOBOT" = false ]; then
     echo ""
-    echo -e "${BOLD}=== Starting hermes-runtime on :${HERMES_RT_PORT} (Docker) ===${RESET}"
-    HERMES_CONTAINER="eaasp-hermes-runtime"
+    echo -e "${BOLD}=== Starting nanobot-runtime on :${NANOBOT_RT_PORT} ===${RESET}"
+    NANOBOT_RUNTIME_PORT=$NANOBOT_RT_PORT \
+    OPENAI_BASE_URL="${OPENAI_BASE_URL:-}" \
+    OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+    OPENAI_MODEL_NAME="${OPENAI_MODEL_NAME:-gpt-4o-mini}" \
+    EAASP_L2_DB_PATH="$PROJECT_ROOT/data/dev-l2.db" \
+    PATH="$PROJECT_ROOT/tools/mock-scada/.venv/bin:$PROJECT_ROOT/tools/eaasp-l2-memory-engine/.venv/bin:$PATH" \
+        "$PROJECT_ROOT/lang/nanobot-runtime-python/.venv/bin/python" \
+            -m nanobot_runtime 2>&1 | sed 's/^/  [nanobot-rt]/' &
+    NANOBOT_PID=$!
+    echo "  PID: $NANOBOT_PID"
+    wait_for_port $NANOBOT_RT_PORT "nanobot-runtime"
+else
+    echo ""
+    echo -e "${YELLOW}=== Skipping nanobot-runtime ===${RESET}"
+fi
+
+# ── Step 8: Start goose-runtime (Phase 2.5 W1, Docker, ADR-V2-019) ──────
+if [ "$SKIP_GOOSE" = false ]; then
+    echo ""
+    echo -e "${BOLD}=== Starting goose-runtime on :${GOOSE_RT_PORT} (Docker) ===${RESET}"
+    GOOSE_CONTAINER="eaasp-goose-runtime"
     # Remove stale container if exists
-    docker rm -f "$HERMES_CONTAINER" >/dev/null 2>&1 || true
+    docker rm -f "$GOOSE_CONTAINER" >/dev/null 2>&1 || true
     # macOS Docker Desktop does not support --network host; use -p port mapping.
     # Run in detached mode, stream logs via docker logs -f.
     docker run --rm -d \
-        --name "$HERMES_CONTAINER" \
-        -p "${HERMES_RT_PORT}:${HERMES_RT_PORT}" \
-        -e HERMES_RUNTIME_PORT="$HERMES_RT_PORT" \
-        -e HERMES_API_KEY="${HERMES_API_KEY:-${OPENAI_API_KEY:-}}" \
-        -e HERMES_BASE_URL="${HERMES_BASE_URL:-${OPENAI_BASE_URL:-}}" \
-        -e HERMES_MODEL="${HERMES_MODEL:-${OPENAI_MODEL_NAME:-anthropic/claude-sonnet-4-20250514}}" \
-        -e HERMES_PROVIDER="${HERMES_PROVIDER:-}" \
-        -e HOOK_BRIDGE_URL="${HOOK_BRIDGE_URL:-}" \
+        --name "$GOOSE_CONTAINER" \
+        -p "${GOOSE_RT_PORT}:${GOOSE_RT_PORT}" \
+        -e GOOSE_RUNTIME_GRPC_ADDR="0.0.0.0:${GOOSE_RT_PORT}" \
+        -e EAASP_DEPLOYMENT_MODE="${EAASP_DEPLOYMENT_MODE:-shared}" \
+        -e OPENAI_BASE_URL="${OPENAI_BASE_URL:-}" \
+        -e OPENAI_API_KEY="${OPENAI_API_KEY:-}" \
+        -e OPENAI_MODEL_NAME="${OPENAI_MODEL_NAME:-gpt-4o-mini}" \
         -e EAASP_L2_HOST=host.docker.internal \
         -e EAASP_L2_PORT="$L2_MEM_PORT" \
         -e NO_PROXY=host.docker.internal,127.0.0.1,localhost \
-        hermes-runtime:latest \
-        python -m hermes_runtime --port "$HERMES_RT_PORT" >/dev/null 2>&1
+        eaasp-goose-runtime:dev >/dev/null 2>&1
     # Stream container logs in background
-    docker logs -f "$HERMES_CONTAINER" 2>&1 | sed 's/^/  [hermes-rt] /' &
-    HERMES_PID=$!
-    echo "  Container: $HERMES_CONTAINER"
-    wait_for_port $HERMES_RT_PORT "hermes-runtime"
+    docker logs -f "$GOOSE_CONTAINER" 2>&1 | sed 's/^/  [goose-rt]  /' &
+    GOOSE_PID=$!
+    echo "  Container: $GOOSE_CONTAINER"
+    wait_for_port $GOOSE_RT_PORT "goose-runtime"
 else
     echo ""
-    echo -e "${YELLOW}=== Skipping hermes-runtime (Docker image not found) ===${RESET}"
+    echo -e "${YELLOW}=== Skipping goose-runtime (Docker image not found or --skip-goose) ===${RESET}"
 fi
 
 # ── Step 8: Start L4 orchestration ───────────────────────────────────────
@@ -436,8 +491,17 @@ printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "mock-scada(SSE)"      "
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L2 MCP Orchestrator"  "$MCP_ORCH_PORT"  "$MCP_ORCH_PID"  "-"          "UP"
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "grid-runtime"         "$GRID_RT_PORT"   "$GRID_PID"      "OPENAI_*"   "UP"
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "claude-code-runtime"  "$CLAUDE_RT_PORT" "$CLAUDE_PID"    "ANTHROPIC_*" "UP"
-HERMES_CID=$(docker inspect --format '{{.State.Pid}}' eaasp-hermes-runtime 2>/dev/null || echo "?")
-printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "hermes-runtime(docker)" "$HERMES_RT_PORT" "$HERMES_CID"    "HERMES→OPENAI" "UP"
+if [ "$SKIP_NANOBOT" = false ]; then
+    printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "nanobot-runtime"      "$NANOBOT_RT_PORT" "$NANOBOT_PID"   "OPENAI_*"   "UP"
+else
+    printf "  %-24s %-8s %-8s %-10s ${YELLOW}%-8s${RESET}\n" "nanobot-runtime"      "$NANOBOT_RT_PORT" "-"              "-"          "SKIPPED"
+fi
+if [ "$SKIP_GOOSE" = false ]; then
+    GOOSE_CID=$(docker inspect --format '{{.State.Pid}}' eaasp-goose-runtime 2>/dev/null || echo "?")
+    printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "goose-runtime(docker)" "$GOOSE_RT_PORT" "$GOOSE_CID"     "OPENAI_*"   "UP"
+else
+    printf "  %-24s %-8s %-8s %-10s ${YELLOW}%-8s${RESET}\n" "goose-runtime(docker)" "$GOOSE_RT_PORT" "-"              "-"          "SKIPPED"
+fi
 printf "  %-24s %-8s %-8s %-10s ${GREEN}%-8s${RESET}\n" "L4 orchestration"     "$L4_ORCH_PORT"   "$L4_PID"        "-"          "UP"
 echo ""
 echo -e "  ${YELLOW}Press Ctrl+C to stop all services.${RESET}"

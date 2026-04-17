@@ -33,8 +33,9 @@ class OpenAICompatProvider:
     """Thin async wrapper over ``POST /v1/chat/completions``.
 
     Args:
-        base_url: Endpoint root, e.g. ``https://api.openai.com``. Trailing
-            slashes are stripped. ``/v1/chat/completions`` is appended.
+        base_url: Endpoint root. Accepts both ``https://api.openai.com`` and
+            ``https://api.openai.com/v1`` forms — trailing ``/v1`` and slashes
+            are normalized away. ``/v1/chat/completions`` is always appended.
         api_key: Bearer token sent via ``Authorization`` header.
         model: Model identifier included in every request body.
         timeout_s: Per-request timeout, passed to ``httpx.AsyncClient``.
@@ -47,7 +48,13 @@ class OpenAICompatProvider:
         model: str,
         timeout_s: float = 60.0,
     ) -> None:
-        self.base_url = base_url.rstrip("/")
+        # Normalize: strip trailing slash, then strip trailing /v1 so users
+        # can pass either "https://host" or "https://host/v1" (OpenRouter's
+        # OPENAI_BASE_URL ships with /v1 suffix).
+        root = base_url.rstrip("/")
+        if root.endswith("/v1"):
+            root = root[: -len("/v1")]
+        self.base_url = root
         self.api_key = api_key
         self.model = model
         self.timeout_s = timeout_s

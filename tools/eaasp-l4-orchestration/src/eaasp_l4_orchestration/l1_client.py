@@ -31,12 +31,20 @@ L1_CLAUDE_CODE_RUNTIME_DEFAULT = os.environ.get(
 L1_HERMES_RUNTIME_DEFAULT = os.environ.get(
     "EAASP_L1_HERMES_RUNTIME_URL", "127.0.0.1:50053"
 )
+L1_NANOBOT_RUNTIME_DEFAULT = os.environ.get(
+    "EAASP_L1_NANOBOT_RUNTIME_URL", "127.0.0.1:50054"
+)
+L1_GOOSE_RUNTIME_DEFAULT = os.environ.get(
+    "EAASP_L1_GOOSE_RUNTIME_URL", "127.0.0.1:50063"
+)
 
 # runtime_id → default gRPC endpoint mapping.
 RUNTIME_ENDPOINTS: dict[str, str] = {
     "grid-runtime": L1_GRID_RUNTIME_DEFAULT,
     "claude-code-runtime": L1_CLAUDE_CODE_RUNTIME_DEFAULT,
     "hermes-runtime": L1_HERMES_RUNTIME_DEFAULT,
+    "nanobot-runtime": L1_NANOBOT_RUNTIME_DEFAULT,
+    "goose-runtime": L1_GOOSE_RUNTIME_DEFAULT,
 }
 
 
