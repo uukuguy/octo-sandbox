@@ -1,5 +1,117 @@
 # Grid Sandbox 工作日志
 
+## Phase 2.5 — L1 Runtime Ecosystem + goose + nanobot (2026-04-18 🟢 Completed 25/25)
+
+### 已完成
+
+**Stage S0 — 合约套件 v1 + D120 envelope parity** (6/6)
+- S0.T1 contract harness scaffolding @ d5ee72b
+- S0.T2 35 contract cases v1 RED @ 7b19ed8
+- S0.T3 D120 Rust HookContext ADR-V2-006 envelope parity @ 7e083c7（10 integration PASS）
+- S0.T4 grid contract GREEN 13/22 @ cfda161
+- S0.T5 claude-code contract GREEN 18/17 @ fd1abbf
+- S0.T6 freeze tag contract-v1.0.0 local-only + Deferred D136-D140
+
+**Stage S1 W1 — goose-runtime** (7/7)
+- W1.T0 goose availability spike @ 9b21112（Outcome B subprocess-via-ACP/MCP，git-dep fallback）
+- W1.T1 `crates/eaasp-goose-runtime/` + `crates/eaasp-scoped-hook-mcp/` scaffold @ c3310c9
+- W1.T2 GooseAdapter subprocess + ACP client @ 17d751c
+- W1.T2.5 Dockerfile + ADR-V2-019 multi-session @ e78d858 + 2cf5af9（F1 gate PASS）
+- W1.T3 16 gRPC + stdio proxy hook MCP @ 0719ce5
+- W1.T4 goose contract v1 wired @ 310e0ff（本机无 goose 时 skip）
+- W1.T5 skill-extraction E2E smoke @ 2189800
+
+**Stage S1 W2 — nanobot-runtime** (6/6)
+- W2.T1 `lang/nanobot-runtime-python/` scaffold @ 514a41c
+- W2.T2 OpenAICompatProvider 93 LOC + 5 tests @ 46f06dc
+- W2.T3 multi-turn agent loop + ADR-V2-006 hook dispatch @ ff311c0
+- W2.T4 16 gRPC + real grpc.aio server @ a8408c9 + 14ed549
+- W2.T5 nanobot contract v1 wired @ 602c1dc
+- W2.T6 skill-extraction E2E smoke 8/8 PASS @ 13aa959
+
+**Stage S2-S4 — 文档 + CI + 人工 E2E sign-off** (6/6)
+- S2.T1 L1_RUNTIME_ADAPTATION_GUIDE.md 322 LOC @ 13aa959
+- S2.T2 L1_RUNTIME_COMPARISON_MATRIX.md 105 LOC @ 844664d
+- S3.T1 Makefile v2-phase2_5-e2e + 4 runtime contract targets @ 844664d
+- S3.T2 `.github/workflows/phase2_5-contract.yml` matrix @ 844664d
+- S4.T1 runbook scripts/phase2_5-runtime-verification.sh @ 844664d
+- **S4.T2 Human sign-off E2E PASS @ 83533ba+047ce7a+eaed8c0+ddda098+1cedd24**
+
+### 技术变更
+
+**Sign-off 过程挖出并治本的 7 类 grid-engine/grid-runtime 结构债**
+
+1. **BROADCAST_CAPACITY 256 → 4096**（`crates/grid-engine/src/agent/runtime.rs`）
+   - 根因：Provider SSE 流中 token-level 事件 500+ 撑爆 broadcast channel，Lagged 丢掉 AgentEvent::Done
+   - 后果：gRPC stream 不关闭，CLI 挂死在 `session send`
+   - 加 Lag-fallback（`crates/grid-runtime/src/harness.rs` map_events_to_chunks 收到 Lagged 合成 done 兜底）
+
+2. **EAASP_TOOL_FILTER env 逻辑恢复**（`crates/grid-runtime/src/harness.rs`）
+   - 根因：055badf squash 时误删了 env 读取代码，tool_filter 硬编码 None
+   - 后果：LLM 看到 grid-engine 内置 L0/L1 工具（memory_recall/timeline/graph_*/bash/file_read），瞎调进死循环
+
+3. **KG/MCP-manage 工具尊重 tool_filter**（`crates/grid-engine/src/agent/runtime.rs`）
+   - 之前 register_kg_tools 无条件追加到过滤后 registry
+
+4. **AgentTool/QueryAgentTool 尊重 filter**（`crates/grid-engine/src/agent/executor.rs`）
+   - 之前也是在 per-turn snapshot 后无条件 register
+
+5. **Stop ctx 注入 evidence_anchor_id / draft_memory_id**（`crates/grid-engine/src/agent/harness.rs`）
+   - memory_write_anchor / memory_write_file 成功后从 ToolOutput 解析 id 存 last_*
+   - 构建 stop_ctx 时 `.with_evidence_anchor_id()` / `.with_draft_memory_id()`
+   - 否则 Stop hook envelope 空字段 → hook 永远 InjectAndContinue → MAX_STOP_HOOK_INJECTIONS cap
+
+6. **hooks/ 子目录完整 materialize**（`crates/grid-runtime/src/harness.rs` build_hook_vars）
+   - 之前只写 SKILL.md 到 `{workspace}/grid-session-*/skill/`
+   - 现从 EAASP_SKILL_SOURCE_DIR 或 ./examples/skills copy hooks/，保留 Unix exec bit
+   - source 缺失 warn + fail-open
+
+7. **L4 聚合 token-level chunks**（`tools/eaasp-l4-orchestration/src/eaasp_l4_orchestration/session_orchestrator.py`）
+   - send_message + stream_message 都加 delta_buf，连续 text_delta / thinking 合并成 1 条
+   - 非 delta chunk 到来先 flush
+   - SSE 流仍逐 token yield 给前端（保留打字机体验）
+   - 效果：一轮 threshold-calibration 从 612 events → 35 events
+
+**Skill hook 脚本对齐**：`check_output_anchor.sh` 和 `check_final_output.sh` 改读顶层 envelope 字段 `.evidence_anchor_id` / `.draft_memory_id`，兼容 `.output.*` 做向后兼容。
+
+**L2 friendly error messages**：`mcp_tools.py` + `files.py` 的 KeyError / ToolError 消息增补 "memory_id 必须来自 memory_search.hits / memory_write_file 返回值" 等上下文。
+
+**dev-eaasp.sh 扩展**：
+- 每服务 `tee` 到 `.logs/dev-eaasp-<ts>/*.log` + `.logs/latest` symlink
+- 起全 4 runtime（grid + claude-code + nanobot + goose docker）
+- EAASP_TOOL_FILTER=on 默认开启
+
+### 测试结果
+
+**E2E sign-off**: `bash scripts/eaasp-e2e.sh` exit 0
+```
+PASS:34  FAIL:0  TODO:8  SKIP:4  XFAIL:0
+```
+
+**10 个新回归测试**（全部 PASS）：
+- `tools/eaasp-l4-orchestration/tests/test_chunk_coalescing.py` 5 tests
+- `crates/grid-engine/tests/phase2_5_regression.rs` 3 tests
+- `crates/grid-runtime/tests/scoped_hook_wiring_integration.rs` +2 tests
+
+### 长期资产
+
+- `scripts/eaasp-e2e.sh` — E2E 唯一入口，log_todo/SKIP/XFAIL 分类 + 每条 TODO 显式引用覆盖测试文件路径
+- `docs/design/EAASP/E2E_VERIFICATION_GUIDE.md` — Living Document（§5.5 人工分步 + §5.6 演进承诺 + §7 Phase 收尾历史）
+- `scripts/dev-eaasp.sh` — 起全 4 runtime + 每服务落盘日志
+
+### 未解决（Deferred → Phase 3）
+
+- **D144**: nanobot/goose ConnectMCP 工具注入（当前 nanobot Send 是骨架无工具、goose Send 是 stub）
+- grid-engine 工具命名空间架构治理（内置 L0/L1 vs MCP 命名冲突的根本设计）— Phase 3
+- 补 E2E harness 覆盖 TODO 标记的 8 项自动化触发 — Phase 3
+
+### 下一步
+
+- 运行 `/dev-phase-manager:start-phase` 启动 Phase 3
+- Phase 3 预期核心：goose ACP full wiring + nanobot MCP 注入 + pydantic-ai/claw-code/ccb 对比 runtime
+
+---
+
 ## Phase BH-MVP — E2E 业务智能体全流程验证 (2026-04-07)
 
 ### 完成内容

@@ -1,8 +1,8 @@
 # Grid Platform 下一会话指南
 
-**最后更新**: 2026-04-16 03:30 GMT+8
+**最后更新**: 2026-04-18 06:00 GMT+8
 **当前分支**: `main`
-**当前状态**: EAASP v2.0 **Phase 2 (Memory and Evidence) 完成 23/23** — 下一阶段 **Phase 2.5 (Consolidation + goose-runtime)** 待启动
+**当前状态**: EAASP v2.0 **Phase 2.5 (L1 Runtime Ecosystem + goose + nanobot) 🟢 COMPLETED 25/25** — 下一阶段 **Phase 3** 待规划
 
 ---
 
@@ -28,7 +28,8 @@
 - [x] **EAASP v2.0 Phase 0.75** — MCP 端到端通路
 - [x] **EAASP v2.0 Phase 1** — Event-driven Foundation (13/13, 124 tests, 2 runtime E2E)
 - [x] **EAASP v2.0 Phase 2** — Memory and Evidence (23/23, ~170 新测试, 0 P0 escalation)
-- [ ] **EAASP v2.0 Phase 2.5** — Consolidation + goose-runtime（下一步）
+- [x] **EAASP v2.0 Phase 2.5** — L1 Runtime Ecosystem + goose + nanobot (25/25, +10 新回归测试, sign-off E2E PASS exit 0)
+- [ ] **EAASP v2.0 Phase 3** — goose ACP full wiring + pydantic-ai/claw-code/ccb + 工具命名空间治理（下一步）
 
 ---
 
@@ -61,27 +62,89 @@
 
 ---
 
-## Phase 2.5 规划（下一步优先级）
+## Phase 2.5 成果总结（25/25 🟢 Completed 2026-04-18）
 
-**Phase 2.5 主题**：Consolidation + goose-runtime 替代 hermes
+### Stage 完成情况
 
-### 优先级（P1-defer 首选）
+| Stage | 任务数 | 状态 | 关键产出 |
+|-------|-------|------|---------|
+| **S0 合约套件 v1 + D120** | 6/6 ✅ | 35 contract cases + Rust HookContext envelope parity，contract-v1.0.0 tag local-only |
+| **S1 W1 goose-runtime** | 7/7 ✅ | `crates/eaasp-goose-runtime/` + Docker 容器 F1 gate + stdio proxy hook MCP + 16 gRPC |
+| **S1 W2 nanobot-runtime** | 6/6 ✅ | `lang/nanobot-runtime-python/` + OpenAI-compat provider + multi-turn agent loop + 16 gRPC |
+| **S2 文档** | 2/2 ✅ | L1_RUNTIME_ADAPTATION_GUIDE.md + L1_RUNTIME_COMPARISON_MATRIX.md |
+| **S3 CI 门控** | 2/2 ✅ | Makefile v2-phase2_5-e2e + GitHub Actions matrix |
+| **S4 人工 E2E** | 2/2 ✅ | Runbook + **sign-off E2E PASS exit 0** |
 
-1. **goose-runtime 引入**（ADR-V2-017）— `crates/eaasp-goose-runtime/` 原生 stdio+SSE MCP，解决 D88/T2 样板空缺
-2. **D130 token consolidation** — AgentExecutor 持 session-lifetime parent token，`parent.child()` 出 per-turn，消除 S4.T4 dual-path workaround
-3. **D120 cross-runtime envelope parity** — Rust `HookContext::to_json/to_env_vars` 补齐 ADR-V2-006 §2/§3 (event/skill_id/draft_memory_id/evidence_anchor_id/created_at + GRID_EVENT/GRID_SKILL_ID env)，前置 goose 契约测试
-4. **D78 event payload embedding** — 与 memory semantic 共 HNSW 架构落地
-5. **D94 MemoryStore 单例 refactor**（收尾 D12）
-6. **D98 HybridIndex HNSW 持久化**（当前每次 search 重建）
-7. **D108 hook script bats/shellcheck 自动回归**
-8. **D125 events/stream burst cap**（if L1 >1k/sec 需要）
+### Sign-off 过程挖出并治本的 7 类结构债
 
-### Phase 2.5 W1 共享契约测试集（ADR-V2-017 交付件）
+1. BROADCAST_CAPACITY 256→4096（Done chunk 丢失）
+2. EAASP_TOOL_FILTER env 逻辑恢复（055badf squash 丢失）
+3. KG/MCP-manage + AgentTool/QueryAgentTool 尊重 tool_filter
+4. Stop ctx 注入 evidence_anchor_id / draft_memory_id
+5. SKILL_DIR/hooks/ 完整 materialize（之前只写 SKILL.md）
+6. L4 token-level text_delta/thinking 聚合（612→35 events/session）
+7. Stop hook 脚本读顶层 envelope 字段
 
-- 共享契约测试集 — 所有 L1 runtime 必须通过
-- L1 适配指南
-- 对比矩阵（grid vs claude-code vs goose）
-- `crates/eaasp-goose-runtime/`
+### 新增长期资产
+
+- `scripts/eaasp-e2e.sh` — E2E 唯一入口，log_todo/SKIP 分类 + 每条 TODO 显式引用覆盖测试
+- `docs/design/EAASP/E2E_VERIFICATION_GUIDE.md` — Living Document（§5.5 人工分步 + §5.6 演进承诺 + §7 Phase 收尾历史）
+- `scripts/dev-eaasp.sh` — 起全 4 runtime + 每服务落盘 `.logs/latest/*.log`
+
+### 10 个新回归测试（全 PASS）
+
+- `tools/eaasp-l4-orchestration/tests/test_chunk_coalescing.py` 5 tests
+- `crates/grid-engine/tests/phase2_5_regression.rs` 3 tests
+- `crates/grid-runtime/tests/scoped_hook_wiring_integration.rs` +2 tests
+
+---
+
+## Phase 3 规划（下一步优先级）
+
+**Phase 3 主题**：L1 生态功能完整性 + 工具命名空间治理 + 对比 runtime 评估
+
+### 优先级
+
+1. **D144: goose-runtime Send 完整 ACP 接线**
+   - 当前 Send 是 stub（返回单个 done chunk）
+   - 通过 GooseAdapter.stream 驱动真实 goose ACP subprocess
+   - 事件映射 ACP → AgentEvent (CHUNK / TOOL_CALL / TOOL_RESULT / STOP)
+
+2. **D144: nanobot-runtime ConnectMCP + 工具注入**
+   - 当前 ConnectMcp 是空实现，AgentSession 永远用空 tools 列表
+   - 真实实现 stdio MCP client + 工具注册到 AgentSession
+   - Stop Hook dispatch（当前只有 PostToolUse）
+
+3. **grid-engine 工具命名空间架构治理**
+   - 内置 L0/L1 工具（memory_recall/timeline/graph_*/bash/file_read/agent/...）与 L2 MCP 工具（memory_search/read/write_*/confirm/...）命名空间混乱
+   - skill 作者无法系统性控制 LLM 选择
+   - 本次 Phase 2.5 靠 EAASP_TOOL_FILTER=on 和 executor.rs gate 打了补丁，Phase 3 需系统重构
+
+4. **对比 runtime 评估**（ADR-V2-017 计划）
+   - pydantic-ai / claw-code / ccb 对比评估
+   - 拓展 L1 生态样本
+
+5. **补 E2E harness 覆盖 TODO 项**（8 项）
+   - B1 ErrorClassifier E2E harness（错误注入）
+   - B2 graduated retry 日志解析
+   - B5/B6 memory_confirm + 状态机定制 skill
+   - B7 聚合溢出 blob_ref 造大 tool output
+   - B8 PreCompact 长对话模拟
+   - B3/B4 HNSW + 混合检索样本集
+
+6. **Phase 2.5 历史遗留 P1-defer**（未处理）：
+   - **D130 token consolidation** — AgentExecutor 持 session-lifetime parent token
+   - **D78 event payload embedding** — 与 memory semantic 共 HNSW
+   - **D94 MemoryStore 单例 refactor**（收尾 D12）
+   - **D98 HybridIndex HNSW 持久化**（当前每次 search 重建）
+   - **D108 hook script bats/shellcheck 自动回归**
+   - **D125 events/stream burst cap**（if L1 >1k/sec）
+
+### Phase 3 启动命令
+
+```
+/dev-phase-manager:start-phase "Phase 3 — L1 Runtime Functional Completeness"
+```
 
 ---
 
@@ -126,38 +189,44 @@ make skill-registry-setup / skill-registry-start / skill-registry-test
 
 ---
 
-## ⚠️ Deferred 未清项（Phase 2.5 启动时必查）
+## ⚠️ Deferred 未清项（Phase 3 启动时必查）
 
-> Phase 2 产出 47 个新 Deferred (D91-D130)，Single Source of Truth：
+> Single Source of Truth：
 > [`docs/design/EAASP/DEFERRED_LEDGER.md`](../design/EAASP/DEFERRED_LEDGER.md)
 
-**P1-defer (Phase 2.5 首选)**：
+**Phase 2.5 sign-off 遗留（Phase 3 首选）**：
+- **D144** — nanobot/goose ConnectMCP 工具注入（nanobot Send 骨架无工具；goose Send 是 stub）
+- grid-engine 工具命名空间架构治理（内置 L0/L1 vs L2 MCP 命名冲突系统设计）
+- E2E harness 补齐 TODO 8 项（B1-B8 自动化触发）
+
+**Phase 2 → Phase 3 历史 P1-defer（未处理）**：
 - **D130** — session-lifetime parent token consolidation (S4.T4 遗留)
-- **D120** — cross-runtime hook envelope parity (前置 goose 契约测试)
-- **D117** — 原 D50 Prompt executor (用户同意推迟，仍 P1)
 - **D78** — event payload embedding
 - **D94** — MemoryStore 单例 refactor
 - **D98** — HybridIndex HNSW 持久化
+- **D117** — 原 D50 Prompt executor (用户同意推迟)
+- **D108** — hook script bats/shellcheck 自动回归
+- **D125** — events/stream burst cap
 
-**P3-defer (Phase 2.5 polish / Phase 3 breaking)**：
-- D92/D96/D97/D99-D101/D103-D104/D106-D107/D110/D118-D119/D121-D123/D126-D129
+**Phase 2.5 closed**：D120 (S0.T3 inline) / D141 (S1.W1.T2.5 F1 gate) / D142/D143 (S3 CI batch) 等
 
 **Phase 2 closed**：D87/D88/D83/D84/D85/D86/D89/D124/D60/D51/D53 + 其他 10 项
 
 ---
 
-## 会话启动建议（Phase 2.5）
+## 会话启动建议（Phase 3）
 
-1. `/dev-phase-manager:start-phase "Phase 2.5 - Consolidation + goose-runtime"`
-2. 检查 Deferred Ledger P1-defer 项，选定 Phase 2.5 任务集
-3. 参考 ADR-V2-017 W1 交付件清单起草 Phase 2.5 plan
-4. 参考 ADR-V2-006 起草 goose-runtime 契约测试集
+1. `/dev-phase-manager:start-phase "Phase 3 — L1 Runtime Functional Completeness"`
+2. 复核 DEFERRED_LEDGER.md 筛选 P1-defer + D144 组队立项
+3. 先定工具命名空间架构治理方案（本 Phase 核心价值点）
+4. 再用"治理方案"驱动 goose ACP / nanobot MCP 的接线重构
 
 ---
 
 ## 注意事项
 
-- **hermes-runtime 冻结**：不再修 bug，Phase 2.5 goose-runtime 完整替代
-- **reviewer 发现零积压**：Phase 2 所有 reviewer Critical/Major 均 inline-fixed 或路由到非阻塞 Deferred
-- **Deferred Ledger** 是 Phase 2+ 的 D 编号 single source of truth，`MEMORY_INDEX.md` / `phase_stack.json` 以其为准
-- **Checkpoint archive**：Phase 2 执行中期的 `.checkpoint.json` 在 end-phase 时会归档为 `.checkpoint.archive.json`
+- **hermes-runtime 冻结**：ADR-V2-017 正式由 goose + nanobot 替代样板位，代码保留未清
+- **goose-runtime Send stub 是 Phase 2.5 scope 内的已知限制**：合约套件 v1 对应测试已 XFAIL，Phase 3 接 ACP 后转 GREEN
+- **Deferred Ledger** 是 Phase 2+ 的 D 编号 single source of truth
+- **Checkpoint archive**：Phase 2.5 的 `.checkpoint.json` 在 end-phase 时归档为 `.checkpoint.archive.json`
+- **E2E 唯一入口**：`bash scripts/eaasp-e2e.sh`，持续演进由 `docs/design/EAASP/E2E_VERIFICATION_GUIDE.md` 规范
