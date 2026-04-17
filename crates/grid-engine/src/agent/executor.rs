@@ -379,8 +379,24 @@ impl AgentExecutor {
                                 );
                             }
                         }
-                        // Phase AY: Register AgentTool (renamed from SpawnSubAgentTool)
-                        {
+                        // Phase AY: Register AgentTool (renamed from SpawnSubAgentTool).
+                        //
+                        // Phase 2.5 S4.T2 — respect session-level tool_filter:
+                        // if the caller's tool_filter (threaded from
+                        // GridHarness via EAASP_TOOL_FILTER for skill sessions)
+                        // did NOT include "agent" / "query_agent", do not
+                        // resurrect them here. The session registry snapshot
+                        // above already dropped them; re-registering would
+                        // let the LLM call sub-agent orchestration that is
+                        // outside the skill's declared workflow.
+                        //
+                        // We detect this by inspecting the GUARD snapshot
+                        // (`guard` is the session registry — the filter
+                        // applied when the session was built). If it lacks
+                        // both agent tools, assume filter excluded them.
+                        let filter_allows_agent_tools = guard.get("agent").is_some()
+                            || guard.get("query_agent").is_some();
+                        if filter_allows_agent_tools {
                             let subagent_mgr = Arc::new(SubAgentManager::new(4, 3));
                             let parent_config = Arc::new(AgentLoopConfig {
                                 provider: Some(self.provider.clone()),
@@ -424,6 +440,10 @@ impl AgentExecutor {
                             registry.register(agent_tool);
                             registry.register(
                                 crate::tools::subagent::QueryAgentTool::new(subagent_mgr),
+                            );
+                        } else {
+                            tracing::debug!(
+                                "Skipping agent/query_agent registration — session tool_filter excludes them"
                             );
                         }
 

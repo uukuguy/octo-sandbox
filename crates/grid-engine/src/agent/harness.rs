@@ -480,6 +480,19 @@ async fn run_agent_loop_inner(
     // Bounded by `MAX_STOP_HOOK_INJECTIONS` to prevent a buggy hook from
     // producing an infinite loop. Local-only; never shared across sessions.
     let mut stop_hook_injection_count: u32 = 0;
+    // Phase 2.5: when the skill calls `memory_write_anchor`, capture the
+    // returned `anchor_id` so that the terminal Stop hook context carries
+    // `evidence_anchor_id` (required by ADR-V2-006 §2 envelope + Stop hooks
+    // like `check_output_anchor.sh` that assert evidence is pinned). Without
+    // this, the Stop hook sees an empty string, always returns
+    // `InjectAndContinue`, and the agent loop spins to
+    // `MAX_STOP_HOOK_INJECTIONS` → cap reached → Done is emitted but the
+    // hook never greenlights the evidence contract.
+    let mut last_evidence_anchor_id: Option<String> = None;
+    // Same story for `memory_write_file` → `memory_id`, required by the
+    // `skill-extraction` meta-skill's Stop hook (check_final_output.sh
+    // asserts both draft_memory_id and evidence_anchor_id are set).
+    let mut last_draft_memory_id: Option<String> = None;
     // L2b (Fix 2): when set, the next provider call will carry
     // `tool_choice=Required`, forcing the LLM to produce a tool_use block at
     // the API layer. `Option::take` consumes the flag in a single call so it
@@ -1739,13 +1752,26 @@ async fn run_agent_loop_inner(
             // `continue` instead of finalizing. The injection counter caps total
             // re-entries; the final response is committed unchanged on overflow.
             if !config.stop_hooks.is_empty() {
-                let stop_ctx = build_rich_hook_context(
+                let mut stop_ctx = build_rich_hook_context(
                     &config,
                     round,
                     total_tool_calls,
                     &recent_tools,
                 )
                 .with_result(true, turn_start.elapsed().as_millis() as u64);
+                // Phase 2.5 — thread the captured anchor_id into the Stop
+                // envelope so hooks like `check_output_anchor.sh` (threshold-
+                // calibration) can validate the evidence contract. When the
+                // skill didn't call `memory_write_anchor`, the field stays
+                // empty — the hook may reject that and re-inject, but the
+                // MAX_STOP_HOOK_INJECTIONS cap still terminates the loop.
+                if let Some(ref anchor_id) = last_evidence_anchor_id {
+                    stop_ctx = stop_ctx.with_evidence_anchor_id(anchor_id);
+                }
+                if let Some(ref draft_id) = last_draft_memory_id {
+                    stop_ctx = stop_ctx.with_draft_memory_id(draft_id);
+                }
+                let stop_ctx = stop_ctx;
                 match dispatch_stop_hooks(&config.stop_hooks, &stop_ctx).await {
                     StopHookDecision::InjectAndContinue(injected) => {
                         if stop_hook_injection_count >= MAX_STOP_HOOK_INJECTIONS {
@@ -2522,6 +2548,99 @@ async fn run_agent_loop_inner(
             } else {
                 None
             };
+
+            // Phase 2.5 — If this tool call is `memory_write_anchor` and
+            // succeeded, capture the returned `anchor_id` for the upcoming
+            // Stop hook context. This is what `require_anchor.sh` checks.
+            if !result.is_error && tu.name == "memory_write_anchor" {
+                info!(
+                    output_preview = %trimmed_output.chars().take(200).collect::<String>(),
+                    output_len = trimmed_output.len(),
+                    "memory_write_anchor succeeded — attempting anchor_id extraction"
+                );
+                // Try direct parse first: ToolOutput.content should be the
+                // JSON body returned by the MCP tool.
+                let mut captured = false;
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&trimmed_output) {
+                    // Direct shape: {"anchor_id": "..."}
+                    if let Some(anchor_id) = parsed
+                        .get("anchor_id")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                    {
+                        last_evidence_anchor_id = Some(anchor_id.to_string());
+                        info!(
+                            anchor_id = %anchor_id,
+                            "Captured evidence_anchor_id (direct shape)"
+                        );
+                        captured = true;
+                    } else if let Some(text) = parsed
+                        .get("content")
+                        .and_then(|c| c.as_array())
+                        .and_then(|arr| arr.first())
+                        .and_then(|v| v.get("text"))
+                        .and_then(|v| v.as_str())
+                    {
+                        // MCP-wrapped shape: {"content":[{"type":"text","text":"{\"anchor_id\":...}"}]}
+                        if let Ok(inner) = serde_json::from_str::<serde_json::Value>(text) {
+                            if let Some(anchor_id) = inner
+                                .get("anchor_id")
+                                .and_then(|v| v.as_str())
+                                .filter(|s| !s.is_empty())
+                            {
+                                last_evidence_anchor_id = Some(anchor_id.to_string());
+                                info!(
+                                    anchor_id = %anchor_id,
+                                    "Captured evidence_anchor_id (MCP-wrapped shape)"
+                                );
+                                captured = true;
+                            }
+                        }
+                    }
+                }
+                if !captured {
+                    warn!(
+                        output_preview = %trimmed_output.chars().take(300).collect::<String>(),
+                        "memory_write_anchor: no anchor_id parsed — Stop hook may reject"
+                    );
+                }
+            }
+
+            // Same capture for `memory_write_file` → populate the Stop
+            // envelope's `draft_memory_id` (used by skill-extraction's
+            // check_final_output.sh).
+            if !result.is_error && tu.name == "memory_write_file" {
+                if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&trimmed_output) {
+                    let maybe_id = parsed
+                        .get("memory_id")
+                        .and_then(|v| v.as_str())
+                        .filter(|s| !s.is_empty())
+                        .map(|s| s.to_string())
+                        .or_else(|| {
+                            parsed
+                                .get("content")
+                                .and_then(|c| c.as_array())
+                                .and_then(|arr| arr.first())
+                                .and_then(|v| v.get("text"))
+                                .and_then(|v| v.as_str())
+                                .and_then(|t| serde_json::from_str::<serde_json::Value>(t).ok())
+                                .and_then(|inner| {
+                                    inner
+                                        .get("memory_id")
+                                        .and_then(|v| v.as_str())
+                                        .filter(|s| !s.is_empty())
+                                        .map(|s| s.to_string())
+                                })
+                        });
+                    if let Some(memory_id) = maybe_id {
+                        info!(
+                            memory_id = %memory_id,
+                            "Captured draft_memory_id from memory_write_file"
+                        );
+                        last_draft_memory_id = Some(memory_id);
+                    }
+                }
+            }
 
             tool_results.push(ContentBlock::ToolResult {
                 tool_use_id: tu.id.clone(),

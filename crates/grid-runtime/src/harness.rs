@@ -91,7 +91,29 @@ impl GridHarness {
         let stream = tokio_stream::wrappers::BroadcastStream::new(rx)
             .filter_map(|result| match result {
                 Ok(event) => Self::event_to_chunk(event),
-                Err(_) => None, // lagged — skip
+                // Lag-fallback: if the gRPC consumer fell behind and the
+                // broadcast channel dropped events, `AgentEvent::Done`
+                // may have been among the dropped items — which would leave
+                // the CLI hanging forever (4d9e0c6 precedent). We surface a
+                // synthetic "error" chunk marking the lag; the take_while
+                // below will emit it and then terminate on the next synthetic
+                // "done" chunk. This is defense-in-depth — the primary fix
+                // is a larger BROADCAST_CAPACITY in grid-engine.
+                Err(tokio_stream::wrappers::errors::BroadcastStreamRecvError::Lagged(n)) => {
+                    tracing::warn!(
+                        skipped = n,
+                        "gRPC consumer lagged on AgentEvent broadcast — emitting synthetic done to terminate stream cleanly"
+                    );
+                    Some(ResponseChunk {
+                        chunk_type: "done".into(),
+                        content: format!(
+                            "[grid-runtime] stream terminated early: consumer lag, {n} events dropped"
+                        ),
+                        tool_name: None,
+                        tool_id: None,
+                        is_error: true,
+                    })
+                }
             })
             .take_while(move |chunk| {
                 if terminated_clone.load(std::sync::atomic::Ordering::Relaxed) {
@@ -345,16 +367,79 @@ impl GridHarness {
         // on-disk cache fallback, else leave it unset.
         let skill_dir = match skill_instructions {
             Some(si) if !si.content.is_empty() && !si.frontmatter_hooks.is_empty() => {
-                // Materialize inline skill content to {session_dir}/skill/SKILL.md
-                // so hooks referencing ${SKILL_DIR}/hooks/*.sh can (in future
-                // iterations) also receive those hook files on disk via the
-                // same materialization step. For S3.T5 scope, only SKILL.md
-                // is written — per-file hook materialization is D118 cleanup
-                // territory.
+                // Materialize inline skill content to {session_dir}/skill/
+                // so hooks referencing ${SKILL_DIR}/hooks/*.sh resolve to
+                // real executable files.
+                //
+                // Write SKILL.md from inline content, then copy the hooks/
+                // directory from the on-disk skill source (the authoring
+                // repository). Priority:
+                //   1. EAASP_SKILL_SOURCE_DIR env var (e.g. examples/skills)
+                //   2. {CARGO_WORKSPACE_ROOT}/examples/skills
+                // If neither is found, the skill runs without materialized
+                // hooks and ${SKILL_DIR}/hooks/*.sh paths will fail at exec
+                // time — which is better than silently ignoring them (the
+                // previous D118 behavior that leaked into Phase 2.5 S4.T2).
                 let dir = PathBuf::from(&session_dir).join("skill");
                 std::fs::create_dir_all(&dir)?;
                 let skill_md = dir.join("SKILL.md");
                 std::fs::write(&skill_md, &si.content)?;
+
+                // Locate source hooks dir.
+                let source_root = std::env::var("EAASP_SKILL_SOURCE_DIR")
+                    .ok()
+                    .filter(|s| !s.is_empty())
+                    .map(PathBuf::from)
+                    .or_else(|| {
+                        // Fallback to CWD/examples/skills; `make dev-eaasp`
+                        // launches grid-runtime from the repo root so this
+                        // is a safe bet for dev.
+                        let cwd = std::env::current_dir().ok()?;
+                        let p = cwd.join("examples").join("skills");
+                        if p.exists() { Some(p) } else { None }
+                    });
+
+                if let Some(root) = source_root {
+                    let src_hooks = root.join(&si.skill_id).join("hooks");
+                    if src_hooks.is_dir() {
+                        let dst_hooks = dir.join("hooks");
+                        std::fs::create_dir_all(&dst_hooks)?;
+                        for entry in std::fs::read_dir(&src_hooks)? {
+                            let entry = entry?;
+                            let src = entry.path();
+                            if src.is_file() {
+                                let dst = dst_hooks.join(entry.file_name());
+                                std::fs::copy(&src, &dst)?;
+                                // Preserve exec bit so bash can run them.
+                                #[cfg(unix)]
+                                {
+                                    use std::os::unix::fs::PermissionsExt;
+                                    let mut perms = std::fs::metadata(&dst)?.permissions();
+                                    perms.set_mode(0o755);
+                                    std::fs::set_permissions(&dst, perms)?;
+                                }
+                            }
+                        }
+                        info!(
+                            skill_id = %si.skill_id,
+                            src = %src_hooks.display(),
+                            dst = %dst_hooks.display(),
+                            "Materialized skill hooks/ directory"
+                        );
+                    } else {
+                        warn!(
+                            skill_id = %si.skill_id,
+                            expected = %src_hooks.display(),
+                            "Skill declares scoped_hooks but source hooks/ dir not found — hook scripts will fail at exec"
+                        );
+                    }
+                } else {
+                    warn!(
+                        skill_id = %si.skill_id,
+                        "EAASP_SKILL_SOURCE_DIR unset and ./examples/skills not found — skill hook scripts unavailable"
+                    );
+                }
+
                 Some(dir.to_string_lossy().into_owned())
             }
             Some(si) if !si.skill_id.is_empty() => {
@@ -612,7 +697,37 @@ impl RuntimeContract for GridHarness {
             self.register_scoped_hooks(&session_id, &scoped_hooks, hook_vars).await;
         }
 
-        let tool_filter: Option<Vec<String>> = None;
+        // Tool filter (restored from commit 055badf design):
+        // When EAASP_TOOL_FILTER=on, restrict the agent's ToolRegistry to
+        // only the MCP tools provided by the current skill's MCP
+        // dependencies. This prevents the LLM from choosing grid-engine
+        // built-ins (memory_recall/timeline/store/edit, bash, graph_*, ...)
+        // that are not part of the skill's declared workflow.
+        //
+        // Deferred D145/D146: grid-engine vs L2 MCP tool coexistence is an
+        // EAASP architecture issue — to be re-designed in Phase 3.
+        let tool_filter: Option<Vec<String>> = {
+            let filter_enabled = std::env::var("EAASP_TOOL_FILTER")
+                .map(|v| v == "on" || v == "true" || v == "1")
+                .unwrap_or(false);
+            if filter_enabled {
+                let mcp_guard = self.runtime.mcp_manager().lock().await;
+                let mcp_tools = mcp_guard.tool_names();
+                if mcp_tools.is_empty() {
+                    None
+                } else {
+                    Some(mcp_tools)
+                }
+            } else {
+                None
+            }
+        };
+
+        info!(
+            session_id = %session_id,
+            tool_filter = ?tool_filter,
+            "GridHarness: tool_filter derived from EAASP_TOOL_FILTER + MCP deps"
+        );
 
         // NOW start session — ToolRegistry snapshot will include MCP tools.
         let _handle = self

@@ -56,6 +56,15 @@ pub async fn execute_command(
     let env_vars = ctx.to_env_vars();
     let stdin_json = serde_json::to_string(&ctx.to_json())?;
 
+    // Phase 2.5 debug: surface the exact stdin JSON so we can confirm
+    // evidence_anchor_id (and other fields) are threaded through.
+    tracing::info!(
+        command_preview = %command.chars().take(120).collect::<String>(),
+        stdin_preview = %stdin_json.chars().take(400).collect::<String>(),
+        stdin_len = stdin_json.len(),
+        "execute_command: about to spawn hook"
+    );
+
     let mut child = Command::new("sh")
         .arg("-c")
         .arg(command)
@@ -86,6 +95,15 @@ pub async fn execute_command(
 
 /// Parse command output into a HookDecision.
 fn parse_command_output(output: &std::process::Output) -> anyhow::Result<HookDecision> {
+    // Phase 2.5 debug: surface hook exit code + stdout + stderr so we can
+    // distinguish "hook said deny" from "hook crashed".
+    tracing::info!(
+        exit = ?output.status.code(),
+        stdout_preview = %String::from_utf8_lossy(&output.stdout).chars().take(200).collect::<String>(),
+        stderr_preview = %String::from_utf8_lossy(&output.stderr).chars().take(200).collect::<String>(),
+        "parse_command_output: hook finished"
+    );
+
     if output.status.success() {
         // Exit 0: parse stdout as JSON
         let stdout = String::from_utf8_lossy(&output.stdout);

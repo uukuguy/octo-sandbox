@@ -42,7 +42,15 @@ use crate::tools::{
 };
 
 const MPSC_CAPACITY: usize = 32;
-const BROADCAST_CAPACITY: usize = 256;
+// BROADCAST_CAPACITY must be large enough to absorb a full skill workflow's
+// events (thinking + text_delta + tool_start + tool_result + final Done)
+// without the slow gRPC consumer falling behind. A 180s workflow can emit
+// 500+ events; 256 was too small — the consumer lagged, oldest events
+// (including `AgentEvent::Done`) were dropped, and `map_events_to_chunks`
+// never saw a "done" chunk to terminate the gRPC stream, leaving the CLI
+// hanging on `session send`. See also the Lag-fallback in
+// `GridHarness::map_events_to_chunks` for defense-in-depth.
+const BROADCAST_CAPACITY: usize = 4096;
 
 /// AgentRuntime configuration - a subset of server Config needed by AgentRuntime
 #[derive(Debug, Clone)]
@@ -1462,10 +1470,37 @@ impl AgentRuntime {
 
             {
                 let mut reg = session_reg.lock().unwrap_or_else(|e| e.into_inner());
-                reg.register(crate::tools::mcp_manage::McpInstallTool::new(session_mcp_handle.clone()));
-                reg.register(crate::tools::mcp_manage::McpRemoveTool::new(session_mcp_handle.clone()));
-                reg.register(crate::tools::mcp_manage::McpListTool::new(session_mcp_handle));
-                register_kg_tools(&mut reg, session_kg.clone());
+                // Session-scoped MCP manage tools and KG tools must respect
+                // `tool_filter`. When a skill declares a filter (EAASP
+                // skill session), these "workbench" tools are typically not
+                // part of the workflow — registering them would expose
+                // `graph_add/query/relate`, `mcp_install`, etc. to the LLM
+                // and cause the model to wander into tool loops that never
+                // converge. When `tool_filter` is `None` (free-form Grid
+                // workbench session) these tools are always registered.
+                let allow_tool = |name: &str| -> bool {
+                    match tool_filter {
+                        Some(filter) => filter.iter().any(|f| f == name),
+                        None => true,
+                    }
+                };
+                if allow_tool("mcp_install") {
+                    reg.register(crate::tools::mcp_manage::McpInstallTool::new(session_mcp_handle.clone()));
+                }
+                if allow_tool("mcp_remove") {
+                    reg.register(crate::tools::mcp_manage::McpRemoveTool::new(session_mcp_handle.clone()));
+                }
+                if allow_tool("mcp_list") {
+                    reg.register(crate::tools::mcp_manage::McpListTool::new(session_mcp_handle));
+                }
+                // KG tools (graph_add/query/relate). When filter is set and
+                // does not include any of them, skip the block entirely.
+                if tool_filter.map_or(true, |f| {
+                    f.iter()
+                        .any(|t| t == "graph_add" || t == "graph_query" || t == "graph_relate")
+                }) {
+                    register_kg_tools(&mut reg, session_kg.clone());
+                }
             }
             session_reg
         };
