@@ -27,10 +27,10 @@ dependencies:
   - mcp:eaasp-l2-memory
 workflow:
   required_tools:
-    - l2:memory_search
-    - l2:memory_read
-    - l2:memory_confirm
-    - l2:memory_write_anchor
+    - l2:memory.search
+    - l2:memory.read
+    - l2:memory.confirm
+    - l2:memory.write_anchor
 ---
 
 # Memory Confirm Test Skill

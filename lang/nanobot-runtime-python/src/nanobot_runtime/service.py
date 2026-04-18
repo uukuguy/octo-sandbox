@@ -72,7 +72,9 @@ class NanobotRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
             si = payload.skill_instructions
             for t in si.required_tools:
                 bare = t[t.index(":") + 1:] if ":" in t else t
-                required_tools.append(bare)
+                # Normalize dot-notation (memory.search) → underscore (memory_search)
+                # so required_tools matches actual MCP tool names in _called_tools.
+                required_tools.append(bare.replace(".", "_"))
             if required_tools:
                 logger.info(
                     "Initialize: session=%s required_tools=%s", sid, required_tools
