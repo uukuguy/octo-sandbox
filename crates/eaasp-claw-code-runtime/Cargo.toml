@@ -1,0 +1,22 @@
+[package]
+name = "eaasp-claw-code-runtime"
+edition.workspace = true
+version.workspace = true
+description = "EAASP L1 runtime adapter for claw-code (UltraWorkers subprocess bridge)"
+
+[dependencies]
+tonic = "0.12"
+tokio = { version = "1", features = ["full", "process"] }
+tokio-stream = { version = "0.1", features = ["net"] }
+prost = "0.13"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+uuid = { version = "1", features = ["v4"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+chrono = { version = "0.4", features = ["serde"] }
+which = "6"
+
+[build-dependencies]
+tonic-build = "0.12"
