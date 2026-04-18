@@ -5,9 +5,12 @@ All hook dispatch stubs return allow — wired in W2.T5/T6.
 """
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import datetime, timezone
+
+logger = logging.getLogger(__name__)
 
 import grpc
 
@@ -123,8 +126,42 @@ class NanobotRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
         )
 
     async def ConnectMCP(self, request, context):
-        names = [s.name for s in request.servers]
-        return runtime_pb2.ConnectMCPResponse(success=True, connected=names, failed=[])
+        from nanobot_runtime.mcp_client import StdioMcpClient
+
+        connected: list[str] = []
+        failed: list[str] = []
+
+        for server_spec in request.servers:
+            name = server_spec.name
+            cmd_str = server_spec.command  # e.g. "npx -y @some/mcp-server"
+            cmd = cmd_str.split() if cmd_str else []
+            if not cmd:
+                failed.append(name)
+                continue
+            try:
+                client = StdioMcpClient(cmd=cmd, server_name=name)
+                await client.start()
+                tools = await client.list_tools()
+                # Store client for lifecycle management (terminate on session close)
+                if not hasattr(self, "_mcp_clients"):
+                    self._mcp_clients: dict[str, StdioMcpClient] = {}
+                self._mcp_clients[name] = client
+                # Inject discovered tools into active session
+                if self._active_session_id and self._active_session_id in self._sessions:
+                    sess = self._sessions[self._active_session_id]
+                    oai_tools = [t.to_oai_schema() for t in tools]
+                    sess.tools = list(sess.tools) + oai_tools
+                connected.append(name)
+            except Exception as exc:
+                logger.warning("ConnectMCP: failed to connect %s: %s", name, exc)
+                failed.append(name)
+
+        success = len(failed) == 0
+        return runtime_pb2.ConnectMCPResponse(
+            success=success,
+            connected=connected,
+            failed=failed,
+        )
 
     async def EmitTelemetry(self, request, context):
         return common_pb2.Empty()
@@ -152,6 +189,13 @@ class NanobotRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
             sess = self._sessions.pop(sid)
             await sess.provider.aclose()
             self._active_session_id = None
+        # Close all MCP subprocess clients
+        for client in getattr(self, "_mcp_clients", {}).values():
+            try:
+                await client.close()
+            except Exception:
+                pass
+        self._mcp_clients = {}
         return common_pb2.Empty()
 
     async def RestoreState(self, request, context):
