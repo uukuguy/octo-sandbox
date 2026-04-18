@@ -298,7 +298,63 @@ crates/{runtime-name}/
 
 ---
 
-## 10. 实施路径建议
+## 10. 工具命名空间治理（ADR-V2-020）
+
+Phase 3 引入了三层工具命名空间协议。所有新 L1 Runtime 适配器**必须**支持以下行为。
+
+### 10.1 层级定义
+
+| 层 | 前缀 | 来源 | LLM 可见性 |
+|----|------|------|-----------|
+| L0 | `l0:` | 运行时内核（心跳、会话管理） | 不可见 |
+| L1 | `l1:` | 引擎内置工具（bash、文件读写） | 可见 |
+| L2 | `l2:` | MCP 提供的工具（memory、scada） | 可见 |
+
+命名格式：`{层}:{域}.{动作}`，例如 `l2:memory.search`、`l1:bash.execute`。
+
+### 10.2 Skill 声明优先级
+
+```
+skill YAML workflow.required_tools（显式）
+  > EAASP_TOOL_FILTER 环境变量（已废弃，Phase 4 移除）
+  > 运行时默认（无过滤）
+```
+
+### 10.3 降级回退链（向后兼容）
+
+对于未带前缀的裸名工具（Phase 3 之前的 SKILL.md），runtime 按以下顺序查找：
+
+```
+L2 → L1 → L0 → 裸名
+```
+
+即优先返回 MCP 工具，其次是内置工具，最后是无前缀注册工具。
+
+### 10.4 Runtime 适配义务
+
+新 L1 Runtime 实现时，**必须**满足以下要求：
+
+1. **双键注册**：每个工具同时注册为裸名和限定名（`l1:bash.execute` + `bash.execute`）。
+2. **精确解析**：`resolve("l2:memory.search")` 只匹配 L2 层，不回落到 L1 同名工具。
+3. **回退链**：`resolve_with_fallback("memory_search")`（裸名）按 L2 → L1 → L0 顺序查找。
+4. **废弃警告**：若检测到 `EAASP_TOOL_FILTER=on`，输出 `warn!()` 日志，说明应迁移至 `workflow.required_tools`。
+
+Rust 参考实现：`crates/grid-engine/src/tools/mod.rs`（`register_layered` / `resolve` / `resolve_with_fallback`）。
+
+### 10.5 Skill 作者指南
+
+| 场景 | 推荐写法 |
+|------|---------|
+| 调用 MCP 提供的工具 | `l2:memory.search` |
+| 调用引擎内置工具 | `l1:bash.execute` |
+| Phase 3 之前的旧 SKILL.md | 裸名仍可用，建议迁移至带前缀写法 |
+| 同名 l1/l2 冲突 | 显式写 `l2:X` 或 `l1:X`，不要依赖回退 |
+
+合约验证：`tests/contract/cases/test_tool_namespace_enforcement.py`（23 cases，Phase 3 S1.T6）。
+
+---
+
+## 11. 实施路径建议
 
 对于新 runtime 的实施，推荐以下顺序：
 
@@ -327,8 +383,11 @@ crates/{runtime-name}/
 | ADR-V2-006 Hook 信封协议 | `docs/design/EAASP/adrs/ADR-V2-006-*.md` |
 | ADR-V2-017 L1 生态策略 | `docs/design/EAASP/adrs/ADR-V2-017-*.md` |
 | ADR-V2-019 部署模型 | `docs/design/EAASP/adrs/ADR-V2-019-*.md` |
+| ADR-V2-020 工具命名空间合约 | `docs/design/EAASP/adrs/ADR-V2-020-tool-namespace-contract.md` |
 | L1 候选分析 | `docs/design/EAASP/L1_RUNTIME_CANDIDATE_ANALYSIS.md` |
 | L1 能力矩阵 | `docs/design/EAASP/PROVIDER_CAPABILITY_MATRIX.md` |
-| 合约测试套件 | `tests/contract/README.md` |
+| 合约测试套件（v1） | `tests/contract/README.md` |
+| 合约测试套件（v1.1 命名空间） | `tests/contract/cases/` |
+| ToolRegistry 实现参考 | `crates/grid-engine/src/tools/mod.rs` |
 | goose-runtime（W1 参考） | `crates/eaasp-goose-runtime/` |
 | nanobot-runtime（W2 参考） | `lang/nanobot-runtime-python/` |
