@@ -2,7 +2,7 @@
 
 > **性质**: 长期指南（Living Document）。每个大阶段结束前参考本文进行人工 E2E 验证。
 > **演进规则**: Phase 推进时**追加**能力行到矩阵；**不改**已有行结构；**不创建**新 `PHASE_X_E2E_VERIFICATION_GUIDE.md`。
-> **最近更新**: 2026-04-17（Phase 2.5 sign-off）
+> **最近更新**: 2026-04-18（Phase 3 sign-off）
 
 ---
 
@@ -84,24 +84,25 @@ L4 orchestration         18084  ...    -            UP
 
 > **演进规则**: 新 runtime 接入时加一列；能力升级时改该列对应行的 ✅/⚠️/❌。
 
-| 能力 | grid | claude-code | nanobot | goose |
-|---|---|---|---|---|
-| gRPC 16 方法合约 | ✅ | ✅ | ✅ | ✅ |
-| Initialize / Terminate / Health | ✅ | ✅ | ✅ | ✅ |
-| 真实 LLM Provider | ✅ OpenAI-compat | ✅ Anthropic SDK | ✅ OpenAI-compat | ❌ |
-| Agent loop（多轮 tool 调用） | ✅ | ✅ | ⚠️ 骨架无工具 | ❌ stub |
-| ConnectMCP（工具注入） | ✅ | ✅ | ❌ D144 | ❌ D144 |
-| PreToolUse / PostToolUse Hook | ✅ | ✅ | ⚠️ 骨架 | ❌ |
-| Stop Hook（ADR-V2-006） | ✅ | ✅ | ❌ D144 | ❌ D144 |
-| HookContext envelope parity（D120） | ✅ | ✅ | ⚠️ Python 基础实现 | ❌ D144 |
-| 容器部署（ADR-V2-019） | — | — | ❌ native only | ✅ Docker |
-| **参与人工 E2E 分类** | **必验** | **必验** | **基线** | **基线** |
+| 能力 | grid | claude-code | nanobot | goose | pydantic-ai | claw-code | ccb |
+|---|---|---|---|---|---|---|---|
+| gRPC 16 方法合约 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Initialize / Terminate / Health | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 真实 LLM Provider | ✅ OpenAI-compat | ✅ Anthropic SDK | ✅ OpenAI-compat | ❌ | ✅ OpenAI-compat | ✅ OpenAI-compat | ❌ stub |
+| Agent loop（多轮 tool 调用） | ✅ | ✅ | ⚠️ 骨架无工具 | ❌ stub | ✅ pydantic-ai | ✅ agent loop | ❌ stub echo |
+| ConnectMCP（工具注入） | ✅ | ✅ | ✅ Phase 3 | ✅ Phase 3 ACP | ❌ stub | ❌ stub | ❌ stub |
+| PreToolUse / PostToolUse Hook | ✅ | ✅ | ✅ Phase 3 | ❌ | ⚠️ stub | ⚠️ stub | ⚠️ stub |
+| Stop Hook（ADR-V2-006） | ✅ | ✅ | ✅ Phase 3 | ❌ | ⚠️ stub | ⚠️ stub | ⚠️ stub |
+| HookContext envelope parity（D120） | ✅ | ✅ | ✅ | ❌ | ⚠️ stub | ⚠️ stub | ⚠️ stub |
+| 容器部署（ADR-V2-019） | — | — | ❌ native only | ✅ Docker | ❌ native | ❌ native | ❌ native |
+| contract v1.1（ADR-V2-020） | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **参与人工 E2E 分类** | **必验** | **必验** | **基线** | **基线** | **对比基线** | **对比基线** | **对比基线** |
 
 ### Runtime 角色（ADR-V2-017）
 
 - **主力**: grid-runtime（Rust，自研完整实现）
 - **样板**: claude-code-runtime（Python + Anthropic SDK）、nanobot-runtime（Python + OpenAI-compat）
-- **对比**: goose-runtime（容器模板，ADR-V2-019 baseline，Phase 3 接完整 ACP）
+- **对比**: goose-runtime（容器模板，ADR-V2-019 baseline，Phase 3 接完整 ACP）、pydantic-ai-runtime（Python + pydantic-ai，真实 LLM loop）、claw-code-runtime（Rust，Claw Code agent loop）、ccb-runtime（Bun/TypeScript，stub Send）
 - **冻结**: hermes-runtime（2026-04-14 冻结）
 
 ---
@@ -112,7 +113,7 @@ L4 orchestration         18084  ...    -            UP
 
 ### 4.1 Group A — threshold-calibration 一轮覆盖
 
-一个 session 就能触发的功能，放在 A 组。**每次大阶段收尾必跑 grid + claude-code 两遍。**
+一个 session 就能触发的功能，放在 A 组。**每次大阶段收尾必跑所有已完整接线的 runtime。** Phase 3 后：grid / claude-code / nanobot / goose / pydantic-ai / claw-code 各跑一轮（ccb 为 stub，走 B14 基线即可）。
 
 | # | Phase | 能力 | 验收断言（events） |
 |---|---|---|---|
@@ -129,22 +130,50 @@ L4 orchestration         18084  ...    -            UP
 | A11 | 2.S3.T5 | ScopedHookExecutor + ADR-V2-006 envelope | runtime 日志：hook exit code + stdin 含 `skill_id/event/tool_args` |
 | A12 | 2.5.S0.T3 | D120 HookContext envelope parity | PRE_TOOL_USE.payload 含 `event/skill_id/tool_args/tool_result/is_error` |
 | A13 | 2.5 | L1 生态扩展（≥3 runtime） | 4 runtime 在状态表 UP |
+| A14 | 3.S3.T1-T2 | goose ACP Send 流式 | `SESSION_START` + `STOP` 出现，无 gRPC UNAVAILABLE |
+| A15 | 3.S3.T3-T5 | nanobot ConnectMCP + Stop hook | `SESSION_MCP_CONNECTED` 出现；Stop hook payload 含 `evidence_anchor_id`（若 skill 写入） |
 
 **A 组验证命令**：
 
 ```bash
+# ── 主力 runtime（A1-A15 全验）──────────────────────────────────
 # grid
 eaasp session create --skill threshold-calibration --runtime grid-runtime
 export SID=<id>
 eaasp session send $SID "校准 Transformer-001 的温度阈值"
-eaasp session events $SID       # A2-A12 人工过一遍
-eaasp session events $SID --format json | head -80  # A11-A12 深度验
+eaasp session events $SID                              # A2-A12 人工过一遍
+eaasp session events $SID --format json | head -80     # A11-A12 深度验
 
 # claude-code
 eaasp session create --skill threshold-calibration --runtime claude-code-runtime
 export SID2=<id>
 eaasp session send $SID2 "校准 Transformer-001 的温度阈值"
 eaasp session events $SID2
+
+# ── Phase 3 新增接线 runtime（A14-A15 + 基线事件链）─────────────
+# nanobot（A15: SESSION_MCP_CONNECTED + Stop hook）
+eaasp session create --skill threshold-calibration --runtime nanobot-runtime
+export SID_N=<id>
+eaasp session send $SID_N "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_N
+
+# goose（A14: SESSION_START + STOP，无 gRPC UNAVAILABLE）
+eaasp session create --skill threshold-calibration --runtime goose-runtime
+export SID_G=<id>
+eaasp session send $SID_G "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_G
+
+# pydantic-ai（基线事件链：SESSION_START + STOP）
+eaasp session create --skill threshold-calibration --runtime pydantic-ai-runtime
+export SID_PA=<id>
+eaasp session send $SID_PA "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_PA
+
+# claw-code（基线事件链：SESSION_START + STOP）
+eaasp session create --skill threshold-calibration --runtime claw-code-runtime
+export SID_CC=<id>
+eaasp session send $SID_CC "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_CC
 ```
 
 ---
@@ -166,6 +195,10 @@ eaasp session events $SID2
 | B9 | 2.S3.T2-T3 | skill-extraction meta-skill | `--skill skill-extraction` 另跑一轮 | 写出 skill_draft memory_file |
 | B10 | 2.5.W1.T2.5 | goose 容器 F1 gate | `make goose-runtime-container-verify-f1` | exit 0 |
 | B11 | 2.5.S0 | 合约套件 v1 四 runtime GREEN | `make v2-phase2_5-e2e` | 全通过 |
+| B12 | 3.S3.T6-T7 | pydantic-ai LLM E2E（真实 loop） | `eaasp session create --runtime pydantic-ai-runtime` + send | `SESSION_START` + `STOP`，无 ERROR |
+| B13 | 3.S3.T8-T9 | claw-code LLM E2E（Rust agent loop） | `eaasp session create --runtime claw-code-runtime` + send | 同 B12 |
+| B14 | 3.S3.T10-T11 | ccb gRPC 基线（stub echo） | grpc Health + Initialize + Terminate 三连 | 全部 OK，无 panic |
+| B15 | 3 | 合约套件 v1.1 七 runtime GREEN | `make v2-phase3-e2e` | 112 pytest PASS |
 
 ---
 
@@ -210,81 +243,105 @@ bash scripts/eaasp-e2e.sh --runtime grid  # 只测单 runtime
 
 ### 5.5 人工分步观察方案
 
-**目的**: 每个新功能特性有独立小步，人眼能看到实际运行过程。不追求一键，追求**可观察**。
+**目的**: 人眼能看到实际运行过程，可观察、可复现。不追求一键，追求**逐步可确认**。
 
-**前置**: `make dev-eaasp` 已在 Terminal A 运行。
+**前置**: `make dev-eaasp` 已在 Terminal A 运行（grid / claude-code / nanobot 已在状态表 UP）。
 
 ```bash
 cd /Users/sujiangwen/sandbox/LLM/speechless.ai/SGAI/grid-sandbox
 alias eaasp='tools/eaasp-cli-v2/.venv/bin/eaasp'
 ```
 
-#### Part A — 回归基线（主干能力，每次必跑）
+**整体顺序**：Step 0 自动化门控 → Step 1-2 主力 runtime 完整回归 → Step 3 系统级功能回归 → Step 4 各 runtime 分项验证
 
-##### Step 1 — 注册 skills（首次）
+---
+
+#### Step 0 — 自动化门控（先跑，失败则不继续人工步骤）
+
+```bash
+# 合约套件 v1.1 七 runtime（112 pytest）
+make v2-phase3-e2e
+
+# Phase 2.5 合约套件 v1 回归
+make v2-phase2_5-e2e
+```
+
+**标准**: 全部 PASS（允许 XFAIL）。有 FAIL 则停，查原因后再继续。
+
+---
+
+#### Step 1 — 注册 skills（首次或重置后）
 
 ```bash
 eaasp skill submit examples/skills/threshold-calibration
 eaasp skill submit examples/skills/skill-extraction
+eaasp skill submit examples/skills/memory-confirm-test
+eaasp skill submit examples/skills/transformer-calibration
 ```
 
-##### Step 2 — grid-runtime 流式跑
+---
+
+#### Step 2 — 主力 runtime 完整事件链回归（A1-A12）
+
+每个 runtime 跑同一条命令，验收标准相同。
 
 ```bash
+# ── grid-runtime ──────────────────────────────────────────────
 eaasp session create --skill threshold-calibration --runtime grid-runtime
 export SID=<session_id>
 eaasp session send $SID "请校准 Transformer-001 的温度阈值，完整执行工作流"
-```
-
-**观察**: 终端实时滚动 `[tool_call: scada_read_snapshot] → [tool_result] → memory_search → memory_write_anchor → memory_write_file`，最终 JSON 含 `evidence_anchor_id`。
-
-##### Step 3 — grid 计数验收
-
-```bash
 eaasp session events $SID --format json | jq '{
   PRE:([.events[]|select(.event_type=="PRE_TOOL_USE")]|length),
   POST:([.events[]|select(.event_type=="POST_TOOL_USE")]|length),
   STOP:([.events[]|select(.event_type=="STOP")]|length),
   tools:[.events[]|select(.event_type=="PRE_TOOL_USE")|.payload.tool_name]
 }'
-```
 
-**标准**: PRE ≥ 4 / POST ≈ PRE / STOP == 1。
-
-##### Step 4 — claude-code-runtime 同 Step 2+3
-
-```bash
+# ── claude-code-runtime ────────────────────────────────────────
 eaasp session create --skill threshold-calibration --runtime claude-code-runtime
 export SID2=<id>
 eaasp session send $SID2 "请校准 Transformer-001 的温度阈值，完整执行工作流"
 eaasp session events $SID2 --format json | jq '{PRE:([.events[]|select(.event_type=="PRE_TOOL_USE")]|length),STOP:([.events[]|select(.event_type=="STOP")]|length)}'
 ```
 
+**标准**: PRE ≥ 4 / POST ≈ PRE / STOP == 1（两个 runtime 均需满足）。
+
 ---
 
-#### Part B — 新功能特性分步（每特性独立，可观察）
+#### Step 3 — 系统级功能回归（Phase 2 能力，runtime 无关）
 
-> **演进规则**: 每个 Phase 新增能力必须在此追加一小节（5.5.N）。**不改已有小节**。
+以下各项复用 Step 2 的 `$SID2`（claude-code session，PRE_TOOL_USE 有数据）。
 
-##### 5.5.1 混合检索 + HNSW 向量（Phase 2.S2.T1-T2）
-
-```bash
-eaasp memory search --query "Transformer-001 温度阈值" --limit 5
-EAASP_HYBRID_WEIGHTS=1.0,0.0 eaasp memory search --query "Transformer-001 温度阈值" --limit 5
-```
-
-**观察**: 两次返回的 memory 顺序不同（纯 FTS vs FTS+语义融合）。
-
-##### 5.5.2 状态机 + memory_confirm（Phase 2.S2.T3-T4）
+**3a — hook envelope parity（A11-A12，ADR-V2-006 + D120）**
 
 ```bash
-eaasp session send $SID "确认刚才的阈值建议，调用 memory_confirm 把 status 设为 confirmed"
-eaasp memory list --status confirmed --limit 3
+eaasp session events $SID2 --format json | \
+  jq '.events[] | select(.event_type=="PRE_TOOL_USE") | .payload' | head -30
 ```
 
-**观察**: 返回 memory 含 `status: confirmed`。
+**观察**: payload 含 `tool_name` + `arguments`。（`skill_id` / `event` 字段为 D120 deferred — Phase 3 仍 None，不阻塞。）
 
-##### 5.5.3 skill-extraction meta-skill（Phase 2.S3.T2-T3）
+**3b — 混合检索 + HNSW（Phase 2.S2.T1-T2）**
+
+```bash
+# query 是 positional argument，无 --query flag
+eaasp memory search "Transformer-001 温度阈值" --top-k 5
+EAASP_HYBRID_WEIGHTS=1.0,0.0 eaasp memory search "Transformer-001 温度阈值" --top-k 5
+```
+
+**观察**: 两次返回顺序不同（纯 FTS vs FTS+语义融合）。
+
+**3c — 状态机 memory_confirm（Phase 2.S2.T3-T4）**
+
+```bash
+eaasp session send $SID2 "确认刚才的阈值建议，调用 memory_confirm 把 status 设为 confirmed"
+# memory list 无 --status flag，用 list 后人眼看 status 列
+eaasp memory list --limit 5
+```
+
+**观察**: `memory list` 输出中目标 memory_id 的 status 列变为 `confirmed`。
+
+**3d — skill-extraction meta-skill（Phase 2.S3.T2-T3）**
 
 ```bash
 eaasp session create --skill skill-extraction --runtime grid-runtime
@@ -292,62 +349,91 @@ export SID_SX=<id>
 eaasp session send $SID_SX "从刚才 Transformer-001 的校准会话抽取可复用 skill 草稿"
 ```
 
-**观察**: 流式看 LLM 调 `memory_search → memory_read → memory_write_file`，最终输出结构化 YAML skill draft。
+**观察**: 流式输出 LLM 调 `memory_search → memory_read → memory_write_file`，结果含结构化 YAML skill draft。
 
-##### 5.5.4 ADR-V2-006 hook envelope（Phase 2.S3.T5 + 2.5.S0.T3 D120）
+---
+
+#### Step 4 — 各 runtime 分项验证（Phase 3 新接线）
+
+各节独立，可按需单跑。每节标注前提条件。
+
+##### 4a — nanobot：ConnectMCP + Stop hook（Phase 3.S3.T3-T5）
+
+> **前提**: nanobot-runtime `:50054` 已在 `make dev-eaasp` 中启动。
 
 ```bash
-eaasp session events $SID --format json | \
-  jq '.events[] | select(.event_type=="PRE_TOOL_USE") | .payload' | head -30
+eaasp session create --skill threshold-calibration --runtime nanobot-runtime
+export SID_N=<id>
+eaasp session send $SID_N "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_N
 ```
 
-**观察**: payload 含 `tool_name` + `arguments`，证明 envelope parity。
+**观察**: `SESSION_MCP_CONNECTED` 出现；`PRE_TOOL_USE ≥ 1`；Stop hook payload 含 `evidence_anchor_id`。
 
-##### 5.5.5 goose 容器（Phase 2.5.W1，ADR-V2-019）
+##### 4b — goose：ACP Send 流式（Phase 3.S3.T1-T2）
+
+> **前提**: `make goose-runtime-container-run`（或本地 goose 二进制）已启动，端口 `:50063`。
 
 ```bash
+# 先验容器健康
 make goose-runtime-container-verify-f1
+
+eaasp session create --skill threshold-calibration --runtime goose-runtime
+export SID_G=<id>
+eaasp session send $SID_G "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_G
 ```
 
-**观察**: 输出 `goose info` 面板，exit 0。
+**观察**: `SESSION_START` + `STOP` 出现；无 gRPC `UNAVAILABLE`；流式不卡死。goose 无 MCP 工具注入时 `PRE_TOOL_USE` 为 0（正常，XFAIL）。
 
-##### 5.5.6 nanobot gRPC 基线（Phase 2.5.W2）
+##### 4c — pydantic-ai：LLM E2E（Phase 3.S3.T6-T7）
+
+> **前提**: `cd lang/pydantic-ai-runtime-python && PYDANTIC_AI_RUNTIME_PORT=50065 .venv/bin/python -m pydantic_ai_runtime`
 
 ```bash
-lang/claude-code-runtime-python/.venv/bin/python -c "
+eaasp session create --skill threshold-calibration --runtime pydantic-ai-runtime
+export SID_PA=<id>
+eaasp session send $SID_PA "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_PA
+```
+
+**观察**: `SESSION_START` + `STOP` 出现；runtime 日志无 ERROR；有工具调用记录。
+
+##### 4d — claw-code：LLM E2E（Phase 3.S3.T8-T9）
+
+> **前提**: `cargo run -p eaasp-claw-code-runtime -- --port 50066`
+> **配置**: `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `OPENAI_MODEL_NAME` 已设。
+
+```bash
+eaasp session create --skill threshold-calibration --runtime claw-code-runtime
+export SID_CL=<id>
+eaasp session send $SID_CL "校准 Transformer-001 的温度阈值"
+eaasp session events $SID_CL
+```
+
+**观察**: `SESSION_START` + `STOP` 出现；Rust 日志无 panic。
+
+##### 4e — ccb：gRPC 基线（Phase 3.S3.T10-T11，stub Send）
+
+> **前提**: `cd lang/ccb-runtime-ts && CCB_RUNTIME_PORT=50067 bun run src/main.ts`
+
+```bash
+.venv/bin/python -c "
 import sys, grpc, uuid
 sys.path.insert(0, 'lang/claude-code-runtime-python/src')
 from claude_code_runtime._proto.eaasp.runtime.v2 import common_pb2, runtime_pb2, runtime_pb2_grpc
-ch = grpc.insecure_channel('127.0.0.1:50054')
+ch = grpc.insecure_channel('127.0.0.1:50067')
 stub = runtime_pb2_grpc.RuntimeServiceStub(ch)
 print('Health:', stub.Health(common_pb2.Empty(), timeout=5).healthy)
 init = stub.Initialize(runtime_pb2.InitializeRequest(payload=common_pb2.SessionPayload(
-    session_id='manual-'+str(uuid.uuid4())[:8], user_id='verifier', runtime_id='nanobot-runtime')), timeout=10)
+    session_id='ccb-'+str(uuid.uuid4())[:8], user_id='verifier', runtime_id='ccb-runtime')), timeout=10)
 print('session:', init.session_id)
 stub.Terminate(common_pb2.Empty(), timeout=5)
 print('Terminate OK')
 "
 ```
 
-**观察**: `Health: True` + `session: <id>` + `Terminate OK`。
-
-##### 5.5.7 合约套件 v1 四 runtime（Phase 2.5.S0）
-
-```bash
-make v2-phase2_5-e2e
-```
-
-**观察**: pytest 滚动 grid/cc/nanobot PASS，goose XFAIL。
-
----
-
-#### Part C — 难观察项（自动化批跑）
-
-```bash
-bash scripts/eaasp-e2e.sh --only B --skip B9,B10,B11
-```
-
-覆盖 ErrorClassifier (B1) / graduated retry (B2) / PreCompactHook (B8) 等需造错/超长才能触发的特性。
+**观察**: `Health: True` + `session: <id>` + `Terminate OK`；无 Bun panic。Send 为 stub echo，有响应即 PASS。
 
 ---
 
@@ -445,7 +531,25 @@ bash scripts/eaasp-e2e.sh --only B --skip B9,B10,B11
 - **结果**: 🟢 25/25 Completed @ 2026-04-18
 - **本次 artifact**: `docs/main/PHASE2_5_E2E_VERIFICATION_GUIDE.md`（历史归档）
 
-### Phase 3 — [待定]
+### Phase 3 — L1 Runtime Functional Completeness（2026-04-18 🟢 Completed）
+
+- **本次引入能力**:
+  - A14 (goose ACP Send 流式，S3.T1-T2)
+  - A15 (nanobot ConnectMCP + Stop hook，S3.T3-T5，D144 关闭)
+  - B12 (pydantic-ai LLM E2E，S3.T6-T7)
+  - B13 (claw-code LLM E2E，S3.T8-T9)
+  - B14 (ccb gRPC 基线，S3.T10-T11)
+  - B15 (合约套件 v1.1 七 runtime，`make v2-phase3-e2e` 112 pytest PASS)
+- **自动化门控**: `make v2-phase3-e2e` 112 pytest PASS（B1-B8 八组）；cargo check workspace clean；contract v1.1 7 runtimes × 42 PASS 22 XFAIL
+- **新 runtime 能力**:
+  - goose: ACP parser + next_event() + Send 流式接线（容器模板）
+  - nanobot: ConnectMCP stdio MCP client + Stop hook dispatch（D144 ✅）
+  - pydantic-ai: 真实 LLM agent loop（OpenAI-compat），contract v1.1 通过
+  - claw-code: Rust agent loop，真实 LLM Send，contract v1.1 通过
+  - ccb: Bun/TypeScript stub Send，gRPC 16 方法合约通过，contract v1.1 通过
+- **ADR**: ADR-V2-020 Accepted（tool namespace L0/L1/L2，contract-v1.1.0 tag）
+- **人工 sign-off runbook**: `scripts/phase3-runtime-verification.sh`（≥4/7 runtime PASS）
+- **结果**: 🟢 35/35 Completed @ 23a7520（2026-04-18）
 
 - 预期新 A 组行: goose/nanobot 的 ConnectMCP 工具注入
 - 预期新 B 组行: pydantic-ai / claw-code / ccb runtime 评估

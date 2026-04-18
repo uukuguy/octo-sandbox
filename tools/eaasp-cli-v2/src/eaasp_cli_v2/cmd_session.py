@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import Any, Optional
 
@@ -165,6 +166,7 @@ def send(
     session_id: str = typer.Argument(...),
     message: str = typer.Argument(...),
     stream: bool = typer.Option(True, "--stream/--no-stream", help="Stream output via SSE"),
+    show_thinking: bool = typer.Option(False, "--thinking", help="Show extended thinking chunks"),
 ) -> None:
     """Append a user message to a session (streaming by default)."""
     cfg = CliConfig.from_env()
@@ -204,11 +206,19 @@ def send(
                     chunk_type = data.get("chunk_type", "")
                     content = data.get("content", "")
                     if chunk_type == "text_delta":
-                        # Print text without newline for streaming effect.
-                        sys.stdout.write(content)
-                        sys.stdout.flush()
+                        if os.environ.get("EAASP_DEBUG_CHUNKS"):
+                            sys.stderr.write(f"CHUNK:{repr(content)}\n")
+                        # Drop chunks that are purely whitespace/newlines (standalone
+                        # newline tokens from the tokenizer); preserve \n within
+                        # chunks that also contain real text (Markdown structure).
+                        if content.strip():
+                            sys.stdout.write(content)
+                            sys.stdout.flush()
                     elif chunk_type == "thinking":
-                        console.print(f"[dim][thinking] {content}[/dim]")
+                        if show_thinking:
+                            # Print on stderr so it doesn't interleave with stdout text flow.
+                            sys.stderr.write(f"[thinking] {content}\n")
+                            sys.stderr.flush()
                     elif chunk_type == "tool_start":
                         tool = data.get("tool_name", "?")
                         console.print(f"[cyan][tool_call: {tool}][/cyan]")

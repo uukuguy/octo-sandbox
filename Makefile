@@ -992,7 +992,7 @@ test-phase2-batch-ab:
 
 v2-phase3-e2e:
 	@echo "=== Phase 3 E2E: B1-B8 (pytest, no live LLM required) ==="
-	pytest tests/e2e/phase3/ -v --tb=short
+	.venv/bin/python -m pytest tests/e2e/phase3/ -v --tb=short
 	@echo "=== Phase 3 E2E: all passed ==="
 
 v2-phase3-e2e-rust:

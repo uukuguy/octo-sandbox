@@ -2103,6 +2103,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "eaasp-claw-code-runtime"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "prost",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tokio-stream",
+ "tonic",
+ "tonic-build",
+ "tracing",
+ "tracing-subscriber",
+ "uuid",
+ "which",
+]
+
+[[package]]
 name = "eaasp-goose-runtime"
 version = "0.1.0"
 dependencies = [
@@ -2110,6 +2129,7 @@ dependencies = [
  "chrono",
  "eaasp-scoped-hook-mcp",
  "prost",
+ "serde",
  "serde_json",
  "tokio",
  "tokio-stream",
