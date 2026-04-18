@@ -2,23 +2,32 @@
   "plan_file": "docs/plans/2026-04-18-v2-phase3-plan.md",
   "design_file": "docs/design/EAASP/PHASE_3_DESIGN.md",
   "context_file": "docs/plans/2026-04-18-v2-phase3-CONTEXT.md",
-  "phase": "design",
+  "phase": "execution",
   "created_at": "2026-04-18T07:15:00+08:00",
-  "updated_at": "2026-04-18T07:15:00+08:00",
-  "completed_tasks": [],
-  "current_task": null,
-  "execution_mode": null,
+  "updated_at": "2026-04-18T12:00:00+08:00",
+  "completed_tasks": [
+    "S1.T1 ADR-V2-020 tool namespace contract — Proposed",
+    "S1.T2 ToolLayer enum + Tool::layer() trait",
+    "S1.T3 ToolRegistry register_layered / resolve / resolve_with_fallback",
+    "S1.T4 tool_namespace_test.rs — 10 tests PASS",
+    "S1.T5 harness.rs skill-filter + RequiredTool parser + SKILL.md upgrade",
+    "S1.T6 contract-v1.1.0 — 23 cases PASS",
+    "S1.T7 L1_RUNTIME_ADAPTATION_GUIDE §10 namespace chapter",
+    "S1.T8 S1 sign-off — ADR-V2-020 Accepted"
+  ],
+  "current_task": "S2.T1 D130 CancellationTokenTree",
+  "execution_mode": "subagent-driven",
   "phase_name": "Phase 3 — L1 Runtime Functional Completeness",
   "total_tasks": 35,
   "stages": {
-    "S1": { "name": "工具命名空间治理", "tasks": 8, "completed": 0 },
+    "S1": { "name": "工具命名空间治理", "tasks": 8, "completed": 8 },
     "S2": { "name": "Phase 2 P1-defer 清债", "tasks": 9, "completed": 0 },
     "S3": { "name": "D144 + 对比 runtime + E2E", "tasks": 18, "completed": 0 }
   },
   "first_task": "S1.T1 ADR-V2-020 tool namespace contract — Proposed",
   "sign_off_criteria": [
-    "ADR-V2-020 Accepted",
-    "contract-v1.1.0 tag local-only (38+ cases)",
+    "✅ ADR-V2-020 Accepted",
+    "✅ contract-v1.1.0 tag local-only (58 cases: 35 v1 + 23 v1.1)",
     "7 项 P1-defer 全 closed (D130/D78/D94/D98/D117/D108/D125)",
     "5 runtimes × contract v1.1 全 PASS 无 XFAIL",
     "skill-extraction E2E 在所有 5 runtime 跑通",
@@ -27,6 +36,6 @@
     "L1_RUNTIME_COMPARISON_MATRIX.md 扩至 5-runtime 全行",
     "人工 runbook 签字"
   ],
-  "notes": "Design + plan complete via /discuss + /writing-plans. CONTEXT locked 10 decisions. 35 tasks across 3 stages, 3-5 weeks. Waiting for execution mode selection (Subagent-Driven recommended per CLAUDE.md RuFlo 铁律).",
-  "memory_status": "claude-mem MCP unavailable this session; project memory captured in NEXT_SESSION_GUIDE.md + .phase_stack.json + MEMORY.md index"
+  "notes": "S1 COMPLETE 8/8 @ 2026-04-18. ToolLayer enum + dual-key ToolRegistry + RequiredTool parser + SKILL.md namespace upgrade + contract-v1.1.0 (23 PASS) + ADR-V2-020 Accepted. Next: S2.T1 D130 CancellationTokenTree.",
+  "memory_status": "checkpoint updated S1 complete; NEXT_SESSION_GUIDE.md S1 table added"
 }

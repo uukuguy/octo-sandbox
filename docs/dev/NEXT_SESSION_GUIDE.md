@@ -116,16 +116,29 @@
 
 ### Stage 编排（三轮）
 
-| Stage | Tasks | 主题 | 周期 |
+| Stage | Tasks | 主题 | 状态 |
 |-------|-------|------|------|
-| **S1** | 8 | 工具命名空间治理（L0/L1/L2 + skill 显式声明 + contract v1.1） | 1-1.5 周 |
-| **S2** | 9 | Phase 2 P1-defer 清债（D130/D78/D94/D98/D117/D108/D125） | 1.5-2 周 |
-| **S3** | 18 | D144 goose/nanobot 接线 + pydantic-ai/claw-code/ccb 进契约 + E2E B1-B8 | 1.5-2 周 |
+| **S1** | 8/8 ✅ | 工具命名空间治理（L0/L1/L2 + skill 显式声明 + contract v1.1） | **COMPLETE** |
+| **S2** | 0/9 | Phase 2 P1-defer 清债（D130/D78/D94/D98/D117/D108/D125） | 待启动 |
+| **S3** | 0/18 | D144 goose/nanobot 接线 + pydantic-ai/claw-code/ccb 进契约 + E2E B1-B8 | 待启动 |
+
+### S1 完成摘要（2026-04-18）
+
+| Task | 内容 | 结果 |
+|------|------|------|
+| S1.T1 | ADR-V2-020 Proposed + PHASE_3_DESIGN | ✅ |
+| S1.T2 | `ToolLayer` enum + `Tool::layer()` trait | ✅ |
+| S1.T3 | `register_layered / resolve / resolve_with_fallback` | ✅ |
+| S1.T4 | `tool_namespace_test.rs` — 10 tests | ✅ |
+| S1.T5 | harness.rs skill-filter + `RequiredTool` parser + SKILL.md 升级 | ✅ |
+| S1.T6 | contract-v1.1.0 — 23 cases PASS | ✅ |
+| S1.T7 | L1_RUNTIME_ADAPTATION_GUIDE §10 命名空间 | ✅ |
+| S1.T8 | ADR-V2-020 Accepted + sign-off | ✅ |
 
 ### Sign-off 标准（9 条）
 
-1. ADR-V2-020 Accepted
-2. `contract-v1.1.0` tag local-only（35+ cases）
+1. ✅ ADR-V2-020 Accepted
+2. ✅ `contract-v1.1.0` tag local-only（58 cases: 35 v1 + 23 v1.1）
 3. 7 项 P1-defer 全 closed
 4. 5 runtimes × contract v1.1 全 PASS 无 XFAIL
 5. skill-extraction E2E 在所有 5 runtime 跑通
