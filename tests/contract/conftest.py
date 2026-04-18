@@ -85,7 +85,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--runtime",
         action="store",
         default=None,
-        choices=["grid", "claude-code", "goose", "nanobot", "pydantic-ai"],
+        choices=["grid", "claude-code", "goose", "nanobot", "pydantic-ai", "claw-code"],
         help=(
             "Runtime under test. Required by contract_v1/ tests; smoke tests "
             "under tests/contract/test_harness_smoke.py do not consult it."
@@ -476,6 +476,44 @@ def runtime_config(
                 "https_proxy": "",
             },
             startup_timeout_s=15.0,
+        )
+
+    if runtime_name == "claw-code":
+        prebuilt = _REPO_ROOT / "target" / "debug" / "eaasp-claw-code-runtime"
+        if prebuilt.exists():
+            launch_cmd = [str(prebuilt)]
+            startup_timeout_s = 15.0
+        else:
+            launch_cmd = ["cargo", "run", "-p", "eaasp-claw-code-runtime", "--"]
+            startup_timeout_s = 120.0
+
+        grpc_port = _free_port()
+        fixtures_root = _REPO_ROOT / "tests" / "contract" / "fixtures"
+        probe_out_dir = fixtures_root / "_probe_out"
+        probe_out_dir.mkdir(parents=True, exist_ok=True)
+
+        return RuntimeConfig(
+            name="claw-code",
+            launch_cmd=launch_cmd,
+            grpc_port=grpc_port,
+            env={
+                "CLAW_CODE_RUNTIME_GRPC_ADDR": f"0.0.0.0:{grpc_port}",
+                "EAASP_DEPLOYMENT_MODE": "shared",
+                # claw-code binary gate: if absent the adapter falls back to
+                # stub sessions (no subprocess), which is the expected baseline
+                # for contract testing without a live claw-code install.
+                "CLAW_CODE_BIN": os.environ.get("CLAW_CODE_BIN", "claw-code"),
+                "EAASP_SKILL_CACHE_DIR": str(fixtures_root),
+                "GRID_CONTRACT_PROBE_OUT": str(probe_out_dir),
+                "RUST_LOG": "eaasp_claw_code_runtime=warn",
+                "NO_PROXY": "127.0.0.1,localhost",
+                "no_proxy": "127.0.0.1,localhost",
+                "HTTP_PROXY": "",
+                "HTTPS_PROXY": "",
+                "http_proxy": "",
+                "https_proxy": "",
+            },
+            startup_timeout_s=startup_timeout_s,
         )
 
     raise NotImplementedError(

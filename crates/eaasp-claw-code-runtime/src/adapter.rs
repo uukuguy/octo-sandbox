@@ -17,10 +17,11 @@ use uuid::Uuid;
 use crate::ultra_worker::UltraWorkerEvent;
 
 /// Per-session handle to a running claw-code subprocess.
+/// `_child` is `None` for stub sessions (binary absent).
 struct SessionHandle {
     stdin: Option<ChildStdin>,
     stdout: Option<BufReader<ChildStdout>>,
-    _child: Child,
+    _child: Option<Child>,
 }
 
 /// Multi-session adapter that manages claw-code subprocess lifecycle.
@@ -56,12 +57,17 @@ impl ClawCodeAdapter {
         let which_result = which::which(&bin);
 
         if which_result.is_err() {
-            // Gate: claw-code binary not installed — return stub session.
+            // Gate: claw-code binary not installed — register a no-op stub session.
+            // send_message silently drops writes (no stdin), next_event returns None (EOF).
             let sid = Uuid::new_v4().to_string();
             tracing::warn!(
                 sid = %sid,
                 bin = %bin,
                 "claw-code binary not found; using stub session (set CLAW_CODE_BIN to enable)"
+            );
+            self.sessions.lock().await.insert(
+                sid.clone(),
+                SessionHandle { stdin: None, stdout: None, _child: None },
             );
             return Ok(sid);
         }
@@ -79,7 +85,7 @@ impl ClawCodeAdapter {
         let sid = Uuid::new_v4().to_string();
         self.sessions.lock().await.insert(
             sid.clone(),
-            SessionHandle { stdin, stdout, _child: child },
+            SessionHandle { stdin, stdout, _child: Some(child) },
         );
         Ok(sid)
     }
