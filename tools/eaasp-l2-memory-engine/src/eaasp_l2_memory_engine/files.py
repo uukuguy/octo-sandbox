@@ -11,7 +11,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
-from .db import connect, pack_embedding
+from .db import get_shared_connection, get_write_lock, pack_embedding
 
 logger = logging.getLogger(__name__)
 
@@ -109,8 +109,8 @@ class MemoryFileStore:
         except Exception as e:  # noqa: BLE001 — embedding must never block writes
             logger.warning("memory_write embedding skipped: %s", e)
 
-        db = await connect(self.db_path)
-        try:
+        db = await get_shared_connection(self.db_path)
+        async with get_write_lock(self.db_path):
             await db.execute("BEGIN IMMEDIATE")
             try:
                 cur = await db.execute(
@@ -177,8 +177,6 @@ class MemoryFileStore:
             except Exception:
                 await db.rollback()
                 raise
-        finally:
-            await db.close()
 
         # Step 3 — HNSW add/save is post-commit and fully non-fatal. The DB
         # row is authoritative; HNSW is a rebuild-able index. Import is
@@ -214,20 +212,17 @@ class MemoryFileStore:
         )
 
     async def read_latest(self, memory_id: str) -> MemoryFileOut | None:
-        db = await connect(self.db_path)
-        try:
-            cur = await db.execute(
-                """
-                SELECT * FROM memory_files
-                WHERE memory_id = ?
-                ORDER BY version DESC
-                LIMIT 1
-                """,
-                (memory_id,),
-            )
-            row = await cur.fetchone()
-        finally:
-            await db.close()
+        db = await get_shared_connection(self.db_path)
+        cur = await db.execute(
+            """
+            SELECT * FROM memory_files
+            WHERE memory_id = ?
+            ORDER BY version DESC
+            LIMIT 1
+            """,
+            (memory_id,),
+        )
+        row = await cur.fetchone()
         return _row_to_memory(row) if row else None
 
     async def list(
@@ -281,12 +276,9 @@ class MemoryFileStore:
         params.append(limit)
         params.append(offset)
 
-        db = await connect(self.db_path)
-        try:
-            cur = await db.execute(sql, params)
-            rows = await cur.fetchall()
-        finally:
-            await db.close()
+        db = await get_shared_connection(self.db_path)
+        cur = await db.execute(sql, params)
+        rows = await cur.fetchall()
         return [_row_to_memory(r) for r in rows]
 
     async def archive(self, memory_id: str) -> MemoryFileOut:

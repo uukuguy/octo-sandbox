@@ -2,9 +2,55 @@
 
 from __future__ import annotations
 
+import asyncio
 import struct
 
 import aiosqlite
+
+
+# D94 — process-level singleton connections, one per db_path.
+# Avoids opening a new aiosqlite.Connection on every store method call.
+# Guarded by a per-path asyncio.Lock so concurrent coroutines don't race
+# during first-time initialisation.
+_shared_connections: dict[str, aiosqlite.Connection] = {}
+_init_locks: dict[str, asyncio.Lock] = {}
+# Per-path write serialization locks. aiosqlite's underlying sqlite3 connection
+# can only hold one transaction at a time — concurrent BEGIN IMMEDIATE calls
+# raise OperationalError. This lock ensures write paths are mutually exclusive.
+_write_locks: dict[str, asyncio.Lock] = {}
+
+
+async def get_shared_connection(path: str) -> aiosqlite.Connection:
+    """Return the cached aiosqlite.Connection for *path*, creating it on first call.
+
+    The returned connection is long-lived (process lifetime). Callers MUST NOT
+    call ``db.close()`` on it — it is shared. For write paths that issue
+    BEGIN IMMEDIATE, acquire ``get_write_lock(path)`` first to prevent
+    concurrent transaction conflicts.
+    """
+    if path not in _shared_connections:
+        # One lock per path to avoid contention across unrelated databases.
+        if path not in _init_locks:
+            _init_locks[path] = asyncio.Lock()
+        async with _init_locks[path]:
+            # Double-checked locking after acquiring per-path lock.
+            if path not in _shared_connections:
+                db = await aiosqlite.connect(path)
+                db.row_factory = aiosqlite.Row
+                _shared_connections[path] = db
+    return _shared_connections[path]
+
+
+def get_write_lock(path: str) -> asyncio.Lock:
+    """Return the per-path write serialization lock.
+
+    Callers that issue ``BEGIN IMMEDIATE`` on the shared connection MUST hold
+    this lock for the duration of the transaction to prevent concurrent
+    ``OperationalError: cannot start a transaction within a transaction``.
+    """
+    if path not in _write_locks:
+        _write_locks[path] = asyncio.Lock()
+    return _write_locks[path]
 
 SCHEMA = """
 PRAGMA journal_mode=WAL;

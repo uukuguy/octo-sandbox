@@ -33,7 +33,7 @@ from typing import Any
 
 from pydantic import BaseModel
 
-from .db import connect
+from .db import get_shared_connection
 from .files import MemoryFileOut, _row_to_memory
 
 logger = logging.getLogger(__name__)
@@ -282,16 +282,13 @@ class HybridIndex:
         sql += " ORDER BY rank ASC LIMIT ?"
         params.append(top_k * 4)
 
-        db = await connect(self.db_path)
+        db = await get_shared_connection(self.db_path)
         try:
-            try:
-                cur = await db.execute(sql, params)
-                fts_rows = await cur.fetchall()
-            except Exception:
-                # Defense in depth against any residual FTS5 parse error.
-                fts_rows = []
-        finally:
-            await db.close()
+            cur = await db.execute(sql, params)
+            fts_rows = await cur.fetchall()
+        except Exception:
+            # Defense in depth against any residual FTS5 parse error.
+            fts_rows = []
 
         now_ms = int(time.time() * 1000)
 
@@ -374,12 +371,9 @@ class HybridIndex:
                         fetch_sql += " AND mf.category = ?"
                         fetch_params.append(category)
 
-                    db = await connect(self.db_path)
-                    try:
-                        cur = await db.execute(fetch_sql, fetch_params)
-                        missing_rows = await cur.fetchall()
-                    finally:
-                        await db.close()
+                    db = await get_shared_connection(self.db_path)
+                    cur = await db.execute(fetch_sql, fetch_params)
+                    missing_rows = await cur.fetchall()
 
                     for row in missing_rows:
                         memory = _row_to_memory(row)
