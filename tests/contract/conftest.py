@@ -85,7 +85,7 @@ def pytest_addoption(parser: pytest.Parser) -> None:
         "--runtime",
         action="store",
         default=None,
-        choices=["grid", "claude-code", "goose", "nanobot"],
+        choices=["grid", "claude-code", "goose", "nanobot", "pydantic-ai"],
         help=(
             "Runtime under test. Required by contract_v1/ tests; smoke tests "
             "under tests/contract/test_harness_smoke.py do not consult it."
@@ -422,6 +422,46 @@ def runtime_config(
             grpc_port=grpc_port,
             env={
                 "NANOBOT_RUNTIME_PORT": str(grpc_port),
+                "OPENAI_BASE_URL": f"http://127.0.0.1:{mock_openai_server_port}/v1",
+                "OPENAI_API_KEY": "sk-test-mock",
+                "OPENAI_MODEL_NAME": "gpt-4o-mini",
+                "EAASP_DEPLOYMENT_MODE": "shared",
+                "EAASP_SKILL_CACHE_DIR": str(fixtures_root),
+                "GRID_CONTRACT_PROBE_OUT": str(probe_out_dir),
+                "NO_PROXY": "127.0.0.1,localhost",
+                "no_proxy": "127.0.0.1,localhost",
+                "HTTP_PROXY": "",
+                "HTTPS_PROXY": "",
+                "http_proxy": "",
+                "https_proxy": "",
+            },
+            startup_timeout_s=15.0,
+        )
+
+    if runtime_name == "pydantic-ai":
+        pydantic_ai_python = _REPO_ROOT / "lang" / "pydantic-ai-runtime-python" / ".venv" / "bin" / "python"
+        if not pydantic_ai_python.exists():
+            pytest.skip(
+                "pydantic-ai-runtime-python venv not installed; "
+                "run `cd lang/pydantic-ai-runtime-python && uv sync --extra dev` to enable"
+            )
+
+        grpc_port = _free_port()
+        fixtures_root = _REPO_ROOT / "tests" / "contract" / "fixtures"
+        probe_out_dir = fixtures_root / "_probe_out"
+        probe_out_dir.mkdir(parents=True, exist_ok=True)
+
+        return RuntimeConfig(
+            name="pydantic-ai",
+            launch_cmd=[
+                str(pydantic_ai_python),
+                "-m", "pydantic_ai_runtime",
+                "--port", str(grpc_port),
+                "--log-level", "WARNING",
+            ],
+            grpc_port=grpc_port,
+            env={
+                "PYDANTIC_AI_RUNTIME_PORT": str(grpc_port),
                 "OPENAI_BASE_URL": f"http://127.0.0.1:{mock_openai_server_port}/v1",
                 "OPENAI_API_KEY": "sk-test-mock",
                 "OPENAI_MODEL_NAME": "gpt-4o-mini",
