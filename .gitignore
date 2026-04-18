@@ -55,7 +55,9 @@ eval_output/
 # tests/contract/ stays tracked (git cannot re-include under a wildcard-excluded parent).
 /tests/*
 !/tests/contract/
+!/tests/e2e/
 tests/e2e/__pycache__/
+tests/e2e/**/__pycache__/
 tests/contract/**/__pycache__/
 tests/contract/.pytest_cache/
 

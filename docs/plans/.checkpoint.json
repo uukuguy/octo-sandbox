@@ -33,9 +33,10 @@
     "S3.T8 claw-code-runtime scaffold (Rust) — 11 unit tests PASS",
     "S3.T9 claw-code contract v1.1 — 42 PASS 22 XFAIL",
     "S3.T10 ccb-runtime scaffold (Bun/TypeScript) — 8 unit tests PASS",
-    "S3.T11 ccb contract v1.1 — 42 PASS 22 XFAIL"
+    "S3.T11 ccb contract v1.1 — 42 PASS 22 XFAIL",
+    "S3.T12 E2E B1+B2 — 26 pytest PASS (ErrorClassifier taxonomy + backoff curve)"
   ],
-  "current_task": "S3.T12 E2E B1+B2 (ErrorClassifier + retry log)",
+  "current_task": "S3.T13 E2E B3+B4 (HNSW + hybrid retrieval)",
   "execution_mode": "subagent-driven",
   "phase_name": "Phase 3 — L1 Runtime Functional Completeness",
   "total_tasks": 35,

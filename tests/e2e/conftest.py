@@ -18,7 +18,10 @@ TOOLS_DIR = Path(__file__).resolve().parents[2] / "tools"
 sys.path.insert(0, str(TOOLS_DIR / "eaasp-governance" / "src"))
 sys.path.insert(0, str(TOOLS_DIR / "eaasp-session-manager" / "src"))
 
-from eaasp_governance.main import create_app as create_l3_app
+try:
+    from eaasp_governance.main import create_app as create_l3_app
+except ModuleNotFoundError:
+    create_l3_app = None  # type: ignore[assignment]
 
 EXAMPLES_DIR = Path(__file__).resolve().parents[2] / "sdk" / "examples" / "hr-onboarding"
 CONFIG_DIR = TOOLS_DIR / "eaasp-governance" / "config"
