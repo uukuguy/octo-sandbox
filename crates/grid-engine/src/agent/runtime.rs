@@ -11,8 +11,8 @@ use grid_types::{ChatMessage, SandboxId, SessionId, TenantId, UserId};
 
 use crate::agent::{
     AgentCatalog, AgentConfig, AgentError, AgentEvent, AgentExecutor, AgentExecutorHandle, AgentId,
-    AgentManifest, AgentMessage, AgentStatus, CancellationToken, SessionInterruptRegistry,
-    TenantContext,
+    AgentManifest, AgentMessage, AgentStatus, CancellationToken, CancellationTokenTree,
+    SessionInterruptRegistry, TenantContext,
 };
 use crate::agent::task_tracker::TaskTracker;
 use crate::agent::team::TeamManager;
@@ -1420,7 +1420,7 @@ impl AgentRuntime {
         sandbox_id: SandboxId,
         initial_history: Vec<ChatMessage>,
         agent_id: Option<&AgentId>,
-    ) -> (AgentExecutorHandle, Arc<StdMutex<ToolRegistry>>) {
+    ) -> (AgentExecutorHandle, Arc<StdMutex<ToolRegistry>>, CancellationTokenTree) {
         self.build_and_spawn_executor_filtered(session_id, user_id, sandbox_id, initial_history, agent_id, None)
     }
 
@@ -1435,7 +1435,7 @@ impl AgentRuntime {
         initial_history: Vec<ChatMessage>,
         agent_id: Option<&AgentId>,
         tool_filter: Option<&[String]>,
-    ) -> (AgentExecutorHandle, Arc<StdMutex<ToolRegistry>>) {
+    ) -> (AgentExecutorHandle, Arc<StdMutex<ToolRegistry>>, CancellationTokenTree) {
         // 从 manifest 解析运行时配置（不含 tools，使用全局共享引用）
         let (_, system_prompt, model, config) = self.resolve_runtime_config(agent_id);
 
@@ -1555,6 +1555,12 @@ impl AgentRuntime {
             tool_choice_cap == crate::providers::Capability::Supported,
         );
 
+        // D130: create the session/turn token tree and wire it into the executor.
+        // The session_cancellation_token() is returned to the caller so it can
+        // be registered in SessionInterruptRegistry.
+        let cancel_tree = CancellationTokenTree::new();
+        executor.set_cancel_tree(cancel_tree.clone());
+
         // S3.T5 (G7): drain any Stop hooks registered for this session by
         // a runtime wrapper (GridHarness → scoped Stop hooks from skill
         // frontmatter). Must happen AFTER `AgentExecutor::new` but BEFORE
@@ -1578,7 +1584,7 @@ impl AgentRuntime {
             executor.run().await;
         });
 
-        (handle, session_tools)
+        (handle, session_tools, cancel_tree)
     }
 
     /// S3.T5 (G7): register Stop hooks for a session.
@@ -1679,7 +1685,7 @@ impl AgentRuntime {
         // AM-T5: capture sandbox_id for registry persistence before move
         let sandbox_id_for_registry = sandbox_id.clone();
 
-        let (handle, session_tools) = self.build_and_spawn_executor_filtered(
+        let (handle, session_tools, cancel_tree) = self.build_and_spawn_executor_filtered(
             session_id.clone(),
             user_id.clone(),
             sandbox_id,
@@ -1699,13 +1705,10 @@ impl AgentRuntime {
 
         // Register in session registry
         let now = Instant::now();
-        // S4.T4: allocate a session-lifetime cancel token and register it in
-        // the thread-scoped interrupt registry. A clone is stashed in
-        // SessionEntry so external state inspectors (tests, observability)
-        // can observe "session X was externally cancelled" without reaching
-        // into the handle. Separate instance from the executor's per-turn
-        // token (which the executor resets on each UserMessage).
-        let session_cancel_token = CancellationToken::new();
+        // D130: register the session-lifetime token from the tree so that
+        // SessionInterruptRegistry::cancel() propagates into all active and
+        // future per-turn tokens via the shared AtomicBool flag.
+        let session_cancel_token = cancel_tree.session_cancellation_token();
         self.session_interrupts
             .register(session_id.clone(), session_cancel_token.clone());
         self.sessions.insert(
@@ -1883,7 +1886,7 @@ impl AgentRuntime {
                 // start_primary is infallible by contract — log and create minimal executor
                 tracing::error!(error = %e, "start_session failed in start_primary, this should not happen");
                 // Fallback: build directly (should never reach here in practice)
-                let (h, _) = self.build_and_spawn_executor(
+                let (h, _, _) = self.build_and_spawn_executor(
                     session_id.clone(),
                     UserId::from_string("fallback"),
                     SandboxId::from_string("default"),

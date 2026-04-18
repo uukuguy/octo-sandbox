@@ -4,6 +4,7 @@ pub mod autonomous_scheduler;
 pub mod autonomous_trigger;
 pub mod builtin_agents;
 pub mod cancellation;
+pub mod cancellation_tree;
 pub mod token_escalation;
 pub mod capability;
 pub mod catalog;
@@ -51,6 +52,7 @@ pub use autonomous_trigger::{
     ChannelTriggerSource, CronTriggerSource, PollingTriggerSource, TriggerEvent, TriggerListener, TriggerSource,
 };
 pub use cancellation::{CancellationToken, ChildCancellationToken};
+pub use cancellation_tree::{CancellationTokenTree, SessionToken, TurnToken};
 pub use capability::AgentCapability;
 pub use catalog::AgentCatalog;
 pub use collaboration::{

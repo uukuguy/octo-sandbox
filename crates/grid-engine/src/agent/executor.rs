@@ -24,7 +24,7 @@ use crate::tools::ToolRegistry;
 
 use super::entry::AgentManifest;
 use super::harness::{run_agent_loop, rewind_messages};
-use super::CancellationToken;
+use super::cancellation_tree::CancellationTokenTree;
 
 /// Channel → AgentExecutor 的消息
 #[derive(Debug, Clone)]
@@ -150,8 +150,8 @@ pub struct AgentExecutor {
     system_prompt: Option<String>,
     config: AgentConfig,
 
-    // 生命周期
-    cancel_token: CancellationToken,
+    // 生命周期 — D130: session/turn token tree
+    cancel_tree: CancellationTokenTree,
 
     // 工作目录
     working_dir: PathBuf,
@@ -252,7 +252,7 @@ impl AgentExecutor {
             session_store,
             system_prompt,
             config,
-            cancel_token: CancellationToken::new(),
+            cancel_tree: CancellationTokenTree::new(),
             working_dir,
             event_bus,
             path_validator,
@@ -298,6 +298,13 @@ impl AgentExecutor {
         self.stop_hooks = hooks;
     }
 
+    /// D130: replace the default cancel tree with one whose session token is
+    /// registered in `SessionInterruptRegistry`. Called by
+    /// `AgentRuntime::build_and_spawn_executor_filtered` after construction.
+    pub fn set_cancel_tree(&mut self, tree: CancellationTokenTree) {
+        self.cancel_tree = tree;
+    }
+
     /// Agent 主循环入口 — 持续等待消息，处理，广播结果
     pub async fn run(mut self) {
         info!(session_id = %self.session_id.as_str(), "AgentExecutor started");
@@ -308,8 +315,8 @@ impl AgentExecutor {
                     // P1-6: Acquire TurnGate to prevent concurrent turns
                     let _turn_guard = self.turn_gate.acquire().await;
 
-                    // Reset cancellation token for the new turn
-                    self.cancel_token = CancellationToken::new();
+                    // D130: create a fresh per-turn token that shares the session cancel flag.
+                    let turn_token = self.cancel_tree.next_turn();
 
                     // 追加用户消息到持久化历史
                     self.history.push(ChatMessage::user(content));
@@ -499,7 +506,7 @@ impl AgentExecutor {
                         user_id: self.user_id.clone(),
                         sandbox_id: self.sandbox_id.clone(),
                         tool_ctx: Some(tool_ctx),
-                        cancel_token: self.cancel_token.clone(),
+                        cancel_token: turn_token.to_cancellation_token(),
                         agent_config: self.config.clone(),
                         safety_pipeline: self.safety_pipeline.clone(),
                         canary_token: self.canary_token.clone(),
@@ -559,7 +566,8 @@ impl AgentExecutor {
                     }
                 }
                 AgentMessage::Cancel => {
-                    self.cancel_token.cancel();
+                    // D130: cancel the session-level flag so all active + future turns see it.
+                    self.cancel_tree.session_token().cancel();
                     info!(session_id = %self.session_id.as_str(), "AgentExecutor: cancel requested");
                 }
                 AgentMessage::ClearHistory => {
