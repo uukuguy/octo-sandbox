@@ -111,6 +111,10 @@ class AgentSession:
         session_id: Opaque session identifier (auto-generated if omitted).
         tool_executor: Handles actual tool execution. Defaults to StubToolExecutor.
         max_turns: Upper bound on agentic turns before emitting an ERROR event.
+        required_tools: Ordered list of bare tool names that the skill workflow
+            requires (from SKILL.md workflow.required_tools, prefix stripped).
+            When all have been called at least once, a system message is injected
+            to drive the LLM toward a final text answer (mirrors grid-runtime D87).
     """
 
     def __init__(
@@ -122,6 +126,7 @@ class AgentSession:
         session_id: str | None = None,
         tool_executor: ToolExecutor | None = None,
         max_turns: int = 10,
+        required_tools: list[str] | None = None,
     ) -> None:
         self.provider = provider
         self.tools = tools or []
@@ -130,7 +135,16 @@ class AgentSession:
         self.session_id = session_id or _new_session_id()
         self.tool_executor: ToolExecutor = tool_executor or StubToolExecutor()
         self.max_turns = max_turns
+        self.required_tools: list[str] = required_tools or []
         self._messages: list[dict[str, Any]] = []
+        self._called_tools: set[str] = set()
+        self._workflow_completion_injected: bool = False
+
+    def _check_workflow_complete(self) -> bool:
+        """Return True if all required_tools have been called at least once."""
+        if not self.required_tools:
+            return False
+        return all(t in self._called_tools for t in self.required_tools)
 
     async def run(self, user_message: str) -> AsyncGenerator[AgentEvent, None]:
         """Drive the agent loop for a single user turn.
@@ -170,7 +184,6 @@ class AgentSession:
                         hook_ev.event_type == EventType.HOOK_FIRED
                         and hook_ev.hook_decision == "deny"
                     ):
-                        # Inject a system message and re-enter the loop
                         self._messages.append({
                             "role": "system",
                             "content": "Stop hook denied completion. Please revise your response.",
@@ -207,6 +220,8 @@ class AgentSession:
                     result_str = str(exc)
                     is_error = True
 
+                self._called_tools.add(tc_name)
+
                 yield AgentEvent(
                     event_type=EventType.TOOL_RESULT,
                     tool_call_id=tc_id,
@@ -225,6 +240,25 @@ class AgentSession:
                 )
 
             self._messages.extend(tool_results)
+
+            # D87-parity: once all required_tools have been called, inject a
+            # system message to drive the LLM toward a final text answer.
+            # Only inject once to avoid repeated nudges polluting history.
+            if (
+                self.required_tools
+                and not self._workflow_completion_injected
+                and self._check_workflow_complete()
+            ):
+                self._workflow_completion_injected = True
+                self._messages.append({
+                    "role": "system",
+                    "content": (
+                        "You have completed all required workflow steps "
+                        f"({', '.join(self.required_tools)}). "
+                        "Now provide your final answer to the user in clear, "
+                        "concise text. Do not call any more tools."
+                    ),
+                })
             # continue loop
 
         yield AgentEvent(

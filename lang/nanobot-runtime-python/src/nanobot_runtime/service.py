@@ -49,7 +49,25 @@ class NanobotRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
         payload = request.payload
         sid = payload.session_id if payload.session_id else str(uuid.uuid4())
         provider = self._make_provider()
-        self._sessions[sid] = AgentSession(provider=provider, session_id=sid)
+
+        # Extract required_tools from skill_instructions (ADR-V2-020).
+        # Strip namespace prefix (e.g. "l2:") so bare tool names reach the loop.
+        required_tools: list[str] = []
+        if payload.HasField("skill_instructions"):
+            si = payload.skill_instructions
+            for t in si.required_tools:
+                bare = t[t.index(":") + 1:] if ":" in t else t
+                required_tools.append(bare)
+            if required_tools:
+                logger.info(
+                    "Initialize: session=%s required_tools=%s", sid, required_tools
+                )
+
+        self._sessions[sid] = AgentSession(
+            provider=provider,
+            session_id=sid,
+            required_tools=required_tools or None,
+        )
         self._active_session_id = sid
         return runtime_pb2.InitializeResponse(
             session_id=sid,
