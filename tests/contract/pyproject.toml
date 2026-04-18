@@ -26,4 +26,5 @@ testpaths = ["."]
 pythonpath = ["../.."]
 markers = [
     "contract_v1: frozen contract-v1 cross-runtime assertion (see ADR-V2-017 §2)",
+    "contract_v1_1: contract-v1.1 namespace governance assertions (see ADR-V2-020 / Phase 3 S1.T6)",
 ]

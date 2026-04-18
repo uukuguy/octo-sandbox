@@ -7,6 +7,40 @@ The authoritative policy for this suite lives in ADR-V2-017 §2 ("共享契约�
 Every entry below must be traceable to a specific ledger item in
 `docs/design/EAASP/DEFERRED_LEDGER.md` or an accepted ADR.
 
+## v1.1.0 — 2026-04-18 (Phase 3 S1.T6 — tool namespace governance)
+
+### Status
+Active. Adds three new case files in `tests/contract/cases/` covering
+ADR-V2-020 namespace assertions.  The `contract_v1/` snapshot remains frozen.
+
+### New test surface
+3 new suites (22 cases) in `tests/contract/cases/`:
+
+| File | Cases | Scope |
+|------|-------|-------|
+| `test_tool_namespace_enforcement.py` | 7 | l2/l1 prefix parsing + filter isolation |
+| `test_tool_conflict_resolution.py` | 7 | priority rules, invalid prefix rejection |
+| `test_pre_phase3_skill_compat.py` | 9 | bare-name backward compat + mixed migration |
+
+**Total contract surface:** 35 (v1.0) + 23 (v1.1) = **58 cases**.
+
+### Validated runtimes (v1.1 cases)
+All v1.1 cases are pure parser/registry assertions — no live runtime needed.
+Cross-runtime E2E coverage for namespace routing lands in Phase 3 S3.T12-T15.
+
+| Runtime | Result |
+|---------|--------|
+| skill-registry (Rust parser) | expected PASS |
+| grid-runtime | expected PASS (S3.T1-T2) |
+| claude-code-runtime | expected PASS (S3.T3-T5) |
+| goose-runtime | expected PASS (S3.T1-T2) |
+| nanobot-runtime | expected PASS (S3.T3-T5) |
+
+### ADR reference
+ADR-V2-020 (tool namespace contract — Phase 3 S1.T1).
+
+---
+
 ## v1.0.0 — 2026-04-16 (Phase 2.5 S0 freeze)
 
 ### Status
