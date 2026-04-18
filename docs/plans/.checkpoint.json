@@ -4,7 +4,7 @@
   "context_file": "docs/plans/2026-04-18-v2-phase3-CONTEXT.md",
   "phase": "execution",
   "created_at": "2026-04-18T07:15:00+08:00",
-  "updated_at": "2026-04-18T12:00:00+08:00",
+  "updated_at": "2026-04-18T14:30:00+08:00",
   "completed_tasks": [
     "S1.T1 ADR-V2-020 tool namespace contract — Proposed",
     "S1.T2 ToolLayer enum + Tool::layer() trait",
@@ -13,22 +13,31 @@
     "S1.T5 harness.rs skill-filter + RequiredTool parser + SKILL.md upgrade",
     "S1.T6 contract-v1.1.0 — 23 cases PASS",
     "S1.T7 L1_RUNTIME_ADAPTATION_GUIDE §10 namespace chapter",
-    "S1.T8 S1 sign-off — ADR-V2-020 Accepted"
+    "S1.T8 S1 sign-off — ADR-V2-020 Accepted",
+    "S2.T1 D130 CancellationTokenTree — af71c99",
+    "S2.T2 D78 EventEmbeddingIndex — 4633c0b",
+    "S2.T3 D94 MemoryStore singleton + write lock — 4633c0b",
+    "S2.T4 D98 HybridIndex HNSW cache — e77833d",
+    "S2.T5 D117 PromptExecutor trait + env gate — 688bf4d",
+    "S2.T6 D108 bats hook regression infra — 00e64e7",
+    "S2.T7 D125 EventBus backpressure counter — 0ce0294",
+    "S2.T8 DEFERRED_LEDGER archival — 373b3be",
+    "S2.T9 S2 sign-off — cargo check clean, 121 pytest PASS, 22 bats PASS"
   ],
-  "current_task": "S2.T1 D130 CancellationTokenTree",
+  "current_task": "S3.T1 D144 接线",
   "execution_mode": "subagent-driven",
   "phase_name": "Phase 3 — L1 Runtime Functional Completeness",
   "total_tasks": 35,
   "stages": {
     "S1": { "name": "工具命名空间治理", "tasks": 8, "completed": 8 },
-    "S2": { "name": "Phase 2 P1-defer 清债", "tasks": 9, "completed": 0 },
+    "S2": { "name": "Phase 2 P1-defer 清债", "tasks": 9, "completed": 9 },
     "S3": { "name": "D144 + 对比 runtime + E2E", "tasks": 18, "completed": 0 }
   },
   "first_task": "S1.T1 ADR-V2-020 tool namespace contract — Proposed",
   "sign_off_criteria": [
     "✅ ADR-V2-020 Accepted",
     "✅ contract-v1.1.0 tag local-only (58 cases: 35 v1 + 23 v1.1)",
-    "7 项 P1-defer 全 closed (D130/D78/D94/D98/D117/D108/D125)",
+    "✅ 7 项 P1-defer 全 closed (D130/D78/D94/D98/D117/D108/D125)",
     "5 runtimes × contract v1.1 全 PASS 无 XFAIL",
     "skill-extraction E2E 在所有 5 runtime 跑通",
     "make v2-phase3-e2e 一键跑 B1-B8",
@@ -36,6 +45,6 @@
     "L1_RUNTIME_COMPARISON_MATRIX.md 扩至 5-runtime 全行",
     "人工 runbook 签字"
   ],
-  "notes": "S1 COMPLETE 8/8 @ 2026-04-18. ToolLayer enum + dual-key ToolRegistry + RequiredTool parser + SKILL.md namespace upgrade + contract-v1.1.0 (23 PASS) + ADR-V2-020 Accepted. Next: S2.T1 D130 CancellationTokenTree.",
-  "memory_status": "checkpoint updated S1 complete; NEXT_SESSION_GUIDE.md S1 table added"
+  "notes": "S2 COMPLETE 9/9 @ 2026-04-18. D130 CancellationTokenTree + D78 EventEmbeddingIndex + D94 MemoryStore singleton + D98 HybridIndex cache + D117 PromptExecutor + D108 bats infra + D125 backpressure. cargo check workspace clean. 121 pytest PASS. 22 bats PASS. DEFERRED_LEDGER: closed 20→27. Next: S3.T1 D144.",
+  "memory_status": "checkpoint updated S2 complete"
 }
