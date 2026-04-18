@@ -73,21 +73,102 @@ impl RuntimeService for GooseRuntimeService {
         &self,
         request: Request<proto::SendRequest>,
     ) -> Result<Response<Self::SendStream>, Status> {
-        let req = request.into_inner();
-        let content = req.message.map(|m| m.content).unwrap_or_default();
-        tracing::debug!(session_id = %req.session_id, content_len = content.len(), "Send stub");
+        use crate::acp_parser::AcpEvent;
+        use tokio::sync::mpsc;
+        use tokio_stream::wrappers::ReceiverStream;
 
-        // Stub: return a single "done" chunk. Real ACP forwarding lands in T4.
-        let chunk = proto::SendResponse {
-            chunk_type: "done".to_string(),
-            content: String::new(),
-            tool_name: String::new(),
-            tool_id: String::new(),
-            is_error: false,
-            error: None,
-        };
-        let stream = tokio_stream::once(Ok(chunk));
-        Ok(Response::new(Box::pin(stream)))
+        let req = request.into_inner();
+        let session_id = req.session_id.clone();
+        let content = req.message.map(|m| m.content).unwrap_or_default();
+        tracing::debug!(session_id = %session_id, content_len = content.len(), "Send → ACP");
+
+        // Send the user message to goose via ACP stdin.
+        self.adapter
+            .send_message(&session_id, &content)
+            .await
+            .map_err(|e| Status::internal(format!("send_message failed: {e}")))?;
+
+        // Stream ACP events from goose stdout until Stop/Error/EOF.
+        let (tx, rx) = mpsc::channel::<Result<proto::SendResponse, Status>>(32);
+        let adapter = self.adapter.clone();
+        let sid = session_id.clone();
+
+        tokio::spawn(async move {
+            loop {
+                match adapter.next_event(&sid).await {
+                    Ok(Some(event)) => {
+                        let response = match event {
+                            AcpEvent::Chunk { text, .. } => proto::SendResponse {
+                                chunk_type: "chunk".to_string(),
+                                content: text,
+                                tool_name: String::new(),
+                                tool_id: String::new(),
+                                is_error: false,
+                                error: None,
+                            },
+                            AcpEvent::ToolCall { tool_name, tool_id, input_json, .. } => {
+                                proto::SendResponse {
+                                    chunk_type: "tool_call".to_string(),
+                                    content: input_json,
+                                    tool_name,
+                                    tool_id,
+                                    is_error: false,
+                                    error: None,
+                                }
+                            }
+                            AcpEvent::Stop { reason, .. } => {
+                                let _ = tx
+                                    .send(Ok(proto::SendResponse {
+                                        chunk_type: "done".to_string(),
+                                        content: reason,
+                                        tool_name: String::new(),
+                                        tool_id: String::new(),
+                                        is_error: false,
+                                        error: None,
+                                    }))
+                                    .await;
+                                break;
+                            }
+                            AcpEvent::Error { message, .. } => {
+                                let _ = tx
+                                    .send(Err(Status::internal(format!(
+                                        "goose agent error: {message}"
+                                    ))))
+                                    .await;
+                                break;
+                            }
+                            AcpEvent::Unknown { raw } => {
+                                tracing::debug!(raw = %raw, "ACP unknown event — skip");
+                                continue;
+                            }
+                        };
+                        if tx.send(Ok(response)).await.is_err() {
+                            break; // client disconnected
+                        }
+                    }
+                    Ok(None) => {
+                        // EOF — goose closed stdout; emit done
+                        let _ = tx
+                            .send(Ok(proto::SendResponse {
+                                chunk_type: "done".to_string(),
+                                content: String::new(),
+                                tool_name: String::new(),
+                                tool_id: String::new(),
+                                is_error: false,
+                                error: None,
+                            }))
+                            .await;
+                        break;
+                    }
+                    Err(e) => {
+                        let _ = tx.send(Err(Status::internal(e.to_string()))).await;
+                        break;
+                    }
+                }
+            }
+        });
+
+        Ok(Response::new(Box::pin(ReceiverStream::new(rx))))
     }
 
     async fn load_skill(

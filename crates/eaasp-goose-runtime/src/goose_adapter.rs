@@ -3,8 +3,8 @@
 use anyhow::{Context, Result};
 use std::collections::HashMap;
 use std::sync::Arc;
-use tokio::io::{AsyncBufReadExt, BufReader};
-use tokio::process::{Child, ChildStdout, Command};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+use tokio::process::{Child, ChildStdin, ChildStdout, Command};
 use tokio::sync::Mutex;
 
 use crate::acp_parser::AcpEvent;
@@ -23,6 +23,7 @@ impl Default for SessionConfig {
 
 struct SessionHandle {
     child: Child,
+    stdin: Option<ChildStdin>,
     stdout: Option<BufReader<ChildStdout>>,
 }
 
@@ -86,18 +87,51 @@ impl GooseAdapter {
         let mut child = Command::new(&goose_bin)
             // F1-pending: exact CLI flags to be validated via `goose acp --help` once binary installed (see D141)
             .args(["acp", "--stdio"])
+            .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .kill_on_drop(true)
             .spawn()
             .context("failed to spawn goose subprocess")?;
 
+        let stdin = child.stdin.take();
         let stdout = child.stdout.take().map(BufReader::new);
         let sid = uuid::Uuid::new_v4().to_string();
         self.sessions
             .lock()
             .await
-            .insert(sid.clone(), SessionHandle { child, stdout });
+            .insert(sid.clone(), SessionHandle { child, stdin, stdout });
         Ok(sid)
+    }
+
+    /// Write a JSON-RPC `session/send` message to goose stdin for the given session.
+    ///
+    /// The message is sent as a single newline-terminated JSON line.
+    /// goose responds with ACP events readable via `next_event()`.
+    pub async fn send_message(&self, sid: &str, content: &str) -> Result<()> {
+        let mut sessions = self.sessions.lock().await;
+        let handle = sessions
+            .get_mut(sid)
+            .ok_or_else(|| anyhow::anyhow!("session {sid} not found"))?;
+
+        let stdin = handle
+            .stdin
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("session {sid} stdin already closed"))?;
+
+        // ACP JSON-RPC send request (newline-delimited)
+        let msg = serde_json::json!({
+            "jsonrpc": "2.0",
+            "method": "session/send",
+            "params": {
+                "session_id": sid,
+                "content": content
+            }
+        });
+        let mut line = msg.to_string();
+        line.push('\n');
+        stdin.write_all(line.as_bytes()).await?;
+        stdin.flush().await?;
+        Ok(())
     }
 
     /// Read the next ACP event from goose stdout for the given session.
