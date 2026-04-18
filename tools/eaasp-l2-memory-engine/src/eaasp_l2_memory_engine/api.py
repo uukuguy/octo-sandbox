@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from .anchors import AnchorStore
 from .db import init_db
+from .event_index import EventEmbeddingIndex
 from .files import MemoryFileStore
 from .index import HybridIndex
 from .mcp_tools import MCP_TOOL_MANIFEST, McpToolDispatcher, ToolError
@@ -25,6 +26,11 @@ class SearchRequest(BaseModel):
 
 class ToolInvokeRequest(BaseModel):
     args: dict[str, Any] = Field(default_factory=dict)
+
+
+class IngestEventRequest(BaseModel):
+    event_id: str
+    payload_text: str
 
 
 def create_app(db_path: str) -> FastAPI:
@@ -43,6 +49,7 @@ def create_app(db_path: str) -> FastAPI:
     anchors = AnchorStore(db_path)
     files = MemoryFileStore(db_path)
     index = HybridIndex(db_path)
+    event_index = EventEmbeddingIndex(octo_root=str(__import__("pathlib").Path(db_path).parent))
     dispatcher = McpToolDispatcher(anchors, files, index)
 
     @app.get("/health")
@@ -78,6 +85,12 @@ def create_app(db_path: str) -> FastAPI:
     async def get_anchors(event_id: str = Query(...)) -> dict[str, Any]:
         rows = await anchors.list_by_event(event_id)
         return {"anchors": [r.model_dump() for r in rows]}
+
+    @app.post("/api/v1/events/ingest")
+    async def ingest_event(body: IngestEventRequest) -> dict[str, Any]:
+        """D78: dual-write ACP event payload into the event HNSW index."""
+        await event_index.add(event_id=body.event_id, payload_text=body.payload_text)
+        return {"event_id": body.event_id, "indexed": True}
 
     return app
 
