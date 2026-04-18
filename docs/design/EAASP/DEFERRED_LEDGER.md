@@ -364,18 +364,16 @@
 
 | 状态 | 数量 | D 编号 | 含义 |
 |------|------|--------|------|
-| ✅ **closed** | 20 | D1, D2, D4, D7, D47, D49, D51, D52, D53, D54, D60, D83, D84, D85, D86, D87, D89, D120, D124 + S3.T5 legacy D50→D117 renamed | 已完成（2026-04-16 新增 D120 via S0.T3） |
+| ✅ **closed** | 27 | D1, D2, D4, D7, D47, D49, D51, D52, D53, D54, D60, D78, D83, D84, D85, D86, D87, D89, D94, D98, D108, D117, D120, D124, D125, D130 + S3.T5 legacy D50→D117 renamed | Phase 3 S2 新增：D78 @ 4633c0b, D94 @ 4633c0b, D98 @ e77833d, D108 @ 00e64e7, D117 @ 688bf4d, D125 @ 0ce0294, D130 @ af71c99 |
 | 🔄 **superseded** | 3 | D27→D54, D40→D54, D50→D117 (renamed) | 被其他 D 或 ADR 取代 |
 | ⏸️ **frozen** | 2 | D66, D88 | hermes 冻结，Phase 2.5 goose 替代 |
 | 🔥 **P0-active** | 0 | — | Phase 2 S4 全部归档 |
-| 🟡 **P1-active** | 1 | D78 | event payload embedding 未完成，延到 Phase 2.5 |
-| 🟡 **P1-defer** | 14 | D90, D93, D94, D98, D102, D105, D108, D109, D125, D130, D134, D136, D137, D140 | 前置 frontend UI / Phase 2.5 refactor / Phase 3 breaking（D136/D137/D140 新增 via Phase 2.5 S0.T4-T6） |
+| 🟡 **P1-defer** | 7 | D90, D93, D102, D105, D109, D134, D136, D137, D140 | 前置 frontend UI / Phase 3 breaking（D136/D137/D140 新增 via Phase 2.5 S0.T4-T6） |
 | 🟡 **P2-defer** | 1 | D138 | skill-workflow deny-path mock LLM，Phase 2.5 W1 |
 | 🔵 **P2-defer** | 1 | D95 | FTS semantic_score 回填，Phase 2.5 |
 | 🔵 **P3-defer** | 22 | D92, D96, D97, D99, D100, D101, D103, D104, D106, D107, D110, D118, D119, D121, D122, D123, D126, D127, D128, D129, D135, D139 | 边角场景 / 告警优化（D139 新增 双 Terminate 语义） |
 | 🟢 **P2-active** | 0 | — | D12→D94 renamed, D60 closed |
 | 🔵 **P3-active** | 1 | D74 | Phase 2 可选加速 |
-| 🟡 **P1-active（renamed）** | 1 | D117 (原 D50) | Prompt-body 执行器，用户同意推迟 |
 | 🤔 **revisit-after-S2** | 4 | D3, D5, D6, D37 | 等 S2 context engineering 决策 |
 | 🔴 **phase3-gated** | 9 | D8, D9, D34, D38, D41, D46, D62, D63, D64 | Phase 3 身份/租户模型 |
 | 📦 **long-term** | 11 | D21, D25, D32, D36, D56, D73, D75, D76, D77, D79, D80 | Phase 4/5/6 |
