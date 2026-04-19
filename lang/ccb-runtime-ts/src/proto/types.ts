@@ -1,7 +1,23 @@
 /**
  * Hand-written TypeScript interfaces mirroring proto/eaasp/runtime/v2/runtime.proto.
  * Used by the ccb-runtime gRPC service implementation.
+ *
+ * ADR-V2-021 (Phase 3.5 chunk_type contract freeze):
+ *   `SendResponse.chunk_type` is now a closed proto enum (ChunkType).
+ *   Mirrored here as a numeric enum so values match the wire ints 1:1.
+ *   UNSPECIFIED (0) is forbidden for emission.
  */
+
+export enum ChunkType {
+  UNSPECIFIED = 0,
+  TEXT_DELTA = 1,
+  THINKING = 2,
+  TOOL_START = 3,
+  TOOL_RESULT = 4,
+  DONE = 5,
+  ERROR = 6,
+  WORKFLOW_CONTINUATION = 7,
+}
 
 export interface InitializeRequest {
   payload?: SessionPayload;
@@ -36,7 +52,7 @@ export interface UserMessage {
 }
 
 export interface SendResponse {
-  chunkType: string;
+  chunkType: ChunkType;
   content: string;
   toolName: string;
   toolId: string;

@@ -4,6 +4,7 @@
 
 import { describe, expect, test } from "bun:test";
 import { CcbRuntimeService } from "../src/service.js";
+import { ChunkType } from "../src/proto/types.js";
 
 describe("CcbRuntimeService", () => {
   test("initialize returns sessionId and runtimeId", () => {
@@ -31,13 +32,14 @@ describe("CcbRuntimeService", () => {
   });
 
   test("send yields done chunk after init", async () => {
+    // ADR-V2-021: chunkType is the proto ChunkType enum (numeric on wire).
     const svc = new CcbRuntimeService();
     svc.initialize({ payload: { sessionId: "s1" } });
-    const chunks: string[] = [];
+    const chunks: ChunkType[] = [];
     for await (const c of svc.send({ sessionId: "s1", message: { content: "hello" } })) {
       chunks.push(c.chunkType);
     }
-    expect(chunks).toContain("done");
+    expect(chunks).toContain(ChunkType.DONE);
   });
 
   test("send without session yields error chunk", async () => {

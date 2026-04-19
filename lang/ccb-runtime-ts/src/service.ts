@@ -29,6 +29,7 @@ import type {
   SendRequest,
   SendResponse,
 } from "./proto/types.js";
+import { ChunkType } from "./proto/types.js";
 
 const RUNTIME_ID = "eaasp-ccb-runtime";
 
@@ -51,9 +52,13 @@ export class CcbRuntimeService {
    * Stub: immediately yields a "done" chunk (no subprocess).
    */
   async *send(req: SendRequest): AsyncGenerator<SendResponse> {
+    // ADR-V2-021: chunk_type is the proto ChunkType enum (int on wire).
+    // The upstream ccb runtime is still a stub — only text/done/error
+    // semantics are emitted here; TOOL_START / TOOL_RESULT will be wired
+    // when real Anthropic TS SDK streaming lands (§S1.T7 scope note).
     if (!this.currentSessionId) {
       yield {
-        chunkType: "error",
+        chunkType: ChunkType.ERROR,
         content: "no active session; call Initialize first",
         toolName: "",
         toolId: "",
@@ -64,7 +69,7 @@ export class CcbRuntimeService {
     // Stub: echo content back as a text chunk then done.
     if (req.message?.content) {
       yield {
-        chunkType: "chunk",
+        chunkType: ChunkType.TEXT_DELTA,
         content: req.message.content,
         toolName: "",
         toolId: "",
@@ -72,7 +77,7 @@ export class CcbRuntimeService {
       };
     }
     yield {
-      chunkType: "done",
+      chunkType: ChunkType.DONE,
       content: "end_turn",
       toolName: "",
       toolId: "",
