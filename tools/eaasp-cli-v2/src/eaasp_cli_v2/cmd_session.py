@@ -16,6 +16,123 @@ from .output import print_json, print_panel, print_table
 app = typer.Typer(help="Session lifecycle commands")
 
 
+# ── ADR-V2-021: canonical chunk_type wire values ─────────────────────────────
+# L4 SSE serializes the ChunkType proto enum → lowercase snake_case wire string
+# (see tools/eaasp-l4-orchestration/.../session_orchestrator.py, S2.T1 fix
+# @ 5494af1). The CLI consumes only these seven values; anything else is a
+# contract violation and must be surfaced loudly on stderr — never silently
+# dropped, because silent drops let runtime drift (e.g. the historical
+# "tool_call_start" → "tool_start" rename) ship undetected.
+_ALLOWED_CHUNK_TYPES: frozenset[str] = frozenset({
+    "text_delta",
+    "thinking",
+    "tool_start",
+    "tool_result",
+    "done",
+    "error",
+    "workflow_continuation",
+})
+
+
+def _render_chunk(
+    data: dict[str, Any],
+    console: Console,
+    err_console: Console,
+    *,
+    show_thinking: bool = False,
+    debug_chunks: bool = False,
+) -> None:
+    """Render a single `event: chunk` payload to the proper sink.
+
+    Contract (ADR-V2-021):
+      - `text_delta`            → stdout (whitespace-only chunks dropped so the
+                                  tokenizer's standalone `\\n` tokens don't
+                                  manifest as bare blank lines; real content
+                                  containing embedded `\\n` is preserved).
+      - `thinking`              → dim stderr line when `show_thinking=True`.
+      - `tool_start`            → cyan console line `[tool_call: NAME]`.
+      - `tool_result`           → green console line `[tool_result: NAME]`.
+      - `done`                  → newline on stdout + flush.
+      - `error`                 → red `[error] …` on stderr console.
+      - `workflow_continuation` → dim stderr `[continuation] …` (optional UX;
+                                  L4 surfaces these but one-shot `run` rarely
+                                  needs them).
+      - `""` (UNSPECIFIED)      → stderr warning; dropped.
+      - any other string        → stderr warning (unknown wire value); dropped.
+
+    Shared by `send --stream` (`_do_stream`) and `run` — closes D146
+    (chunk-dispatch duplication inside cmd_session.py). The sibling
+    duplication in `tools/eaasp-l4-orchestration/.../session_orchestrator.py`
+    is a separate concern tracked under the same ledger item.
+    """
+    chunk_type = data.get("chunk_type", "")
+    content = data.get("content", "")
+
+    if chunk_type == "text_delta":
+        if debug_chunks:
+            sys.stderr.write(f"CHUNK:{content!r}\n")
+        # Drop chunks that are purely whitespace/newlines (standalone newline
+        # tokens from the tokenizer); preserve \n within chunks that also
+        # contain real text (Markdown structure).
+        if content.strip():
+            sys.stdout.write(content)
+            sys.stdout.flush()
+        return
+
+    if chunk_type == "thinking":
+        if show_thinking:
+            # stderr so it doesn't interleave with stdout text flow.
+            sys.stderr.write(f"[thinking] {content}\n")
+            sys.stderr.flush()
+        return
+
+    if chunk_type == "tool_start":
+        tool = data.get("tool_name", "?")
+        # Rich parses `[tool_call: …]` as a markup tag and drops it; escape
+        # the inner literal brackets with `\[` so the user actually sees them.
+        console.print(f"[cyan]\\[tool_call: {tool}][/cyan]")
+        return
+
+    if chunk_type == "tool_result":
+        tool = data.get("tool_name", "?")
+        console.print(f"[green]\\[tool_result: {tool}][/green]")
+        return
+
+    if chunk_type == "done":
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+        return
+
+    if chunk_type == "error":
+        err_console.print(f"[red]\\[error] {content}[/red]")
+        return
+
+    if chunk_type == "workflow_continuation":
+        # Surface quietly on stderr; don't pollute stdout. Tests may rely on
+        # stdout staying clean for pipe consumers.
+        err_console.print(f"[dim]\\[continuation] {content}[/dim]")
+        return
+
+    # ── Contract violations (ADR-V2-021) ─────────────────────────────────
+    if chunk_type == "":
+        sys.stderr.write(
+            "[ADR-V2-021 violation] empty chunk_type (UNSPECIFIED); "
+            "dropping chunk\n"
+        )
+        sys.stderr.flush()
+        return
+
+    # Defensive: chunk_type is in _ALLOWED_CHUNK_TYPES but not handled above
+    # would be a code bug; treat anything else as runtime drift.
+    if chunk_type not in _ALLOWED_CHUNK_TYPES:
+        sys.stderr.write(
+            f"[ADR-V2-021 violation] unknown chunk_type={chunk_type!r} "
+            f"(runtime drift); dropping chunk\n"
+        )
+        sys.stderr.flush()
+        return
+
+
 @app.command("create")
 def create(
     skill: str = typer.Option(..., "--skill", help="Skill ID to run"),
@@ -194,6 +311,7 @@ def send(
 
     async def _do_stream() -> None:
         client = _main.make_client(cfg)
+        debug_chunks = bool(os.environ.get("EAASP_DEBUG_CHUNKS"))
         try:
             async for msg in client.stream_sse(
                 f"{cfg.l4_url}/v1/sessions/{session_id}/message/stream",
@@ -203,33 +321,13 @@ def send(
                 data = msg.get("data", {})
 
                 if event == "chunk":
-                    chunk_type = data.get("chunk_type", "")
-                    content = data.get("content", "")
-                    if chunk_type == "text_delta":
-                        if os.environ.get("EAASP_DEBUG_CHUNKS"):
-                            sys.stderr.write(f"CHUNK:{repr(content)}\n")
-                        # Drop chunks that are purely whitespace/newlines (standalone
-                        # newline tokens from the tokenizer); preserve \n within
-                        # chunks that also contain real text (Markdown structure).
-                        if content.strip():
-                            sys.stdout.write(content)
-                            sys.stdout.flush()
-                    elif chunk_type == "thinking":
-                        if show_thinking:
-                            # Print on stderr so it doesn't interleave with stdout text flow.
-                            sys.stderr.write(f"[thinking] {content}\n")
-                            sys.stderr.flush()
-                    elif chunk_type == "tool_start":
-                        tool = data.get("tool_name", "?")
-                        console.print(f"[cyan][tool_call: {tool}][/cyan]")
-                    elif chunk_type == "tool_result":
-                        tool = data.get("tool_name", "?")
-                        console.print(f"[green][tool_result: {tool}][/green]")
-                    elif chunk_type == "done":
-                        sys.stdout.write("\n")
-                        sys.stdout.flush()
-                    elif chunk_type == "error":
-                        err_console.print(f"[red][error] {content}[/red]")
+                    _render_chunk(
+                        data,
+                        console,
+                        err_console,
+                        show_thinking=show_thinking,
+                        debug_chunks=debug_chunks,
+                    )
 
                 elif event == "done":
                     # Final summary — print a newline + summary info.
@@ -287,6 +385,7 @@ def run(
                 print_json(resp)
             else:
                 err_console = Console(stderr=True)
+                debug_chunks = bool(os.environ.get("EAASP_DEBUG_CHUNKS"))
                 async for msg in client.stream_sse(
                     f"{cfg.l4_url}/v1/sessions/{session_id}/message/stream",
                     json_body={"content": message},
@@ -295,16 +394,15 @@ def run(
                     data = msg.get("data", {})
 
                     if event == "chunk":
-                        chunk_type = data.get("chunk_type", "")
-                        content = data.get("content", "")
-                        if chunk_type == "text_delta":
-                            sys.stdout.write(content)
-                            sys.stdout.flush()
-                        elif chunk_type == "done":
-                            sys.stdout.write("\n")
-                            sys.stdout.flush()
-                        elif chunk_type == "error":
-                            err_console.print(f"[red][error] {content}[/red]")
+                        # One-shot `run` shows thinking chunks inline on stderr
+                        # — simpler UX than `send` (which gates on --thinking).
+                        _render_chunk(
+                            data,
+                            console,
+                            err_console,
+                            show_thinking=True,
+                            debug_chunks=debug_chunks,
+                        )
                     elif event == "done":
                         sys.stdout.write("\n")
                         resp_text = data.get("response_text", "")
