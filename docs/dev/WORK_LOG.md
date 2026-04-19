@@ -1,5 +1,76 @@
 # Grid Sandbox 工作日志
 
+## Phase 3 — L1 Runtime Functional Completeness (2026-04-18 🟢 Completed 35/35 @ 8ee05fe)
+
+### 已完成
+
+**Stage S1 — 工具命名空间治理** (8/8)
+- S1.T1 ADR-V2-020 Proposed
+- S1.T2 `ToolLayer` enum + `Tool::layer()` trait
+- S1.T3 `ToolRegistry::register_layered` / `resolve` / `resolve_with_fallback`
+- S1.T4 `tool_namespace_test.rs` — 10 tests PASS
+- S1.T5 harness.rs skill-filter + RequiredTool parser + SKILL.md upgrade
+- S1.T6 contract-v1.1.0 tag — 23 cases PASS
+- S1.T7 `L1_RUNTIME_ADAPTATION_GUIDE.md` §10 namespace chapter
+- S1.T8 S1 sign-off — ADR-V2-020 Accepted
+
+**Stage S2 — Phase 2 P1-defer 清债** (9/9)
+- S2.T1 D130 CancellationTokenTree @ af71c99
+- S2.T2 D78 EventEmbeddingIndex @ 4633c0b
+- S2.T3 D94 MemoryStore singleton + write lock @ 4633c0b
+- S2.T4 D98 HybridIndex HNSW cache @ e77833d
+- S2.T5 D117 PromptExecutor trait + env gate @ 688bf4d
+- S2.T6 D108 bats hook regression infra @ 00e64e7
+- S2.T7 D125 EventBus backpressure counter @ 0ce0294
+- S2.T8 DEFERRED_LEDGER archival @ 373b3be
+- S2.T9 S2 sign-off — cargo check clean, 121 pytest PASS, 22 bats PASS
+
+**Stage S3 — D144 + 对比 runtime + E2E** (18/18)
+- S3.T1-T5 goose ACP parser/send + nanobot ConnectMcp/Stop — 42 PASS 22 XFAIL + skill-extraction 8/8 PASS
+- S3.T6-T9 pydantic-ai-runtime (Python) + claw-code-runtime (Rust) scaffold + contract v1.1 — 42 PASS 22 XFAIL each
+- S3.T10-T11 ccb-runtime (Bun/TypeScript) scaffold + contract v1.1 — 42 PASS 22 XFAIL
+- S3.T12-T15 E2E B1-B8 — 112 pytest PASS (ErrorClassifier taxonomy / backoff curve / HNSW fixture / hybrid scoring / memory-confirm hooks / schema / aggregate spill / precompact config)
+- S3.T16 `make v2-phase3-e2e` target — 112 pytest PASS
+- S3.T17 `L1_RUNTIME_COMPARISON_MATRIX.md` 扩至 7-runtime + `L1_RUNTIME_ADAPTATION_GUIDE.md §12` ccb TS/Bun chapter
+- S3.T18 Phase 3 sign-off @ 8ee05fe
+
+### 人工 E2E
+
+- Group A Step 4a nanobot PRE_TOOL_USE ≥ 5 + Stop hook `evidence_anchor_id` + STOP reason=complete @ 9abe562
+- 7-runtime verification log: `phase3-verification-log.txt`
+
+### OUT-OF-PLAN: ADR Governance W1+W2 (triggered by chunk_type drift discovery)
+
+- ADR-V2-022 meta-ADR Accepted — 3-type taxonomy (contract/strategy/record), 4 enforcement levels, F1-F5 lint, lifecycle state machine
+- 全局插件 `~/.claude/skills/adr-governance/` — 10 Python scripts + 3 templates + VERSION 1.0.0
+- 15 slash commands `~/.claude/commands/adr-*.md` + `adr-architect` agent
+- 14 grid-sandbox ADRs frontmatter-backfilled; V2-004 downgraded to `docs/plans/completed/`; 6 contract traces backfilled; 2 F5 stale path typos fixed
+- `.adr-config.yaml` + `.github/workflows/adr-audit.yml` + `AUDIT-2026-04-19.md` + `CLAUDE.md` §ADR Governance
+- Vendor pattern: `/adr:init` creates `.adr-plugin/scripts/` for CI autonomy (vendored at `f3b4198`)
+- PreToolUse hook `adr-guard.sh` globally enabled — 3-layer defense (SKILL + CLAUDE + hook)
+- ADR-V2-021 chunk_type contract freeze **Proposed** + plan `docs/plans/2026-04-19-v2-chunk-type-unification.md`
+- Health: F1 0 (was 6), F2 2 (V2-021 future only), F5 0 (was 2), 8 contract traced (was 2)
+- Commits: `99efb61` (W1 meta-ADR + plugin), `de6b3f9` (W2.1 downgrade + backfill), `f3b4198` (grid-sandbox vendor residue), `3017478` (tracking close-out)
+
+### 技术产出
+
+- `contract-v1.1.0` tag (local-only) — 58 cases total (35 v1 + 23 v1.1)
+- `make v2-phase3-e2e` 一键 B1-B8 112 pytest PASS
+- 7 runtimes × contract v1.1 全 PASS / 22 XFAIL: grid / claude-code / goose / nanobot / pydantic-ai / claw-code / ccb
+- 7 P1-defer closed: D130 / D78 / D94 / D98 / D117 / D108 / D125
+- `L1_RUNTIME_COMPARISON_MATRIX.md` 7-runtime 全行
+- `L1_RUNTIME_ADAPTATION_GUIDE.md` §12 TypeScript/Bun 接入章节
+
+### 未清
+
+- ADR-V2-021 chunk_type proto enum landing — 交给 **Phase 3.5** (下一 phase)
+
+### Next Phase
+
+Phase 3.5 — chunk_type 契约统一 (ADR-V2-021 落地)。Plan 已就位 `docs/plans/2026-04-19-v2-chunk-type-unification.md`，swarm-ready (hierarchical, max-agents=8)，5 stages S0-S5。
+
+---
+
 ## Phase 2.5 — L1 Runtime Ecosystem + goose + nanobot (2026-04-18 🟢 Completed 25/25)
 
 ### 已完成

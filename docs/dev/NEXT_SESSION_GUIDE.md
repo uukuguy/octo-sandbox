@@ -1,13 +1,12 @@
 # Grid Platform 下一会话指南
 
-**最后更新**: 2026-04-18 07:00 GMT+8
+**最后更新**: 2026-04-19 22:30 GMT+8
 **当前分支**: `main`
-**当前状态**: EAASP v2.0 **Phase 3 (L1 Runtime Functional Completeness) 🟡 ACTIVE — Planning Complete 0/35** — 等待执行模式选择开启 S1.T1
+**当前状态**: EAASP v2.0 **Phase 3 🟢 COMPLETE 35/35** @ `8ee05fe` (sign-off 2026-04-18) + ADR Governance W1+W2 (out-of-plan) 2026-04-19 → **Phase 3.5 🟡 READY TO START**
 
-- **Context**: `docs/plans/2026-04-18-v2-phase3-CONTEXT.md`
-- **Design**: `docs/design/EAASP/PHASE_3_DESIGN.md`
-- **Plan**: `docs/plans/2026-04-18-v2-phase3-plan.md`
-- **S1 / S2 / S3**: 8 / 9 / 18 tasks，预计 3-5 周
+- **下一 Phase**: **Phase 3.5 — chunk_type 契约统一 (ADR-V2-021 落地)**
+- **Plan**: `docs/plans/2026-04-19-v2-chunk-type-unification.md`（10.2 K，swarm-ready，hierarchical max-agents=8，5 stages S0-S5）
+- **ADR**: `docs/design/EAASP/adrs/ADR-V2-021-chunk-type-contract-freeze.md`（**Proposed**）
 
 ---
 
@@ -32,122 +31,102 @@
 - [x] **EAASP v2.0 Phase 0.5** — MVP 全层贯通
 - [x] **EAASP v2.0 Phase 0.75** — MCP 端到端通路
 - [x] **EAASP v2.0 Phase 1** — Event-driven Foundation (13/13, 124 tests, 2 runtime E2E)
-- [x] **EAASP v2.0 Phase 2** — Memory and Evidence (23/23, ~170 新测试, 0 P0 escalation)
-- [x] **EAASP v2.0 Phase 2.5** — L1 Runtime Ecosystem + goose + nanobot (25/25, +10 新回归测试, sign-off E2E PASS exit 0)
-- [ ] **EAASP v2.0 Phase 3** — goose ACP full wiring + pydantic-ai/claw-code/ccb + 工具命名空间治理（下一步）
+- [x] **EAASP v2.0 Phase 2** — Memory and Evidence (23/23, ~170 新测试)
+- [x] **EAASP v2.0 Phase 2.5** — L1 Runtime Ecosystem + goose + nanobot (25/25, +10 新回归测试, sign-off E2E PASS)
+- [x] **EAASP v2.0 Phase 3** — L1 Runtime Functional Completeness (**35/35 ✅** @ 8ee05fe 2026-04-18, 7-runtime contract v1.1 全 PASS / 22 XFAIL, E2E B1-B8 112 pytest PASS)
+- [x] **ADR Governance W1+W2** (out-of-plan, triggered by chunk_type drift) — ADR-V2-022 meta-ADR Accepted + 14 ADRs backfilled + vendor pattern + global PreToolUse guard
+- [ ] **EAASP v2.0 Phase 3.5** — chunk_type 契约统一（下一步）
 
 ---
 
-## Phase 2 成果总结
+## Phase 3 成果总结（35/35 🟢 Completed 2026-04-18）
 
 ### Stage 完成情况
 
 | Stage | 任务数 | 状态 | 关键产出 |
 |-------|-------|------|---------|
-| **S0 ADR 决策** | 2/2 ✅ | ADR-V2-015 (semantic HNSW in-process) + ADR-V2-016 (agent loop 原则) |
-| **S1 Runtime 修复 + 错误基础设施** | 7/7 ✅ | D87 根治 + hermes 冻结 (ADR-V2-017) + ErrorClassifier 14 variants + Graduated retry |
-| **S2 L2 Memory Engine 增强** | 5/5 ✅ | Vector embedding + Hybrid retrieval + 7 MCP tools + 状态机 invariants + turn aggregate spill |
-| **S3 PreCompact + Skill Extraction + Stop hooks + Scoped executor** | 5/5 ✅ | ADR-V2-018 PreCompact + Skill Extraction meta-skill + StopHookDecision + ADR-V2-006 scoped-hook envelope |
-| **S4 CLI + E2E + 多 session 隔离** | 4/4 ✅ | CLI session close + SSE events --follow + 14 assertions acceptance gate + SessionInterruptRegistry |
+| **S1 工具命名空间治理** | 8/8 ✅ | ADR-V2-020 Accepted，`ToolLayer` enum (L0/L1/L2)，dual-key `ToolRegistry`，skill-declared filter，`contract-v1.1.0` tag (23 new cases) |
+| **S2 Phase 2 P1-defer 清债** | 9/9 ✅ | 7 项 P1-defer closed: D130 / D78 / D94 / D98 / D117 / D108 / D125 + DEFERRED_LEDGER 归档 |
+| **S3 D144 + 对比 runtime + E2E** | 18/18 ✅ | goose ACP 接线 + nanobot ConnectMcp/Stop + pydantic-ai/claw-code/ccb 三对比 runtime 全 42 PASS 22 XFAIL + E2E B1-B8 112 pytest + `make v2-phase3-e2e` + 7-runtime matrix + §12 TS/Bun 指南 |
 
 ### 关键技术成果
 
-- **5 个新 ADR Accepted**：V2-006 (scoped-hook envelope)、V2-015 (semantic)、V2-016 (agent loop)、V2-017 (L1 runtime 生态)、V2-018 (PreCompact hook)
-- **根治 5 个 runtime 深层 bug**：D87/D86/D83/D85/D84 全部 closed
-- **SessionInterruptRegistry**：`Arc<DashMap<SessionId, CancellationToken>>` + dual-path cancel (registry flag + `AgentMessage::Cancel`)
-- **L2 Memory Engine**：FTS + HNSW + time-decay 三路融合 + tenant-isolated dual-write + 7 MCP tools
-- **Skill Extraction**：`examples/skills/skill-extraction/` 三文件 + 148-line fixture replay (12 pytest tests)
-- **Thread-scoped interrupt**：7 unit + 5 integration 测试锁定 "cancel A → B 不受影响"
+- **7 runtimes × contract v1.1 全 PASS / 22 XFAIL**：grid / claude-code / goose / nanobot / pydantic-ai / claw-code / ccb
+- **skill-extraction E2E 跑通**：nanobot / pydantic-ai / claw-code / ccb 全通（8/8 PASS on nanobot 样板）
+- **`make v2-phase3-e2e`**：一键跑 B1-B8，112 pytest PASS
+- **人工 runbook**：`phase3-verification-log.txt` 7 runtime 全 PASS + Group A Step 4a nanobot PRE_TOOL_USE ≥ 5 + Stop hook `evidence_anchor_id` + STOP reason=complete @ 9abe562
+- **ADR-V2-020 Accepted**：L0/L1/L2 tool namespace 硬约束 + dual-key ToolRegistry + skill-declared filter > EAASP_TOOL_FILTER env (deprecated)
+- **7 项 P1-defer closed**：D130 CancellationTokenTree, D78 EventEmbeddingIndex, D94 MemoryStore singleton, D98 HNSW cache, D117 PromptExecutor trait, D108 bats hook regression, D125 EventBus backpressure
 
 ### 测试增量
 
-- **新测试**: ~170 (Rust interrupt 7 + integration 5 + stop_hooks 8 等；Python L2 ~60 + L4 ~40 + cli-v2 ~30 + fixture replay 12)
-- **回归**：每 stage commit 带 targeted 回归证据，零回归
-- **End-to-end**：`make v2-phase2-e2e` 14/14 PASS (A10 SKIP_RUNTIMES-guarded)
+- S2 清债：121 pytest + 22 bats + cargo check clean
+- S3 E2E B1-B8：112 pytest（B1/B2 ErrorClassifier 26 + B3/B4 HNSW 20 + B5/B6 memory-confirm 22 + B7/B8 aggregate spill 44）
+- 回归：零回归，每 stage 带 targeted 证据
+
+### 签出之后的 Post-Phase 修补（2026-04-19 nanobot hotpatch）
+
+- `8239239` fix(nanobot-runtime): wire real MCP tool executor with exact routing
+- `8e3ec91` fix(eaasp/phase3): restore dot-notation in SKILL.md required_tools + normalize in Initialize
+- `9abe562` fix(nanobot-runtime): wire PRE_TOOL_USE + Stop hook with evidence_anchor_id
+
+### OUT-OF-PLAN: ADR Governance W1+W2（2026-04-19，triggered by chunk_type drift）
+
+Phase 3 sign-off 后，验收 nanobot 时暴露 `SendResponse.chunk_type` 跨 runtime 漂移（7 runtime 发 7 种值），CLI 只认 grid 那套，session 实际跑完但显示 `0 chars`。这是"约定俗成 ≠ 可执行契约"的经典表现——推动了 ADR 治理基础设施的建立：
+
+- **ADR-V2-022 meta-ADR Accepted** — 3-type taxonomy（contract/strategy/record）+ 4 enforcement levels + F1-F5 lint + lifecycle state machine
+- **全局插件** `~/.claude/skills/adr-governance/` — 10 Python scripts + 3 templates + VERSION 1.0.0
+- **15 slash commands** `~/.claude/commands/adr-*.md` + `adr-architect` agent
+- **14 grid-sandbox ADRs frontmatter-backfilled**；V2-004 downgraded to `docs/plans/completed/`；6 contract traces backfilled；2 F5 stale path typos fixed
+- **`.adr-config.yaml`** + **`.github/workflows/adr-audit.yml`** + **AUDIT-2026-04-19.md** + **CLAUDE.md** §ADR Governance
+- **Vendor pattern**：`/adr:init` 创建 `.adr-plugin/scripts/` 给 CI（已在本 repo vendored @ `f3b4198`）
+- **PreToolUse hook `adr-guard.sh`** 全局启用 — 3-layer defense（SKILL + CLAUDE + hook）
+- **ADR-V2-021 chunk_type contract freeze Proposed** + plan `docs/plans/2026-04-19-v2-chunk-type-unification.md`
+- Health: F1 0 (was 6), F2 2 (V2-021 future only), F5 0 (was 2), 8 contract traced (was 2), 1 archived
+- Commits: `99efb61` (W1), `de6b3f9` (W2.1), `f3b4198` (vendor), `3017478` (close-out)
 
 ---
 
-## Phase 2.5 成果总结（25/25 🟢 Completed 2026-04-18）
+## Phase 3.5 规划（设计 & 计划已锁）
 
-### Stage 完成情况
+**Phase 3.5 主题**：把 `SendResponse.chunk_type` 从自由 string 升级为 proto enum，一次性消除 7 个 L1 runtime 的取值漂移，让"每个 runtime 遵守同一套契约"成为 CI 硬门。
 
-| Stage | 任务数 | 状态 | 关键产出 |
-|-------|-------|------|---------|
-| **S0 合约套件 v1 + D120** | 6/6 ✅ | 35 contract cases + Rust HookContext envelope parity，contract-v1.0.0 tag local-only |
-| **S1 W1 goose-runtime** | 7/7 ✅ | `crates/eaasp-goose-runtime/` + Docker 容器 F1 gate + stdio proxy hook MCP + 16 gRPC |
-| **S1 W2 nanobot-runtime** | 6/6 ✅ | `lang/nanobot-runtime-python/` + OpenAI-compat provider + multi-turn agent loop + 16 gRPC |
-| **S2 文档** | 2/2 ✅ | L1_RUNTIME_ADAPTATION_GUIDE.md + L1_RUNTIME_COMPARISON_MATRIX.md |
-| **S3 CI 门控** | 2/2 ✅ | Makefile v2-phase2_5-e2e + GitHub Actions matrix |
-| **S4 人工 E2E** | 2/2 ✅ | Runbook + **sign-off E2E PASS exit 0** |
+### 已产出
 
-### Sign-off 过程挖出并治本的 7 类结构债
+- ✅ **ADR-V2-021 Proposed**：`docs/design/EAASP/adrs/ADR-V2-021-chunk-type-contract-freeze.md`
+- ✅ **Plan**：`docs/plans/2026-04-19-v2-chunk-type-unification.md`
 
-1. BROADCAST_CAPACITY 256→4096（Done chunk 丢失）
-2. EAASP_TOOL_FILTER env 逻辑恢复（055badf squash 丢失）
-3. KG/MCP-manage + AgentTool/QueryAgentTool 尊重 tool_filter
-4. Stop ctx 注入 evidence_anchor_id / draft_memory_id
-5. SKILL_DIR/hooks/ 完整 materialize（之前只写 SKILL.md）
-6. L4 token-level text_delta/thinking 聚合（612→35 events/session）
-7. Stop hook 脚本读顶层 envelope 字段
+### Stage 编排（5 stages）
 
-### 新增长期资产
+| Stage | Tasks | 主题 |
+|-------|-------|------|
+| **S0** | 1 | proto contract freeze — 改 proto + 重生成 stub（**串行，先导**） |
+| **S1** | 7 | 6 runtime 并行改发送端（grid/claw-code/goose/claude-code/nanobot/pydantic-ai/ccb） |
+| **S2** | 2 | consumer 消费端 — L4 SSE 序列化 + CLI 白名单 |
+| **S3** | 3 | 契约测试硬门 — `test_chunk_type_contract.py` + `.github/workflows/phase3-contract.yml` + E2E 回归 |
+| **S4** | 3 | 人工 E2E — 重跑 threshold-calibration on nanobot + 其他 6 runtime smoke + log 归档 |
+| **S5** | 3 | ADR 终结 — V2-021 Accepted + MEMORY.md + 实施记录 |
 
-- `scripts/eaasp-e2e.sh` — E2E 唯一入口，log_todo/SKIP 分类 + 每条 TODO 显式引用覆盖测试
-- `docs/design/EAASP/E2E_VERIFICATION_GUIDE.md` — Living Document（§5.5 人工分步 + §5.6 演进承诺 + §7 Phase 收尾历史）
-- `scripts/dev-eaasp.sh` — 起全 4 runtime + 每服务落盘 `.logs/latest/*.log`
+### Sign-off 标准
 
-### 10 个新回归测试（全 PASS）
+- [ ] proto `ChunkType` enum 定义 + stub 重生成
+- [ ] 7 runtime 只发合法 `ChunkType`；非法值编译/运行期失败
+- [ ] CLI + L4 SSE 消费端基于枚举，不含 fallback / 同义词
+- [ ] 契约测试用例进 CI matrix，每 runtime 每次 push 必过
+- [ ] 人工 E2E `eaasp session run -s threshold-calibration -r nanobot-runtime` CLI 显示完整 text + 合理 event 计数
+- [ ] `cargo check --workspace` + 所有 Python runtime pytest + `bun test` 全 PASS
+- [ ] `make v2-phase3-e2e` 全 PASS（112 pytest 仍通过）
+- [ ] ADR-V2-021 状态 → Accepted + MEMORY.md 归档
 
-- `tools/eaasp-l4-orchestration/tests/test_chunk_coalescing.py` 5 tests
-- `crates/grid-engine/tests/phase2_5_regression.rs` 3 tests
-- `crates/grid-runtime/tests/scoped_hook_wiring_integration.rs` +2 tests
+### 风险（已在 plan §Risk Register 登记）
 
----
+- R1 proto enum 改动 → 所有 stub 重生成 → S0 到 S1 完成前**不可 push 中间状态**
+- R2 gRPC enum ↔ JSON wire 小写映射只放 L4 SSE 序列化层
+- R3 契约测试需要真实 runtime matrix — 已有基础设施
+- R4 L4 done summary `response_text=""` bug 修复点在 S2.T1
+- R5 thinking chunk 可选，不作强制
 
-## Phase 3 规划（设计 & 计划已锁）
-
-**Phase 3 主题**：工具命名空间治理（root cause）+ Phase 2 P1-defer 7 项全清 + D144 L1 runtime 功能补全 + pydantic-ai / claw-code / ccb 对比 runtime 全矩阵
-
-### 已产出（2026-04-18）
-
-- ✅ **CONTEXT.md**: `docs/plans/2026-04-18-v2-phase3-CONTEXT.md`（10 决策 locked）
-- ✅ **PHASE_3_DESIGN.md**: `docs/design/EAASP/PHASE_3_DESIGN.md`（8 章含架构/风险/sign-off）
-- ✅ **Plan**: `docs/plans/2026-04-18-v2-phase3-plan.md`（35 tasks × TDD 粒度）
-
-### Stage 编排（三轮）
-
-| Stage | Tasks | 主题 | 状态 |
-|-------|-------|------|------|
-| **S1** | 8/8 ✅ | 工具命名空间治理（L0/L1/L2 + skill 显式声明 + contract v1.1） | **COMPLETE** |
-| **S2** | 0/9 | Phase 2 P1-defer 清债（D130/D78/D94/D98/D117/D108/D125） | 待启动 |
-| **S3** | 0/18 | D144 goose/nanobot 接线 + pydantic-ai/claw-code/ccb 进契约 + E2E B1-B8 | 待启动 |
-
-### S1 完成摘要（2026-04-18）
-
-| Task | 内容 | 结果 |
-|------|------|------|
-| S1.T1 | ADR-V2-020 Proposed + PHASE_3_DESIGN | ✅ |
-| S1.T2 | `ToolLayer` enum + `Tool::layer()` trait | ✅ |
-| S1.T3 | `register_layered / resolve / resolve_with_fallback` | ✅ |
-| S1.T4 | `tool_namespace_test.rs` — 10 tests | ✅ |
-| S1.T5 | harness.rs skill-filter + `RequiredTool` parser + SKILL.md 升级 | ✅ |
-| S1.T6 | contract-v1.1.0 — 23 cases PASS | ✅ |
-| S1.T7 | L1_RUNTIME_ADAPTATION_GUIDE §10 命名空间 | ✅ |
-| S1.T8 | ADR-V2-020 Accepted + sign-off | ✅ |
-
-### Sign-off 标准（9 条）
-
-1. ✅ ADR-V2-020 Accepted
-2. ✅ `contract-v1.1.0` tag local-only（58 cases: 35 v1 + 23 v1.1）
-3. 7 项 P1-defer 全 closed
-4. 5 runtimes × contract v1.1 全 PASS 无 XFAIL
-5. skill-extraction E2E 在所有 5 runtime 跑通
-6. `make v2-phase3-e2e` 一键跑 B1-B8
-7. `make verify` 全绿
-8. `L1_RUNTIME_COMPARISON_MATRIX.md` 扩至 5-runtime 全行
-9. 人工 runbook 签字
-
-### Phase 3 执行启动
+### Phase 3.5 执行启动
 
 选执行模式：
 - **Mode 1 Subagent-Driven**：RuFlo swarm + Task tool 分派 coder/reviewer（推荐，符合 CLAUDE.md 铁律）
@@ -155,7 +134,7 @@
 
 启动第一个任务：
 ```
-S1.T1 ADR-V2-020 tool namespace contract — Proposed
+S0.T1 proto contract freeze — 改 common.proto + runtime.proto + 重生成 stub
 ```
 
 ---
@@ -164,30 +143,38 @@ S1.T1 ADR-V2-020 tool namespace contract — Proposed
 
 | 组件 | 路径 |
 |------|------|
+| proto 源 | `proto/eaasp/runtime/v2/common.proto` + `runtime.proto` |
 | L1 Grid Runtime | `crates/grid-runtime/`（主力） |
 | L1 Claude Code Runtime | `lang/claude-code-runtime-python/`（样板） |
-| L1 hermes-runtime | `lang/hermes-runtime-python/`（冻结） |
+| L1 Goose Runtime | `crates/eaasp-goose-runtime/` |
+| L1 Nanobot Runtime | `lang/nanobot-runtime-python/` |
+| L1 Pydantic-AI Runtime | `lang/pydantic-ai-runtime-python/` |
+| L1 Claw-Code Runtime | `crates/eaasp-claw-code-runtime/` |
+| L1 CCB Runtime | `lang/ccb-runtime-ts/` |
 | L2 Memory Engine | `tools/eaasp-l2-memory/` |
 | L2 Skill Registry | `tools/eaasp-skill-registry/` |
 | L3 Governance | `tools/eaasp-governance/` |
 | L4 Orchestration | `tools/eaasp-l4-orchestration/` |
 | SDK | `sdk/python/src/eaasp/` |
 | CLI v2 | `tools/eaasp-cli-v2/` |
-| Proto | `proto/eaasp/` |
 | Core Engine | `crates/grid-engine/` |
-| E2E Tests | `scripts/verify-v2-phase2.{sh,py}` + `tests/e2e/` |
+| E2E Tests | `scripts/verify-v2-phase2.{sh,py}` + `scripts/phase3-runtime-verification.sh` + `tests/contract/cases/` |
 | Deferred Ledger | `docs/design/EAASP/DEFERRED_LEDGER.md` |
+| ADR Governance | `~/.claude/skills/adr-governance/`（全局）+ `.adr-plugin/`（本 repo vendored） |
 
 ---
 
-## Makefile 常用目标（Phase 2 新增）
+## Makefile 常用目标
 
 ```bash
 # Phase 2 E2E 验收
 make v2-phase2-e2e          # 默认：SKIP_RUNTIMES=true, 14 assertions
-make v2-phase2-e2e-full     # 带两 runtime 6-step (需手动执行 runbook 部分)
-make v2-phase2-e2e-build    # 构建 + E2E
+make v2-phase2-e2e-full     # 带两 runtime 6-step
 make test-phase2-batch-ab   # S2 + S3 batch 回归
+
+# Phase 3 E2E 验收
+make v2-phase3-e2e          # B1-B8 全跑 112 pytest
+make v2-phase3-e2e-rust     # Rust 侧回归
 
 # 多 runtime 验证
 make verify-dual-runtime    # 构建 + 启动双 runtime + certifier verify
@@ -201,44 +188,38 @@ make skill-registry-setup / skill-registry-start / skill-registry-test
 
 ---
 
-## ⚠️ Deferred 未清项（Phase 3 启动时必查）
+## ⚠️ Deferred 未清项
 
 > Single Source of Truth：
 > [`docs/design/EAASP/DEFERRED_LEDGER.md`](../design/EAASP/DEFERRED_LEDGER.md)
 
-**Phase 2.5 sign-off 遗留（Phase 3 首选）**：
-- **D144** — nanobot/goose ConnectMCP 工具注入（nanobot Send 骨架无工具；goose Send 是 stub）
-- grid-engine 工具命名空间架构治理（内置 L0/L1 vs L2 MCP 命名冲突系统设计）
-- E2E harness 补齐 TODO 8 项（B1-B8 自动化触发）
+**Phase 3 → Phase 3.5 历史 (closed by Phase 3)**：
+- ✅ D130/D78/D94/D98/D117/D108/D125 全 closed (S2 清债)
+- ✅ D144 goose/nanobot ConnectMCP 工具注入 (S3 收尾)
+- ✅ grid-engine 工具命名空间治理 (S1 ADR-V2-020)
+- ✅ E2E harness B1-B8 自动化触发 (S3.T12-T16)
 
-**Phase 2 → Phase 3 历史 P1-defer（未处理）**：
-- **D130** — session-lifetime parent token consolidation (S4.T4 遗留)
-- **D78** — event payload embedding
-- **D94** — MemoryStore 单例 refactor
-- **D98** — HybridIndex HNSW 持久化
-- **D117** — 原 D50 Prompt executor (用户同意推迟)
-- **D108** — hook script bats/shellcheck 自动回归
-- **D125** — events/stream burst cap
+**Phase 2 historical closed**：D87/D88/D83/D84/D85/D86/D89/D124/D60/D51/D53 + 其他 10 项
 
-**Phase 2.5 closed**：D120 (S0.T3 inline) / D141 (S1.W1.T2.5 F1 gate) / D142/D143 (S3 CI batch) 等
-
-**Phase 2 closed**：D87/D88/D83/D84/D85/D86/D89/D124/D60/D51/D53 + 其他 10 项
+Phase 3.5 本身没有历史 Deferred 继承——它是 ADR-V2-021 专项落地。
 
 ---
 
-## 会话启动建议（Phase 3）
+## 会话启动建议（Phase 3.5）
 
-1. `/dev-phase-manager:start-phase "Phase 3 — L1 Runtime Functional Completeness"`
-2. 复核 DEFERRED_LEDGER.md 筛选 P1-defer + D144 组队立项
-3. 先定工具命名空间架构治理方案（本 Phase 核心价值点）
-4. 再用"治理方案"驱动 goose ACP / nanobot MCP 的接线重构
+1. `/dev-phase-manager:start-phase "Phase 3.5 — chunk_type Unification (ADR-V2-021)"`
+2. 复核 `docs/plans/2026-04-19-v2-chunk-type-unification.md` 5 stages
+3. S0.T1 改 proto —— 单 commit 先行，**stub 重生成后 cargo/pytest 一定挂**（这是预期）
+4. S1 启动 6-coder 并行（grid 已合规，改字段类型即可）
+5. 先跑 S3.T1 契约测试锁定白名单，再开 S4 人工 E2E
 
 ---
 
 ## 注意事项
 
-- **hermes-runtime 冻结**：ADR-V2-017 正式由 goose + nanobot 替代样板位，代码保留未清
-- **goose-runtime Send stub 是 Phase 2.5 scope 内的已知限制**：合约套件 v1 对应测试已 XFAIL，Phase 3 接 ACP 后转 GREEN
-- **Deferred Ledger** 是 Phase 2+ 的 D 编号 single source of truth
-- **Checkpoint archive**：Phase 2.5 的 `.checkpoint.json` 在 end-phase 时归档为 `.checkpoint.archive.json`
-- **E2E 唯一入口**：`bash scripts/eaasp-e2e.sh`，持续演进由 `docs/design/EAASP/E2E_VERIFICATION_GUIDE.md` 规范
+- **零兼容切换**：Phase 3.5 不做双写、不做同义词表、不做 feature flag（用户明确否决，ADR §3）
+- **gRPC enum wire**：走 `lower_snake_case`（Google Cloud / Stripe 风格），L4 SSE 单点映射
+- **contract-v1.1.0 tag**：local-only，不推远端；Phase 3.5 可能需要 bump 到 v1.2.0（见 plan §S3.T2）
+- **ADR Governance**：新增 ADR 用 `/adr:new --type contract|strategy`，禁止手写 frontmatter；PreToolUse guard 会拦截
+- **E2E 唯一入口**：`bash scripts/eaasp-e2e.sh` + `make v2-phase3-e2e`
+- **Checkpoint archive**：Phase 3 的 `.checkpoint.json` 被归档为 `.checkpoint.archive.json`（end-phase 执行）
