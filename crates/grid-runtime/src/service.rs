@@ -22,6 +22,30 @@ use crate::contract::{self, RuntimeContract};
 use crate::proto;
 use crate::proto::runtime_service_server::RuntimeService;
 
+/// Map a domain `ResponseChunk.chunk_type` string into the proto
+/// `ChunkType` enum per ADR-V2-021. Unknown strings fall back to
+/// `UNSPECIFIED` (0) which is explicitly forbidden by the contract —
+/// emission of UNSPECIFIED should be treated as a bug at the grpc boundary.
+fn chunk_type_to_proto(s: &str) -> i32 {
+    use proto::ChunkType;
+    match s {
+        "text_delta" => ChunkType::TextDelta as i32,
+        "thinking" => ChunkType::Thinking as i32,
+        "tool_start" => ChunkType::ToolStart as i32,
+        "tool_result" => ChunkType::ToolResult as i32,
+        "done" => ChunkType::Done as i32,
+        "error" => ChunkType::Error as i32,
+        "workflow_continuation" => ChunkType::WorkflowContinuation as i32,
+        other => {
+            tracing::error!(
+                chunk_type = %other,
+                "ADR-V2-021 violation: unknown chunk_type string at grpc boundary; emitting UNSPECIFIED"
+            );
+            ChunkType::Unspecified as i32
+        }
+    }
+}
+
 /// gRPC service wrapping a RuntimeContract implementation.
 pub struct RuntimeGrpcService<C: RuntimeContract> {
     contract: Arc<C>,
@@ -244,7 +268,10 @@ impl<C: RuntimeContract + 'static> RuntimeService for RuntimeGrpcService<C> {
 
         let proto_stream = tokio_stream::StreamExt::map(stream, |chunk| {
             Ok(proto::SendResponse {
-                chunk_type: chunk.chunk_type,
+                // ADR-V2-021: `chunk_type` is now the `ChunkType` proto enum
+                // (int32 on the wire). Map the domain string — which
+                // `harness.rs` keeps in canonical lowercase — to the enum.
+                chunk_type: chunk_type_to_proto(&chunk.chunk_type),
                 content: chunk.content,
                 tool_name: chunk.tool_name.unwrap_or_default(),
                 tool_id: chunk.tool_id.unwrap_or_default(),
