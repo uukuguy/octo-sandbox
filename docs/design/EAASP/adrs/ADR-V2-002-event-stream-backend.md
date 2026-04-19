@@ -12,7 +12,10 @@ deprecated_at: null
 deprecated_reason: null
 enforcement:
   level: contract-test
-  trace: []
+  trace:
+    - "tools/eaasp-l4-orchestration/tests/test_event_backend_sqlite.py"
+    - "tools/eaasp-l4-orchestration/tests/test_event_stream.py"
+    - "tools/eaasp-l4-orchestration/tests/test_fts_migration.py"
   review_checklist: null
 affected_modules:
   - "tools/eaasp-l4-orchestration/"

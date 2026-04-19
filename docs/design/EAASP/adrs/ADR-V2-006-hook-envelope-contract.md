@@ -12,7 +12,17 @@ deprecated_at: null
 deprecated_reason: null
 enforcement:
   level: contract-test
-  trace: []
+  trace:
+    - "tests/contract/contract_v1/test_hook_envelope.py"
+    - "crates/grid-engine/tests/hook_envelope_parity_test.rs"
+    - "crates/grid-engine/tests/hook_failure_mode.rs"
+    - "crates/grid-engine/tests/stop_hooks_integration.rs"
+    - "crates/grid-runtime/tests/scoped_hook_wiring_integration.rs"
+    - "lang/claude-code-runtime-python/tests/test_scoped_hook_executor_integration.py"
+    - "lang/claude-code-runtime-python/tests/test_hook_substitution.py"
+    - "lang/claude-code-runtime-python/tests/test_skill_extraction_e2e.py"
+    - "lang/nanobot-runtime-python/tests/test_skill_extraction_e2e.py"
+    - ".github/workflows/phase2_5-contract.yml"
   review_checklist: null
 affected_modules:
   - "crates/grid-runtime/"

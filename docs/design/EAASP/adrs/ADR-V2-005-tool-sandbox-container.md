@@ -12,7 +12,10 @@ deprecated_at: null
 deprecated_reason: null
 enforcement:
   level: contract-test
-  trace: []
+  trace:
+    - "lang/hermes-runtime-python/tests/test_mcp_bridge.py"
+    - "tools/mock-scada/tests/test_server.py"
+    - "tools/eaasp-l4-orchestration/tests/test_session_orchestrator.py"
   review_checklist: null
 affected_modules:
   - "tools/mock-scada/"

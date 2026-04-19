@@ -12,11 +12,15 @@ deprecated_at: null
 deprecated_reason: null
 enforcement:
   level: contract-test
-  trace: []
+  trace:
+    - "crates/grid-engine/tests/compaction_pipeline.rs"
+    - "tests/e2e/phase3/test_precompact_long_conversation.py"
+    - "tests/contract/contract_v1/test_event_type.py"
+    - "tests/contract/contract_v1/test_proto_shape.py"
   review_checklist: null
 affected_modules:
   - "proto/eaasp/runtime/v2/runtime.proto"
-  - "proto/eaasp/hook.proto"
+  - "proto/eaasp/runtime/v2/hook.proto"
   - "crates/grid-engine/"
   - "lang/claude-code-runtime-python/"
 related: [ADR-V2-006, ADR-V2-016, ADR-V2-017]

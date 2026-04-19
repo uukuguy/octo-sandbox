@@ -12,7 +12,9 @@ deprecated_at: null
 deprecated_reason: null
 enforcement:
   level: contract-test
-  trace: []
+  trace:
+    - "tools/eaasp-l4-orchestration/tests/test_event_handlers.py"
+    - "tools/eaasp-l4-orchestration/tests/test_event_engine.py"
   review_checklist: null
 affected_modules:
   - "tools/eaasp-l4-orchestration/"

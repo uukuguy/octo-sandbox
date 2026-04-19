@@ -12,7 +12,12 @@ deprecated_at: null
 deprecated_reason: null
 enforcement:
   level: contract-test
-  trace: []
+  trace:
+    - "tools/eaasp-l4-orchestration/tests/test_event_interceptor.py"
+    - "tools/eaasp-l4-orchestration/tests/test_event_api.py"
+    - "tools/eaasp-l4-orchestration/tests/test_event_integration.py"
+    - "tools/eaasp-l4-orchestration/tests/test_event_handlers.py"
+    - "tests/contract/contract_v1/test_proto_shape.py"
   review_checklist: null
 affected_modules:
   - "proto/eaasp/runtime/v2/runtime.proto"

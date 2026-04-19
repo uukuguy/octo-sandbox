@@ -22,7 +22,7 @@ affected_modules:
   - "lang/hermes-runtime-python/"
   - "lang/nanobot-runtime-python/"
   - "lang/pydantic-ai-runtime-python/"
-  - "lang/eaasp-ccb-runtime-ts/"
+  - "lang/ccb-runtime-ts/"
   - "tests/contract/"
   - "Makefile"
 related: [ADR-V2-004, ADR-V2-016]
