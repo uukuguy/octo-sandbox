@@ -1103,6 +1103,48 @@ v2-phase2_5-contract-nanobot:
 v2-phase2_5-e2e: v2-phase2_5-contract-grid v2-phase2_5-contract-cc v2-phase2_5-contract-goose v2-phase2_5-contract-nanobot
 	@echo "✅ Phase 2.5 automated gate PASS (4 runtimes × contract v1)"
 
+# ── Phase 3 Contract Gate (ADR-V2-021 / 7 runtime × contract v1.1 + chunk_type) ────
+# Superset of v2-phase2_5-contract-* (4 runtimes → 7) plus the chunk_type
+# contract case from tests/contract/cases/test_chunk_type_contract.py.
+# Per-runtime venv/build is expected to already exist (see phase3-contract.yml
+# CI workflow for the setup steps).
+.PHONY: v2-phase3-contract-grid v2-phase3-contract-claude-code \
+        v2-phase3-contract-goose v2-phase3-contract-nanobot \
+        v2-phase3-contract-pydantic-ai v2-phase3-contract-ccb \
+        v2-phase3-contract-claw-code v2-phase3-contract-all
+
+## Run Phase 3 contract (v1.1 cases + chunk_type) against grid
+v2-phase3-contract-grid:
+	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=grid -v
+
+## Run Phase 3 contract against claude-code
+v2-phase3-contract-claude-code:
+	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=claude-code -v
+
+## Run Phase 3 contract against goose (skips if GOOSE_BIN missing)
+v2-phase3-contract-goose:
+	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=goose -v
+
+## Run Phase 3 contract against nanobot (skips if venv absent)
+v2-phase3-contract-nanobot:
+	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=nanobot -v
+
+## Run Phase 3 contract against pydantic-ai (skips if venv absent)
+v2-phase3-contract-pydantic-ai:
+	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=pydantic-ai -v
+
+## Run Phase 3 contract against ccb (skips if node_modules absent)
+v2-phase3-contract-ccb:
+	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=ccb -v
+
+## Run Phase 3 contract against claw-code
+v2-phase3-contract-claw-code:
+	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=claw-code -v
+
+## Run all 7 runtime contracts (Phase 3.5 full gate)
+v2-phase3-contract-all: v2-phase3-contract-grid v2-phase3-contract-claude-code v2-phase3-contract-goose v2-phase3-contract-nanobot v2-phase3-contract-pydantic-ai v2-phase3-contract-ccb v2-phase3-contract-claw-code
+	@echo "✅ Phase 3 contract gate PASS (7 runtimes × contract v1.1 + chunk_type)"
+
 # ── D108 Hook Script Regression (bats) ──────────────────────────────────────
 .PHONY: hook-scripts-test
 

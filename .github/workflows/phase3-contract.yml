@@ -1,0 +1,114 @@
+name: Phase 3 Contract Matrix
+
+# Phase 3.5 contract gate (ADR-V2-021 chunk_type freeze).
+# Coexists with .github/workflows/phase2_5-contract.yml — that gate covers
+# the 4-runtime Phase 2.5 cut; this one extends the matrix to the full 7
+# Phase 3 runtimes AND adds the chunk_type contract case from S3.T1.
+#
+# Per-runtime venv/build setup mirrors phase2_5-contract.yml and extends
+# to pydantic-ai / ccb / claw-code (Phase 3 additions).
+#
+# Security note: all run: steps consume only trusted inputs (matrix.runtime
+# is a fixed static list; secrets are injected via env:). No github.event.*
+# context is interpolated into shell commands.
+
+on:
+  pull_request:
+    paths:
+      - 'crates/grid-runtime/**'
+      - 'crates/eaasp-goose-runtime/**'
+      - 'crates/eaasp-claw-code-runtime/**'
+      - 'lang/claude-code-runtime-python/**'
+      - 'lang/nanobot-runtime-python/**'
+      - 'lang/pydantic-ai-runtime-python/**'
+      - 'lang/ccb-runtime-ts/**'
+      - 'tests/contract/**'
+      - 'proto/eaasp/runtime/v2/**'
+      - 'crates/grid-engine/src/hooks/**'
+  push:
+    branches:
+      - main
+    paths:
+      - 'tests/contract/**'
+      - 'proto/eaasp/runtime/v2/**'
+
+jobs:
+  contract:
+    name: Contract v1.1 — ${{ matrix.runtime }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        runtime: [grid, claude-code, goose, nanobot, pydantic-ai, ccb, claw-code]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Rust toolchain
+        if: matrix.runtime == 'grid' || matrix.runtime == 'goose' || matrix.runtime == 'claw-code'
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust build
+        if: matrix.runtime == 'grid' || matrix.runtime == 'goose' || matrix.runtime == 'claw-code'
+        uses: Swatinem/rust-cache@v2
+
+      - name: Set up Bun (for ccb)
+        if: matrix.runtime == 'ccb'
+        uses: oven-sh/setup-bun@v1
+
+      - name: Install contract test dependencies (Python)
+        run: make v2-phase2_5-ci-setup
+
+      - name: Build runtime binary (grid)
+        if: matrix.runtime == 'grid'
+        run: cargo build -p grid-runtime --bin grid-runtime
+
+      - name: Build runtime binary (goose)
+        if: matrix.runtime == 'goose'
+        run: cargo build -p eaasp-goose-runtime --bin eaasp-goose-runtime
+        env:
+          GOOSE_BIN: ''
+
+      - name: Build runtime binary (claw-code)
+        if: matrix.runtime == 'claw-code'
+        run: cargo build -p eaasp-claw-code-runtime --bin eaasp-claw-code-runtime
+
+      - name: Set up Python runtime (claude-code)
+        if: matrix.runtime == 'claude-code'
+        run: |
+          cd lang/claude-code-runtime-python
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Set up Python runtime (nanobot)
+        if: matrix.runtime == 'nanobot'
+        run: |
+          cd lang/nanobot-runtime-python
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Set up Python runtime (pydantic-ai)
+        if: matrix.runtime == 'pydantic-ai'
+        run: |
+          cd lang/pydantic-ai-runtime-python
+          python -m venv .venv
+          .venv/bin/pip install -e ".[dev]"
+
+      - name: Install TS runtime deps (ccb)
+        if: matrix.runtime == 'ccb'
+        run: |
+          cd lang/ccb-runtime-ts
+          bun install
+
+      - name: Run contract v1.1 + chunk_type contract
+        run: make v2-phase3-contract-${{ matrix.runtime }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          OPENAI_MODEL_NAME: ${{ secrets.OPENAI_MODEL_NAME }}
