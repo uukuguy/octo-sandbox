@@ -1,3 +1,27 @@
+---
+id: ADR-V2-018
+title: "PreCompact Hook 协议 + 迭代式 Summary 复用 + 跨压缩 Token 预算"
+type: contract
+status: Accepted
+date: 2026-04-15
+phase: "Phase 2 — Memory and Evidence (S3.T1 实施依据)"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: contract-test
+  trace: []
+  review_checklist: null
+affected_modules:
+  - "proto/eaasp/runtime/v2/runtime.proto"
+  - "proto/eaasp/hook.proto"
+  - "crates/grid-engine/"
+  - "lang/claude-code-runtime-python/"
+related: [ADR-V2-006, ADR-V2-016, ADR-V2-017]
+---
+
 # ADR-V2-018 — PreCompact Hook 协议 + 迭代式 Summary 复用 + 跨压缩 Token 预算
 
 **Status:** Accepted

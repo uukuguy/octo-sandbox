@@ -1,3 +1,26 @@
+---
+id: ADR-V2-016
+title: "Agent Loop 通用性原则"
+type: strategy
+status: Accepted
+date: 2026-04-14
+phase: "Phase 2 — Memory and Evidence"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: strategic
+  trace:
+    - "crates/grid-engine/tests/d87_multi_step_workflow_regression.rs"
+  review_checklist: "docs/design/EAASP/adrs/ADR-V2-016-agent-loop-generic-principle.md"
+affected_modules:
+  - "crates/grid-engine/"
+  - "crates/grid-runtime/"
+related: []
+---
+
 # ADR-V2-016 — Agent Loop 通用性原则
 
 **Status:** **Accepted (2026-04-14)** — 多模型 E2E 验证通过（见文末记录）

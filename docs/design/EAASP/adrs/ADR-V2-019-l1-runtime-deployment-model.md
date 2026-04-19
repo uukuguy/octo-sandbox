@@ -1,3 +1,27 @@
+---
+id: ADR-V2-019
+title: "L1 Runtime Deployment Model: Multi-Session 内在 + 部署模式可选 + 容错策略"
+type: strategy
+status: Proposed
+date: 2026-04-16
+phase: "Phase 2.5 — Consolidation + goose-runtime (W1.T2.5 Dockerfile 实施依据)"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: strategic
+  trace: []
+  review_checklist: "docs/design/EAASP/adrs/ADR-V2-019-l1-runtime-deployment-model.md"
+affected_modules:
+  - "crates/grid-runtime/"
+  - "crates/eaasp-goose-runtime/"
+  - "lang/claude-code-runtime-python/"
+  - "lang/nanobot-runtime-python/"
+related: [ADR-V2-005, ADR-V2-017]
+---
+
 # ADR-V2-019 — L1 Runtime Deployment Model: Multi-Session 内在 + 部署模式可选 + 容错策略
 
 **Status:** Proposed

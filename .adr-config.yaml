@@ -1,0 +1,9 @@
+adr_root: docs/design/EAASP/adrs
+contract_test_root: tests/contract
+downgrade_targets:
+  plan: docs/plans/completed
+  decision: docs/decisions
+ci_workflows:
+  - .github/workflows/phase2_5-contract.yml
+  - .github/workflows/adr-audit.yml
+adr_id_prefix: "ADR-V2"

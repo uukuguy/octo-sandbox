@@ -1,3 +1,33 @@
+---
+id: ADR-V2-017
+title: "L1 Runtime 生态策略（主力 + 样板 + 对比 三轨）"
+type: strategy
+status: Accepted
+date: 2026-04-14
+phase: "Phase 2 — Memory and Evidence (策略级 ADR，影响 Phase 2.5+ 全部 L1 runtime 演进)"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: strategic
+  trace: []
+  review_checklist: "docs/design/EAASP/adrs/ADR-V2-017-l1-runtime-ecosystem-strategy.md"
+affected_modules:
+  - "crates/grid-runtime/"
+  - "crates/eaasp-goose-runtime/"
+  - "crates/eaasp-claw-code-runtime/"
+  - "lang/claude-code-runtime-python/"
+  - "lang/hermes-runtime-python/"
+  - "lang/nanobot-runtime-python/"
+  - "lang/pydantic-ai-runtime-python/"
+  - "lang/eaasp-ccb-runtime-ts/"
+  - "tests/contract/"
+  - "Makefile"
+related: [ADR-V2-004, ADR-V2-016]
+---
+
 # ADR-V2-017 — L1 Runtime 生态策略（主力 + 样板 + 对比 三轨）
 
 **Status:** Accepted

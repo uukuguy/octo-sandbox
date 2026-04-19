@@ -656,3 +656,25 @@ npx @claude-flow/cli@latest doctor --fix
 
 - Documentation: https://github.com/ruvnet/claude-flow
 - Issues: https://github.com/ruvnet/claude-flow/issues
+
+## ADR Governance (ADR-V2-022)
+
+This project uses the global ADR governance plugin at `~/.claude/skills/adr-governance/`.
+
+### Session start protocol
+
+At the start of each new Claude Code session that touches architectural decisions:
+1. Run `/adr:status` to see current ADR health + roadmap
+2. Check `~/.claude/skills/adr-governance/ROADMAP.md` for pending work
+
+### Before editing files under `affected_modules`
+
+Run `/adr:trace <file-path>` to see which ADRs constrain that file. Do NOT silently violate an Accepted ADR.
+
+### Creating new architectural decisions
+
+Use `/adr:new --type contract|strategy`. Never write ADRs by hand — the command enforces frontmatter + lint.
+
+### Audit
+
+Current audit: `docs/design/EAASP/adrs/AUDIT-2026-04-19.md`. Re-run via `/adr:review --health` quarterly.

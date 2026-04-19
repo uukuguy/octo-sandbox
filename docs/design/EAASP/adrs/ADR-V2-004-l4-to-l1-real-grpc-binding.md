@@ -1,3 +1,29 @@
+---
+id: ADR-V2-004
+title: "L4→L1 Real gRPC Binding（延迟到 Phase 1）"
+type: record
+status: Accepted
+date: 2026-04-12
+phase: "Phase 0 MVP — S4.T2 收尾"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: review-only
+  trace: []
+  review_checklist: "docs/design/EAASP/adrs/ADR-V2-004-l4-to-l1-real-grpc-binding.md"
+affected_modules:
+  - "crates/grid-runtime/"
+  - "lang/claude-code-runtime-python/"
+  - "tools/eaasp-l4-orchestration/"
+  - "proto/eaasp/runtime/v2/common.proto"
+  - "scripts/verify-v2-mvp.sh"
+  - "scripts/verify-v2-mvp.py"
+related: [ADR-V2-001, ADR-V2-002, ADR-V2-003]
+---
+
 # ADR-V2-004 — L4→L1 Real gRPC Binding（延迟到 Phase 1）
 
 **Status:** Accepted / Deferred

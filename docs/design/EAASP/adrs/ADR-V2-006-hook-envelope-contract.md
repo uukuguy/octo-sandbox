@@ -1,3 +1,27 @@
+---
+id: ADR-V2-006
+title: "Hook Envelope Contract (PreToolUse / PostToolUse / Stop)"
+type: contract
+status: Accepted
+date: 2026-04-15
+phase: "Phase 2 — Memory and Evidence (S3.T5 implementation reference)"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: contract-test
+  trace: []
+  review_checklist: null
+affected_modules:
+  - "crates/grid-runtime/"
+  - "lang/claude-code-runtime-python/"
+  - "tools/eaasp-skill-registry/"
+  - "examples/skills/threshold-calibration/"
+related: [ADR-V2-017, ADR-V2-018]
+---
+
 # ADR-V2-006 — Hook Envelope Contract (PreToolUse / PostToolUse / Stop)
 
 **Status:** Accepted

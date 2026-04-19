@@ -1,3 +1,27 @@
+---
+id: ADR-V2-005
+title: "Session 级工具容器隔离（Tool Sandbox Container）"
+type: contract
+status: Accepted
+date: 2026-04-13
+phase: "Phase 0.5 MVP 全层贯通 — hermes-runtime 验证"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: contract-test
+  trace: []
+  review_checklist: null
+affected_modules:
+  - "tools/mock-scada/"
+  - "lang/hermes-runtime-python/"
+  - "crates/grid-runtime/"
+  - "tools/eaasp-l4-orchestration/"
+related: [ADR-V2-004, ADR-V2-019]
+---
+
 # ADR-V2-005 — Session 级工具容器隔离（Tool Sandbox Container）
 
 **Status:** Accepted

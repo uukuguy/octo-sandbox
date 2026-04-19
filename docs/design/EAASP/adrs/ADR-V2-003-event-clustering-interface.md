@@ -1,3 +1,24 @@
+---
+id: ADR-V2-003
+title: "Event Clustering 插件化接口：4 Handler Pipeline"
+type: contract
+status: Accepted
+date: 2026-04-13
+phase: "Phase 1 — Event-driven Foundation"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: contract-test
+  trace: []
+  review_checklist: null
+affected_modules:
+  - "tools/eaasp-l4-orchestration/"
+related: [ADR-V2-001, ADR-V2-002]
+---
+
 # ADR-V2-003 — Event Clustering 插件化接口：4 Handler Pipeline
 
 **Status:** Accepted

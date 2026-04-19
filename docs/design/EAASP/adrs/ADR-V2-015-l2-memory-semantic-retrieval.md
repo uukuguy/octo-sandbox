@@ -1,3 +1,24 @@
+---
+id: ADR-V2-015
+title: "L2 Memory Engine Semantic 检索选型"
+type: strategy
+status: Accepted
+date: 2026-04-14
+phase: "Phase 2 — Memory and Evidence"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: strategic
+  trace: []
+  review_checklist: "docs/design/EAASP/adrs/ADR-V2-015-l2-memory-semantic-retrieval.md"
+affected_modules:
+  - "tools/eaasp-l2-memory-engine/"
+related: [ADR-V2-002]
+---
+
 # ADR-V2-015 — L2 Memory Engine Semantic 检索选型
 
 **Status:** Accepted

@@ -1,0 +1,47 @@
+name: ADR Audit
+
+on:
+  pull_request:
+    paths:
+      - 'docs/design/EAASP/adrs/**'
+      - 'tests/contract/**'
+      - '.adr-config.yaml'
+  push:
+    branches: [main]
+    paths:
+      - 'docs/design/EAASP/adrs/**'
+      - '.adr-config.yaml'
+
+jobs:
+  adr-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Clone ADR governance plugin scripts
+        run: |
+          mkdir -p .adr-plugin/scripts
+          echo "::warning::ADR governance scripts expected at ~/.claude/skills/adr-governance/scripts/"
+          if [ -d "$HOME/.claude/skills/adr-governance/scripts" ]; then
+            cp -r "$HOME/.claude/skills/adr-governance/scripts/." .adr-plugin/scripts/
+          fi
+
+      - name: Run /adr:audit
+        run: |
+          if [ ! -f .adr-plugin/scripts/adr_lint.py ]; then
+            echo "::warning::ADR lint script not available; skipping."
+            exit 0
+          fi
+          python .adr-plugin/scripts/adr_lint.py --all --ci
+
+      - name: Run /adr:review
+        if: always()
+        run: |
+          if [ -f .adr-plugin/scripts/adr_review.py ]; then
+            python .adr-plugin/scripts/adr_review.py --health > adr-review.txt || true
+            cat adr-review.txt
+          fi

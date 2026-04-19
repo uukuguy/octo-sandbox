@@ -1,3 +1,28 @@
+---
+id: ADR-V2-001
+title: "EmitEvent 接口形式：混合拦截器 + OPTIONAL RPC"
+type: contract
+status: Accepted
+date: 2026-04-13
+phase: "Phase 1 — Event-driven Foundation"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: contract-test
+  trace: []
+  review_checklist: null
+affected_modules:
+  - "proto/eaasp/runtime/v2/runtime.proto"
+  - "tools/eaasp-l4-orchestration/"
+  - "crates/grid-runtime/"
+  - "lang/claude-code-runtime-python/"
+  - "lang/hermes-runtime-python/"
+related: [ADR-V2-002, ADR-V2-003, ADR-V2-004]
+---
+
 # ADR-V2-001 — EmitEvent 接口形式：混合拦截器 + OPTIONAL RPC
 
 **Status:** Accepted

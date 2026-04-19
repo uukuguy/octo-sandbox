@@ -1,3 +1,31 @@
+---
+id: ADR-V2-020
+title: "工具命名空间契约（L0/L1/L2 分层）"
+type: contract
+status: Accepted
+date: 2026-04-18
+phase: "Phase 3 — L1 Runtime Functional Completeness"
+author: "Jiangwen Su"
+supersedes: []
+superseded_by: null
+deprecated_at: null
+deprecated_reason: null
+enforcement:
+  level: contract-test
+  trace:
+    - "tests/contract/cases/test_tool_namespace_enforcement.py"
+    - "tests/contract/cases/test_tool_conflict_resolution.py"
+    - "tests/contract/cases/test_pre_phase3_skill_compat.py"
+  review_checklist: null
+affected_modules:
+  - "crates/grid-engine/"
+  - "crates/grid-runtime/"
+  - "tools/eaasp-skill-registry/"
+  - "examples/skills/"
+  - "tests/contract/"
+related: [ADR-V2-006, ADR-V2-016, ADR-V2-017]
+---
+
 # ADR-V2-020 — 工具命名空间契约（L0/L1/L2 分层）
 
 **Status:** Accepted
