@@ -4,7 +4,7 @@
   "context_file": "docs/plans/2026-04-18-v2-phase3-CONTEXT.md",
   "phase": "completed",
   "created_at": "2026-04-18T07:15:00+08:00",
-  "updated_at": "2026-04-18T22:00:00+08:00",
+  "updated_at": "2026-04-19T00:30:00+08:00",
   "completed_tasks": [
     "S1.T1 ADR-V2-020 tool namespace contract — Proposed",
     "S1.T2 ToolLayer enum + Tool::layer() trait",
@@ -62,8 +62,8 @@
     "⚠️ make verify — cargo check clean (runtime 验证需人工)",
     "✅ L1_RUNTIME_COMPARISON_MATRIX.md 扩至 7-runtime 全行",
     "✅ L1_RUNTIME_ADAPTATION_GUIDE.md §12 ccb TypeScript/Bun 接入章节",
-    "人工 runbook 签字 — 待人工执行 scripts/phase3-runtime-verification.sh"
+    "✅ 人工 E2E runbook Group A Step 4a — nanobot PRE_TOOL_USE ≥ 5 + Stop hook evidence_anchor_id + STOP reason=complete @ 9abe562"
   ],
-  "notes": "Phase 3 COMPLETE 35/35 @ 8ee05fe (2026-04-18). S1: ADR-V2-020 Accepted, ToolLayer L0/L1/L2, contract-v1.1.0 (23 new cases). S2: 7 P1-defer closed (D130/D78/D94/D98/D117/D108/D125). S3: D144 goose ACP + nanobot ConnectMcp/Stop; pydantic-ai/claw-code/ccb 三对比 runtime all 42 PASS 22 XFAIL; E2E B1-B8 112 pytest PASS; Makefile v2-phase3-e2e; 7-runtime matrix + §12 TS/Bun guide. Final sign-off criterion (人工 runbook) deferred to next session.",
-  "memory_status": "Phase 3 COMPLETE — checkpoint closed"
+  "notes": "Phase 3 COMPLETE 35/35 @ 8ee05fe (2026-04-18). S1: ADR-V2-020 Accepted, ToolLayer L0/L1/L2, contract-v1.1.0 (23 new cases). S2: 7 P1-defer closed (D130/D78/D94/D98/D117/D108/D125). S3: D144 goose ACP + nanobot ConnectMcp/Stop; pydantic-ai/claw-code/ccb 三对比 runtime all 42 PASS 22 XFAIL; E2E B1-B8 112 pytest PASS; Makefile v2-phase3-e2e; 7-runtime matrix + §12 TS/Bun guide. Post-sign-off nanobot fixes (2026-04-19): 8239239 real MCP executor (exact routing + EAASP_L2_DB_PATH); 8e3ec91 SKILL.md dot-notation restore + Initialize normalize; 9abe562 PRE_TOOL_USE (tool_call_start) + Stop hook Stop evidence_anchor_id + frontmatter_hooks wiring. Group A Step 4a human runbook PASSED.",
+  "memory_status": "Phase 3 COMPLETE + post-sign-off nanobot fixes applied"
 }
