@@ -3,7 +3,7 @@
 > **Single Source of Truth** — 本文件是所有 Deferred 项的唯一权威登记处。
 > 新增 / 关闭 / 迁移 D 编号都必须同步更新本文件，并在 commit message 引用 `Dxx`。
 
-**最后更新**: 2026-04-16 (Phase 2.5 W1.T2.5 — Dockerfile + ADR-V2-019; D141 ✅ CLOSED, D142/D143 新增 P2-defer)
+**最后更新**: 2026-04-20 (Phase 4a T6 — pydantic-ai-runtime 测试加厚; D148 ✅ CLOSED)
 **维护规则**: 每次 end-phase 或 Deferred 状态变更时更新 [状态变更日志](#状态变更日志) 并同步 [全局活跃清单](#全局活跃清单-eaasp-v20)。
 
 ---
@@ -366,6 +366,7 @@
 | 2026-04-20 | D155 | 🧹 tech-debt → ✅ CLOSED | Phase 4a T3 — `scripts/check-pyright-prereqs.sh` + Makefile `check-pyright-prereqs` target；扫 9 个 per-package `.venv`，缺则非零退出码 + stderr 明列缺失 path + 指向 `uv sync` / `make setup` 修复。`MISSING_OK=1` 可降级 warn-only。手工 mv nanobot venv 验证两条路径（present→exit 0，missing→exit 1）。 |
 | 2026-04-20 | D153 | 🧹 tech-debt → ✅ CLOSED | Phase 4a T4 — `scripts/gen_runtime_proto.py` 加 `--out-dir DIR` argparse flag（`build(...)` 多一个 `out_dir_override` 参数）。`lang/claude-code-runtime-python/Dockerfile` 去掉 `mkdir -p .../lang/...` + `ln -s` hack，直接 `--out-dir /build/src/claude_code_runtime/_proto`。默认路径 regen nanobot 字节对齐；override 路径也产生 byte-identical stub（仅 `__pycache__` 差异）。Phase 4 新 runtime Dockerfile 不再需要重复 hack。 |
 | 2026-04-20 | D149 | 🟡 P1-active → ✅ CLOSED | Phase 4a T5 — Option B grep guard：proto `enum ChunkType` 块上加 `// @ccb-types-ts-sync` 标记 + `scripts/check-ccb-types-ts-sync.sh`（~90 LOC bash，awk 解析 proto 块 + grep `^ *<NAME> *=` 匹配 TS 块）+ `.github/workflows/phase4a-ccb-types-sync.yml`（独立 bash-only gate，triggers 锁到 proto/common.proto + types.ts + 脚本 + workflow）+ Makefile target `check-ccb-types-ts-sync`. 本地 PASS `OK: 8 ChunkType variants in sync`；drift test（删 `WORKFLOW_CONTINUATION = 7`）exit=1 + 明列缺失 `CHUNK_TYPE_WORKFLOW_CONTINUATION` + 修复指引。零 toolchain add，契合 ccb `@grpc/proto-loader` 动态消息架构。 |
+| 2026-04-20 | D148 | 🟡 P1-active → ✅ CLOSED | Phase 4a T6 — `lang/pydantic-ai-runtime-python/tests/test_provider.py`（10 tests, 158 LOC）+ `tests/test_session.py`（8 tests, 194 LOC）。provider 覆盖：构造 happy path / `/v1` 双重后缀防护 / 带路径前缀 gateway / `make_provider()` env 读取 + defaults / `chat()` OAI-shape 契约（`patch.object(Agent, 'run', ...)` monkeypatch）/ last-user-message 提取 / 异常传播 / `aclose()` 幂等。session 覆盖：纯文本 CHUNK+STOP / 单轮工具调用序列 / 多轮工具调用 / `max_turns` 超限→ERROR / provider 异常→ERROR / Stop hook allow / deny（真实 bash subprocess）/ `EventType` 字符串契约锁定（ADR-V2-021 并行）。22/22 PASS（18 新 + 4 scaffold 保留）in 0.78s. 零新依赖，零 live-LLM。 |
 | 2026-04-14 | — | **ledger 创建** | 收敛 D1–D89 到 single source of truth |
 | 2026-04-12 | D1, D2 | active → ✅ closed | ADR-V2-004 S4.T2 4b-lite |
 | 2026-04-12 | D47, D49, D52 | active → ✅ closed | S4.T2 前置修复 |
@@ -381,7 +382,7 @@
 
 | 状态 | 数量 | D 编号 | 含义 |
 |------|------|--------|------|
-| ✅ **closed** | 37 | D1, D2, D4, D7, D47, D49, D51, D52, D53, D54, D60, D78, D83, D84, D85, D86, D87, D89, D94, D98, D108, D117, D120, D124, D125, D130, D140, D145, D146, D147, D149, D150, D151, D153, D154, D155 + S3.T5 legacy D50→D117 renamed | Phase 3 S2 新增：D78 @ 4633c0b, D94 @ 4633c0b, D98 @ e77833d, D108 @ 00e64e7, D117 @ 688bf4d, D125 @ 0ce0294, D130 @ af71c99；Phase 3.6 T1 新增：D140；Phase 3.6 T2 新增：D145；Phase 3.6 T3 新增：D147 (workaround)；Phase 3.6 T4 新增：D150；Phase 3.6 T5 新增：D146；Phase 4a T1 新增：D151；Phase 4a T2 新增：D154；Phase 4a T3 新增：D155；Phase 4a T4 新增：D153；Phase 4a T5 新增：D149 |
+| ✅ **closed** | 38 | D1, D2, D4, D7, D47, D49, D51, D52, D53, D54, D60, D78, D83, D84, D85, D86, D87, D89, D94, D98, D108, D117, D120, D124, D125, D130, D140, D145, D146, D147, D148, D149, D150, D151, D153, D154, D155 + S3.T5 legacy D50→D117 renamed | Phase 3 S2 新增：D78 @ 4633c0b, D94 @ 4633c0b, D98 @ e77833d, D108 @ 00e64e7, D117 @ 688bf4d, D125 @ 0ce0294, D130 @ af71c99；Phase 3.6 T1 新增：D140；Phase 3.6 T2 新增：D145；Phase 3.6 T3 新增：D147 (workaround)；Phase 3.6 T4 新增：D150；Phase 3.6 T5 新增：D146；Phase 4a T1 新增：D151；Phase 4a T2 新增：D154；Phase 4a T3 新增：D155；Phase 4a T4 新增：D153；Phase 4a T5 新增：D149；Phase 4a T6 新增：D148 |
 | 🔄 **superseded** | 3 | D27→D54, D40→D54, D50→D117 (renamed) | 被其他 D 或 ADR 取代 |
 | ⏸️ **frozen** | 2 | D66, D88 | hermes 冻结，Phase 2.5 goose 替代 |
 | 🔥 **P0-active** | 0 | — | Phase 2 S4 全部归档 |
@@ -416,7 +417,7 @@
 | **D145** | session_orchestrator.py `delta_buf` + `ctype == "text_delta"` 在 `send_message` / `stream_message` 重复 | Phase 3.5 S2.T1 review | ✅ CLOSED | Phase 3.6 T2 抽 `_accumulate_delta` + `_record_coalesced_deltas` helpers；S2.T2 已关闭 CLI 侧 |
 | **D146** | Pyright workspace config 未指向 per-package `.venv` — 编辑器 import 全报 unresolved | Phase 3.5 S2.T1 diagnostics | ✅ CLOSED | Phase 3.6 T5 — `pyrightconfig.json` 落地 @ 10 package executionEnvironments（`.venv/lib/python{ver}/site-packages` extraPaths + per-env pythonVersion）+ exclude hermes（ADR-V2-017 frozen）+ `tools/archive/**` + `reportMissingTypeStubs: false` / `reportMissingModuleSource: none` + strict off. Pyright v1.1.408 本地 regression 236→8 warnings（import 归位）；D152 `# type: ignore` 继续生效 |
 | **D147** | Python proto3 enum `.pyi` stub 声明 `ChunkType \| str \| None` 拒绝 int，但 runtime 接受 — Pyright strict mode 噪音 | Phase 3.5 S0 → S1 diagnostics | ✅ CLOSED | Phase 3.6 T3 descope — 10 处 `# type: ignore[arg-type]  # ADR-V2-021 ChunkType int-on-wire` 绕过 grpcio-tools stub 限制；真正根因追踪见 D152 |
-| **D148** | pydantic-ai-runtime test bench 只有 4 个 scaffold 测试 — 与其它 runtime 的测试密度不匹配 | Phase 3.5 S1.T6 review | 🟡 P1-active | 补 sdk_wrapper 等价测试 + agent loop 覆盖；Phase 4 前 |
+| **D148** | pydantic-ai-runtime test bench 只有 4 个 scaffold 测试 — 与其它 runtime 的测试密度不匹配 | Phase 3.5 S1.T6 review | ✅ CLOSED | Phase 4a T6 — `tests/test_provider.py`（10 tests, 158 LOC）+ `tests/test_session.py`（8 tests, 194 LOC）补齐：provider 侧覆盖构造 happy path、`/v1` 双重后缀防护、带路径前缀的 gateway base_url、`make_provider()` env 读取 + defaults、`chat()` OAI-shape 契约（通过 `patch.object(Agent, 'run', ...)` monkeypatch）、last-user-message 提取、异常传播、`aclose()` 幂等；session 侧覆盖纯文本 CHUNK+STOP、单轮工具调用序列、多轮工具调用、`max_turns` 超限→ERROR、provider 异常→ERROR、Stop hook allow / deny（真实 bash subprocess）、`EventType` 字符串契约锁定。22/22 PASS（18 新 + 4 scaffold 保留）in 0.78s. 零新依赖，零 live-LLM。|
 | **D149** | ccb-runtime-ts `src/proto/types.ts` hand-written enum 无 SoT 同步保障 — proto 新增 variant 时 TS 不会自动失败 | Phase 3.5 S1.T7 review | ✅ CLOSED | Phase 4a T5 — Option B grep guard：`proto/eaasp/runtime/v2/common.proto` 在 `enum ChunkType` 块上加 `// @ccb-types-ts-sync` 标记；`scripts/check-ccb-types-ts-sync.sh`（~90 LOC bash）awk 解析 proto enum 块、grep 比对 `lang/ccb-runtime-ts/src/proto/types.ts`；`.github/workflows/phase4a-ccb-types-sync.yml` 独立 bash-only gate（PR/push/workflow_dispatch，只 trigger on 两个 SoT 文件 + 脚本 + workflow 自身）；Makefile target `check-ccb-types-ts-sync`. 本地 PASS `OK: 8 ChunkType variants in sync`；drift test（删 `WORKFLOW_CONTINUATION = 7`）exit=1 + 明列缺失名 + 修复指引。未引入 protoc-gen-es 依赖 — 零 toolchain add 契合 ccb 动态 `@grpc/proto-loader` 设计。 |
 | **D150** | `nanobot/pydantic-ai` 两份 `build_proto.py` 与 `claude-code-runtime-python/build_proto.py` 内容重复（仅包名不同） | Phase 3.5 S0 | ✅ CLOSED | Phase 3.6 T4 — 4 份 `build_proto.py`（含 `tools/eaasp-l4-orchestration/`）抽到 `scripts/gen_runtime_proto.py`（注册表 + `--package-name` + `--proto-files` override）；Makefile 4 target（含新增 `nanobot-runtime-proto` / `pydantic-ai-runtime-proto`）统一；Dockerfile `claude-code-runtime-python` 同步。regen 后 stub byte-parity 0 diff |
 | **D151** | harness.rs hook envelope 三处 dispatch 缺少 call-site 回归测试 — `.with_event(...)` 被误删后，D136 xfail 掩码会掩盖回归 | Phase 3.6 T1 code review | ✅ CLOSED | Phase 4a T1 — `crates/grid-engine/tests/harness_envelope_wiring_test.rs`（3 tests, spy `HookHandler` + spy `StopHook` 捕获 `ctx.event`），断言 PreToolUse / PostToolUse / Stop 三处 dispatch 均 surface ADR-V2-006 §2 literal。手工 delete `.with_event(...)` at harness.rs:1766/2236/2390 将分别令对应测试 fail。 |
@@ -425,7 +426,7 @@
 | **D154** | `pyrightconfig.json` per-env `pythonVersion` 锁到本机 installed venv（7×3.14 / 1×3.12），而 package `pyproject.toml` 都声明 `>=3.12` — 3.13+-only 语法会溜过检查，fresh clone 用 3.12 venv 时可能在 IDE 里亮红 | Phase 3.6 T5 code review | ✅ CLOSED | Phase 4a T2 — 所有 8 个 per-env `pythonVersion` 从 `"3.14"`/`"3.12"` 统一为 `"3.12"`（pyproject `requires-python>=3.12` floor）。Pyright regression 前后 103 errors + 8 warnings 一致，无 3.13+-only 语法被揪出（说明本机 venv 虽是 3.14 但代码确实写在 3.12 compat 面上）。 |
 | **D155** | Fresh-clone / 缺 `.venv` 时 `pyright` 会 fallback 到仓库根 `.venv`（Python 3.12 无 grpc）造成 500+ unresolved imports 假失败 — 未来加 CI pyright gate 时会第一次踩 | Phase 3.6 T5 code review | ✅ CLOSED | Phase 4a T3 — `scripts/check-pyright-prereqs.sh`（44 LOC bash）扫 9 个 per-package `.venv`；缺则 exit 1 + stderr 列缺失 path + 指向 `uv sync` / `make setup` 修复方向。Makefile target `check-pyright-prereqs` 封装调用。手工 mv 一个 venv 验证 exit 1 + 报错正确；恢复后 exit 0。`MISSING_OK=1` 环境变量可退化为 warn-only 模式。 |
 
-**合计新增：11 项 Deferred（9 ✅ CLOSED + 1 🟡 P1-active + 1 🧹 tech-debt）**
+**合计新增：11 项 Deferred（10 ✅ CLOSED + 1 🧹 tech-debt）**
 
 所有条目在 Phase 3.5 S2.T1 / S3.T1 / S3.T2 审查中由实现者或审查者提出，均为非阻塞性遗留，不影响 ADR-V2-021 的签收。
 
