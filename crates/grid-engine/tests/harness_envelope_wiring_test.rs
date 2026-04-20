@@ -168,11 +168,7 @@ impl Tool for NoopTool {
     fn parameters(&self) -> serde_json::Value {
         json!({"type": "object", "properties": {}})
     }
-    async fn execute(
-        &self,
-        _params: serde_json::Value,
-        _ctx: &ToolContext,
-    ) -> Result<ToolOutput> {
+    async fn execute(&self, _params: serde_json::Value, _ctx: &ToolContext) -> Result<ToolOutput> {
         Ok(ToolOutput::success("ok".to_string()))
     }
     fn source(&self) -> ToolSource {
@@ -252,14 +248,9 @@ async fn run_with_spies() -> Spies {
     // spy captures are meaningless. Assert here so a broken test harness
     // surfaces before the per-event asserts.
     assert!(
-        events
-            .iter()
-            .any(|e| matches!(e, AgentEvent::Completed(_))),
+        events.iter().any(|e| matches!(e, AgentEvent::Completed(_))),
         "fixture failure: agent loop did not reach Completed (events = {:?})",
-        events
-            .iter()
-            .map(|e| format!("{e:?}"))
-            .collect::<Vec<_>>()
+        events.iter().map(|e| format!("{e:?}")).collect::<Vec<_>>()
     );
 
     Spies { pre, post, stop }
