@@ -31,6 +31,8 @@ on:
     paths:
       - 'tests/contract/**'
       - 'proto/eaasp/runtime/v2/**'
+      - '.github/workflows/phase3-contract.yml'
+  workflow_dispatch:
 
 jobs:
   contract:

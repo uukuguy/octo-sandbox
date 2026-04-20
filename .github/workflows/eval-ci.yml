@@ -13,8 +13,10 @@ on:
       - 'crates/grid-eval/**'
       - 'crates/grid-engine/**'
       - 'crates/grid-sandbox/**'
+      - '.github/workflows/eval-ci.yml'
   schedule:
     - cron: '0 2 * * *'  # nightly 02:00 UTC
+  workflow_dispatch:
 
 env:
   CARGO_TERM_COLOR: always
