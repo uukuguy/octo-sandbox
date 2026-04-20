@@ -40,6 +40,12 @@ jobs:
         if: matrix.runtime == 'grid' || matrix.runtime == 'goose'
         uses: Swatinem/rust-cache@v2
 
+      # Rust runtimes use tonic-build / prost-build which shell out to `protoc`.
+      # Without this step the build fails with `Could not find protoc`.
+      - name: Install protoc (for Rust runtimes)
+        if: matrix.runtime == 'grid' || matrix.runtime == 'goose'
+        run: sudo apt-get update && sudo apt-get install -y protobuf-compiler
+
       - name: Install contract test dependencies
         run: make v2-phase2_5-ci-setup
 

@@ -61,9 +61,9 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: 'Octo Desktop v__VERSION__'
+          releaseName: 'Grid Desktop v__VERSION__'
           releaseBody: 'See the assets to download and install this version.'
           releaseDraft: true
           prerelease: false
-          projectPath: crates/octo-desktop
+          projectPath: crates/grid-desktop
           args: --target ${{ matrix.target }}
