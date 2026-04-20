@@ -1,13 +1,15 @@
 {
-  "active_phases": [
+  "active_phases": [],
+  "suspended_phases": [],
+  "archived_phases": [
     {
       "name": "Phase 3.6 — Tech-debt Cleanup (D140/D145/D146/D147/D150)",
       "started_at": "2026-04-20T15:11:22+08:00",
       "checkpoint": "docs/plans/.checkpoint.json",
       "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
       "plan": "docs/plans/2026-04-20-phase3.6-tech-debt-cleanup.md",
-      "progress": "0/5",
-      "last_updated": "2026-04-20T15:11:22+08:00",
+      "progress": "5/5 COMPLETE",
+      "last_updated": "2026-04-20T15:45:00+08:00",
       "theme": "清理 Phase 3.5 遗留的 5 项 ready Deferred — Rust hook envelope parity + Python refactor/toolchain/editor 清洁",
       "tasks": [
         "T1 D140 grid-engine HookContext::with_event retrofit (Rust, 3-5 LOC + test)",
@@ -29,11 +31,13 @@
         "D149 ccb TS enum SoT (pre-Phase-4)"
       ],
       "swarm_topology": "sequential",
-      "estimated_duration": "1-2 days"
-    }
-  ],
-  "suspended_phases": [],
-  "archived_phases": [
+      "estimated_duration": "1-2 days",
+      "completed_at": "2026-04-20T15:45:00+08:00",
+      "archived_at": "2026-04-20T15:45:00+08:00",
+      "sign_off_commit": "b81f455",
+      "commit_count": 11,
+      "notes": "Phase 3.6 COMPLETE 5/5 @ b81f455. 10 phase commits (38e2fa9..b81f455) + 1 docs close-out commit. 5 new Deferred filed (D151-D155, all tech-debt, Phase 4 前清). D140/D145/D146/D147/D150 全 ✅ CLOSED. Checkpoint archived to docs/plans/.checkpoint.archive.json."
+    },
     {
       "name": "Phase 3.5 — chunk_type Unification (ADR-V2-021)",
       "started_at": "2026-04-19T22:40:00+08:00",
