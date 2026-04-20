@@ -1,5 +1,37 @@
 {
-  "active_phases": [],
+  "active_phases": [
+    {
+      "name": "Phase 3.6 — Tech-debt Cleanup (D140/D145/D146/D147/D150)",
+      "started_at": "2026-04-20T15:11:22+08:00",
+      "checkpoint": "docs/plans/.checkpoint.json",
+      "guide": "docs/dev/NEXT_SESSION_GUIDE.md",
+      "plan": "docs/plans/2026-04-20-phase3.6-tech-debt-cleanup.md",
+      "progress": "0/5",
+      "last_updated": "2026-04-20T15:11:22+08:00",
+      "theme": "清理 Phase 3.5 遗留的 5 项 ready Deferred — Rust hook envelope parity + Python refactor/toolchain/editor 清洁",
+      "tasks": [
+        "T1 D140 grid-engine HookContext::with_event retrofit (Rust, 3-5 LOC + test)",
+        "T2 D145 session_orchestrator.py delta_buf dedup helper (~30 LOC refactor)",
+        "T3 D147 Python proto .pyi stubs regenerate (IntFlag / Pyright strict)",
+        "T4 D150 build_proto.py 三合一 → scripts/gen_runtime_proto.py",
+        "T5 D146 pyrightconfig.json per-package .venv"
+      ],
+      "sign_off_criteria": [
+        "D140 closes — test_hook_envelope.py Rust parity PASS",
+        "D145/D150 close — grep 验证单 SoT",
+        "D147/D146 close — Pyright strict clean",
+        "make v2-phase3-e2e 112/112 PASS",
+        "cargo check clean",
+        "DEFERRED_LEDGER.md 5 项状态更新为 ✅ CLOSED"
+      ],
+      "out_of_scope": [
+        "D148 pydantic-ai test bench 加厚 (pre-Phase-4)",
+        "D149 ccb TS enum SoT (pre-Phase-4)"
+      ],
+      "swarm_topology": "sequential",
+      "estimated_duration": "1-2 days"
+    }
+  ],
   "suspended_phases": [],
   "archived_phases": [
     {

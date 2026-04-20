@@ -1752,11 +1752,24 @@ async fn run_agent_loop_inner(
             // `continue` instead of finalizing. The injection counter caps total
             // re-entries; the final response is committed unchanged on overflow.
             if !config.stop_hooks.is_empty() {
+                // D140: opt into ADR-V2-006 §2.3 Stop envelope.
+                // `draft_memory_id` / `evidence_anchor_id` fall back to "" in
+                // the envelope mapper (serialize_opt_as_empty_str) when the
+                // skill didn't call `memory_write_anchor` / produce a draft,
+                // satisfying §2.3's "MUST NOT be null/missing" contract.
                 let mut stop_ctx = build_rich_hook_context(
                     &config,
                     round,
                     total_tool_calls,
                     &recent_tools,
+                )
+                .with_event("Stop")
+                .with_skill_id(
+                    config
+                        .active_skill
+                        .as_ref()
+                        .map(|s| s.name.as_str())
+                        .unwrap_or(""),
                 )
                 .with_result(true, turn_start.elapsed().as_millis() as u64);
                 // Phase 2.5 — thread the captured anchor_id into the Stop
@@ -2215,7 +2228,19 @@ async fn run_agent_loop_inner(
 
                 // PreToolUse hook (P2-H1: expanded action handling)
                 if let Some(ref hooks) = config.hook_registry {
+                    // D140: opt into ADR-V2-006 envelope mode so scoped-hook
+                    // subprocesses receive the §2.1 PreToolUse stdin shape
+                    // + §3 GRID_EVENT/GRID_SKILL_ID env vars (parity with
+                    // Python runtime's `_dispatch_scoped_pre_tool_use`).
                     let ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
+                        .with_event("PreToolUse")
+                        .with_skill_id(
+                            config
+                                .active_skill
+                                .as_ref()
+                                .map(|s| s.name.as_str())
+                                .unwrap_or(""),
+                        )
                         .with_tool(&tu.name, input.clone());
                     match hooks.execute(HookPoint::PreToolUse, &ctx).await {
                         HookAction::Block(reason) => {
@@ -2355,7 +2380,21 @@ async fn run_agent_loop_inner(
 
                 // PostToolUse hook
                 if let Some(ref hooks) = config.hook_registry {
+                    // D140: opt into ADR-V2-006 §2.2 envelope. `tool_result`
+                    // (string) + `is_error` (bool, inverse of `success`) are
+                    // populated below so the envelope mapper in to_json()
+                    // emits the canonical PostToolUse shape expected by
+                    // scoped-hook subprocesses (parity with Python runtime's
+                    // `_dispatch_scoped_post_tool_use`).
                     let mut ctx = build_rich_hook_context(&config, round, total_tool_calls, &recent_tools)
+                        .with_event("PostToolUse")
+                        .with_skill_id(
+                            config
+                                .active_skill
+                                .as_ref()
+                                .map(|s| s.name.as_str())
+                                .unwrap_or(""),
+                        )
                         .with_tool(&tu.name, input.clone())
                         .with_result(!result.is_error, exec_duration);
                     ctx.tool_result = Some(serde_json::Value::String(result.content.clone()));
