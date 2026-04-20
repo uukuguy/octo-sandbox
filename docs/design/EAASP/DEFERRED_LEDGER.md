@@ -404,8 +404,9 @@
 | **D148** | pydantic-ai-runtime test bench 只有 4 个 scaffold 测试 — 与其它 runtime 的测试密度不匹配 | Phase 3.5 S1.T6 review | 🟡 P1-active | 补 sdk_wrapper 等价测试 + agent loop 覆盖；Phase 4 前 |
 | **D149** | ccb-runtime-ts `src/proto/types.ts` hand-written enum 无 SoT 同步保障 — proto 新增 variant 时 TS 不会自动失败 | Phase 3.5 S1.T7 review | 🟡 P1-active | 引入 @bufbuild/protoc-gen-es 或 protobuf.js + build step；或在 proto 加 guard 注释 + CI grep 对比 |
 | **D150** | `nanobot/pydantic-ai` 两份 `build_proto.py` 与 `claude-code-runtime-python/build_proto.py` 内容重复（仅包名不同） | Phase 3.5 S0 | 🧹 tech-debt | 抽到 `scripts/gen_runtime_proto.py` 接受包名参数 |
+| **D151** | harness.rs hook envelope 三处 dispatch 缺少 call-site 回归测试 — `.with_event(...)` 被误删后，D136 xfail 掩码会掩盖回归 | Phase 3.6 T1 code review | 🧹 tech-debt | 补 `harness_envelope_wiring_test.rs` 用 spy HookHandler / StopHook 断言收到的 ctx.event 字段等于 "PreToolUse"/"PostToolUse"/"Stop"（~50 LOC）；Phase 3.6 signoff 前 |
 
-**合计新增：6 项 Deferred（2 🟡 P1-active + 4 🧹 tech-debt）**
+**合计新增：7 项 Deferred（2 🟡 P1-active + 5 🧹 tech-debt）**
 
 所有条目在 Phase 3.5 S2.T1 / S3.T1 / S3.T2 审查中由实现者或审查者提出，均为非阻塞性遗留，不影响 ADR-V2-021 的签收。
 
