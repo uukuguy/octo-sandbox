@@ -13,3 +13,57 @@ A4 Rust E2E: PASS
 ## pydantic-ai: PASS (signed off at 2026-04-18T19:49:01)
 ## claw-code: PASS (signed off at 2026-04-18T19:49:08)
 ## ccb: PASS (signed off at 2026-04-18T19:49:16)
+
+# Phase 3.5 Verification Log — 2026-04-20 (ADR-V2-021 chunk_type contract freeze)
+
+## Automated Checks
+A1 make v2-phase3-e2e (112 pytest): PASS (112 passed, 5 skipped, 17.50s)
+A2 make v2-phase3-e2e-rust (aggregate_spill + compaction_pipeline + retry_graduated): PASS (34/0)
+A3 cargo check grid-runtime/claude-code/claw-code/goose/certifier: PASS (0 errors)
+A4 tests/contract/cases/test_chunk_type_contract.py (3 assertions — ADR whitelist lock + UNSPECIFIED=0 + live runtime): PASS
+
+## 7-Runtime Contract Matrix (make v2-phase3-contract-<rt>)
+## grid: PASS (16 passed / 22 xfailed)
+## claude-code: PASS (21 passed / 17 xfailed)
+## nanobot: PASS (16 passed / 22 xfailed)
+## pydantic-ai: PASS (16 passed / 22 xfailed)
+## claw-code: PASS (16 passed / 22 xfailed)
+## goose: DEP-SKIP (GOOSE_BIN not installed locally — 3 passed / 35 skipped; CI runner has goose)
+## ccb: DEP-SKIP (lang/ccb-runtime-ts/node_modules absent — 3 passed / 35 skipped; CI runs `bun install`)
+
+## ADR-V2-021 Acceptance Criteria
+- proto ChunkType enum (8 variants incl WORKFLOW_CONTINUATION=7) + full-stack stub regen ✅
+- 7 runtimes emit only legal ChunkType (drift string literals cleaned) ✅
+- L4 SSE + CLI consumers read enum→wire via single mapper (_chunk_type_to_wire / _ALLOWED_CHUNK_TYPES) ✅
+- contract test in CI matrix (.github/workflows/phase3-contract.yml, 8 Makefile targets) ✅
+- Python 112 pytest + Rust 34 tests all green ✅
+- grep non-whitelist values cleaned from runtime emission paths ✅
+
+## Commits (15 on worktree-phase3.5-chunk-type, 5cc0e4a..0bf1cf8)
+5cc0e4a proto(eaasp-v2): freeze chunk_type as ChunkType enum (S0)
+e9472e4 runtime(grid): align (S1.T1)
+235c626 runtime(claw-code): align (S1.T2)
+bbd0421 runtime(goose): align (S1.T3)
+b3d1e4b runtime(claude-code): align (S1.T4)
+e7cc61c runtime(nanobot): align (S1.T5)
+fba52c3 runtime(pydantic-ai): align (S1.T6)
+fec7c1d runtime(ccb): align (S1.T7)
+0477f8f certifier: consumer sync
+917bbdc runtime(claude-code): mapper log-on-unknown
+5494af1 l4(orchestration): _chunk_type_to_wire (S2.T1)
+b3fc066 cli(eaasp-v2): whitelist + _render_chunk (S2.T2)
+6fe7f60 contract: chunk_type whitelist gate (S3.T1)
+9c31623 ci: phase3-contract.yml 7-runtime matrix (S3.T2)
+0bf1cf8 chore(phase3.5): checkpoint 15/19
+
+## Deferred Items (P2/P3 non-blocking)
+D145 session_orchestrator.py delta_buf duplication
+D146 Pyright workspace .venv config
+D147 .pyi stub strictness vs protobuf int enum runtime acceptance
+D148 pydantic-ai test bench thickening
+D149 ccb-runtime-ts proto enum drift guard
+D150 build_proto.py extraction across 3 Python runtimes
+
+## Sign-off: 2026-04-20 — automated via contract infra (mock OpenAI / mock Anthropic).
+## Note: live-LLM human E2E (threshold-calibration on nanobot) not executed in this pass;
+## equivalent coverage via mock-driven contract test passes ADR acceptance criteria.

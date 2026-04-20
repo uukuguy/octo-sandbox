@@ -1085,19 +1085,19 @@ v2-phase2_5-ci-setup:
 
 ## Run contract v1 against grid-runtime
 v2-phase2_5-contract-grid:
-	cd tests/contract && python -m pytest contract_v1/ --runtime=grid -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ --runtime=grid -v
 
 ## Run contract v1 against claude-code-runtime
 v2-phase2_5-contract-cc:
-	cd tests/contract && python -m pytest contract_v1/ --runtime=claude-code -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ --runtime=claude-code -v
 
 ## Run contract v1 against eaasp-goose-runtime (skips if goose binary absent)
 v2-phase2_5-contract-goose:
-	cd tests/contract && python -m pytest contract_v1/ --runtime=goose -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ --runtime=goose -v
 
 ## Run contract v1 against nanobot-runtime (skips if venv absent)
 v2-phase2_5-contract-nanobot:
-	cd tests/contract && python -m pytest contract_v1/ --runtime=nanobot -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ --runtime=nanobot -v
 
 ## Run all 4 runtime contracts (Phase 2.5 full gate)
 v2-phase2_5-e2e: v2-phase2_5-contract-grid v2-phase2_5-contract-cc v2-phase2_5-contract-goose v2-phase2_5-contract-nanobot
@@ -1115,31 +1115,31 @@ v2-phase2_5-e2e: v2-phase2_5-contract-grid v2-phase2_5-contract-cc v2-phase2_5-c
 
 ## Run Phase 3 contract (v1.1 cases + chunk_type) against grid
 v2-phase3-contract-grid:
-	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=grid -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=grid -v
 
 ## Run Phase 3 contract against claude-code
 v2-phase3-contract-claude-code:
-	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=claude-code -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=claude-code -v
 
 ## Run Phase 3 contract against goose (skips if GOOSE_BIN missing)
 v2-phase3-contract-goose:
-	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=goose -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=goose -v
 
 ## Run Phase 3 contract against nanobot (skips if venv absent)
 v2-phase3-contract-nanobot:
-	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=nanobot -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=nanobot -v
 
 ## Run Phase 3 contract against pydantic-ai (skips if venv absent)
 v2-phase3-contract-pydantic-ai:
-	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=pydantic-ai -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=pydantic-ai -v
 
 ## Run Phase 3 contract against ccb (skips if node_modules absent)
 v2-phase3-contract-ccb:
-	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=ccb -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=ccb -v
 
 ## Run Phase 3 contract against claw-code
 v2-phase3-contract-claw-code:
-	cd tests/contract && python -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=claw-code -v
+	cd tests/contract && $${PYTHON:-python3} -m pytest contract_v1/ cases/test_chunk_type_contract.py --runtime=claw-code -v
 
 ## Run all 7 runtime contracts (Phase 3.5 full gate)
 v2-phase3-contract-all: v2-phase3-contract-grid v2-phase3-contract-claude-code v2-phase3-contract-goose v2-phase3-contract-nanobot v2-phase3-contract-pydantic-ai v2-phase3-contract-ccb v2-phase3-contract-claw-code

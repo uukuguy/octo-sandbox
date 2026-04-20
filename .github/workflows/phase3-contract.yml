@@ -105,6 +105,8 @@ jobs:
           cd lang/ccb-runtime-ts
           bun install
 
+      # ADR-V2-021 trace: tests/contract/cases/test_chunk_type_contract.py
+      # runs as part of the Makefile target below (contract_v1/ + cases/*.py).
       - name: Run contract v1.1 + chunk_type contract
         run: make v2-phase3-contract-${{ matrix.runtime }}
         env:
