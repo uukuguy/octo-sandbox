@@ -30,7 +30,8 @@
         e2e-setup e2e-run e2e-test e2e-teardown e2e-full \
         hermes-runtime-setup hermes-runtime-test hermes-runtime-start hermes-runtime-build hermes-runtime-run \
         runtime-verify claude-runtime-verify hermes-runtime-verify \
-        goose-runtime-container-build goose-runtime-container-run goose-runtime-container-verify-f1
+        goose-runtime-container-build goose-runtime-container-run goose-runtime-container-verify-f1 \
+        check-pyright-prereqs check-ccb-types-ts-sync
 
 # Default test project for CLI commands
 TEST_PROJECT ?= $(PWD)/examples/demo-project

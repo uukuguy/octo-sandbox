@@ -30,6 +30,9 @@ jobs:
   ccb-types-sync:
     name: ChunkType proto ↔ ts sync
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
