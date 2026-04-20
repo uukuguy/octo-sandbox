@@ -92,7 +92,7 @@ class SendResponse(_message.Message):
     tool_id: str
     is_error: bool
     error: _common_pb2.RuntimeError
-    def __init__(self, chunk_type: _Optional[_Union[_common_pb2.ChunkType, str]] = ..., content: _Optional[str] = ..., tool_name: _Optional[str] = ..., tool_id: _Optional[str] = ..., is_error: bool = ..., error: _Optional[_Union[_common_pb2.RuntimeError, _Mapping]] = ...) -> None: ...
+    def __init__(self, chunk_type: _Optional[_Union[_common_pb2.ChunkType, str, int]] = ..., content: _Optional[str] = ..., tool_name: _Optional[str] = ..., tool_id: _Optional[str] = ..., is_error: bool = ..., error: _Optional[_Union[_common_pb2.RuntimeError, _Mapping]] = ...) -> None: ...
 
 class LoadSkillRequest(_message.Message):
     __slots__ = ("session_id", "skill")
@@ -304,7 +304,7 @@ class Capabilities(_message.Message):
     limitations: _containers.RepeatedScalarFieldContainer[str]
     tier: str
     deployment_mode: str
-    def __init__(self, runtime_id: _Optional[str] = ..., model: _Optional[str] = ..., context_window: _Optional[int] = ..., tools: _Optional[_Iterable[str]] = ..., supports_native_hooks: bool = ..., supports_native_mcp: bool = ..., supports_native_skills: bool = ..., cost_per_1k_tokens: _Optional[float] = ..., credential_mode: _Optional[_Union[Capabilities.CredentialMode, str]] = ..., strengths: _Optional[_Iterable[str]] = ..., limitations: _Optional[_Iterable[str]] = ..., tier: _Optional[str] = ..., deployment_mode: _Optional[str] = ...) -> None: ...
+    def __init__(self, runtime_id: _Optional[str] = ..., model: _Optional[str] = ..., context_window: _Optional[int] = ..., tools: _Optional[_Iterable[str]] = ..., supports_native_hooks: bool = ..., supports_native_mcp: bool = ..., supports_native_skills: bool = ..., cost_per_1k_tokens: _Optional[float] = ..., credential_mode: _Optional[_Union[Capabilities.CredentialMode, str, int]] = ..., strengths: _Optional[_Iterable[str]] = ..., limitations: _Optional[_Iterable[str]] = ..., tier: _Optional[str] = ..., deployment_mode: _Optional[str] = ...) -> None: ...
 
 class EventStreamEntry(_message.Message):
     __slots__ = ("session_id", "event_id", "event_type", "payload_json", "timestamp")
@@ -318,4 +318,4 @@ class EventStreamEntry(_message.Message):
     event_type: HookEventType
     payload_json: str
     timestamp: str
-    def __init__(self, session_id: _Optional[str] = ..., event_id: _Optional[str] = ..., event_type: _Optional[_Union[HookEventType, str]] = ..., payload_json: _Optional[str] = ..., timestamp: _Optional[str] = ...) -> None: ...
+    def __init__(self, session_id: _Optional[str] = ..., event_id: _Optional[str] = ..., event_type: _Optional[_Union[HookEventType, str, int]] = ..., payload_json: _Optional[str] = ..., timestamp: _Optional[str] = ...) -> None: ...

@@ -36,7 +36,7 @@ class HookEvent(_message.Message):
     pre_approval: PreApprovalHook
     event_received: EventReceivedHook
     pre_compact: PreCompactHook
-    def __init__(self, session_id: _Optional[str] = ..., request_id: _Optional[str] = ..., event_type: _Optional[_Union[_runtime_pb2.HookEventType, str]] = ..., timestamp: _Optional[str] = ..., pre_tool_call: _Optional[_Union[PreToolCallHook, _Mapping]] = ..., post_tool_result: _Optional[_Union[PostToolResultHook, _Mapping]] = ..., stop: _Optional[_Union[StopHook, _Mapping]] = ..., session_start: _Optional[_Union[SessionStartHook, _Mapping]] = ..., session_end: _Optional[_Union[SessionEndHook, _Mapping]] = ..., pre_policy_deploy: _Optional[_Union[PrePolicyDeployHook, _Mapping]] = ..., pre_approval: _Optional[_Union[PreApprovalHook, _Mapping]] = ..., event_received: _Optional[_Union[EventReceivedHook, _Mapping]] = ..., pre_compact: _Optional[_Union[PreCompactHook, _Mapping]] = ...) -> None: ...
+    def __init__(self, session_id: _Optional[str] = ..., request_id: _Optional[str] = ..., event_type: _Optional[_Union[_runtime_pb2.HookEventType, str, int]] = ..., timestamp: _Optional[str] = ..., pre_tool_call: _Optional[_Union[PreToolCallHook, _Mapping]] = ..., post_tool_result: _Optional[_Union[PostToolResultHook, _Mapping]] = ..., stop: _Optional[_Union[StopHook, _Mapping]] = ..., session_start: _Optional[_Union[SessionStartHook, _Mapping]] = ..., session_end: _Optional[_Union[SessionEndHook, _Mapping]] = ..., pre_policy_deploy: _Optional[_Union[PrePolicyDeployHook, _Mapping]] = ..., pre_approval: _Optional[_Union[PreApprovalHook, _Mapping]] = ..., event_received: _Optional[_Union[EventReceivedHook, _Mapping]] = ..., pre_compact: _Optional[_Union[PreCompactHook, _Mapping]] = ...) -> None: ...
 
 class PreToolCallHook(_message.Message):
     __slots__ = ("tool_name", "tool_id", "input_json")
@@ -184,7 +184,7 @@ class HookEvaluateRequest(_message.Message):
     input_json: str
     output: str
     is_error: bool
-    def __init__(self, session_id: _Optional[str] = ..., event_type: _Optional[_Union[_runtime_pb2.HookEventType, str]] = ..., tool_name: _Optional[str] = ..., tool_id: _Optional[str] = ..., input_json: _Optional[str] = ..., output: _Optional[str] = ..., is_error: bool = ...) -> None: ...
+    def __init__(self, session_id: _Optional[str] = ..., event_type: _Optional[_Union[_runtime_pb2.HookEventType, str, int]] = ..., tool_name: _Optional[str] = ..., tool_id: _Optional[str] = ..., input_json: _Optional[str] = ..., output: _Optional[str] = ..., is_error: bool = ...) -> None: ...
 
 class HookTelemetryBatch(_message.Message):
     __slots__ = ("session_id", "events")
@@ -206,7 +206,7 @@ class HookTelemetryEvent(_message.Message):
     decision: str
     latency_us: int
     timestamp: str
-    def __init__(self, hook_id: _Optional[str] = ..., event_type: _Optional[_Union[_runtime_pb2.HookEventType, str]] = ..., decision: _Optional[str] = ..., latency_us: _Optional[int] = ..., timestamp: _Optional[str] = ...) -> None: ...
+    def __init__(self, hook_id: _Optional[str] = ..., event_type: _Optional[_Union[_runtime_pb2.HookEventType, str, int]] = ..., decision: _Optional[str] = ..., latency_us: _Optional[int] = ..., timestamp: _Optional[str] = ...) -> None: ...
 
 class TelemetryAck(_message.Message):
     __slots__ = ("accepted", "rejected")
@@ -244,4 +244,4 @@ class PolicyInfo(_message.Message):
     hook_type: _runtime_pb2.HookEventType
     enabled: bool
     precedence: int
-    def __init__(self, policy_id: _Optional[str] = ..., name: _Optional[str] = ..., scope: _Optional[str] = ..., hook_type: _Optional[_Union[_runtime_pb2.HookEventType, str]] = ..., enabled: bool = ..., precedence: _Optional[int] = ...) -> None: ...
+    def __init__(self, policy_id: _Optional[str] = ..., name: _Optional[str] = ..., scope: _Optional[str] = ..., hook_type: _Optional[_Union[_runtime_pb2.HookEventType, str, int]] = ..., enabled: bool = ..., precedence: _Optional[int] = ...) -> None: ...

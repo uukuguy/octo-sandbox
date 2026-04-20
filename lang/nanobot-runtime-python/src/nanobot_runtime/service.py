@@ -113,19 +113,19 @@ class NanobotRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
                 # ADR-V2-021: chunk_type is the proto ChunkType enum (int on wire).
                 if event.event_type == EventType.CHUNK:
                     yield runtime_pb2.SendResponse(
-                        chunk_type=common_pb2.CHUNK_TYPE_TEXT_DELTA,  # type: ignore[arg-type]  # ADR-V2-021 ChunkType int-on-wire
+                        chunk_type=common_pb2.CHUNK_TYPE_TEXT_DELTA,
                         content=event.content,
                     )
                 elif event.event_type == EventType.TOOL_CALL:
                     yield runtime_pb2.SendResponse(
-                        chunk_type=common_pb2.CHUNK_TYPE_TOOL_START,  # type: ignore[arg-type]  # ADR-V2-021 ChunkType int-on-wire
+                        chunk_type=common_pb2.CHUNK_TYPE_TOOL_START,
                         tool_name=event.tool_name,
                         tool_id=event.tool_call_id,
                         content=event.content,
                     )
                 elif event.event_type == EventType.TOOL_RESULT:
                     yield runtime_pb2.SendResponse(
-                        chunk_type=common_pb2.CHUNK_TYPE_TOOL_RESULT,  # type: ignore[arg-type]  # ADR-V2-021 ChunkType int-on-wire
+                        chunk_type=common_pb2.CHUNK_TYPE_TOOL_RESULT,
                         tool_name=event.tool_name,
                         tool_id=event.tool_call_id,
                         content=event.content,
@@ -133,12 +133,12 @@ class NanobotRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
                     )
                 elif event.event_type == EventType.STOP:
                     yield runtime_pb2.SendResponse(
-                        chunk_type=common_pb2.CHUNK_TYPE_DONE,  # type: ignore[arg-type]  # ADR-V2-021 ChunkType int-on-wire
+                        chunk_type=common_pb2.CHUNK_TYPE_DONE,
                         content=event.content,
                     )
                 elif event.event_type == EventType.ERROR:
                     yield runtime_pb2.SendResponse(
-                        chunk_type=common_pb2.CHUNK_TYPE_ERROR,  # type: ignore[arg-type]  # ADR-V2-021 ChunkType int-on-wire
+                        chunk_type=common_pb2.CHUNK_TYPE_ERROR,
                         content=event.content,
                         is_error=True,
                     )
@@ -270,7 +270,7 @@ class NanobotRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
             supports_native_skills=False,
             cost_per_1k_tokens=0.0,
             # CredentialMode.DIRECT
-            credential_mode=0,  # type: ignore[arg-type]  # ADR-V2-021 proto enum int-on-wire
+            credential_mode=0,
             strengths=["oai-compat"],
             limitations=["stub-hooks"],
             tier="aligned",

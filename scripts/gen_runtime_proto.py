@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -133,6 +134,7 @@ def build(
         subprocess.check_call(cmd)
 
     _fix_imports(out_dir, pkg_prefix)
+    _loosen_enum_stubs(out_dir)
     print(f"[{package_name}] Proto build complete.")
 
 
@@ -144,6 +146,49 @@ def _fix_imports(out_dir: Path, pkg_prefix: str) -> None:
         if fixed != content:
             py_file.write_text(fixed)
             print(f"  Fixed imports in {py_file.relative_to(out_dir)}")
+
+
+# D152 post-process: grpcio-tools generates `_Union[<EnumClass>, str]` for
+# proto3 enum fields in message __init__ signatures, rejecting `int` values
+# even though the runtime accepts them (enums subclass int via
+# EnumTypeWrapper). Upstream fix tracked at
+# https://github.com/protocolbuffers/protobuf/pull/25319 (OPEN, unmerged).
+# Until that lands, we rewrite `_Union[X, str]` to `_Union[X, str, int]` in
+# generated .pyi files so type-checkers (mypy, Pyright) accept
+# `CHUNK_TYPE_TEXT_DELTA` (an int constant) without `# type: ignore`.
+#
+# Match surface (verified across runtime_pb2.pyi / hook_pb2.pyi / common_pb2.pyi
+# for 4 packages): only `_Union[X, str]` — never `_Union[X, _Mapping]` (nested
+# Messages) or `_Union[X, str, int]` (already loosened, idempotent).
+#
+# The X alternative is a dotted identifier or nested class reference like
+# `_common_pb2.ChunkType`, `HookEventType`, `Capabilities.CredentialMode`.
+_UNION_ENUM_STR_RE = re.compile(
+    r"_Union\[(?P<enum>[A-Za-z_][\w.]*), str\](?!, int\])"
+)
+
+
+def _loosen_enum_stubs(out_dir: Path) -> int:
+    """Rewrite `_Union[EnumClass, str]` → `_Union[EnumClass, str, int]` in .pyi.
+
+    Returns the number of substitutions made. Idempotent: running twice
+    produces zero substitutions on the second pass.
+    """
+    total = 0
+    for pyi_file in out_dir.rglob("*_pb2.pyi"):
+        content = pyi_file.read_text()
+        new_content, count = _UNION_ENUM_STR_RE.subn(
+            r"_Union[\g<enum>, str, int]",
+            content,
+        )
+        if count:
+            pyi_file.write_text(new_content)
+            print(
+                f"  Loosened {count} enum stub(s) in "
+                f"{pyi_file.relative_to(out_dir)} (D152)"
+            )
+            total += count
+    return total
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:

@@ -153,7 +153,7 @@ Phase 3.6 落地时 reviewer 把 5 项非阻塞改进转成 Deferred（D151–D1
 - [ ] T5 D149 ledger ✅ CLOSED
 - [ ] T6 `pytest lang/pydantic-ai-runtime-python/tests/` ≥12 PASS
 - [ ] T6 D148 ledger ✅ CLOSED
-- [ ] T7 决策明确落入 ledger（CLOSED / open with URL + ETA）
+- [x] T7 决策明确落入 ledger — Option (a) post-process `.pyi` script in `scripts/gen_runtime_proto.py`; 12 `# type: ignore[arg-type]` 全删；D152 ✅ CLOSED
 - [ ] `make v2-phase3-e2e` regression 112/112 PASS
 - [ ] Commits atomic per task，footer 齐，subject ≤72 chars
 - [ ] `/dev-phase-manager:end-phase` 归档
