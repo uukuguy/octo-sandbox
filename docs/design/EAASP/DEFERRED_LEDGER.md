@@ -354,6 +354,7 @@
 | 2026-04-20 | D145 | 🧹 tech-debt → ✅ CLOSED | Phase 3.6 T2 — `session_orchestrator.py` 抽 `_accumulate_delta` + `_record_coalesced_deltas` helpers，消除 `send_message` / `stream_message` `delta_buf` 闭包重复；yield / `chunks.append` 非对称性保留在调用处。`test_chunk_coalescing.py` 7/7 PASS + `test_session_orchestrator.py` 13/13 PASS。 |
 | 2026-04-20 | D147 | 🧹 tech-debt → ✅ CLOSED (workaround) | Phase 3.6 T3 — 10 处 `# type: ignore[arg-type]  # ADR-V2-021 ChunkType int-on-wire` 绕过 grpcio-tools stub 限制（`nanobot-runtime-python/src/nanobot_runtime/service.py` 5 处 + `pydantic-ai-runtime-python/src/pydantic_ai_runtime/service.py` 5 处）. pytest 全 PASS (nanobot 36/36 + pydantic-ai 4/4). 真正根因追踪至 D152. |
 | 2026-04-20 | D152 | **新增** 🧹 tech-debt | D147 descope 副产物 — 跟踪 grpcio-tools 上游 int-accepting stubs. |
+| 2026-04-20 | D152 | 扩围 10→12 | Phase 3.6 T3 follow-up — Pyright surfaced 2 个 credential_mode=0 site (nanobot/service.py:272, pydantic-ai/service.py:131)，同类 ADR-V2-021 proto enum int-on-wire 问题，annotated. |
 | 2026-04-14 | — | **ledger 创建** | 收敛 D1–D89 到 single source of truth |
 | 2026-04-12 | D1, D2 | active → ✅ closed | ADR-V2-004 S4.T2 4b-lite |
 | 2026-04-12 | D47, D49, D52 | active → ✅ closed | S4.T2 前置修复 |
@@ -408,7 +409,7 @@
 | **D149** | ccb-runtime-ts `src/proto/types.ts` hand-written enum 无 SoT 同步保障 — proto 新增 variant 时 TS 不会自动失败 | Phase 3.5 S1.T7 review | 🟡 P1-active | 引入 @bufbuild/protoc-gen-es 或 protobuf.js + build step；或在 proto 加 guard 注释 + CI grep 对比 |
 | **D150** | `nanobot/pydantic-ai` 两份 `build_proto.py` 与 `claude-code-runtime-python/build_proto.py` 内容重复（仅包名不同） | Phase 3.5 S0 | 🧹 tech-debt | 抽到 `scripts/gen_runtime_proto.py` 接受包名参数 |
 | **D151** | harness.rs hook envelope 三处 dispatch 缺少 call-site 回归测试 — `.with_event(...)` 被误删后，D136 xfail 掩码会掩盖回归 | Phase 3.6 T1 code review | 🧹 tech-debt | 补 `harness_envelope_wiring_test.rs` 用 spy HookHandler / StopHook 断言收到的 ctx.event 字段等于 "PreToolUse"/"PostToolUse"/"Stop"（~50 LOC）；Phase 3.6 signoff 前 |
-| **D152** | `grpcio-tools` proto3 enum `.pyi` stubs 拒绝 int 参数而 runtime 接受 — 当前用 `# type: ignore[arg-type]` 绕过，10 处 | Phase 3.6 T3 descope | 🧹 tech-debt | 跟踪 `grpcio-tools` 或 `mypy-protobuf` 上游支持 int-accepting stubs；或写 post-process `.pyi` 脚本（在 T4 `scripts/gen_runtime_proto.py` 里）|
+| **D152** | `grpcio-tools` proto3 enum `.pyi` stubs 拒绝 int 参数而 runtime 接受 — 当前用 `# type: ignore[arg-type]` 绕过，12 处（ChunkType + CredentialMode）| Phase 3.6 T3 descope | 🧹 tech-debt | 跟踪 `grpcio-tools` 或 `mypy-protobuf` 上游支持 int-accepting stubs；或写 post-process `.pyi` 脚本（在 T4 `scripts/gen_runtime_proto.py` 里）|
 
 **合计新增：8 项 Deferred（2 ✅ CLOSED + 2 🟡 P1-active + 4 🧹 tech-debt）**
 

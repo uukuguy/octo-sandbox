@@ -128,7 +128,7 @@ class PydanticAiRuntimeService(runtime_pb2_grpc.RuntimeServiceServicer):
             supports_native_mcp=False,
             supports_native_skills=False,
             cost_per_1k_tokens=0.0,
-            credential_mode=0,
+            credential_mode=0,  # type: ignore[arg-type]  # ADR-V2-021 proto enum int-on-wire
             strengths=["pydantic-ai", "oai-compat"],
             limitations=["stub-hooks", "stub-mcp"],
             tier="aligned",
