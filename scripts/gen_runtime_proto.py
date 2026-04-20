@@ -81,13 +81,19 @@ PACKAGES: dict[str, tuple[Path, str, str, tuple[str, ...]]] = {
     ),
 }
 
+# Invariant: pkg_prefix is always f"{src_pkg_name}._proto". Both fields exist
+# for reader clarity, but they must stay in sync. Bail at import time if a
+# future registry row violates this.
+for _name, (_, _src, _pfx, _) in PACKAGES.items():
+    assert _pfx == f"{_src}._proto", (
+        f"PACKAGES[{_name!r}] pkg_prefix {_pfx!r} "
+        f"must equal f'{{src_pkg_name}}._proto' = {_src}._proto"
+    )
+
 
 def build(package_name: str, proto_files: tuple[str, ...] | None = None) -> None:
     if package_name not in PACKAGES:
-        sys.exit(
-            f"error: unknown --package-name {package_name!r}; "
-            f"known: {sorted(PACKAGES)}"
-        )
+        sys.exit(f"error: unknown --package-name {package_name!r}; " f"known: {sorted(PACKAGES)}")
     pkg_dir, src_pkg, pkg_prefix, default_protos = PACKAGES[package_name]
     protos = tuple(proto_files) if proto_files else default_protos
 
@@ -138,10 +144,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate Python gRPC stubs for EAASP v2 runtime packages.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog=(
-            "Registered packages:\n"
-            + "\n".join(f"  - {name}" for name in sorted(PACKAGES))
-        ),
+        epilog=("Registered packages:\n" + "\n".join(f"  - {name}" for name in sorted(PACKAGES))),
     )
     parser.add_argument(
         "--package-name",
