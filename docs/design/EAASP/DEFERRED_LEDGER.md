@@ -360,6 +360,7 @@
 | 2026-04-20 | D146 | 🧹 tech-debt → ✅ CLOSED | Phase 3.6 T5 — `pyrightconfig.json` 落地 @ 10 package executionEnvironments（`.venv/lib/python{ver}/site-packages` extraPaths + per-env pythonVersion: 7×3.14 + mock-scada/scripts 3.12）+ exclude hermes（ADR-V2-017 frozen）+ `tools/archive/**` + `reportMissingTypeStubs: false` / `reportMissingModuleSource: none` + strict off. Pyright v1.1.408 本地 regression 236→8 warnings（import 归位）；D152 `# type: ignore` 继续生效（nanobot service.py 0 errors/0 warnings）. pytest 56/56 PASS（nanobot 36 + L4 chunk+orchestrator 20）. |
 | 2026-04-20 | D153 | **新增** 🧹 tech-debt | T4 code reviewer 发现 Dockerfile symlink 是 paper cut — 加 `--out-dir` override flag 可去除。Phase 4 runtime Dockerfile 增殖前完成。 |
 | 2026-04-20 | gen_runtime_proto.py | T4 followup | Black reformat（I1）+ 注册表 `pkg_prefix == f'{src_pkg}._proto'` import-time invariant assertion（I2）；byte-parity 验证仍 0 diff。 |
+| 2026-04-20 | D154, D155 | **新增** 🧹 tech-debt | T5 code reviewer 发现: D154 per-env pythonVersion 跟随 installed venv 而非 pyproject 声明的 `>=3.12` floor；D155 fresh clone 缺 `.venv` 时 pyright fallback 到根 `.venv`（无 grpc）→ 500+ 假 unresolved。 |
 | 2026-04-14 | — | **ledger 创建** | 收敛 D1–D89 到 single source of truth |
 | 2026-04-12 | D1, D2 | active → ✅ closed | ADR-V2-004 S4.T2 4b-lite |
 | 2026-04-12 | D47, D49, D52 | active → ✅ closed | S4.T2 前置修复 |
@@ -416,8 +417,10 @@
 | **D151** | harness.rs hook envelope 三处 dispatch 缺少 call-site 回归测试 — `.with_event(...)` 被误删后，D136 xfail 掩码会掩盖回归 | Phase 3.6 T1 code review | 🧹 tech-debt | 补 `harness_envelope_wiring_test.rs` 用 spy HookHandler / StopHook 断言收到的 ctx.event 字段等于 "PreToolUse"/"PostToolUse"/"Stop"（~50 LOC）；Phase 3.6 signoff 前 |
 | **D152** | `grpcio-tools` proto3 enum `.pyi` stubs 拒绝 int 参数而 runtime 接受 — 当前用 `# type: ignore[arg-type]` 绕过，12 处（ChunkType + CredentialMode）| Phase 3.6 T3 descope | 🧹 tech-debt | 跟踪 `grpcio-tools` 或 `mypy-protobuf` 上游支持 int-accepting stubs；或写 post-process `.pyi` 脚本（在 T4 `scripts/gen_runtime_proto.py` 里）|
 | **D153** | `scripts/gen_runtime_proto.py` 假设 `<repo>/lang/<pkg>/src/<mod>/_proto` 输出布局 — Dockerfile 构建时用 `ln -s /build/src /build/lang/.../src` 绕过 layout mismatch，下次 nanobot/pydantic-ai Dockerfile 落地会重复 hack | Phase 3.6 T4 code review | 🧹 tech-debt | 加 `--out-dir` override flag（script 5 LOC）+ Dockerfile 去掉 symlink（-8 LOC，+1 flag arg）；Phase 4 新 runtime Dockerfile 前完成 |
+| **D154** | `pyrightconfig.json` per-env `pythonVersion` 锁到本机 installed venv（7×3.14 / 1×3.12），而 package `pyproject.toml` 都声明 `>=3.12` — 3.13+-only 语法会溜过检查，fresh clone 用 3.12 venv 时可能在 IDE 里亮红 | Phase 3.6 T5 code review | 🧹 tech-debt | 所有 per-env `pythonVersion: "3.12"`（与 declared floor 对齐）；或去掉 per-env version 让顶层 3.12 fallback 接管 |
+| **D155** | Fresh-clone / 缺 `.venv` 时 `pyright` 会 fallback 到仓库根 `.venv`（Python 3.12 无 grpc）造成 500+ unresolved imports 假失败 — 未来加 CI pyright gate 时会第一次踩 | Phase 3.6 T5 code review | 🧹 tech-debt | `scripts/check-pyright-prereqs.sh` 预检 9 个 venv 存在 + README/CLAUDE.md 一行说明；或 `make setup` 里 `uv sync` 覆盖全 9 包 |
 
-**合计新增：9 项 Deferred（4 ✅ CLOSED + 2 🟡 P1-active + 3 🧹 tech-debt）**
+**合计新增：11 项 Deferred（4 ✅ CLOSED + 2 🟡 P1-active + 5 🧹 tech-debt）**
 
 所有条目在 Phase 3.5 S2.T1 / S3.T1 / S3.T2 审查中由实现者或审查者提出，均为非阻塞性遗留，不影响 ADR-V2-021 的签收。
 
