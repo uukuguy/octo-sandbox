@@ -30,16 +30,11 @@ COPY scripts/gen_runtime_proto.py /build/scripts/gen_runtime_proto.py
 # Copy proto definitions
 COPY proto/ /proto/
 
-# Build proto stubs.
-# The consolidated script expects the repo-style layout `lang/<pkg>/src/<mod>`
-# under its REPO_ROOT (= parent of the scripts dir). Here /build is the fake
-# repo root and the runtime sources live directly under /build/src, so we
-# symlink /build/lang/claude-code-runtime-python/src → /build/src for the
-# script's output-path resolution.
-RUN mkdir -p /build/lang/claude-code-runtime-python && \
-    ln -s /build/src /build/lang/claude-code-runtime-python/src && \
-    PROTO_ROOT=/proto uv run python scripts/gen_runtime_proto.py \
-        --package-name claude-code-runtime
+# Build proto stubs. --out-dir targets the flattened /build/src layout directly
+# (Dockerfile doesn't mirror the repo's lang/<pkg>/src/<mod>/ path).
+RUN PROTO_ROOT=/proto uv run python scripts/gen_runtime_proto.py \
+        --package-name claude-code-runtime \
+        --out-dir /build/src/claude_code_runtime/_proto
 
 # ── Runtime stage ──
 FROM python:3.12-slim-bookworm

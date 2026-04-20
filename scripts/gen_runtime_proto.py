@@ -91,14 +91,20 @@ for _name, (_, _src, _pfx, _) in PACKAGES.items():
     )
 
 
-def build(package_name: str, proto_files: tuple[str, ...] | None = None) -> None:
+def build(
+    package_name: str,
+    proto_files: tuple[str, ...] | None = None,
+    out_dir_override: Path | None = None,
+) -> None:
     if package_name not in PACKAGES:
         sys.exit(f"error: unknown --package-name {package_name!r}; " f"known: {sorted(PACKAGES)}")
     pkg_dir, src_pkg, pkg_prefix, default_protos = PACKAGES[package_name]
     protos = tuple(proto_files) if proto_files else default_protos
 
     proto_root = Path(os.getenv("PROTO_ROOT", PROTO_ROOT_DEFAULT))
-    out_dir = REPO_ROOT / pkg_dir / "src" / src_pkg / "_proto"
+    # --out-dir overrides the <repo>/lang/<pkg>/src/<mod>/_proto default;
+    # Dockerfile builds use this to target a flattened source tree (D153).
+    out_dir = out_dir_override if out_dir_override else REPO_ROOT / pkg_dir / "src" / src_pkg / "_proto"
     out_dir.mkdir(parents=True, exist_ok=True)
     (out_dir / "__init__.py").touch()
 
@@ -162,12 +168,27 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "registry default. Example: eaasp/runtime/v2/common.proto"
         ),
     )
+    parser.add_argument(
+        "--out-dir",
+        type=Path,
+        default=None,
+        metavar="DIR",
+        help=(
+            "Override the output directory (default: "
+            "<repo>/<package_dir>/src/<pkg>/_proto). Useful for Docker "
+            "builds where the source tree is flattened."
+        ),
+    )
     return parser.parse_args(argv)
 
 
 def main(argv: list[str] | None = None) -> None:
     args = _parse_args(argv)
-    build(args.package_name, tuple(args.proto_files) if args.proto_files else None)
+    build(
+        args.package_name,
+        tuple(args.proto_files) if args.proto_files else None,
+        args.out_dir,
+    )
 
 
 if __name__ == "__main__":
