@@ -27,7 +27,7 @@
   "executionEnvironments": [
     {
       "root": "lang/claude-code-runtime-python",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "lang/claude-code-runtime-python/.venv/lib/python3.14/site-packages",
         "lang/claude-code-runtime-python/src"
@@ -35,7 +35,7 @@
     },
     {
       "root": "lang/nanobot-runtime-python",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "lang/nanobot-runtime-python/.venv/lib/python3.14/site-packages",
         "lang/nanobot-runtime-python/src"
@@ -43,7 +43,7 @@
     },
     {
       "root": "lang/pydantic-ai-runtime-python",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "lang/pydantic-ai-runtime-python/.venv/lib/python3.14/site-packages",
         "lang/pydantic-ai-runtime-python/src"
@@ -51,7 +51,7 @@
     },
     {
       "root": "tools/eaasp-l4-orchestration",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "tools/eaasp-l4-orchestration/.venv/lib/python3.14/site-packages",
         "tools/eaasp-l4-orchestration/src"
@@ -59,7 +59,7 @@
     },
     {
       "root": "tools/eaasp-l3-governance",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "tools/eaasp-l3-governance/.venv/lib/python3.14/site-packages",
         "tools/eaasp-l3-governance/src"
@@ -67,7 +67,7 @@
     },
     {
       "root": "tools/eaasp-l2-memory-engine",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "tools/eaasp-l2-memory-engine/.venv/lib/python3.14/site-packages",
         "tools/eaasp-l2-memory-engine/src"
@@ -75,7 +75,7 @@
     },
     {
       "root": "tools/eaasp-cli-v2",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "tools/eaasp-cli-v2/.venv/lib/python3.14/site-packages",
         "tools/eaasp-cli-v2/src"
@@ -91,7 +91,7 @@
     },
     {
       "root": "sdk/python",
-      "pythonVersion": "3.14",
+      "pythonVersion": "3.12",
       "extraPaths": [
         "sdk/python/.venv/lib/python3.14/site-packages",
         "sdk/python/src"

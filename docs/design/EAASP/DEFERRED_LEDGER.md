@@ -362,6 +362,7 @@
 | 2026-04-20 | gen_runtime_proto.py | T4 followup | Black reformat（I1）+ 注册表 `pkg_prefix == f'{src_pkg}._proto'` import-time invariant assertion（I2）；byte-parity 验证仍 0 diff。 |
 | 2026-04-20 | D154, D155 | **新增** 🧹 tech-debt | T5 code reviewer 发现: D154 per-env pythonVersion 跟随 installed venv 而非 pyproject 声明的 `>=3.12` floor；D155 fresh clone 缺 `.venv` 时 pyright fallback 到根 `.venv`（无 grpc）→ 500+ 假 unresolved。 |
 | 2026-04-20 | D151 | 🧹 tech-debt → ✅ CLOSED | Phase 4a T1 — `crates/grid-engine/tests/harness_envelope_wiring_test.rs` 3 tests (PreToolUse / PostToolUse / Stop) with spy HookHandler + StopHook capturing ctx.event. 手工 delete .with_event(...) at any of harness.rs:1766/2236/2390 now fails the corresponding test. grid-engine regression 2385+3=2388 PASS. |
+| 2026-04-20 | D154 | 🧹 tech-debt → ✅ CLOSED | Phase 4a T2 — pyrightconfig.json 所有 8 per-env pythonVersion 统一为 "3.12"（pyproject `requires-python>=3.12` floor）。Pyright 前后 103 errors + 8 warnings 一致 —— 确认没有 3.13+-only 语法逃过检查。 |
 | 2026-04-14 | — | **ledger 创建** | 收敛 D1–D89 到 single source of truth |
 | 2026-04-12 | D1, D2 | active → ✅ closed | ADR-V2-004 S4.T2 4b-lite |
 | 2026-04-12 | D47, D49, D52 | active → ✅ closed | S4.T2 前置修复 |
@@ -377,7 +378,7 @@
 
 | 状态 | 数量 | D 编号 | 含义 |
 |------|------|--------|------|
-| ✅ **closed** | 33 | D1, D2, D4, D7, D47, D49, D51, D52, D53, D54, D60, D78, D83, D84, D85, D86, D87, D89, D94, D98, D108, D117, D120, D124, D125, D130, D140, D145, D146, D147, D150, D151 + S3.T5 legacy D50→D117 renamed | Phase 3 S2 新增：D78 @ 4633c0b, D94 @ 4633c0b, D98 @ e77833d, D108 @ 00e64e7, D117 @ 688bf4d, D125 @ 0ce0294, D130 @ af71c99；Phase 3.6 T1 新增：D140；Phase 3.6 T2 新增：D145；Phase 3.6 T3 新增：D147 (workaround)；Phase 3.6 T4 新增：D150；Phase 3.6 T5 新增：D146；Phase 4a T1 新增：D151 |
+| ✅ **closed** | 34 | D1, D2, D4, D7, D47, D49, D51, D52, D53, D54, D60, D78, D83, D84, D85, D86, D87, D89, D94, D98, D108, D117, D120, D124, D125, D130, D140, D145, D146, D147, D150, D151, D154 + S3.T5 legacy D50→D117 renamed | Phase 3 S2 新增：D78 @ 4633c0b, D94 @ 4633c0b, D98 @ e77833d, D108 @ 00e64e7, D117 @ 688bf4d, D125 @ 0ce0294, D130 @ af71c99；Phase 3.6 T1 新增：D140；Phase 3.6 T2 新增：D145；Phase 3.6 T3 新增：D147 (workaround)；Phase 3.6 T4 新增：D150；Phase 3.6 T5 新增：D146；Phase 4a T1 新增：D151；Phase 4a T2 新增：D154 |
 | 🔄 **superseded** | 3 | D27→D54, D40→D54, D50→D117 (renamed) | 被其他 D 或 ADR 取代 |
 | ⏸️ **frozen** | 2 | D66, D88 | hermes 冻结，Phase 2.5 goose 替代 |
 | 🔥 **P0-active** | 0 | — | Phase 2 S4 全部归档 |
@@ -418,10 +419,10 @@
 | **D151** | harness.rs hook envelope 三处 dispatch 缺少 call-site 回归测试 — `.with_event(...)` 被误删后，D136 xfail 掩码会掩盖回归 | Phase 3.6 T1 code review | ✅ CLOSED | Phase 4a T1 — `crates/grid-engine/tests/harness_envelope_wiring_test.rs`（3 tests, spy `HookHandler` + spy `StopHook` 捕获 `ctx.event`），断言 PreToolUse / PostToolUse / Stop 三处 dispatch 均 surface ADR-V2-006 §2 literal。手工 delete `.with_event(...)` at harness.rs:1766/2236/2390 将分别令对应测试 fail。 |
 | **D152** | `grpcio-tools` proto3 enum `.pyi` stubs 拒绝 int 参数而 runtime 接受 — 当前用 `# type: ignore[arg-type]` 绕过，12 处（ChunkType + CredentialMode）| Phase 3.6 T3 descope | 🧹 tech-debt | 跟踪 `grpcio-tools` 或 `mypy-protobuf` 上游支持 int-accepting stubs；或写 post-process `.pyi` 脚本（在 T4 `scripts/gen_runtime_proto.py` 里）|
 | **D153** | `scripts/gen_runtime_proto.py` 假设 `<repo>/lang/<pkg>/src/<mod>/_proto` 输出布局 — Dockerfile 构建时用 `ln -s /build/src /build/lang/.../src` 绕过 layout mismatch，下次 nanobot/pydantic-ai Dockerfile 落地会重复 hack | Phase 3.6 T4 code review | 🧹 tech-debt | 加 `--out-dir` override flag（script 5 LOC）+ Dockerfile 去掉 symlink（-8 LOC，+1 flag arg）；Phase 4 新 runtime Dockerfile 前完成 |
-| **D154** | `pyrightconfig.json` per-env `pythonVersion` 锁到本机 installed venv（7×3.14 / 1×3.12），而 package `pyproject.toml` 都声明 `>=3.12` — 3.13+-only 语法会溜过检查，fresh clone 用 3.12 venv 时可能在 IDE 里亮红 | Phase 3.6 T5 code review | 🧹 tech-debt | 所有 per-env `pythonVersion: "3.12"`（与 declared floor 对齐）；或去掉 per-env version 让顶层 3.12 fallback 接管 |
+| **D154** | `pyrightconfig.json` per-env `pythonVersion` 锁到本机 installed venv（7×3.14 / 1×3.12），而 package `pyproject.toml` 都声明 `>=3.12` — 3.13+-only 语法会溜过检查，fresh clone 用 3.12 venv 时可能在 IDE 里亮红 | Phase 3.6 T5 code review | ✅ CLOSED | Phase 4a T2 — 所有 8 个 per-env `pythonVersion` 从 `"3.14"`/`"3.12"` 统一为 `"3.12"`（pyproject `requires-python>=3.12` floor）。Pyright regression 前后 103 errors + 8 warnings 一致，无 3.13+-only 语法被揪出（说明本机 venv 虽是 3.14 但代码确实写在 3.12 compat 面上）。 |
 | **D155** | Fresh-clone / 缺 `.venv` 时 `pyright` 会 fallback 到仓库根 `.venv`（Python 3.12 无 grpc）造成 500+ unresolved imports 假失败 — 未来加 CI pyright gate 时会第一次踩 | Phase 3.6 T5 code review | 🧹 tech-debt | `scripts/check-pyright-prereqs.sh` 预检 9 个 venv 存在 + README/CLAUDE.md 一行说明；或 `make setup` 里 `uv sync` 覆盖全 9 包 |
 
-**合计新增：11 项 Deferred（5 ✅ CLOSED + 2 🟡 P1-active + 4 🧹 tech-debt）**
+**合计新增：11 项 Deferred（6 ✅ CLOSED + 2 🟡 P1-active + 3 🧹 tech-debt）**
 
 所有条目在 Phase 3.5 S2.T1 / S3.T1 / S3.T2 审查中由实现者或审查者提出，均为非阻塞性遗留，不影响 ADR-V2-021 的签收。
 
