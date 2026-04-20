@@ -53,6 +53,11 @@ install: setup
 setup:
 	cd web && npm install
 
+# 校验 pyrightconfig.json 绑定的 9 个 per-package .venv 全部存在
+# 缺 venv 会让 Pyright 回退到根 .venv 产生 500+ 假 unresolved（D155）
+check-pyright-prereqs:
+	scripts/check-pyright-prereqs.sh
+
 # ============================================================
 # 后端命令
 # ============================================================
