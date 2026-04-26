@@ -7,7 +7,7 @@
 
 ## Phases
 
-- [ ] **Phase 4.0: Bootstrap & Cleanup / GSD 接管 + 队列清零** — REVIEW_POLICY.md 落地 + CLEANUP-01..04 一次性扫掉 (tracer-bullet validates GSD plumbing)
+- [x] **Phase 4.0: Bootstrap & Cleanup / GSD 接管 + 队列清零** — REVIEW_POLICY.md 落地 + CLEANUP-01..04 一次性扫掉 (tracer-bullet validates GSD plumbing) ✅ 2026-04-27 (5/5 SC, 7/7 must-haves PASS)
 - [ ] **Phase 4.1: Discuss & Audit / §P5 触发条件审计** — Socratic discuss + DECIDE-01 audit doc + GSD discuss→plan→execute 链路跑通验证
 - [ ] **Phase 4.2: Decide & Document / 决策落定** — Phase 4.2 path plan (Leg A 硬化 OR Leg B 激活) + ADR-V2-024 Accepted 关闭 milestone
 

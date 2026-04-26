@@ -8,10 +8,10 @@
 
 ### A. Pre-Phase-4 Cleanup (carry-over from Phase 4a project review 2026-04-26)
 
-- [ ] **CLEANUP-01**: 修复 `docs/design/EAASP/L1_RUNTIME_ADAPTATION_GUIDE.md` §4 stale chunk_type wire 值 —— 用 ADR-V2-021 §4 的合法 enum 值(TEXT_DELTA / TOOL_START / WORKFLOW_CONTINUATION 等 8 个,加 ADR-V2-021 引用)替换 "text" / "tool_call" / "hook_fired" / "pre_compact" 字符串。新 L1 runtime 作者直接读到正确 wire 契约。
-- [ ] **CLEANUP-02**: 澄清 D120 状态 —— 调查 `DEFERRED_LEDGER.md` 中 D120 标 "P1-defer → Phase 2.5 W1" 与 `phase_stack.json` Phase 2.5 标 100% complete 的矛盾,决定 D120 是真已 closed 还是 silent descope。如已 closed,补 close-out trace;如仍 open,加显式 ETA。Output: ledger row 状态明确,可被搜索断言。
-- [ ] **CLEANUP-03**: 创建 `docs/reviews/strategy-grid-two-leg-checklist.md` —— ADR-V2-023 §Enforcement 引用了此文件但磁盘上不存在。文件应规范化 reviewer 在 PR 触碰 `grid-platform/` `grid-server/` `grid-desktop/` `web*/` 时的 dormancy-justification 检查清单。
-- [ ] **CLEANUP-04**: 创建/补充 `.github/CODEOWNERS` 把 Leg-B crate / web 目录强制要求 reviewer 走 §P5 dormancy-justification 流程。
+- [x] **CLEANUP-01**: 修复 `docs/design/EAASP/L1_RUNTIME_ADAPTATION_GUIDE.md` §4 stale chunk_type wire 值 —— 用 ADR-V2-021 §4 的合法 enum 值(TEXT_DELTA / TOOL_START / WORKFLOW_CONTINUATION 等 8 个,加 ADR-V2-021 引用)替换 "text" / "tool_call" / "hook_fired" / "pre_compact" 字符串。新 L1 runtime 作者直接读到正确 wire 契约。
+- [x] **CLEANUP-02**: 澄清 D120 状态 —— 调查 `DEFERRED_LEDGER.md` 中 D120 标 "P1-defer → Phase 2.5 W1" 与 `phase_stack.json` Phase 2.5 标 100% complete 的矛盾,决定 D120 是真已 closed 还是 silent descope。如已 closed,补 close-out trace;如仍 open,加显式 ETA。Output: ledger row 状态明确,可被搜索断言。
+- [x] **CLEANUP-03**: 创建 `docs/reviews/strategy-grid-two-leg-checklist.md` —— ADR-V2-023 §Enforcement 引用了此文件但磁盘上不存在。文件应规范化 reviewer 在 PR 触碰 `grid-platform/` `grid-server/` `grid-desktop/` `web*/` 时的 dormancy-justification 检查清单。
+- [x] **CLEANUP-04**: 创建/补充 `.github/CODEOWNERS` 把 Leg-B crate / web 目录强制要求 reviewer 走 §P5 dormancy-justification 流程。
 
 ### B. Phase 4 主决策(Leg A vs Leg B per ADR-V2-023 §P5)
 
@@ -21,7 +21,7 @@
 
 ### C. Workflow & Governance Bootstrap(GSD 体系基建)
 
-- [ ] **GOVERNANCE-01**: `.planning/REVIEW_POLICY.md` 落地 —— 定义 high / medium / low risk task 触发条件,以及 superpowers two-stage review opt-in 协议(Phase 4 期间起草,基于 Phase 4a T1-T7 实战经验)。
+- [x] **GOVERNANCE-01**: `.planning/REVIEW_POLICY.md` 落地 —— 定义 high / medium / low risk task 触发条件,以及 superpowers two-stage review opt-in 协议(Phase 4 期间起草,基于 Phase 4a T1-T7 实战经验)。
 - [ ] **GOVERNANCE-02**: 第一个 GSD-managed phase(Phase 4.1 discuss)完整跑通 —— 验证 GSD 的 discuss → plan → execute → review → end-phase 链路在本仓库 brownfield 上可工作,记录任何不顺手处。
 - [ ] **GOVERNANCE-03**: 第一次跨 phase 状态恢复测试 —— 通过 `/gsd-resume-work` 在 `/clear` 之后恢复 active phase context。验证 STATE.md + checkpoint 机制可靠。
 
