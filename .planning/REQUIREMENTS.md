@@ -52,20 +52,20 @@
 
 ## Traceability
 
-> Filled by `/gsd-roadmapper` after ROADMAP.md is generated。每条 REQ-ID 必须 1-to-1 映射到一个 phase。
+> Filled by `/gsd-roadmapper` 2026-04-26 — ROADMAP.md generated。每条 REQ-ID 1-to-1 映射到 ROADMAP.md `Phase Details` 中一个 phase。
 
-| REQ-ID | Phase |
-|--------|-------|
-| CLEANUP-01 | TBD(可能 Phase 4.0 quick clean,也可能并入 4.2) |
-| CLEANUP-02 | TBD |
-| CLEANUP-03 | TBD |
-| CLEANUP-04 | TBD |
-| DECIDE-01 | Phase 4.1(discuss 阶段输入) |
-| DECIDE-02 | Phase 4.1 收尾 / 4.2 起头 |
-| DECIDE-03 | Phase 4.2 末 |
-| GOVERNANCE-01 | Phase 4.0(REVIEW_POLICY.md 在 GSD 接管 Step 3 同时落) |
-| GOVERNANCE-02 | Phase 4.1 跑通验证 |
-| GOVERNANCE-03 | 任意 phase resume 时验 |
+| REQ-ID | Phase | Notes |
+|--------|-------|-------|
+| CLEANUP-01 | Phase 4.0 | L1_RUNTIME_ADAPTATION_GUIDE.md §4 chunk_type sweep + ADR-V2-021 provenance marker |
+| CLEANUP-02 | Phase 4.0 | DEFERRED_LEDGER D120 status + row-edit-on-close convention(NEW-C6 顺手解决) |
+| CLEANUP-03 | Phase 4.0 | docs/reviews/strategy-grid-two-leg-checklist.md 落地 |
+| CLEANUP-04 | Phase 4.0 | .github/CODEOWNERS Leg-B dormancy reviewer 强制 |
+| DECIDE-01 | Phase 4.1 | ADR-V2-023 §P5 触发条件 audit doc(可单文件 OR ADR-V2-024 草稿 §Audit) |
+| DECIDE-02 | Phase 4.2 | .planning/phases/4.2/PLAN.md 反映 Leg A / Leg B / 两条腿 路径 |
+| DECIDE-03 | Phase 4.2 | ADR-V2-024 Accepted (Proposed → Accepted 同 phase 走完) |
+| GOVERNANCE-01 | Phase 4.0 | REVIEW_POLICY.md 与 cleanup 一起做 tracer-bullet 验证 GSD plumbing |
+| GOVERNANCE-02 | Phase 4.1 | GSD discuss → plan → execute → review 端到端跑通本仓库 brownfield |
+| GOVERNANCE-03 | Phase 4.1 | /gsd-resume-work 在本 phase 至少触发一次(/clear 实测 OR dry-run) |
 
 ---
 
