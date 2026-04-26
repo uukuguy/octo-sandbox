@@ -2,7 +2,8 @@
 id: ADR-V2-019
 title: "L1 Runtime Deployment Model: Multi-Session 内在 + 部署模式可选 + 容错策略"
 type: strategy
-status: Proposed
+status: Accepted
+accepted_at: 2026-04-20
 date: 2026-04-16
 phase: "Phase 2.5 — Consolidation + goose-runtime (W1.T2.5 Dockerfile 实施依据)"
 author: "Jiangwen Su"
