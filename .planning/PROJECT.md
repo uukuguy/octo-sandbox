@@ -26,6 +26,7 @@
 
 <!-- Existing capabilities — proven by Phase 2 → 4a delivery. -->
 
+- ✓ **Phase 4.0 Bootstrap & Cleanup**(2026-04-27) —— GSD 治理底座 REVIEW_POLICY.md 落地 + Phase 4a 遗留 4 项 doc-cleanup(CLEANUP-01..04)归零 + GOVERNANCE-01 dry-run pass。Validated in Phase 4.0(commit `c12f425`),verifier 7/7 must-haves PASS,GSD plumbing tracer-bullet(discuss → research → patterns → plan → plan-checker → execute → verifier)全链路一次过。
 - ✓ **L1 RuntimeService 16-method gRPC contract** —— `proto/eaasp/runtime/v2/runtime.proto` 冻结,7 runtime × contract-v1.1 通过(`make v2-phase3-e2e` 112/112 PASS)
 - ✓ **ChunkType 闭枚举契约**(ADR-V2-021,Phase 3.5) —— 8 wire 值跨 7 runtime 1:1 一致,proto + ccb TS guard CI 双锁
 - ✓ **Hook envelope contract**(ADR-V2-006) —— 子进程 stdin JSON 包络对 Pre/PostToolUse/Stop 三事件,Rust↔Python 通过 `hook_envelope_parity_test.rs` 跨语言一致
@@ -41,12 +42,9 @@
 
 ### Active
 
-<!-- Phase 4 待办 + Phase 4a project review 发现的 P0/P1。 -->
+<!-- Phase 4 待办 — Phase 4.0 4 项 cleanup + GOVERNANCE-01 已 validated 移到上面 §Validated。 -->
 
-- [ ] **Phase 4 主决策:engine vs data/integration 切分 + EAASP 分仓 graduation criteria + Grid 自身产品化路径**(详见 `.planning/phases/4.1-PRE-AUDIT-NOTES.md` §C.3)—— Phase 4.1 先 socratic discuss + §P5 重新框定
-- [ ] **修 P0:`docs/design/EAASP/L1_RUNTIME_ADAPTATION_GUIDE.md` §4 stale chunk_type wire 值** —— 列的是 Phase 3.5 之前的 `"text"` / `"tool_call"` / `"hook_fired"` / `"pre_compact"`,新 L1 runtime 作者会被误导
-- [ ] **澄清 P0:D120 状态** —— `DEFERRED_LEDGER` 标 P1-defer → Phase 2.5 W1,但 `phase_stack` 显示 Phase 2.5 100% 完成,二者矛盾,需断定 D120 是真已 closed 还是 silent descope
-- [ ] **创建 P1:`docs/reviews/strategy-grid-two-leg-checklist.md` + `.github/CODEOWNERS`** —— ADR-V2-023 §Enforcement 引用了前者但文件不存在;CODEOWNERS 缺 Leg-B 路径(`grid-platform` / `grid-server` / `grid-desktop` / `web*`)reviewer 规则。**注意**: ADR-V2-023 措辞("Leg-B dormant")与 user 心智不一致,Phase 4.1 audit 后可能整体重写,本 task 优先保证 governance 文件存在,内容草稿允许沿用 ADR 字面 + 加 forward note
+- [ ] **Phase 4 主决策:engine vs data/integration 切分 + EAASP 分仓 graduation criteria + Grid 自身产品化路径**(详见 `.planning/phases/4.1-PRE-AUDIT-NOTES.md` §C.3 + §F audit agenda Q1-Q4)—— Phase 4.1 先 socratic discuss + §P5 重新框定 → ADR-V2-024 strategy-record
 
 ### Out of Scope
 
@@ -117,4 +115,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-*Last updated: 2026-04-26 after GSD takeover initialization (post-Phase-4a, brownfield from dev-phase-manager + superpowers).*
+*Last updated: 2026-04-27 after Phase 4.0 ✅ COMPLETE (CLEANUP-01..04 + GOVERNANCE-01 closed; GSD plumbing tracer-bullet PASS; commit `c12f425`).*

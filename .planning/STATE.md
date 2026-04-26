@@ -3,9 +3,9 @@ gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
 status: phase_complete
-stopped_at: "Phase 4.0 ✅ executed + verified (5/5 SC, 7/7 must-haves PASS, 5 commits + SUMMARY)。下一步 = `/gsd-end-phase 4.0` 归档 → `/gsd-discuss-phase 4.1` 启动 audit (有 baseline §F Q1-Q4 喂入)。"
-last_updated: "2026-04-27T03:00:00.000Z"
-last_activity: 2026-04-27 -- Phase 04.0 execution + verification COMPLETE
+stopped_at: "Phase 4.0 ✅ COMPLETE (executor + verifier PASSED; PROJECT.md / ROADMAP / REQUIREMENTS / STATE 全部 cascade 同步). 下一步 = `/gsd-discuss-phase 4.1` 启动 Phase 4.1 audit (baseline §F Q1-Q4 喂入)。"
+last_updated: "2026-04-27T03:30:00.000Z"
+last_activity: 2026-04-27 -- Phase 4.0 closed (PROJECT.md evolved + 6 commits pushed)
 progress:
   total_phases: 3
   completed_phases: 1
@@ -25,10 +25,10 @@ See: .planning/PROJECT.md (updated 2026-04-26)
 
 ## Current Position
 
-Phase: 04.0 (bootstrap-cleanup-gsd) — **✅ COMPLETE 2026-04-27**
-Plan: 1/1 done (04.0-01-PLAN.md, 5 tasks PASS)
+Phase: 4.1
+Plan: Not started
 Status: Phase 4.0 executed + verified (5/5 ROADMAP success criteria + 7/7 must-haves)
-Last activity: 2026-04-27 -- Phase 04.0 verifier `## VERIFICATION PASSED`
+Last activity: 2026-04-26
 
 Progress: [████░░░░░░] 33% (1/3 milestone phases complete; Phase 4.1 audit pending)
 
@@ -127,6 +127,7 @@ Local commits ahead of origin: 39+ (push deferred — Phase 4.0 5 commits + stat
 Decisions snapshot: see `.planning/HANDOFF.json` `decisions[]` for 15 cross-phase 决策
 
 **GSD plumbing tracer-bullet 验证结果 (Phase 4.0 success criterion #5):**
+
 - discuss → research → patterns → plan → plan-checker → execute → verifier 全链路一次过
 - 0 iteration loops (plan-checker / verifier 都首次 PASS)
 - 0 deviation 在 executor 期间触发
