@@ -24,7 +24,8 @@
   3. `docs/design/EAASP/DEFERRED_LEDGER.md` 中 D120 状态 ambiguity 解决 —— 单行 grep 即可断定 D120 真实状态(closed at 7e083c7),且 ledger preamble 加入 row-edit-on-close 约定文字以防 future-D-item 复发
   4. `docs/reviews/strategy-grid-two-leg-checklist.md` 与 `.github/CODEOWNERS` 双双存在 —— ADR-V2-023 §Enforcement 引用的 5 个检查点全部落到 checklist 文件中,CODEOWNERS 把 grid-server / grid-platform / grid-desktop / web / web-platform 五条路径标为需 dormancy-justification reviewer
   5. CLEANUP-01..04 在新 GSD plan 内分 task 走完(任何 task 失败时 superpowers two-stage 机制能正确激活,验证 REVIEW_POLICY.md 不是死文档)
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 04.0-01-PLAN.md — CLEANUP-01..04 + GOVERNANCE-01 一次性扫掉, 5 atomic-commit-per-task tracer-bullet (4-5 commits expected)
 **UI hint**: no
 
 ### Phase 4.1: Discuss & Audit / §P5 触发条件审计
@@ -69,7 +70,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 4.0 Bootstrap & Cleanup | 0/0 (TBD by plan-phase) | Not started | - |
+| 4.0 Bootstrap & Cleanup | 0/1 | Plan ready | - |
 | 4.1 Discuss & Audit | 0/0 (TBD by plan-phase) | Not started | - |
 | 4.2 Decide & Document | 0/0 (TBD by plan-phase) | Not started | - |
 
