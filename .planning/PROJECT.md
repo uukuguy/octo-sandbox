@@ -2,11 +2,23 @@
 
 ## What This Is
 
-Grid 是一个 Rust-centric 的 agent runtime 技术栈,围绕 `grid-engine` 与 `grid-runtime` 构建。它有两条产品腿(per ADR-V2-023):**Leg A — EAASP 集成(当前主战场)** 是把 Grid 作为 EAASP(Enterprise-Agent-as-a-Service Platform,上游另一个团队负责的 L2/L3/L4 平台)的旗舰 L1 runtime 经 gRPC 暴露;**Leg B — Grid 独立产品(dormant)** 是 `grid-platform` / `grid-server` / `grid-desktop` + `web-platform/` 的多租户/单租户/桌面端形态,目标客户是 "想要 Grid 但不经过 EAASP" 的企业。
+本仓库 = **EAASP(早期研究版)+ Grid 合体**,目前同仓孵化(EAASP 未来计划分仓独立,时点未定)。两个产品共享 L0 Protocol(`proto/eaasp/runtime/v2/`):
+
+- **EAASP** 是面向企业的 B2B 平台,提供 L2 内存与技能 / L3 治理 / L4 编排的全栈 agent platform 能力。`tools/eaasp-*/` 是其当前实现(不是上游 shadow,是本团队自己的)。
+- **Grid** 是通用的 agent runtime 技术栈(L0/L1),围绕 `grid-engine` 与 `grid-runtime` 构建,目标受众包含开发者 / 单租户 / 桌面 / 工具用户。`crates/grid-*` + `lang/{6 comparison runtimes}` + `web/` 是其实现。
+
+**职责切分**(2026-04-26 socratic baseline,详见 `.planning/phases/4.1-PRE-AUDIT-NOTES.md`):
+
+| 维度 | User 专心做 | 他人主要做 |
+|------|------------|----------|
+| L0 Protocol + L1 Grid 全栈 + L2/L3/L4 各引擎 | ✅ engine 层基础组件 | — |
+| 数据 + 集成横切层(客户数据 / 企业系统对接 / SSO / 第三方 API) | — | ✅ |
+
+> ⚠️ ADR-V2-023(2026-04-19 Accepted)字面表述是 "Leg A primary / Leg B dormant"。这与 user 当前心智模型(Grid 全栈 + EAASP 引擎都是主战场,他人做 data/integration)**正交而非重合**。Phase 4.1 audit 会重新框定 §P5 触发条件 + Leg 命名,可能产出 ADR-V2-024 修订 ADR-V2-023 框架。
 
 ## Core Value
 
-**作为 substitutable L1 runtime 通过 16-method gRPC contract(`proto/eaasp/runtime/v2/runtime.proto`)被 EAASP L2-L4 调用,且任何符合 contract-v1.1 的对比 runtime 都能替换它。** 这个可替换性是 Grid 在 Leg A 的不可妥协约束 —— 它意味着 grid-engine 不能依赖未文档化行为,且本仓库内 6 个 comparison runtime(claude-code / goose / nanobot / pydantic-ai / claw-code / ccb)是契约的活体测试。
+**Grid 全栈 + EAASP 各层引擎都是 user 工时主战场;Grid 同时支撑通用 agent 场景与企业级 AI 应用。** 具体技术不可妥协约束:Grid 作为 substitutable L1 runtime 通过 16-method gRPC contract(`proto/eaasp/runtime/v2/runtime.proto`)被 L2-L4 调用,且任何符合 contract-v1.1 的对比 runtime 都能替换它。这个可替换性意味着 grid-engine 不能依赖未文档化行为,本仓库内 6 个 comparison runtime(claude-code / goose / nanobot / pydantic-ai / claw-code / ccb)是契约的活体测试。
 
 ## Requirements
 
@@ -31,10 +43,10 @@ Grid 是一个 Rust-centric 的 agent runtime 技术栈,围绕 `grid-engine` 与
 
 <!-- Phase 4 待办 + Phase 4a project review 发现的 P0/P1。 -->
 
-- [ ] **Phase 4 主决策:Leg A 继续硬化 vs Leg B 激活**(per ADR-V2-023 §P5 触发条件) —— Phase 4.1 先 socratic discuss
+- [ ] **Phase 4 主决策:engine vs data/integration 切分 + EAASP 分仓 graduation criteria + Grid 自身产品化路径**(详见 `.planning/phases/4.1-PRE-AUDIT-NOTES.md` §C.3)—— Phase 4.1 先 socratic discuss + §P5 重新框定
 - [ ] **修 P0:`docs/design/EAASP/L1_RUNTIME_ADAPTATION_GUIDE.md` §4 stale chunk_type wire 值** —— 列的是 Phase 3.5 之前的 `"text"` / `"tool_call"` / `"hook_fired"` / `"pre_compact"`,新 L1 runtime 作者会被误导
 - [ ] **澄清 P0:D120 状态** —— `DEFERRED_LEDGER` 标 P1-defer → Phase 2.5 W1,但 `phase_stack` 显示 Phase 2.5 100% 完成,二者矛盾,需断定 D120 是真已 closed 还是 silent descope
-- [ ] **创建 P1:`docs/reviews/strategy-grid-two-leg-checklist.md` + `.github/CODEOWNERS`** —— ADR-V2-023 §Enforcement 引用了前者但文件不存在;CODEOWNERS 无 Leg-B dormancy 强制规则
+- [ ] **创建 P1:`docs/reviews/strategy-grid-two-leg-checklist.md` + `.github/CODEOWNERS`** —— ADR-V2-023 §Enforcement 引用了前者但文件不存在;CODEOWNERS 缺 Leg-B 路径(`grid-platform` / `grid-server` / `grid-desktop` / `web*`)reviewer 规则。**注意**: ADR-V2-023 措辞("Leg-B dormant")与 user 心智不一致,Phase 4.1 audit 后可能整体重写,本 task 优先保证 governance 文件存在,内容草稿允许沿用 ADR 字面 + 加 forward note
 
 ### Out of Scope
 
@@ -43,15 +55,17 @@ Grid 是一个 Rust-centric 的 agent runtime 技术栈,围绕 `grid-engine` 与
 - **Phase 0–2.5 历史 retrofit**(Phase 4a project review 发现 sign_off_commit 字段缺失) —— 接受历史不完美,git history 为准,不回填
 - **132 个历史 plan 文件 + 14 archived phase 迁入 GSD ROADMAP.md** —— 冻结为只读历史存档,GSD 仅管 Phase 4 起的新工作
 - **F4 lint 52 个 module-overlap 警告 reconcile** —— Phase 4a session-04-26 audit 已确认无 Decision-text 矛盾,advisory-only 接受
-- **EAASP 上游 `tools/eaasp-*/` 自动 sync 机制** —— 上游团队独立项目,继续手动追平
-- **超出 Leg A 的 Grid Platform / Server / Desktop / Web 增量功能开发** —— Leg B dormant,激活前任何 PR 触碰这几个 crate 需 §P5-style justification
+- **EAASP 与 Grid 立即分仓** —— per `.planning/phases/4.1-PRE-AUDIT-NOTES.md` §A.1 同仓孵化,分仓时点由 Phase 4.1 audit 决定;现阶段不动
+- **超出当前 baseline 的 Grid Platform / Server / Desktop / Web 增量功能开发** —— per `.planning/phases/4.1-PRE-AUDIT-NOTES.md` §C.3 #3,Grid 产品化路径优先级待 audit 决定;在此之前任何 PR 触碰这几个 crate 需 reviewer justification(checklist 由 CLEANUP-03 落地)
 - **替换现有 Plan 流水到 `docs/plans/2026-*-plan.md` 单文件结构** —— GSD 用 `.planning/phases/<phase>/PLAN.md` 多目录结构,各管各的
 
 ## Context
 
 **Brownfield 切换背景**(2026-04-26):本项目从 2026-04-04 起在 dev-phase-manager + superpowers 体系下推进,经过 14 个归档 phase(Phase BA → Phase 4a)交付 EAASP v2.0 全部里程碑(Phase 2 / 2.5 / 3 / 3.5 / 3.6 / 4a)。Phase 4a 末尾 debt 水位归零后,切换到 GSD 体系是因为 GSD 的 **workstreams + resume-work + plan-checker + map-codebase** 在 brownfield + 多 workstream 场景比 dev-phase-manager 更合适。
 
-**项目所处生态位**:Grid 是 EAASP(上游另一团队的 Enterprise-Agent-as-a-Service Platform)的 L1 runtime 候选之一。本仓库的 `tools/eaasp-*/` 是 EAASP L2/L3/L4 的**本地高保真 shadow**(per ADR-V2-023 P3),不是生产 EAASP。Leg A 的契约对接由本仓库的 7 个 L1 runtime 集体验证,任何 contract-v1.1 通过的 runtime 都能在 EAASP 中替换 Grid。
+**项目所处生态位**:本仓库 = EAASP(早期研究版)+ Grid 合体,**两者均由本团队同仓孵化**(详见 `.planning/phases/4.1-PRE-AUDIT-NOTES.md` §A)。Grid 是 EAASP 的旗舰 L1 runtime,EAASP 是 Grid 的 L2/L3/L4 平台层消费者。`tools/eaasp-*/` 是 EAASP 的当前实现(不是上游 shadow,虽然 ADR-V2-023 §P3 字面说"shadow",那是 forward-looking 占位描述,描述未来分仓后的状态)。Leg A 的契约对接由本仓库的 7 个 L1 runtime 集体验证,任何 contract-v1.1 通过的 runtime 都能替换 Grid 作为 EAASP 的 L1。
+
+**未来计划**: EAASP 分仓独立(时点由 Phase 4.1 audit 决定);分仓后 data + integration 横切层由他人主要负责,user 工时持续投在 Grid 全栈 + EAASP 各层引擎基础组件。
 
 **技术栈成熟度**:13 Rust crate(~178K LOC)+ 5 Python lang/runtime + 9 EAASP tools(~29K LOC)+ 226 test files。Cargo workspace 严格依赖纪律(`[workspace.dependencies]` 40+ pin),Python 全 `uv` 管理,Pyright `pyrightconfig.json` 9 per-env executionEnvironments,proto codegen 走 `scripts/gen_runtime_proto.py` 单 SoT。`unsafe` 全工程零块。
 
