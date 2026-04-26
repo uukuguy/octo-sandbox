@@ -2,7 +2,8 @@
 
 > **版本**: v1.0 (Phase 2.5 S2.T1)
 > **适用范围**: 任何希望成为 EAASP L1 Runtime 的代理执行运行时
-> **参考 ADR**: ADR-V2-006 (Hook 信封协议), ADR-V2-017 (L1 生态策略), ADR-V2-019 (部署模型)
+> **参考 ADR**: ADR-V2-006 (Hook 信封协议), ADR-V2-017 (L1 生态策略), ADR-V2-019 (部署模型), **ADR-V2-021 (chunk_type 契约)**
+> **chunk_type 同步**: 本文 chunk_type wire 值以 ADR-V2-021 为 source of truth, 任何漂移 PR 必须同步更新本文 §4 表格
 
 ---
 
@@ -89,19 +90,20 @@ python -m pytest contract_v1/ --runtime=nanobot -v      # nanobot-runtime
 
 ---
 
+<!-- @chunk-type-sync ADR-V2-021 -->
 ## 4. Send 事件类型语义（7 种 chunk_type）
 
 `Send` 方法是 L1 Runtime 的核心，通过流式返回 `SendResponse`，L4 根据 `chunk_type` 字段区分事件类型：
 
 | chunk_type | 含义 | 必填字段 | 触发时机 |
 |------------|------|---------|---------|
-| `"text"` | LLM 生成的文本片段 | `content` | LLM 返回非 tool_call 内容 |
-| `"tool_call"` | 代理请求执行工具 | `tool_name`, `tool_id`, `content`（参数 JSON） | LLM 返回 tool_calls |
-| `"tool_result"` | 工具执行结果 | `tool_name`, `tool_id`, `content`, `is_error` | 工具执行完毕 |
-| `"done"` | 会话轮次正常结束 | `content`（最终输出） | 代理停止（无更多 tool_calls） |
-| `"error"` | 不可恢复错误 | `content`（错误信息）, `is_error=true` | Provider 异常、超出 max_turns 等 |
-| `"hook_fired"` | Hook 脚本执行结果（可选） | `content`（decision） | PostToolUse hook 完成 |
-| `"pre_compact"` | 上下文压缩前快照（可选） | `content` | 触发 PreCompact hook 时 |
+| `text_delta` | LLM 生成的文本片段（流式 increment） | `content` | LLM 返回非 tool_call 内容 |
+| `thinking` | 思考链（推理过程，可选） | `content` | LLM 内部推理过程（extended reasoning） |
+| `tool_start` | 代理请求执行工具 | `tool_name`, `tool_id`, `content`（参数 JSON） | LLM 返回 tool_calls |
+| `tool_result` | 工具执行结果 | `tool_name`, `tool_id`, `content`, `is_error` | 工具执行完毕 |
+| `done` | 会话轮次正常结束 | `content`（最终输出） | 代理停止（无更多 tool_calls） |
+| `error` | 不可恢复错误 | `content`（错误信息）, `is_error=true` | Provider 异常、超出 max_turns 等 |
+| `workflow_continuation` | 跨段工作流延续 | `content`（"attempt N/M"），`event` | 长任务跨 turn 续航（D87 observability） |
 
 > **关键规则**：每次 `Send` 调用**必须**以 `"done"` 或 `"error"` 结尾，L4 依赖此信号关闭流。
 
@@ -469,7 +471,7 @@ async send(call: grpc.ServerWritableStream<SendRequest, SendResponse>): Promise<
 ```typescript
 async *send(sessionId: string, message: string): AsyncGenerator<SendResponse> {
   // 可选：先 yield 一个 text chunk
-  yield { chunk_type: "text", content: "Processing...", session_id: sessionId, ... };
+  yield { chunk_type: "text_delta", content: "Processing...", session_id: sessionId, ... };
   // 必须以 done 结尾
   yield { chunk_type: "done", content: "end_turn", session_id: sessionId, is_error: false };
 }
@@ -489,7 +491,7 @@ export interface SendRequest {
 
 export interface SendResponse {
   session_id: string;
-  chunk_type: string;   // "text" | "tool_call" | "tool_result" | "done" | "error"
+  chunk_type: string;   // "text_delta" | "thinking" | "tool_start" | "tool_result" | "done" | "error" | "workflow_continuation"
   content: string;
   tool_name?: string;
   tool_id?: string;
