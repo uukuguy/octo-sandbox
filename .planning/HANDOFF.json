@@ -1,48 +1,57 @@
 {
   "version": "1.0",
-  "timestamp": "2026-04-26T11:36:36.109Z",
+  "timestamp": "2026-04-27T00:00:00.000Z",
   "context": "default",
   "phase": null,
-  "phase_name": "GSD takeover initialized; Phase 4.0 not yet planned. Inserted task: 华为 skill 评审",
+  "phase_name": "GSD takeover S0-S3 + 调度 skill 规范 v0.1 评审 + 内部 EAASP 承接评估 完成。Phase 4.0 plan-phase 未跑",
   "phase_dir": null,
   "plan": null,
   "task": null,
-  "total_tasks": 7,
+  "total_tasks": 11,
   "status": "paused",
   "completed_tasks": [
     {"id": "GSD-S0",  "name": "Step 0 cutover housekeeping (legacy docs / freeze guide / ADR-V2-019)", "status": "done", "commits": ["d14893d", "40158b1"]},
     {"id": "GSD-S1",  "name": "/gsd-map-codebase — 7 docs / 2943 LOC", "status": "done", "commits": ["62c1ffe"]},
     {"id": "GSD-S2",  "name": "/gsd-new-project — PROJECT/REQUIREMENTS/ROADMAP/STATE/config", "status": "done", "commits": ["2ab89d5","1fe73b8","19bd718","19014a0","b532b99"]},
     {"id": "GSD-S3",  "name": "REVIEW_POLICY.md draft + Phase 4.1 baseline pre-audit notes", "status": "done", "commits": ["165cab4","5ca8b9e","32652fc"]},
-    {"id": "HW-R1",   "name": "华为评审 — Subagent 1 MANDATORY 验证 + 漏点扫描 (research)", "status": "done"},
-    {"id": "HW-R2",   "name": "华为评审 — Subagent 2 agent skill 业界标准 survey (research)", "status": "done"},
-    {"id": "HW-R3",   "name": "华为评审 — Subagent 3 skill 写作 / 原子-SOP / 库治理 (research)", "status": "done"},
-    {"id": "HW-R4",   "name": "华为评审 — Subagent 4 skill 边界 工具/人/知识/系统/信创 (research)", "status": "done"},
-    {"id": "HW-V01",  "name": "华为评审 — 合成 v0.1 (导读 + 紧凑/标准/完整 三份规范)", "status": "done"}
+    {"id": "SPEC-R1",   "name": "调度 skill 规范评审 — Subagent 1 MANDATORY 验证 + 漏点扫描 (research)", "status": "done"},
+    {"id": "SPEC-R2",   "name": "调度 skill 规范评审 — Subagent 2 agent skill 业界标准 survey (research)", "status": "done"},
+    {"id": "SPEC-R3",   "name": "调度 skill 规范评审 — Subagent 3 skill 写作 / 原子-SOP / 库治理 (research)", "status": "done"},
+    {"id": "SPEC-R4",   "name": "调度 skill 规范评审 — Subagent 4 skill 边界 工具/人/知识/系统/信创 (research)", "status": "done"},
+    {"id": "SPEC-V01",  "name": "调度 skill 规范 v0.1 — 合成 (导读 + 紧凑/标准/完整 三份规范 + leader-reply)", "status": "done"},
+    {"id": "HW-INTERNAL", "name": "EAASP 平台对调度 skill 规范 v0.1 承接评估(内部)", "status": "done", "commits": ["c6dadbc"], "output": "docs/external-review/2026-04-26-eaasp-skill-spec-coverage-internal.md (178 LOC) — 4/7/13/6 项 🟢/🟡/🔴/⚫ gap 分布;明确 §3 不写 backlog,只输出观察 + Open Questions"},
+    {"id": "AUDIT-AGENDA", "name": "Phase 4.1 baseline §F — 规范评估浮现的 audit agenda (Q1-Q4)", "status": "done", "commits": ["e1f27df"], "output": ".planning/phases/4.1-PRE-AUDIT-NOTES.md +75 LOC §F — Q1 EAASP 调度 vertical / Q2 governance workflow 升级 / Q3 ⚫ 接入位 / Q4 优先级"}
   ],
   "remaining_tasks": [
     {"id": "GSD-S4",     "name": "Step 4 — /gsd-plan-phase 4.0 (GSD 接管后第一个 plan phase)", "status": "not_started"},
-    {"id": "HW-INTERNAL", "name": "华为评审 — 内部分析: EAASP 平台承接评估 (skill 规范 MANDATORY 清单 vs EAASP 现有架构)", "status": "not_started"},
-    {"id": "HW-LEADER",   "name": "华为评审 — 等待领导对 v0.1 反馈 → 决定 v0.2 方向", "status": "blocked", "blocking_reason": "外部反馈"},
-    {"id": "PUSH-MAIN",   "name": "git push origin main (累积 ~14 unpushed commits + 本次 commits)", "status": "not_started", "blocking_reason": "保留人类决策时机"}
+    {"id": "SPEC-LEADER", "name": "调度 skill 规范 v0.1 — 等待领导反馈 → 决定 v0.2 方向", "status": "blocked", "blocking_reason": "外部反馈"},
+    {"id": "PUSH-MAIN",   "name": "git push origin main (累积 27 unpushed commits)", "status": "not_started", "blocking_reason": "保留人类决策时机"}
   ],
   "blockers": [
-    {"description": "华为 skill v0.1 等领导反馈才能 iterate 到 v0.2", "type": "external", "workaround": "在领导反馈期间推进 GSD-S4 / HW-INTERNAL"}
+    {"description": "调度 skill 规范 v0.1 → v0.2 等领导反馈才能迭代", "type": "external", "workaround": "在领导反馈期间可推进 GSD-S4 主流程"}
   ],
   "human_actions_pending": [
     {"action": "把 leader-reply.md + skill-spec-v0.1.md(紧凑版)发给领导", "context": "推动 v0.1 评审", "blocking": false},
-    {"action": "决定何时 git push origin main", "context": "累积 ~14 unpushed,Phase 4a / 接管 / 评审 commits 都在本地", "blocking": false},
-    {"action": "决定 Phase 4.0 是否需要先跑 /gsd-discuss-phase 4.0", "context": "之前的判断是 Phase 4.0 是 mechanical cleanup 不需要 discuss,但 Phase 4.1 audit 时有 4.1-PRE-AUDIT-NOTES.md 作为 baseline", "blocking": false}
+    {"action": "决定何时 git push origin main", "context": "累积 27 unpushed,Phase 4a / 接管 / 评审 / 内部评估 / §F agenda commits 都在本地", "blocking": false},
+    {"action": "决定 Phase 4.0 是否需要先跑 /gsd-discuss-phase 4.0", "context": "之前判断是 Phase 4.0 是 mechanical cleanup 不需要 discuss;Phase 4.1 baseline §F 已就绪,4.0 仍可跳过 discuss", "blocking": false},
+    {"action": "决定是否启动 Phase 4.1 audit (有 baseline §F Q1-Q4 喂入)", "context": "可在 GSD-S4 完成后启动,或与 GSD-S4 并行(不冲突)", "blocking": false}
   ],
   "decisions": [
     {"decision": "GSD 接管,但 DEFERRED_LEDGER / WORK_LOG / ADR plugin 保留为 SSOT 例外", "rationale": "GSD backlog 是 999.x 散文件,会断 D87→D148→D152 cross-phase trace;ADR plugin 与 GSD 解耦", "phase": "GSD takeover"},
     {"decision": "132 个历史 plan + 14 archived phase 冻结不迁移", "rationale": "git history 已记录,迁入 ROADMAP 风险大价值低", "phase": "GSD takeover"},
-    {"decision": "对外文档去掉对原方案的批评式措辞", "rationale": "立观点不立靶,降低尴尬转发风险", "phase": "华为评审"},
-    {"decision": "L1.5 业务接口适配层 / 原子-SOP 二分 / Gotchas / 技能库治理 = 4 大创新点", "rationale": "Subagent 1-4 research 共同识别;在导读 / 标准版 / 完整版分别按深度展开", "phase": "华为评审"},
-    {"decision": "三份规范按内容深度递进,不是'标准版+附录=完整版'", "rationale": "之前的拼接式做法 review 时发现完整版反而比标准版小;改为标准版 = 紧凑版+反例+论述强化,完整版 = 标准版+实施附录", "phase": "华为评审"},
-    {"decision": "规范用 RFC 2119 + 轻量化结构,不按 GB/T 国标完整形式", "rationale": "v0.1 评审稿合适形态;v0.2 内容稳定后再由标准化办公室按 GB/T 1.1-2020 重排", "phase": "华为评审"}
+    {"decision": "对外文档去掉对原方案的批评式措辞", "rationale": "立观点不立靶,降低尴尬转发风险", "phase": "调度 skill 规范评审"},
+    {"decision": "L1.5 业务接口适配层 / 原子-SOP 二分 / Gotchas / 技能库治理 = 4 大创新点", "rationale": "Subagent 1-4 research 共同识别;在导读 / 标准版 / 完整版分别按深度展开", "phase": "调度 skill 规范评审"},
+    {"decision": "三份规范按内容深度递进,不是'标准版+附录=完整版'", "rationale": "之前的拼接式做法 review 时发现完整版反而比标准版小;改为标准版 = 紧凑版+反例+论述强化,完整版 = 标准版+实施附录", "phase": "调度 skill 规范评审"},
+    {"decision": "规范用 RFC 2119 + 轻量化结构,不按 GB/T 国标完整形式", "rationale": "v0.1 评审稿合适形态;v0.2 内容稳定后再由标准化办公室按 GB/T 1.1-2020 重排", "phase": "调度 skill 规范评审"},
+    {"decision": "正式名'电力调度 AI 智能体 Skill 规范',不叫'华为规范'", "rationale": "受众是国调中心 / 电力调度行业,不是华为公司层级;立靶错绑会扭曲领导转发语义", "phase": "命名校准"},
+    {"decision": "HW-INTERNAL 内部评估 §3 不写平台改动 backlog", "rationale": "写 backlog 会给 Phase 4.1 audit 注入先验,把 audit 降级为'复述结论'", "phase": "HW-INTERNAL 评估"},
+    {"decision": "§F agenda 不是 backlog — Q1-Q4 是 audit 必须显式回答的问题,不是动作清单", "rationale": "agenda(问题)与 backlog(动作)分离;具体改动等 audit 答 Q1-Q4 后再拆", "phase": "Phase 4.1 baseline §F"}
   ],
-  "uncommitted_files": [],
-  "next_action": "选 1: 等领导反馈期间推进 #14 内部分析 EAASP 平台承接评估;选 2: 跑 /gsd-plan-phase 4.0 进 GSD 主流程;选 3: review 4 份对外文档(导读 + 三份规范) + leader-reply,确认对外发布形态",
-  "context_notes": "本次 session 完成了 GSD 接管 + 华为 skill 规范评审两个并行工作流。GSD 接管完成 Step 0-3,Phase 4.0 plan-phase 未跑(留给下次)。华为评审完成 4 份 research + 4 份对外文档 + 1 段领导回执;3 次重写迭代(初稿 → 去掉立靶措辞 → 三份内容深度递进)。Phase 4.1 audit 用的 baseline 已写在 .planning/phases/4.1-PRE-AUDIT-NOTES.md(commits 5ca8b9e/32652fc)。"
+  "uncommitted_files": [
+    "docs/external-review/2026-04-26-skill-spec-*.md (4 份对外规范 + 4 份 PDF + leader-reply + 早期内部评审)",
+    "docs/external-review/2026-04-26-research-*.md (4 份 research 内部参考)",
+    "docs/huawei-skill-define.docx (原方案文件)"
+  ],
+  "next_action": "选 1: 跑 /gsd-plan-phase 4.0 进 GSD 主流程;选 2: 跑 /gsd-discuss-phase 4.1 启动 audit (有 baseline §F);选 3: review 4 份对外文档发布形态;选 4: git push origin main (27 commits);选 5: 暂停等领导反馈",
+  "context_notes": "本次 session(2026-04-26 → 04-27)完成 GSD 接管 + 调度 skill 规范 v0.1 评审 + 内部 EAASP 承接评估 + Phase 4.1 baseline §F agenda 追加 = 11/11 已完成任务。规范正式名'电力调度 AI 智能体 Skill 规范'(中途纠正,不叫'华为规范')。HW-INTERNAL 内部评估识别 30 项 MANDATORY 中 4/7/13/6 项 🟢/🟡/🔴/⚫ 分布,§F 把这次评估浮出的真问题(Q1-Q4)写入 Phase 4.1 baseline 作为 audit agenda。下次 resume 时主线决策 = 1/2 (GSD-S4 vs Phase 4.1 audit)。"
 }
