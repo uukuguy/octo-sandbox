@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-status: executing
-stopped_at: Phase 4.2 context gathered
-last_updated: "2026-04-27T17:26:04.812Z"
-last_activity: 2026-04-27 -- Phase 4.2 execution started
+status: milestone-closed
+stopped_at: Phase 4.2 complete — milestone "Phase 4 — Product Scope Decision" CLOSED
+last_updated: "2026-04-28T00:00:00.000Z"
+last_activity: 2026-04-28 -- Phase 4.2 ✅ COMPLETE (8/8 tasks, 13 commits, ADR-V2-024 Accepted)
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 3
-  completed_plans: 2
-  percent: 67
+  completed_plans: 3
+  percent: 100
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-26)
 
 **Core value:** Grid 作为 substitutable L1 runtime,通过 16-method gRPC contract 被 EAASP L2-L4 调用,且任何符合 contract-v1.1 的对比 runtime 都能替换它。
-**Current focus:** Phase 4.2 — Decide & Document / 决策落定
+**Current focus:** Milestone "Phase 4 — Product Scope Decision" ✅ CLOSED 2026-04-28; awaiting `/gsd-new-milestone` to start next cycle
 
 ## Current Position
 
-Phase: 4.2 (Decide & Document / 决策落定) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 4.2
-Last activity: 2026-04-27 -- Phase 4.2 execution started
+Phase: 4.2 (Decide & Document / 决策落定) — ✅ COMPLETE
+Plan: 1 of 1 ✅
+Status: Milestone "Phase 4 — Product Scope Decision" CLOSED
+Last activity: 2026-04-28 -- Phase 4.2 ✅ COMPLETE (8/8 tasks, 13 atomic commits, ADR-V2-024 Accepted, milestone closed)
 
-Progress: [███████░░░] 67% (2/3 milestone phases complete; Phase 4.2 待启动)
+Progress: [██████████] 100% (3/3 milestone phases complete)
 
 ## Performance Metrics
 
@@ -47,7 +47,7 @@ Progress: [███████░░░] 67% (2/3 milestone phases complete; P
 |-------|-------|--------|-------|
 | 4.0 Bootstrap & Cleanup | **1/1 ✅** | COMPLETE 2026-04-27 (5 commits + SUMMARY) | 5/5 SC PASS, 7/7 must-haves PASS, 0 deviations |
 | 4.1 Discuss & Audit | **1/1 ✅** | COMPLETE 2026-04-27 (8 commits + SUMMARY + VERIFICATION) | 14/15 must-haves PASS, SC#4 GOVERNANCE-03 deferred per cross-AI Q4 consensus + user decision; 4-iteration plan 经过 cross-AI review (4 reviewers: claude/gemini/opencode-glm5.4/codex) + 5 fixes + B1+B2 fixes |
-| 4.2 Decide & Document | 0 / TBD | Awaiting `/gsd-plan-phase 4.2` — 入口物料: audit doc + ADR-V2-024 Proposed 已落盘 | — |
+| 4.2 Decide & Document | **1/1 ✅** | COMPLETE 2026-04-28 (13 commits + SUMMARY + Phase Gate PASS) | 8/8 tasks PASS, 5/5 SC ✅, ADR-V2-024 Accepted (supersedes V2-023), GOVERNANCE-03 闭环 (3/3 ✓ verdict in SUMMARY §T6), audit-fidelity-grep modality 实证 (T1+T2+T3) |
 
 **Recent Trend:**
 
@@ -120,18 +120,20 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-27T13:16:37.347Z
-Stopped at: Phase 4.2 context gathered
-Resume file: .planning/phases/04.2-decide-document/04.2-CONTEXT.md
-Local commits ahead of origin: 0 (main ↔ origin/main synced as of e4c92fb)
-Decisions snapshot: see PROJECT.md Key Decisions table + Phase 4.1 SUMMARY/VERIFICATION for audit verdict context
+Last session: 2026-04-28T00:00:00.000Z
+Stopped at: Phase 4.2 complete — milestone "Phase 4 — Product Scope Decision" CLOSED
+Resume file: .planning/phases/04.2-decide-document/04.2-01-SUMMARY.md (final artifact)
+Local commits ahead of origin: 13 (Phase 4.2 commits T1-T8) — push timing per user discretion (Out of Scope rule)
+Decisions snapshot: see PROJECT.md Key Decisions table (Phase 4 主决策 → ✓ Validated) + ADR-V2-024 Accepted commit `f497eef` + audit doc 2026-04-27-leg-decision-audit.md
 
-**Resume 路径 (next session):**
+**Resume 路径 (next session — milestone close cascade):**
 
 1. `/clear` (用户在 Claude Code 中执行)
-2. `/gsd-resume-work` — 自动读 STATE.md frontmatter, 恢复完整 Phase 4 上下文
-3. `/gsd-plan-phase 4.2` — 启动 Phase 4.2 plan-phase (research light + patterns + plan + plan-checker; CONTEXT.md 已落盘)
-4. Phase 4.2 T6 sweep task 中段会显式 /clear 测 GOVERNANCE-03 (per CONTEXT.md D-E-02)
+2. Milestone close 已经发生在 STATE.md 内 (status: milestone-closed); 下一个 milestone 由 user 启动
+3. Next steps options:
+   - `/gsd-new-milestone` — 启动下一个 milestone (engine 子任务 + data/integration 接入面 子任务列, 由 ADR-V2-024 §1 §2 + Open Items §F.Q1 §F.Q4 驱动)
+   - `/gsd-complete-milestone` — formal milestone close ceremony (PROJECT/ROADMAP review + Out of Scope reasons audit + Context refresh)
+   - 或: `git push origin main` 时机由 user 决策 (Out of Scope 规则保留)
 
 **GSD plumbing tracer-bullet 验证结果 (Phase 4.0 success criterion #5 ✅):**
 

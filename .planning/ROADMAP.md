@@ -52,7 +52,7 @@
   1. ✅ `.planning/phases/4.2/PLAN.md` 内容反映 Phase 4.1 audit 决策方向 — 实施 5+3 切分 + grid-cli + grid-server 优先 + 双轴模型主框架 (per audit §4.1 §5.5 §F.Q1 §F.Q4 + Open Items §6 backfill T3 commit `6139a30`)
   2. ✅ ADR-V2-024 经创建 (Phase 4.1 Proposed commit `0542139`) + Decision/Alternatives/Enforcement 段 Phase 4.2 填实 (T1 `7f08aa5` + T2 `784cc10` + T3 `6139a30`); F1-F4 lint exit 0 (T5 `f497eef`)
   3. ✅ ADR-V2-024 status Accepted (T5 commit `f497eef` Path B fallback per Phase 4.1 T5 deviation precedent); supersedes ADR-V2-023 (T4 commit `6a19c46`)
-  4. ✅ PROJECT.md §Active "Phase 4 主决策" 行划掉移入 §Validated, 引用 ADR-V2-024 commit hash (T7 commit `<T7_HASH>`)
+  4. ✅ PROJECT.md §Active "Phase 4 主决策" 行划掉移入 §Validated, 引用 ADR-V2-024 commit hash (T7 commit `2437106`)
   5. ✅ Milestone 关闭检查点: CLEANUP-01..04 (Phase 4.0) + DECIDE-01..03 (Phase 4.1+4.2) + GOVERNANCE-01..03 (Phase 4.0+4.1+4.2) 全部 traceability ✅; debt water-line 无新增 P0/P1-active 项 (T7 commit + T8 SUMMARY)
 **Plans**: 1 plan
   - [x] 04.2-01-PLAN.md — DECIDE-02 + DECIDE-03 + GOVERNANCE-03 (8 atomic tasks T1-T8 incl ADR-V2-024 layered 锁文 + supersedes V2-023 + 5-file Leg A/B sweep + milestone close cascade)
