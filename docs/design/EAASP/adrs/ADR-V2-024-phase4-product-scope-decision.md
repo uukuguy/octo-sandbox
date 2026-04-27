@@ -112,19 +112,83 @@ ADR-V2-024 落盘 Phase 4 product scope 决定, 喂 Phase 4.2 PLAN.md 路径。
 
 ## Alternatives Considered / 候选方案
 
-> 以下 4 个 option 是 Phase 4 product scope 候选; audit §4 推荐其一, audit §0 + §5 决定是否升级双轴模型为主结论. 本 ADR Proposed 状态下据 audit §4.1 phrase ("两腿都推进") 在 Option C 标注 "(audit recommended per §4.1)"; audit §0 verdict partial-needs-revision 要求 Option D 标 "(audit co-equal output per §0 + §5)"。
+> 以下 4 个 option 是 Phase 4 product scope 候选; Phase 4.2 Accepted 时 audit §0 verdict partial-needs-revision elevation 要求 Decision 段同时引用 Option C (audit §4.2 推荐 — 两腿都推进) + Option D (audit §5 双轴模型 co-equal output), 不能仅取其一。本 ADR Accepted 时 Option A + B 标 rejected with audit §4.3 cite, Option C + D 标 accepted-co-equal。
 
 ### Option A: Leg A 硬化(集中 EAASP 集成)
-TBD by Phase 4.2 (per audit §4.3 候选立场; audit §3.4 Q4 yes (Grid 优先) + PRE-AUDIT-NOTES §B.2 + §B.3 否决此 option, 与 baseline §D Sanity Guard 第 1 条冲突)
+
+**Positive**:
+- 简化产品形态: 单一 leg 聚焦 EAASP 集成路径, vendor 心智模型最简
+- 短期工时集中: user 全力投 EAASP L2/L3/L4 引擎, 不分流到 Grid 独立产品
+
+**Negative**:
+- 与 §B.2 user 自陈 "Grid 全栈是工时主战场" 直接冲突 (Grid 60% / EAASP 30% 工时分配)
+- §3.4 Q4 verdict yes (Grid 优先 + 并行可行) 否决 "Grid dormant" 假设
+- audit §4.3 显式列为否决候选 — Grid 5-7 项企业级品质必需 (M5 溯源链 / M9 model_lock / M6 evidence chain) 独立于 EAASP 决策, 不能 dormant
+
+**Risks**:
+- 长期商业灵活性丢失 (无独立 Grid 产品 fallback)
+- 与 PRE-AUDIT-NOTES §D Sanity Guard 第 1 条冲突, 推翻 user 工时 baseline 需要 audit 无的硬证据
+
+**Verdict**: rejected (per audit §4.3 + §3.4 Q4 + §B.2)
+
+**Evidence chain**: audit §4.3 否决 Leg A 硬化 → audit §3.4 Q4 verdict yes (Grid 优先) → audit §B.2 user 工时 60/30 — 三条 evidence 同向支持 rejected.
 
 ### Option B: Leg B 激活(Grid 独立产品)
-TBD by Phase 4.2 (per audit §4.3 候选立场; 与 §B.2 user 自陈 EAASP 引擎层是 user 工时主战场之一相悖, audit 无硬证据推翻 baseline §D 第 4-5 条 Sanity Guard)
+
+**Positive**:
+- Grid 独立产品形态清晰, 不被 EAASP 集成路径绑定
+- 客户 Grid-only 信号若出现可直接接住 (per §P5.2 trigger 设计意图)
+
+**Negative**:
+- §P5.2 verdict no (0 客户 Grid-only 信号, per Open Item #1) 否决 trigger 触发前提
+- 与 §B.2 user 自陈 EAASP 引擎层是 user 工时主战场之一相悖 (EAASP 30% 不应 dormant)
+- audit §4.3 显式列为否决候选 — EAASP engine (L2/L3/L4 基础组件) 由 user 自做是 baseline 锁定
+
+**Risks**:
+- 失去 EAASP 集成示例的现成验证场景 (§B.3 Sanity Guard)
+- 与 audit §B.2 + §3.1 §3.2 §F.Q1/Q2 partial verdict 共同要求 EAASP engine 持续扩展相悖
+
+**Verdict**: rejected (per audit §4.3 + §P5.2 Open Item #1 backfill + §B.2)
+
+**Evidence chain**: audit §4.3 否决 Leg B 激活 → §P5.2 0 客户 Grid-only 信号 (Open Item #1) → audit §B.2 user 工时 60/30 EAASP 不应 dormant — 三条 evidence 同向支持 rejected.
 
 ### Option C: 两腿都推进 (audit recommended per §4.1)
-TBD by Phase 4.2 (per audit §4.1 推荐立场; evidence chain: §3.4 Q4 yes + §2.4 §P5.4 partial baseline + §B.2 user 工时事实 + §0 verdict partial-needs-revision; 见 audit §4.4 self-consistency 检查)
+
+**Positive**:
+- 同时保留 Grid 独立产品形态 + EAASP 集成路径, 商业灵活性最高
+- 与 §B.2 user 工时 60/30 baseline 一致 (Grid 主战场 + EAASP 引擎层主战场之一)
+- audit §4.4 self-consistency 检查通过 — 在 ADR-V2-023 字面框架 + 双轴模型框架下都成立
+
+**Negative**:
+- 在 Leg A/B 框架下 "两腿都推进" 措辞含糊 (per audit §5.5 — "两腿都推进 是什么意思?")
+- 工时分散风险若不严格按 60/30/10 baseline 控制, 容易左右摇摆
+
+**Risks**:
+- 单独 Option C (无 Option D 双轴 substance) 会丢失 audit §0 partial-needs-revision elevation 要求, 框架描述含糊
+- 后续 milestone 拆 task 若仍按 Leg A/B 切而非 engine vs data/integration 切, 会复制 ADR-V2-023 措辞瘴气
+
+**Verdict**: accepted (audit recommended per §4.1; evidence chain audit §4.1 + §3.4 Q4 + §2.4 §P5.4 + §0)
+
+**Evidence chain**: audit §4.1 推荐 → audit §3.4 Q4 verdict yes (Grid 优先 + 并行可行) → audit §2.4 §P5.4 partial baseline 成立 → audit §0 verdict partial-needs-revision 要求 §4 §5 co-equal — 四条 evidence 在 audit §4.4 self-consistency 检查下收敛.
 
 ### Option D: 框架修订(双轴模型 — engine vs data/integration) (audit co-equal output per §0 + §5)
-TBD by Phase 4.2 (per audit §5 框架修订建议; audit §0 verdict partial-needs-revision elevation 要求 Phase 4.2 ADR §Decision 段同时读 Option C 与 Option D, 不能仅取其一)
+
+**Positive**:
+- 职责切清晰 (engine = user 主战场 / data/integration = 他人接手), 替代 Leg A/B 二元含糊
+- audit §3 4 个 Q 在双轴下自然归约且解释力强 (§5.5 verbatim)
+- 后续 milestone 拆 task 起点清洁 (engine 子任务列 + data/integration 接入面 子任务列)
+
+**Negative**:
+- 改 ADR 成本 — Phase 4.2 同时 supersede ADR-V2-023, 需额外 ~1-2h sweep "Leg A/B" 措辞
+- 对外沟通门槛上升 (新 contributor / 客户需学双轴模型 + 5+3 字段切分)
+
+**Risks**:
+- 双轴模型与 §P5 4 条 trigger 在 §5.6 兼容性检查下都自然落点, 但实际运维中可能浮现新边界 case 需补
+- extension hook API 详细 schema 推到 Phase 4.3+ 独立 ADR, Phase 4.2 仅 surface 架构承诺
+
+**Verdict**: accepted (audit co-equal output per §0 + §5; 与 Option C 共同构成本 ADR Decision 段双框架文本)
+
+**Evidence chain**: audit §5 框架修订建议 → audit §5.5 audit 推荐采纳双轴 → audit §0 verdict partial-needs-revision elevation → audit §5.6 双轴与 §P5 4 trigger 兼容性 case 全 self-consistent — 四条 evidence 在 audit §0 + §5 双框架下收敛.
 
 ## References / 参考
 
