@@ -1,35 +1,42 @@
-# Grid — An Agent Runtime Stack with Two Product Legs
+# Grid — An Agent Runtime Stack (engine vs data/integration 双轴模型)
 
+> **Note**: ADR-V2-024 (2026-04-28, Accepted) supersedes ADR-V2-023 — Leg A/B 二元框架已替换为双轴模型 (engine vs data/integration). 此文件中"Leg A/B" 历史措辞已统一替换为新框架; 历史 anchor 保留 see-link 至 ADR-V2-024 (see ADR-V2-024 supersedes ADR-V2-023). 详见 ADR-V2-024 Decision 段。
+>
 > **Brand name:** Grid.
-> **Working repo name:** `grid-sandbox` — rename deferred per ADR-V2-023 P6 until product leg B activates.
-> **Primary strategic reference:** [`docs/design/EAASP/adrs/ADR-V2-023-grid-two-leg-product-strategy.md`](docs/design/EAASP/adrs/ADR-V2-023-grid-two-leg-product-strategy.md) (Accepted 2026-04-19).
+> **Working repo name:** `grid-sandbox` — rename deferred per ADR-V2-023 §P6 until product leg activation triggers (see ADR-V2-024 supersedes ADR-V2-023). 此条款保留待 Phase 4.3+ 由 ADR-V2-024 §P6 successor clause 重新评估。
+> **Primary strategic reference:** [`docs/design/EAASP/adrs/ADR-V2-024-phase4-product-scope-decision.md`](docs/design/EAASP/adrs/ADR-V2-024-phase4-product-scope-decision.md) (Accepted 2026-04-28). Historical reference: [`ADR-V2-023`](docs/design/EAASP/adrs/ADR-V2-023-grid-two-leg-product-strategy.md) (Superseded 2026-04-28).
 >
-> **What Grid is:** A Rust-centric agent-runtime stack built around `grid-engine` and the full Grid toolchain (`grid-cli` / `grid-server` / `grid-platform` / `grid-desktop` / `grid-eval` / `grid-hook-bridge` / `grid-sandbox` / `grid-runtime` / `grid-types`). Grid has two product legs:
+> **What Grid is:** A Rust-centric agent-runtime stack built around `grid-engine` and the full Grid toolchain (`grid-cli` / `grid-server` / `grid-platform` / `grid-desktop` / `grid-eval` / `grid-hook-bridge` / `grid-sandbox` / `grid-runtime` / `grid-types`). Grid 现按双轴模型 (engine vs data/integration) 切职责, 同时支持两条产品形态:
 >
-> **Leg A — EAASP integration (CURRENT MAIN FOCUS).** `grid-engine` / `grid-runtime` are being developed as the flagship L1 runtime for EAASP (Enterprise-Agent-as-a-Service Platform — a **separate upstream project**). The `tools/eaasp-*/` directories and the 6 comparison runtimes in `lang/*` in this repo are **high-fidelity local shadows** of EAASP's L2/L3/L4 stack, used to validate Grid's contract compliance end-to-end without needing a live EAASP deployment. They are NOT the production EAASP.
+> **engine 接入面 — EAASP 集成 (PRIMARY FOCUS)** (原 Leg A, see ADR-V2-024 supersedes ADR-V2-023). `grid-engine` / `grid-runtime` are being developed as the flagship L1 runtime for EAASP (Enterprise-Agent-as-a-Service Platform — a **separate upstream project**). The `tools/eaasp-*/` directories and the 6 comparison runtimes in `lang/*` in this repo are **high-fidelity local shadows** of EAASP's L2/L3/L4 stack, used to validate Grid's contract compliance end-to-end without needing a live EAASP deployment. They are NOT the production EAASP.
 >
-> **Leg B — Grid independent product (DORMANT, planned).** `grid-platform` (multi-tenant server), `grid-server` (single-user workbench), `grid-desktop` (Tauri app), and `web/` / `web-platform/` frontends form Grid's own direct-to-customer offering for enterprises who want Grid without going through EAASP. Currently crate-scaffolding only, no active development. See ADR-V2-023 §P5 for activation triggers.
+> **Grid 独立产品 — Grid independent (DORMANT, planned)** (原 Leg B, see ADR-V2-024 supersedes ADR-V2-023). `grid-platform` (multi-tenant server), `grid-server` (single-user workbench), `grid-desktop` (Tauri app), and `web/` / `web-platform/` frontends form Grid's own direct-to-customer offering for enterprises who want Grid without going through EAASP. Currently crate-scaffolding only, no active development. See ADR-V2-024 §1 双轴模型 for engine/data-integration 职责切; activation triggers reframed in 双轴 framework.
+>
+> **工时 baseline** (per ADR-V2-024 Open Item #2): Grid 全栈 ≈60% / EAASP 引擎 ≈30% / 元工作 ≈10%.
+> **优先发力组合** (per ADR-V2-024 Open Item #3): grid-cli + grid-server 优先, 其余组件 dormant 到下个 milestone.
 >
 > This file is the **primary project memory for Claude Code**. If anything here goes stale, **update it immediately** — outdated instructions are worse than none.
 
 ---
 
-## Product legs at a glance (ADR-V2-023)
+## Product legs at a glance (ADR-V2-024 双轴模型, supersedes ADR-V2-023)
 
-| Dimension | Leg A — EAASP integration | Leg B — Grid independent |
+| Dimension | engine 接入面 — EAASP 集成 (原 Leg A, see ADR-V2-024) | Grid 独立产品 (原 Leg B, see ADR-V2-024) |
 |-----------|--------------------------|--------------------------|
 | Status | **Active (primary focus)** | **Dormant** (crates compile, no feature work) |
 | Core | `grid-engine` + `grid-runtime` | `grid-engine` (shared) |
 | Toolchain | Exposed via gRPC to EAASP L2/L3/L4 | `grid-server`, `grid-platform`, `grid-desktop`, `grid-cli`, `grid-eval` |
 | EAASP shadows | Uses `tools/eaasp-*/` + `lang/*` as local test fixtures | **Does not use** them |
-| Phase focus | Phase 2 / 2.5 / 3 / 3.5 — contract hardening | Paused until activation criteria met |
+| Phase focus | Phase 2 / 2.5 / 3 / 3.5 — contract hardening | Paused until activation criteria met (per ADR-V2-024 双轴下重新框定) |
 | Production customer | Enterprises buying EAASP, Grid is their L1 | Enterprises wanting Grid without EAASP |
 
-**Core rule (ADR-V2-023 P1):** changes to shared components (`grid-engine`, `grid-runtime`, `grid-types`, `grid-sandbox`, `grid-hook-bridge`) MUST work for both legs. No leg-specific branches in core code.
+(see ADR-V2-024 supersedes ADR-V2-023 — 表格 column 命名从 Leg A/B 切换为 双轴 framing; substance unchanged for engine/data-integration 职责切, 见 ADR-V2-024 §1)
+
+**Core rule (ADR-V2-023 P1, retained under ADR-V2-024):** changes to shared components (`grid-engine`, `grid-runtime`, `grid-types`, `grid-sandbox`, `grid-hook-bridge`) MUST work for both engine 接入面 and Grid 独立产品. No leg-specific branches in core code (see ADR-V2-024 supersedes ADR-V2-023).
 
 ---
 
-## EAASP v2 Architecture (L0–L4) — Leg A's target environment
+## EAASP v2 Architecture (L0–L4) — engine 接入面's target environment (原 Leg A, see ADR-V2-024 supersedes ADR-V2-023)
 
 ```
 L4 Orchestration       tools/eaasp-l4-orchestration/        session lifecycle, SSE fan-out, governance gates
@@ -42,7 +49,7 @@ L1 Runtime (7 adapters) Grid primary + 6 comparison runtimes — see table below
 L0 Protocol            proto/eaasp/runtime/v2/              common.proto / runtime.proto / hook.proto
 ```
 
-**Important**: The `tools/eaasp-*/` in this repo are **local shadow implementations** used for Leg A's test harness. The real production EAASP L2/L3/L4 lives in a separate project owned by another team. Grid's job on Leg A is to ship `grid-engine` / `grid-runtime` that conforms to the L1 contract; EAASP handles the L2–L4 orchestration in production.
+**Important**: The `tools/eaasp-*/` in this repo are **local shadow implementations** used for the engine 接入面 test harness (原 Leg A's test harness, see ADR-V2-024 supersedes ADR-V2-023). The real production EAASP L2/L3/L4 lives in a separate project owned by another team. Grid's job on the engine 接入面 (原 Leg A) is to ship `grid-engine` / `grid-runtime` that conforms to the L1 contract; EAASP handles the L2–L4 orchestration in production.
 
 L2–L4 talk to L1 via gRPC (`proto/eaasp/runtime/v2/runtime.proto`, 16 methods). L1 is substitutable — each adapter implements the same contract.
 
@@ -50,7 +57,7 @@ L2–L4 talk to L1 via gRPC (`proto/eaasp/runtime/v2/runtime.proto`, 16 methods)
 
 | Name | Crate/Pkg | Language | Role | Notes |
 |------|-----------|----------|------|-------|
-| **grid-runtime** | `crates/grid-runtime/` | Rust | **Grid's flagship runtime** — full harness | The target Leg A L1 implementation |
+| **grid-runtime** | `crates/grid-runtime/` | Rust | **Grid's flagship runtime** — full harness | The target engine 接入面 L1 implementation (原 Leg A, see ADR-V2-024) |
 | **claude-code-runtime-python** | `lang/claude-code-runtime-python/` | Python | Comparison / sample | Anthropic SDK baseline |
 | **goose-runtime** | `crates/eaasp-goose-runtime/` + `crates/eaasp-scoped-hook-mcp/` | Rust | Comparison — Block goose via ACP subprocess | stdio MCP proxy for hook injection |
 | **nanobot-runtime-python** | `lang/nanobot-runtime-python/` | Python | Comparison — OpenAI-compat provider | Multi-turn loop, ADR-V2-006 hook envelope |
@@ -65,7 +72,7 @@ Phase 3 sign-off (2026-04-18): all 7 runtimes pass `contract-v1.1.0` (42 PASS / 
 
 ### Rust crates
 
-Legend: **A** = used by Leg A (EAASP integration). **B** = used by Leg B (Grid independent product). **Shared** = used by both.
+Legend: **A** = used by engine 接入面 (原 Leg A, EAASP integration, see ADR-V2-024). **B** = used by Grid 独立产品 (原 Leg B, Grid independent product, see ADR-V2-024). **Shared** = used by both.
 
 | Crate | Leg | Role |
 |-------|-----|------|
@@ -73,9 +80,9 @@ Legend: **A** = used by Leg A (EAASP integration). **B** = used by Leg B (Grid i
 | `grid-sandbox` (crate) | Shared | Sandbox runtime adapters (native subprocess; optional wasm / docker). **Note**: crate name collides with repo name — distinct concept |
 | `grid-engine` | Shared | Core engine — agent loop, context, memory (L0/L1/L2), MCP, providers, tools, skills, security, audit, metrics |
 | `grid-hook-bridge` | Shared | Hook event bridge between Rust and L2/L3 |
-| `grid-runtime` | A (primary) / B (in-process) | L1 runtime adapter wrapping `grid-engine`. Leg A exposes it via gRPC; Leg B uses it in-process |
-| `grid-cli` | A (aux) / B (primary) | CLI binary (`grid` command). Leg A uses EAASP's own CLI; Leg B uses this as the main client |
-| `grid-eval` | A (aux) / B (primary) | Evaluation harness — suites, scorers, benchmarks. Leg A uses EAASP eval; Leg B uses this |
+| `grid-runtime` | A (primary) / B (in-process) | L1 runtime adapter wrapping `grid-engine`. engine 接入面 (原 Leg A, see ADR-V2-024) exposes it via gRPC; Grid 独立产品 (原 Leg B) uses it in-process |
+| `grid-cli` | A (aux) / B (primary) | CLI binary (`grid` command). engine 接入面 (原 Leg A, see ADR-V2-024) uses EAASP's own CLI; Grid 独立产品 (原 Leg B) uses this as the main client |
+| `grid-eval` | A (aux) / B (primary) | Evaluation harness — suites, scorers, benchmarks. engine 接入面 (原 Leg A, see ADR-V2-024) uses EAASP eval; Grid 独立产品 (原 Leg B) uses this |
 | `grid-server` | **B only (dormant)** | Single-user workbench HTTP/WS server (Axum) |
 | `grid-platform` | **B only (dormant)** | Multi-tenant platform server (Axum + JWT auth + quota) |
 | `grid-desktop` | **B only (dormant)** | Tauri desktop app (excluded from default build — `cargo build -p grid-desktop` to build) |
@@ -85,7 +92,7 @@ Legend: **A** = used by Leg A (EAASP integration). **B** = used by Leg B (Grid i
 
 **Build order**: `grid-types` → `grid-sandbox` / `grid-engine` (parallel) → everything else. Cargo workspace handles this automatically.
 
-**Leg B dormancy (ADR-V2-023 P2)**: `grid-server`, `grid-platform`, `grid-desktop` crates compile and are maintained at skeleton level, but are **not** being feature-developed. New PRs touching these need justification (reviewer prompt: "is this really necessary now?"). Activation requires ADR-V2-023 P5 trigger conditions to be met.
+**Grid 独立产品 dormancy (原 Leg B dormancy, ADR-V2-023 P2 retained under ADR-V2-024, see ADR-V2-024 supersedes ADR-V2-023)**: `grid-server`, `grid-platform`, `grid-desktop` crates compile and are maintained at skeleton level, but are **not** being feature-developed. New PRs touching these need justification (reviewer prompt: "is this really necessary now?"). Activation requires ADR-V2-024 双轴 framework trigger conditions to be met (原 ADR-V2-023 §P5 reframed under 双轴 model).
 
 ### EAASP Python/TS tools (`tools/`)
 
@@ -100,9 +107,9 @@ Legend: **A** = used by Leg A (EAASP integration). **B** = used by Leg B (Grid i
 | `eaasp-certifier` | Contract certification harness (Rust) |
 | `mock-scada` | Example external system for verification skills |
 
-### Frontend (Leg B only, dormant)
+### Frontend (Grid 独立产品 only, dormant — 原 Leg B only, see ADR-V2-024 supersedes ADR-V2-023)
 
-`web/` and `web-platform/` are both **Leg B components** (ADR-V2-023 P2). They hold scaffolding / `package.json` / `vite.config.ts` only — **no feature implementation**. Do NOT treat them as implementation targets until ADR-V2-023 P5 triggers Leg B activation.
+`web/` and `web-platform/` are both **Grid 独立产品 components** (原 Leg B components, ADR-V2-023 P2 retained under ADR-V2-024, see ADR-V2-024). They hold scaffolding / `package.json` / `vite.config.ts` only — **no feature implementation**. Do NOT treat them as implementation targets until ADR-V2-024 双轴 framework triggers Grid 独立产品 activation (原 Leg B activation reframed).
 
 | Path | Target product | Status |
 |------|----------------|--------|
