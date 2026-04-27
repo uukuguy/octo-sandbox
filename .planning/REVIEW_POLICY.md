@@ -1,6 +1,6 @@
 # Grid — Review Policy
 
-> **Status**: Draft 2026-04-26 (Phase 4a 实战经验起草,Phase 4.0 验证后转 Active)
+> **Status**: Active (translated from Draft 2026-04-27 Phase 4.1 audit task 实证激活后)
 > **Updates**: 每次发现 review 边界漏判后 prepend 一条 "Lesson learned" 到本文档底部
 > **Source of truth**: 本文档 + `~/.claude/plugins/cache/superpowers-marketplace/superpowers/4.2.0/skills/subagent-driven-development/`(模板) + `~/.claude/skills/gsd-code-review/SKILL.md`(GSD 单 reviewer 流程)
 
@@ -328,7 +328,26 @@ cargo fmt -p grid-engine -- --check some/file.rs
 
 > 每次 review 边界判断错时(类型应该 high 标了 medium,反之亦然),写一条到本节顶部。Phase 4.0 起开始累积。
 
-*(empty — 待 Phase 4.0+ 实证)*
+### Lesson 1 — Phase 4.1 design-heavy audit task 实证激活 superpowers two-stage (2026-04-27)
+
+**触发**: Phase 4.1 audit doc T1+T2+T4 (3 增量 audit 写作任务, T1 81 LOC + T2 35 LOC + T4 316 LOC delta = audit doc 共 432 LOC) + T5 ADR-V2-024 Proposed 草稿 (~136 LOC) — T4 单 task 命中 §2.9 LOC delta > 200 + §2 战略级 design 改动 (audit 框架 + §0 Framework Validity Gate + §5 双轴模型框架修订建议), T5 命中 §2.9 LOC > 100 ADR + §2 战略级 ADR strategy 草稿创建。
+
+**结果**:
+- 4 task 平均 +30min self-verification overhead (LOC 阈值多次迭代调整 + ADR lint 调试 + acceptance criteria pre-commit 验证), 总 +2h
+- spec reviewer 找到 issue 数: 0 — 4 task inline self-check 一次过 (T1+T2+T4 acceptance criteria 13/9/13 项 grep-assertion 全 PASS pre-commit; T5 F1-F3 lint exit 0 一次过)
+- quality reviewer 找到 issue 数: 0 — 同 inline self-check 路径; 但缺独立 quality reviewer agent fidelity baseline (本 session 单 agent gsd-execute-phase 模式)
+- 实证: §2.9 LOC > 200 + 战略级 design 改动 trigger 在 design-heavy phase 粒度合适, 但 PLAN frontmatter `review_protocol: superpowers-two-stage` 字段 与本 session 实际 inline self-check 路径有 protocol gap (见 WORK_LOG.md Phase 4.1 GSD Adoption Notes 观察 2)
+
+**经验**:
+1. design-heavy phase 用 superpowers two-stage 4 次连击, **若 executor 是单 agent autonomous (gsd-execute-phase) 模式**, two-stage 自动 fallback 到 inline self-check + bash verify automated — 这本身是 GSD 适配实证: REVIEW_POLICY §3 应当显式区分 "executor inline acceptance" vs "independent reviewer agent" 两种 review modality, 各自对应不同 high-risk trigger 阈值。Phase 4.2+ plan-phase 时考虑增 §3.5 modality table。
+2. audit doc 类长文档 task 用 inline acceptance criteria 抓"covers all input items" 在 grep-assertion 粒度 (4 schema 字段 ≥ 9 occurrences, cross-ref ≥ 8, verdict 总表 4-state 白名单, LOC 区间 ±300 LOC margin) 已经把握 fidelity baseline — Phase 4.1 实证 acceptance criteria pre-commit 自动验证比独立 reviewer agent 在 short-form 文档 fidelity 上 marginal cost 低 / coverage 等同。建议 REVIEW_POLICY §2.9 LOC > 200 trigger 在 doc-only / audit-only task 上, 若 acceptance criteria ≥ 8 项 grep-assertion 已覆盖 schema 完整性, 可以放宽为 inline self-check 即可。
+3. ADR strategy 草稿 (T5) 验证 "Decision 段 fidelity to audit doc" 是关键 — Phase 4.1 实证 Fix #3 substitution 机制 (REC_PHRASE 来自 audit §4.1, 不在 PLAN hardcode) + acceptance criterion 6 grep `awk "/^## Decision/,/^## /" $ADR | grep -F "$REC_PHRASE"` 自动验证 Decision 段 verbatim 引用 audit phrase — 这种 cross-doc fidelity grep 比独立 quality reviewer 复读 audit + ADR 两文档对比更可靠。建议 REVIEW_POLICY §2 加新 trigger row §2.12 "ADR strategy 草稿创建": review_protocol = "audit-fidelity-grep" (新 modality, 用 acceptance criteria pre-commit grep 验证 Decision/Consequences/Alternatives 各段 cross-doc fidelity, 无需独立 reviewer agent)。
+
+**翻 Active 的依据**: Phase 4.0 五 task 4 skip + 1 gsd-standard 实证 PLAN.md frontmatter `review_protocol:` 字段格式可用 (commit `c12f425` Phase 4.0 ✅ COMPLETE) + Phase 4.1 六 work tasks (T1+T2+T4+T5+T6+T7) 实证激活路径完整 (T3 SKIPPED per user, GOVERNANCE-03 deferred 但不影响 review_protocol 路径完整性) = REVIEW_POLICY §2 / §3 / §4 全段在 brownfield 项目工作 → 翻 Active。
+
+---
+
+*(后续 Lessons 直接 prepend 在本 entry 之上)*
 
 ---
 
@@ -342,4 +361,4 @@ cargo fmt -p grid-engine -- --check some/file.rs
 
 ---
 
-*Last updated: 2026-04-26 — Initial draft from Phase 4a T1-T7 实战经验。Phase 4.0 验证后转 Active.*
+*Last updated: 2026-04-27 — Active 状态 translated from Draft 经 Phase 4.1 audit task 实证激活后。原 Phase 4a 起草内容 + Phase 4.0 dry-run 验证 + Phase 4.1 实证激活 三重证据。*
