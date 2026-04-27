@@ -39,7 +39,8 @@
   3. GSD `/gsd-plan-phase` → `/gsd-execute-plan` → `/gsd-code-review` → `/gsd-end-phase` 链路在本 phase 至少跑通一次,任何不顺手处记录到 `docs/dev/WORK_LOG.md` 顶部的 "GSD adoption notes" 块
   4. `/gsd-resume-work` 在本 phase 至少触发一次(可由 `/clear` 后真实测试或 dry-run 模拟),验证 `.planning/STATE.md` + checkpoint 机制能恢复 active phase context 而不丢工作
   5. Phase 4.1 end-phase 时 `.planning/STATE.md` 反映 audit 结论 + Phase 4.2 入口路径(plan 文件名 / 主要 task 形态)
-**Plans**: TBD
+**Plans**: 1 plan
+  - [ ] 04.1-01-PLAN.md — DECIDE-01 audit doc + ADR-V2-024 Proposed 草稿 + GOVERNANCE-02 WORK_LOG GSD Adoption Notes + GOVERNANCE-03 `/gsd-resume-work` 中段实测 + REVIEW_POLICY draft → Active flip (7 atomic tasks, expected 6-9 commits)
 **UI hint**: no
 
 ### Phase 4.2: Decide & Document / 决策落定
@@ -71,7 +72,7 @@
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 4.0 Bootstrap & Cleanup | 1/1 ✅ | Complete (5/5 SC, 7/7 must-haves PASS) | 2026-04-27 |
-| 4.1 Discuss & Audit | 0/0 (TBD by plan-phase) | Not started — baseline §F Q1-Q4 ready | - |
+| 4.1 Discuss & Audit | 0/1 (planned 2026-04-27) | Planned — 7 atomic tasks expected 6-9 commits | - |
 | 4.2 Decide & Document | 0/0 (TBD by plan-phase) | Not started | - |
 
 ## Coverage
