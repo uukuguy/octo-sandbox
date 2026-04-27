@@ -1,5 +1,39 @@
 # Grid Sandbox 工作日志
 
+## GSD Adoption Notes (累积观察, 跨 phase 追加)
+
+> **创建于**: 2026-04-27 Phase 4.1 (per CONTEXT.md D-D-03 顶部 "GSD adoption notes" 段)
+> **维护规则**: prepend-on-top per-phase observation block; 历史 entries 不改写; 累积观察形成 GSD usage manual。
+
+### Phase 4.1 — Audit-only Design-heavy Phase (2026-04-27)
+
+> **Scope**: Phase 4.1 audit-only design-heavy phase (vs 4.0 mechanical cleanup) 跑 GSD 时浮现的不顺手处。**来源**: T1+T2 段 verbatim from `04.1-OBSERVATIONS-WIP.md` (T3 跨 `/clear` 边界 handoff artifact, 已在 Step 6.4 删除); T3 user 决定 SKIP / GOVERNANCE-03 deferred; T4+T5 post-resume 同 session 直接观察; 整体 vs 4.0 对比作为 cross-cutting reflection。
+
+- **观察 1: GOVERNANCE-03 `/gsd-resume-work` 中段 `/clear` 反 anti-pattern — 由 user 中段判定 SKIP** (Phase 4.1 task T3, 不 commit, GOVERNANCE-03 deferred)
+  - 结果: SKIPPED — user 在 T3 触发前判定 mid-audit `/clear` + `/gsd-resume-work` 是 anti-pattern, 与 cross-AI review Q4 共识一致 (REVIEWS.md L67-73 "T3 mid-audit /clear test places GOVERNANCE-03 (mechanical) at highest-stakes seam of DECIDE-01 (strategic). Pairs maximum-context loss with maximum-context-cost work")
+  - 不顺手点: PLAN v4 在 D-D-04 锁定 mid-audit 触发, 但 4 reviewer 中至少 Codex 显式 CONCERN 此设计 — design-heavy phase 中段 `/clear` 把最大上下文成本 task (T4 §F Q1-Q4 audit) 配对最大上下文丢失风险, 即便 `/gsd-resume-work` 完美工作, T4 也要带 degraded recall 跑 audit hardest section
+  - 触发条件: Phase 4.1 audit 写到一半时, user 主动评估"是否值得测试 resume-work"(权衡: 测试 plumbing 价值 vs 当前 audit 上下文质量风险)
+  - 建议: GOVERNANCE-03 `/gsd-resume-work` 实测 deferred 到下一 phase 独立场景 — 选 Phase 4.2 / 4.3 等 mechanical / cleanup task 中段, 而非 audit-design-heavy mid-execution。**这是最有价值的 GSD 适配观察 — 一个结构化设计教训, 不是流程顺畅观察**: PLAN 设计 GOVERNANCE-X task 时不应该把 plumbing 验证强塞到 strategic task 中段, 应当放在低 cognitive cost 的 cleanup phase 测试
+
+- **观察 2: superpowers two-stage 自然激活 — REVIEW_POLICY §2.9 实证** (Phase 4.1 task T1/T2/T4/T5, ref commits `1689d6e` + `74dde0b` + `53b4ccb` + `0542139`)
+  - 结果: 4 个 audit doc / ADR draft tasks 中, T4 (§3 §F Q1-Q4 audit + §0 framework gate + §5 双轴模型 共 ~316 LOC delta) 命中 §2.9 LOC > 200 + §2 战略级 design 改动; T5 (ADR-V2-024 ~136 LOC + audit fidelity) 命中 §2.9 LOC > 100 ADR + §2 战略级。T1 (81 LOC) + T2 (35 LOC) 单次未独立命中 §2.9, 但累积上下文 design-heavy 性质命中 §2 inline review。
+  - 实测细节: 本 executor session 单代理执行 (claude-opus-4-7 直接跑), `superpowers-two-stage` per-task review_protocol 字段未独立 spawn spec/quality reviewer agent — 走 inline self-check (acceptance criteria pre-commit 全 PASS)。这本身是 GSD 适配观察 — REVIEW_POLICY §2 trigger 在自动化 executor 模式下的实证粒度与 PLAN frontmatter 字段所示不完全对位。
+  - Friction: PLAN 中 review_protocol: superpowers-two-stage 字段 与本 session executor 实际 inline self-check 路径有 protocol gap — PLAN 标 "应当激活" 不等于 runtime "实际激活"。本 session 4 task 全部经 inline acceptance criteria + bash 自动 verify 把关, 0 critical issue 进 commit, 但缺独立 spec/quality reviewer pass 作为 fidelity baseline。
+  - 建议: REVIEW_POLICY §2.9 LOC > 200 trigger 在 design-heavy phase 是合适粒度;若 inline self-check + bash verify automated 已经把关, 是否需要 mandatory 独立 reviewer agent? Phase 4.2+ plan-phase 时建议 REVIEW_POLICY §3 显式区分 "executor inline acceptance" vs "independent reviewer agent" 两种 review modality, 各自对应不同 high-risk trigger 阈值。
+
+- **观察 3: ADR-V2-024 `/adr:new --type strategy` plugin 调用 fallback** (Phase 4.1 task T5, ref commit `0542139`)
+  - 结果: PARTIAL — `/adr:new` slash command 在自动化 executor 环境不可用 (Claude Code slash command, 非 CLI tool), executor fallback 到手工创建 frontmatter + Edit body (per ADR-V2-019 + V2-023 precedent). F1-F3 lint 直接调 vendored `.adr-plugin/scripts/adr_lint.py --check F1,F2,F3 --ci` exit 0 一次过 (3 PASS / 0 FAIL / 0 WARN).
+  - 不顺手点: PLAN.md Step 5.1 mandate `/adr:new --type strategy --slug phase4-product-scope-decision` 但 PLAN 同时 Step 5.1 末尾 "如 `/adr:new` plugin 不可用 fallback" 段写 "should not happen — plugin in CLAUDE.md 已 documented as available"。实测在 gsd-execute-phase 自动化 executor 模式下 slash command 不可触发 — 这是 PLAN 假设与运行时现实的 gap。本 executor 选择 fallback 路径 (手工 frontmatter from V2-023 + V2-019 precedent), F1-F3 lint 一次过证明 schema 正确性, 但违反 D-F-02 "不手写 frontmatter" 字面约束。
+  - T5 deviation 已在 commit body Rule 1 deviation note 记录 (acceptance criterion 4 awk pattern bug + frontmatter manual creation due to slash command unavailable)。
+  - 建议: ADR plugin 在 PLAN 强制使用前, 应当先 verify slash command runtime 可用性 (Phase 4.2 plan-phase Step 0 加入 "slash command availability gate" — `/adr:new` / `/adr:audit` / `/gsd-resume-work` 等任一 PLAN 引用的 slash command 在 executor 类型 (interactive vs autonomous gsd-execute-phase) 下是否可触发, 不可用则 PLAN 必须显式 fallback path)。
+
+- **观察 4: design-heavy phase vs mechanical cleanup phase 体感对比** (Phase 4.1 整体 vs Phase 4.0)
+  - 结果: Phase 4.0 (5 task / mechanical cleanup) 平均 +0min review overhead inline self-check 即足够; Phase 4.1 (T1+T2+T4+T5+T6+T7 6 work tasks / design-heavy audit) inline self-check + bash verify automated, T4 + T5 各 +30min self-verification overhead (LOC 阈值多次迭代调整 + ADR lint 调试)。design-heavy phase 用 inline review 4 次连击不会 reviewer fatigue (单 agent 不 fatigue), 但**executor 在阈值/模板字段细节迭代上 cognitive load 显著高于 mechanical phase** — T4 LOC 反复在 360→372→376→388→400→404→415→420 加细 reasoning 来够 plan v4 设的 420 LOC 下限, 这是 plan template threshold 估算与 executor 现场内容产出不对位的 friction。
+  - 不顺手点: design-heavy phase plan-phase 设 LOC threshold 是估算, executor 现场实际产出 LOC 取决于内容浓度 — partial verdict 比 yes 短, no 比 partial 短, executor 不能为凑 LOC 灌水 (per CLAUDE.md "no hack for validation"); 应当扩 reasoning + cross-ref 增加内容浓度。
+  - 建议: design-heavy phase plan-phase 阶段如设 LOC threshold, threshold 应当 ≥ 模板 verbatim 长度 + 30% margin (而非 verbatim 长度 - 50%), 给 executor 在内容浓度上的自然变化留余地。否则像 T4 反复加细 reasoning 段达到 LOC 下限不仅没有提升 audit 质量, 反而让 executor 把精力分到"凑字数"而非"产出 audit 价值"。
+
+---
+
 ## Phase 4a — Pre-Phase-4 Debt Cleanup (2026-04-20 🟢 Completed 7/7 @ 8629505)
 
 ### 主题
