@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-status: discuss_complete
-stopped_at: "Phase 4.0 ✅ COMPLETE + Phase 4.1 discuss-phase ✅ DONE (CONTEXT.md 186 LOC, 6 gray areas A/C/B/A/B/B locked). 18 commits pushed, main ↔ origin/main synced. Next session: /clear → /gsd-resume-work → /gsd-plan-phase 4.1。"
-last_updated: "2026-04-27T03:55:00.000Z"
-last_activity: 2026-04-27 -- Phase 4.1 discuss-phase done; clean boundary for /clear
+status: executing
+stopped_at: "Phase 4.1 audit T1+T2 完成 (§P5 4 条 trigger verdict 全落: 1 partial 语义弱化 + 1 unknown 待 user 补 + 1 no + 1 partial baseline 默认成立), T3 checkpoint 待 user `/gsd-resume-work` 实测, T4 §F Q1-Q4 + §0 Framework Validity Gate + §4-§7 待续。GOVERNANCE-03 真实测试时点。Trigger point selected: A (default mid-audit per CONTEXT.md D-D-04). T1 commit `1689d6e` + T2 commit `74dde0b`."
+last_updated: "2026-04-27T08:54:48.668Z"
+last_activity: 2026-04-27 -- Phase 04.1 execution started
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 1
+  total_plans: 2
   completed_plans: 1
-  percent: 33
+  percent: 50
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-26)
 
 **Core value:** Grid 作为 substitutable L1 runtime,通过 16-method gRPC contract 被 EAASP L2-L4 调用,且任何符合 contract-v1.1 的对比 runtime 都能替换它。
-**Current focus:** Phase 4.0 ✅ COMPLETE → 准备进入 Phase 4.1 Discuss & Audit
+**Current focus:** Phase 04.1 — discuss-audit-p5
 
 ## Current Position
 
-Phase: 4.1
-Plan: Not started
-Status: Phase 4.0 executed + verified (5/5 ROADMAP success criteria + 7/7 must-haves)
-Last activity: 2026-04-26
+Phase: 04.1 (discuss-audit-p5) — EXECUTING
+Plan: 1 of 1
+Status: Executing Phase 04.1
+Last activity: 2026-04-27 -- Phase 04.1 execution started
 
 Progress: [████░░░░░░] 33% (1/3 milestone phases complete; Phase 4.1 audit pending)
 
