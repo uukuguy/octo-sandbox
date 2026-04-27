@@ -1,15 +1,15 @@
 # Grid — Roadmap
 
 > **Milestone:** Phase 4 — Product Scope Decision
-> **Brownfield context:** First GSD-managed milestone after dev-phase-manager 14-phase archive (Phase BA → Phase 4a). Historical phases冻结只读, not migrated. This roadmap covers ONLY the new milestone's narrow boundary: cleanup queue → §P5 audit → Leg A/B decision documented as ADR.
-> **Granularity:** standard (3 phases — intentionally below 5-8 floor; milestone is purposely narrow per prompt constraint "Done = Leg A vs Leg B decided + documented + cleanup zeroed").
-> **Done condition for milestone:** ADR-V2-024 Accepted recording 走 Leg A / Leg B / 两条腿 + CLEANUP-01..04 all closed + REVIEW_POLICY.md + GSD lifecycle dry-run passed.
+> **Brownfield context:** First GSD-managed milestone after dev-phase-manager 14-phase archive (Phase BA → Phase 4a). Historical phases冻结只读, not migrated. This roadmap covers ONLY the new milestone's narrow boundary: cleanup queue → §P5 audit → engine 接入面 vs Grid 独立产品 (原 Leg A/B, see ADR-V2-024 supersedes ADR-V2-023) decision documented as ADR.
+> **Granularity:** standard (3 phases — intentionally below 5-8 floor; milestone is purposely narrow per prompt constraint "Done = engine 接入面 vs Grid 独立产品 (原 Leg A vs Leg B, see ADR-V2-024 supersedes ADR-V2-023) decided + documented + cleanup zeroed").
+> **Done condition for milestone:** ADR-V2-024 Accepted recording 走 engine 接入面 / Grid 独立产品 / 两条腿 (原 Leg A / Leg B, see ADR-V2-024 supersedes ADR-V2-023) + CLEANUP-01..04 all closed + REVIEW_POLICY.md + GSD lifecycle dry-run passed.
 
 ## Phases
 
 - [x] **Phase 4.0: Bootstrap & Cleanup / GSD 接管 + 队列清零** — REVIEW_POLICY.md 落地 + CLEANUP-01..04 一次性扫掉 (tracer-bullet validates GSD plumbing) ✅ 2026-04-27 (5/5 SC, 7/7 must-haves PASS)
 - [ ] **Phase 4.1: Discuss & Audit / §P5 触发条件审计** — Socratic discuss + DECIDE-01 audit doc + GSD discuss→plan→execute 链路跑通验证
-- [ ] **Phase 4.2: Decide & Document / 决策落定** — Phase 4.2 path plan (Leg A 硬化 OR Leg B 激活) + ADR-V2-024 Accepted 关闭 milestone
+- [ ] **Phase 4.2: Decide & Document / 决策落定** — Phase 4.2 path plan (engine 接入面 硬化 OR Grid 独立产品 激活, 原 Leg A 硬化 OR Leg B 激活, see ADR-V2-024 supersedes ADR-V2-023) + ADR-V2-024 Accepted 关闭 milestone
 
 ## Phase Details
 
@@ -30,12 +30,12 @@
 
 ### Phase 4.1: Discuss & Audit / §P5 触发条件审计
 
-**Goal**: 通过 socratic discuss 系统化审计 ADR-V2-023 §P5 列出的 Leg B 激活触发条件,产出可被引用的 audit doc;同时把 GSD discuss → plan → execute → review 端到端跑通,验证本仓库 brownfield 适配性。
+**Goal**: 通过 socratic discuss 系统化审计 ADR-V2-023 §P5 列出的 Grid 独立产品 (原 Leg B, see ADR-V2-024 supersedes ADR-V2-023) 激活触发条件,产出可被引用的 audit doc;同时把 GSD discuss → plan → execute → review 端到端跑通,验证本仓库 brownfield 适配性。
 **Depends on**: Phase 4.0(REVIEW_POLICY.md 必须先存在,本 phase 的 audit task 会走它判定 risk level)
 **Requirements**: DECIDE-01, GOVERNANCE-02, GOVERNANCE-03
 **Success Criteria** (what must be TRUE):
   1. `docs/design/EAASP/adrs/decisions/2026-04-XX-leg-decision-audit.md`(或 ADR-V2-024 草稿的 §Audit 章节)存在,逐条记录 ADR-V2-023 §P5 触发条件的 yes/no/evidence(at least N concrete enterprise leads / EAASP 升级路径阻断 / 团队规模 / etc.)
-  2. Audit 结论可被 Phase 4.2 直接引用 —— 即 audit doc 给出明确的 "走 Leg A 硬化 / 走 Leg B 激活 / 两条腿都推进" 中三选一推荐,而非含糊"看情况"
+  2. Audit 结论可被 Phase 4.2 直接引用 —— 即 audit doc 给出明确的 "走 engine 接入面 硬化 / 走 Grid 独立产品 激活 / 两条腿都推进" (原 "走 Leg A 硬化 / 走 Leg B 激活 / 两条腿都推进", see ADR-V2-024 supersedes ADR-V2-023) 中三选一推荐,而非含糊"看情况"
   3. GSD `/gsd-plan-phase` → `/gsd-execute-plan` → `/gsd-code-review` → `/gsd-end-phase` 链路在本 phase 至少跑通一次,任何不顺手处记录到 `docs/dev/WORK_LOG.md` 顶部的 "GSD adoption notes" 块
   4. `/gsd-resume-work` 在本 phase 至少触发一次(可由 `/clear` 后真实测试或 dry-run 模拟),验证 `.planning/STATE.md` + checkpoint 机制能恢复 active phase context 而不丢工作
   5. Phase 4.1 end-phase 时 `.planning/STATE.md` 反映 audit 结论 + Phase 4.2 入口路径(plan 文件名 / 主要 task 形态)
@@ -45,11 +45,11 @@
 
 ### Phase 4.2: Decide & Document / 决策落定
 
-**Goal**: 基于 Phase 4.1 audit 结论产出 Phase 4.2 实际执行 plan(Leg A 硬化路线 OR Leg B 激活路线),并把"Phase 4 product scope 决定"作为 ADR-V2-024 走完 Proposed → Accepted 流程,关闭 Phase 4 milestone。
+**Goal**: 基于 Phase 4.1 audit 结论产出 Phase 4.2 实际执行 plan(engine 接入面 硬化路线 OR Grid 独立产品 激活路线, 原 Leg A 硬化路线 OR Leg B 激活路线, see ADR-V2-024 supersedes ADR-V2-023),并把"Phase 4 product scope 决定"作为 ADR-V2-024 走完 Proposed → Accepted 流程,关闭 Phase 4 milestone。
 **Depends on**: Phase 4.1(audit doc 必须先存在,且 audit 结论已被 STATE.md 锁定)
 **Requirements**: DECIDE-02, DECIDE-03
 **Success Criteria** (what must be TRUE):
-  1. `.planning/phases/4.2/PLAN.md` 内容反映 Phase 4.1 audit 决策方向 —— 若推荐 Leg A 硬化则 plan 列出 multi-tenant / perf / EAASP shadow sync 类 task;若 Leg B 激活则 plan 列出 grid-platform / web-platform 启动 task;若两条腿则两块都列
+  1. `.planning/phases/4.2/PLAN.md` 内容反映 Phase 4.1 audit 决策方向 —— 若推荐 engine 接入面 硬化 (原 Leg A 硬化, see ADR-V2-024 supersedes ADR-V2-023) 则 plan 列出 multi-tenant / perf / EAASP shadow sync 类 task;若 Grid 独立产品 激活 (原 Leg B 激活, see ADR-V2-024) 则 plan 列出 grid-platform / web-platform 启动 task;若两条腿则两块都列
   2. 新 ADR(候选 ID `ADR-V2-024-phase4-product-scope-decision`)经 `/adr:new --type strategy` 创建,frontmatter F1-F4 lint 全 PASS,Decision 段明确写出选定 leg + Rationale 段引用 §P5 audit 中具体 evidence
   3. ADR-V2-024 经 `/adr:accept` 进入 Accepted 状态(F1-F4 hard gates 通过 + audit doc 已被 §References 引用)
   4. Phase 4.2 end-phase 时 PROJECT.md §Active 中的 "Phase 4 主决策" 行被划掉移入 §Validated,引用 ADR-V2-024 commit hash
@@ -62,8 +62,8 @@
 > 这些不是本 milestone 的 phase,只作为 traceability 提示。
 
 - **下一个 milestone** 由 `/gsd-new-milestone` 启动,内容由 ADR-V2-024 决策结果驱动:
-  - 若走 Leg A 硬化:进入 multi-tenant 隔离 / perf tuning / skill catalog / EAASP shadow sync 类 phase
-  - 若走 Leg B 激活:进入 `grid-platform` 多租户激活 / `web-platform/` 前端实现 / `grid-server` 商用化 / Tauri MVP 类 phase
+  - 若走 engine 接入面 硬化 (原 Leg A 硬化, see ADR-V2-024 supersedes ADR-V2-023):进入 multi-tenant 隔离 / perf tuning / skill catalog / EAASP shadow sync 类 phase
+  - 若走 Grid 独立产品 激活 (原 Leg B 激活, see ADR-V2-024 supersedes ADR-V2-023):进入 `grid-platform` 多租户激活 / `web-platform/` 前端实现 / `grid-server` 商用化 / Tauri MVP 类 phase
   - 若两条腿:两份 phase plan 各自独立排期
 - **不属于本 milestone 但仍需追踪的 P1 项**(由 CONCERNS.md 列出,延到下一个 milestone):D109(workflow.required_tools 不变量)、D134(shipped skill hooks nested keys)、D136(grid-runtime hook firing on probe turn)、D142/D143(EAASP_DEPLOYMENT_MODE 接入)、NEW-D2(test_chunk_type_contract 参数化)、NEW-E2(ADR enforcement.trace 补)、NEW-E3(ADR-V2-019 → Accepted)。**这些不是本 milestone 的 success criteria**,但若 Phase 4.0 cleanup 跑得快、有 capacity,可被择机捎带(由 plan-phase 评估,不在 ROADMAP success criteria 里)。
 
@@ -84,7 +84,7 @@
 | CLEANUP-03 | 4.0 | strategy-grid-two-leg-checklist.md 落地 |
 | CLEANUP-04 | 4.0 | .github/CODEOWNERS 落地 |
 | DECIDE-01 | 4.1 | §P5 触发条件 audit doc |
-| DECIDE-02 | 4.2 | Phase 4.2 path PLAN.md(Leg A or Leg B or both) |
+| DECIDE-02 | 4.2 | Phase 4.2 path PLAN.md(engine 接入面 or Grid 独立产品 or both, 原 Leg A or Leg B, see ADR-V2-024 supersedes ADR-V2-023) |
 | DECIDE-03 | 4.2 | ADR-V2-024 Accepted |
 | GOVERNANCE-01 | 4.0 | REVIEW_POLICY.md(GSD 接管 Step 3 同时落) |
 | GOVERNANCE-02 | 4.1 | GSD discuss→plan→execute 端到端验证 |
