@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v3.0
 milestone_name: milestone
-status: executing
-stopped_at: "Phase 4.1 audit T1+T2 完成 (§P5 4 条 trigger verdict 全落: 1 partial 语义弱化 + 1 unknown 待 user 补 + 1 no + 1 partial baseline 默认成立), T3 checkpoint 待 user `/gsd-resume-work` 实测, T4 §F Q1-Q4 + §0 Framework Validity Gate + §4-§7 待续。GOVERNANCE-03 真实测试时点。Trigger point selected: A (default mid-audit per CONTEXT.md D-D-04). T1 commit `1689d6e` + T2 commit `74dde0b`."
-last_updated: "2026-04-27T08:54:48.668Z"
-last_activity: 2026-04-27 -- Phase 04.1 execution started
+status: phase_complete
+stopped_at: "Phase 4.1 ✅ COMPLETE — audit doc 420 LOC + ADR-V2-024 Proposed (F1-F3 lint exit 0) + WORK_LOG GSD adoption notes + REVIEW_POLICY Active. 三选一推荐 = 两腿都推进 (§0 framework-validity verdict = partial-needs-revision → §4 §5 co-equal, 双轴模型 engine vs data/integration 升格 co-equal output). 6/7 task PASS + T3 GOVERNANCE-03 deferred. 14/15 must-haves verified, SC#5 STATE cascade now applied. Next: /gsd-plan-phase 4.2 → 实现 ADR-V2-024 Decision (Proposed → Accepted) + Phase 4.2 PLAN.md."
+last_updated: "2026-04-27T10:57:04.550Z"
+last_activity: "2026-04-27 -- Phase 4.1 audit complete; ADR-V2-024 Proposed 落盘; Phase 4.2 入口路径 = /gsd-plan-phase 4.2"
 progress:
   total_phases: 3
-  completed_phases: 1
+  completed_phases: 2
   total_plans: 2
-  completed_plans: 1
-  percent: 50
+  completed_plans: 2
+  percent: 100
 ---
 
 # Project State
@@ -21,38 +21,38 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-26)
 
 **Core value:** Grid 作为 substitutable L1 runtime,通过 16-method gRPC contract 被 EAASP L2-L4 调用,且任何符合 contract-v1.1 的对比 runtime 都能替换它。
-**Current focus:** Phase 04.1 — discuss-audit-p5
+**Current focus:** Phase 4.2 — Decide & Document (ADR-V2-024 Proposed → Accepted + 实施 PLAN)
 
 ## Current Position
 
-Phase: 04.1 (discuss-audit-p5) — EXECUTING
-Plan: 1 of 1
-Status: Executing Phase 04.1
-Last activity: 2026-04-27 -- Phase 04.1 execution started
+Phase: 4.2
+Plan: Not started
+Status: Phase 4.1 ✅ COMPLETE 2026-04-27 (audit doc + ADR-V2-024 Proposed 已落盘, 14/15 must-haves verified, SC#4 GOVERNANCE-03 deferred)
+Last activity: 2026-04-27
 
-Progress: [████░░░░░░] 33% (1/3 milestone phases complete; Phase 4.1 audit pending)
+Progress: [███████░░░] 67% (2/3 milestone phases complete; Phase 4.2 待启动)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed (executed): 1 ✅
+- Total plans completed (executed): 2 ✅
 - Total plans planned (ready to execute): 0
-- Average duration: ~25 min (Phase 4.0, 5 tasks sequential)
-- Total execution time: ~25 min
+- Average duration: ~75 min (Phase 4.0 ~25 min mechanical + Phase 4.1 ~3.5h audit + 4 plan iterations + cross-AI review)
+- Total execution time: ~4h cumulative
 
 **By Phase:**
 
 | Phase | Plans | Status | Notes |
 |-------|-------|--------|-------|
 | 4.0 Bootstrap & Cleanup | **1/1 ✅** | COMPLETE 2026-04-27 (5 commits + SUMMARY) | 5/5 SC PASS, 7/7 must-haves PASS, 0 deviations |
-| 4.1 Discuss & Audit | 0 / TBD | Baseline §F ready, awaiting `/gsd-discuss-phase 4.1` | Q1-Q4 agenda 已就绪 |
-| 4.2 Decide & Document | 0 / TBD | Pending Phase 4.1 audit | — |
+| 4.1 Discuss & Audit | **1/1 ✅** | COMPLETE 2026-04-27 (8 commits + SUMMARY + VERIFICATION) | 14/15 must-haves PASS, SC#4 GOVERNANCE-03 deferred per cross-AI Q4 consensus + user decision; 4-iteration plan 经过 cross-AI review (4 reviewers: claude/gemini/opencode-glm5.4/codex) + 5 fixes + B1+B2 fixes |
+| 4.2 Decide & Document | 0 / TBD | Awaiting `/gsd-plan-phase 4.2` — 入口物料: audit doc + ADR-V2-024 Proposed 已落盘 | — |
 
 **Recent Trend:**
 
-- Last 5 plans: [04.0-01 ✅ 2026-04-27]
-- Trend: 第一个 GSD-managed plan 端到端跑通(plumbing tracer-bullet PASS)
+- Last 5 plans: [04.0-01 ✅ 2026-04-27, 04.1-01 ✅ 2026-04-27]
+- Trend: design-heavy phase 跑通 — cross-AI review (4 reviewers + 7 fixes) 显著提升 audit 框架严谨性,catch 到 B1 pre-committed verdict 隐患 (T4 hardcoded "两腿都推进" 被 Path 1 fix 改成 verdict-format regex + runtime substitution)
 
 *Updated after each plan completion*
 
