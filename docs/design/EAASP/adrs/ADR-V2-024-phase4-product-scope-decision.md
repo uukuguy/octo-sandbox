@@ -7,7 +7,8 @@ accepted_at: null
 date: 2026-04-27
 phase: "Phase 4.1 — Leg Decision Audit (Phase 4.2 graduates to Accepted)"
 author: "Jiangwen Su"
-supersedes: []
+supersedes:
+  - ADR-V2-023
 superseded_by: null
 deprecated_at: null
 deprecated_reason: null

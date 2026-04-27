@@ -2,15 +2,15 @@
 id: ADR-V2-023
 title: "Grid 双腿产品战略（EAASP 集成 + 独立 Platform）"
 type: strategy
-status: Accepted
+status: Superseded
 accepted_at: 2026-04-19
 date: 2026-04-19
 phase: "Phase 3.5 预热"
 author: "Jiangwen Su"
 supersedes: []
-superseded_by: null
-deprecated_at: null
-deprecated_reason: null
+superseded_by: ADR-V2-024
+deprecated_at: 2026-04-28
+deprecated_reason: "Superseded by ADR-V2-024 — 双轴模型 (engine vs data/integration) 替代 Leg A/B 二元框架, 详见 ADR-V2-024 Decision 段 + audit doc §5"
 enforcement:
   level: strategic
   trace: []
@@ -35,7 +35,7 @@ related:
 
 # ADR-V2-023 — Grid 双腿产品战略（EAASP 集成 + 独立 Platform）
 
-**Status:** Proposed
+**Status:** Superseded by ADR-V2-024 (2026-04-28)
 **Date:** 2026-04-19
 **Phase:** Phase 3.5 预热
 **Author:** Jiangwen Su
