@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v3.0
-milestone_name: milestone
-status: milestone-closed
-stopped_at: Phase 4.2 complete — milestone "Phase 4 — Product Scope Decision" CLOSED
-last_updated: "2026-04-28T00:00:00.000Z"
-last_activity: 2026-04-28 -- Phase 4.2 ✅ COMPLETE (8/8 tasks, 13 commits, ADR-V2-024 Accepted)
+milestone: v3.1
+milestone_name: Phase 5 — Engine Hardening (grid-cli + grid-server)
+status: defining-requirements
+stopped_at: Milestone v3.1 started — defining requirements
+last_updated: "2026-04-29T00:00:00.000Z"
+last_activity: 2026-04-29 -- Milestone v3.1 (Phase 5 — Engine Hardening) started, granularity 6, watchlist-strategy spread
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 3
-  completed_plans: 3
-  percent: 100
+  total_phases: 6
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,16 +21,18 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-26)
 
 **Core value:** Grid 作为 substitutable L1 runtime,通过 16-method gRPC contract 被 EAASP L2-L4 调用,且任何符合 contract-v1.1 的对比 runtime 都能替换它。
-**Current focus:** Milestone "Phase 4 — Product Scope Decision" ✅ CLOSED 2026-04-28; awaiting `/gsd-new-milestone` to start next cycle
+**Current focus:** Milestone v3.1 — Phase 5 Engine Hardening (grid-cli + grid-server 优先发力组合; watchlist-spread; 6 phases)
 
 ## Current Position
 
-Phase: 4.2 (Decide & Document / 决策落定) — ✅ COMPLETE
-Plan: 1 of 1 ✅
-Status: Milestone "Phase 4 — Product Scope Decision" CLOSED
-Last activity: 2026-04-28 -- Phase 4.2 ✅ COMPLETE (8/8 tasks, 13 atomic commits, ADR-V2-024 Accepted, milestone closed)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-04-29 -- Milestone v3.1 started; granularity 6, watchlist-strategy spread
 
-Progress: [██████████] 100% (3/3 milestone phases complete)
+Progress: [░░░░░░░░░░] 0% (0/6 milestone phases — pending requirements + roadmap)
+
+**Previous milestone closure**: Phase 4 milestone v3.0 ✅ CLOSED 2026-04-28 — 3/3 phases (4.0/4.1/4.2), ADR-V2-024 Accepted (双轴模型), 16 commits pushed to origin/main.
 
 ## Performance Metrics
 
@@ -120,20 +122,20 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-04-28T00:00:00.000Z
-Stopped at: Phase 4.2 complete — milestone "Phase 4 — Product Scope Decision" CLOSED
-Resume file: .planning/phases/04.2-decide-document/04.2-01-SUMMARY.md (final artifact)
-Local commits ahead of origin: 13 (Phase 4.2 commits T1-T8) — push timing per user discretion (Out of Scope rule)
-Decisions snapshot: see PROJECT.md Key Decisions table (Phase 4 主决策 → ✓ Validated) + ADR-V2-024 Accepted commit `f497eef` + audit doc 2026-04-27-leg-decision-audit.md
+Last session: 2026-04-29T00:00:00.000Z
+Stopped at: Milestone v3.1 started — defining requirements
+Resume file: .planning/PROJECT.md §Current Milestone (v3.1 Phase 5 — Engine Hardening)
+Local commits ahead of origin: 0 (origin/main synced as of post-Phase-4.2 push)
+Decisions snapshot: see PROJECT.md Key Decisions table + ADR-V2-024 Accepted (commit `f497eef`)
 
-**Resume 路径 (next session — milestone close cascade):**
+**Resume 路径 (next session — milestone v3.1 setup in progress):**
 
 1. `/clear` (用户在 Claude Code 中执行)
-2. Milestone close 已经发生在 STATE.md 内 (status: milestone-closed); 下一个 milestone 由 user 启动
-3. Next steps options:
-   - `/gsd-new-milestone` — 启动下一个 milestone (engine 子任务 + data/integration 接入面 子任务列, 由 ADR-V2-024 §1 §2 + Open Items §F.Q1 §F.Q4 驱动)
-   - `/gsd-complete-milestone` — formal milestone close ceremony (PROJECT/ROADMAP review + Out of Scope reasons audit + Context refresh)
-   - 或: `git push origin main` 时机由 user 决策 (Out of Scope 规则保留)
+2. `/gsd-resume-work` — 自动读 STATE.md frontmatter, 恢复 milestone v3.1 setup 上下文
+3. Next steps:
+   - 完成 `/gsd-new-milestone` Step 9 — 定义 Phase 5 requirements (REQUIREMENTS.md)
+   - 完成 `/gsd-new-milestone` Step 10 — spawn gsd-roadmapper 创建 6-phase ROADMAP.md
+   - 然后 `/gsd-plan-phase 5.0` 启动 Phase 5.0 plan-phase
 
 **GSD plumbing tracer-bullet 验证结果 (Phase 4.0 success criterion #5 ✅):**
 

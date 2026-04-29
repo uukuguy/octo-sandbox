@@ -16,6 +16,24 @@
 
 > ✅ ADR-V2-024(2026-04-28 Accepted, supersedes ADR-V2-023)已重新框定为双轴模型(engine vs data/integration);ADR-V2-023 字面表述 "Leg A primary / Leg B dormant" (原 Leg A / Leg B, see ADR-V2-024 supersedes ADR-V2-023) 保留作历史快照。详见 ADR-V2-024 §1 双轴模型。
 
+## Current Milestone: v3.1 Phase 5 — Engine Hardening (grid-cli + grid-server)
+
+**Goal:** 在 ADR-V2-024 双轴模型下推进 engine 接入面 (grid-cli + grid-server 优先发力组合) 的硬化, 同时把 cross-milestone watchlist P1 项分散到相关 phase 顺手解决, 并定义 data/integration 横切层接入面规约。
+
+**Target features:**
+- grid-cli 硬化 — 命令行工具能力扩展 + UX 改善 + 稳定性
+- grid-server 硬化 — 单用户 workbench HTTP/WS server 功能补齐 (Axum 0.8 + WebSocket 流式 + L1 runtime gRPC 集成)
+- L1 runtime contract evolution — 基于 contract-v1.1 baseline 的下一步契约演进
+- Watchlist sweep (spread strategy) — D109 / D134 / D136 / D142 / D143 / NEW-D2 / NEW-E2 / NEW-E3 分散到相关 phase
+- Data/integration interface 规约 — engine 与 data/integration 横切层之间的接入面 (ADR? interface 规约?)
+
+**Granularity:** 6 phases (Phase 5.0 → 5.5), continues numbering from Phase 4.
+
+**Key context:**
+- 工时 baseline: Grid 全栈 ≈60% / EAASP 引擎 ≈30% / 元工作 ≈10% (per ADR-V2-024 Open Item #2)
+- 优先发力组合: grid-cli + grid-server (per ADR-V2-024 Open Item #3); 其余 (grid-platform / grid-desktop / web*) 保持 dormant
+- 双轴框架: engine vs data/integration (per ADR-V2-024 §1)
+
 ## Core Value
 
 **Grid 全栈 + EAASP 各层引擎都是 user 工时主战场;Grid 同时支撑通用 agent 场景与企业级 AI 应用。** 具体技术不可妥协约束:Grid 作为 substitutable L1 runtime 通过 16-method gRPC contract(`proto/eaasp/runtime/v2/runtime.proto`)被 L2-L4 调用,且任何符合 contract-v1.1 的对比 runtime 都能替换它。这个可替换性意味着 grid-engine 不能依赖未文档化行为,本仓库内 6 个 comparison runtime(claude-code / goose / nanobot / pydantic-ai / claw-code / ccb)是契约的活体测试。
@@ -43,9 +61,9 @@
 
 ### Active
 
-<!-- Phase 4 待办 — Phase 4.0 4 项 cleanup + GOVERNANCE-01 已 validated 移到上面 §Validated; Phase 4.2 主决策已 validated → ADR-V2-024 Accepted 2026-04-28 commit `f497eef`。 -->
+<!-- Phase 5 milestone v3.1 — Engine Hardening (grid-cli + grid-server). REQ-IDs 由 Step 9 requirements 流程定义后回填。 -->
 
-- [ ] *(Phase 4 milestone 已闭, 等待下一个 milestone 由 ADR-V2-024 决策结果驱动新 active items.)*
+- [ ] **Phase 5 milestone (v3.1)** —— Engine Hardening (grid-cli + grid-server) per ADR-V2-024 §1 双轴模型 + Open Item #3 优先发力组合; requirements 由 `/gsd-new-milestone` Step 9 流程定义后回填到此处
 
 ### Out of Scope
 
@@ -116,4 +134,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-*Last updated: 2026-04-27 after Phase 4.0 ✅ COMPLETE (CLEANUP-01..04 + GOVERNANCE-01 closed; GSD plumbing tracer-bullet PASS; commit `c12f425`).*
+*Last updated: 2026-04-29 — Milestone v3.1 (Phase 5 — Engine Hardening) started. Phase 4 milestone v3.0 ✅ CLOSED 2026-04-28 with ADR-V2-024 Accepted (commit `f497eef`). Phase 5 milestone scope: grid-cli + grid-server 硬化 + watchlist spread + data/integration interface 规约; 6 phases granularity, continues numbering from Phase 4.*
